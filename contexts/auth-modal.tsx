@@ -202,14 +202,31 @@ function AuthModalView({
             style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]}
             onPress={(e) => e.stopPropagation()}
           >
-            <Text style={[styles.title, { color: colors.text }]}>{message}</Text>
-
             {state === 'success' ? (
-              <Text style={[styles.hint, { color: colors.textSecondary }]}>
-                Revisa tu correo y usa el enlace para entrar. Puedes cerrar esta ventana.
-              </Text>
+              <>
+                <Text style={[styles.title, { color: colors.text }]}>
+                  Revisa tu correo electrónico
+                </Text>
+                <Text style={[styles.hint, { color: colors.text }]}>
+                  Te enviamos un enlace para entrar a FLOWYA. Abre el correo y haz clic en el
+                  enlace para continuar.
+                </Text>
+                <Text style={[styles.hint, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+                  Si no lo ves en tu bandeja de entrada, revisa tu carpeta de Spam o Correo no
+                  deseado.
+                </Text>
+                <Text
+                  style={[
+                    styles.hint,
+                    { color: colors.textSecondary, marginTop: Spacing.base },
+                  ]}
+                >
+                  Puedes cerrar esta ventana.
+                </Text>
+              </>
             ) : (
               <>
+                <Text style={[styles.title, { color: colors.text }]}>{message}</Text>
                 <TextInput
                   style={[
                     styles.input,
