@@ -155,6 +155,13 @@ export const Shadow = {
   }),
 } as const;
 
+/**
+ * Web: evita zoom por doble tap en botones interactivos.
+ * Usar en Pressable de acciones.
+ */
+export const WebTouchManipulation =
+  Platform.OS === 'web' ? { touchAction: 'manipulation' as const } : {};
+
 /** Radios de borde suaves. */
 export const Radius = {
   sm: 8,

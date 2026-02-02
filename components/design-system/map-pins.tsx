@@ -2,8 +2,10 @@
  * Design System: map pins (canonical).
  * Unified pin visuals: user location (blue circle), spot dots (fill + outline).
  * Colors from theme; same shape for all spot states, color varies by status.
+ * to_visit y visited: 2× más grandes, con ícono Pin (alfiler) dentro.
  */
 
+import { Pin } from 'lucide-react-native';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -11,7 +13,10 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const LOCATION_PIN_SIZE = 14;
 const SPOT_PIN_SIZE = 12;
+const SPOT_PIN_SAVED_SIZE = 24; // 2× para to_visit y visited
 const SPOT_PIN_STROKE = 2;
+const SPOT_PIN_SAVED_STROKE = 2;
+const SPOT_PIN_ICON_SIZE = 14;
 const PIN_LABEL_FONT_SIZE = 11;
 const PIN_LABEL_GAP = 2;
 const PIN_LABEL_MAX_WIDTH = 80;
@@ -78,6 +83,7 @@ function getSpotPinOutlineColor(colors: (typeof Colors)['light']): string {
 }
 
 /** Pin de spot: círculo sólido con borde + label opcional debajo. Pin y label se mueven juntos. */
+/** to_visit y visited: 2× más grandes, con ícono Pin dentro. Seleccionado: mismo tamaño, sin ícono. */
 export function MapPinSpot({
   status = 'default',
   label,
@@ -96,10 +102,15 @@ export function MapPinSpot({
   const colors = Colors[colorScheme];
   const fill = getSpotPinFillColor(colors, status);
   const outline = getSpotPinOutlineColor(colors);
-  const innerSize = SPOT_PIN_SIZE - SPOT_PIN_STROKE * 2;
   const labelColor = colors.text;
   const labelOpacity = selected ? 1 : 0.9;
   const labelWeight = selected ? '600' : '500';
+
+  const isSavedPin = status === 'to_visit' || status === 'visited';
+  const isLargePin = isSavedPin || selected;
+  const pinSize = isLargePin ? SPOT_PIN_SAVED_SIZE : SPOT_PIN_SIZE;
+  const stroke = isLargePin ? SPOT_PIN_SAVED_STROKE : SPOT_PIN_STROKE;
+  const innerSize = pinSize - stroke * 2;
 
   return (
     <View
@@ -110,10 +121,10 @@ export function MapPinSpot({
         style={[
           styles.spotPinOuter,
           {
-            width: SPOT_PIN_SIZE,
-            height: SPOT_PIN_SIZE,
-            borderRadius: SPOT_PIN_SIZE / 2,
-            borderWidth: SPOT_PIN_STROKE,
+            width: pinSize,
+            height: pinSize,
+            borderRadius: pinSize / 2,
+            borderWidth: stroke,
             borderColor: outline,
             opacity: 1,
           },
@@ -130,7 +141,16 @@ export function MapPinSpot({
               opacity: 1,
             },
           ]}
-        />
+        >
+          {isSavedPin ? (
+            <Pin
+              size={SPOT_PIN_ICON_SIZE}
+              color="#ffffff"
+              strokeWidth={2}
+              style={styles.spotPinIcon}
+            />
+          ) : null}
+        </View>
       </View>
       {label ? (
         <Text
@@ -290,6 +310,7 @@ export function MapPinExisting({
 export const MAP_PIN_SIZES = {
   location: LOCATION_PIN_SIZE,
   spot: SPOT_PIN_SIZE,
+  spotSaved: SPOT_PIN_SAVED_SIZE,
   creating: CREATING_PIN_SIZE,
   existing: EXISTING_PIN_SIZE,
 } as const;
@@ -336,7 +357,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spotPinInner: {},
+  spotPinInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotPinIcon: {
+    marginTop: -2,
+  },
   spotPinLabel: {
     fontSize: PIN_LABEL_FONT_SIZE,
     lineHeight: PIN_LABEL_FONT_SIZE + 2,

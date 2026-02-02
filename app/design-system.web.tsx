@@ -4,9 +4,12 @@
  */
 
 import { Link, Stack } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { useAuthModal } from '@/contexts/auth-modal';
+import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
+
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 
 import {
     ButtonsShowcase,
@@ -32,6 +35,8 @@ export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { openAuthModal } = useAuthModal();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showDeleteSpotConfirm, setShowDeleteSpotConfirm] = useState(false);
 
   return (
     <>
@@ -272,28 +277,114 @@ export default function DesignSystemScreen() {
           >
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
               Sheet/modal ligero para Magic Link. Una pantalla: input email + CTA «Enviar enlace».
-              Estados: idle, loading, success (Revisa tu correo), error. Se muestra solo al intentar
-              guardar pin sin sesión. Estilo FLOWYA (calmo, humano). useAuthModal() devuelve openAuthModal con message y onSuccess opcionales.
+              Estados: idle, loading, success (Revisa tu correo), error. Dos variantes por contexto:
+              AUTH_MODAL_MESSAGES.savePin (guardar pin) y AUTH_MODAL_MESSAGES.profile (icono perfil).
             </Text>
-            <Pressable
-              style={({ pressed }) => ({
-                alignSelf: 'flex-start',
-                paddingVertical: 14,
-                paddingHorizontal: 28,
-                borderRadius: 12,
-                backgroundColor: colors.primary,
-                opacity: pressed ? 0.9 : 1,
-              })}
-              onPress={() =>
-                openAuthModal({
-                  message: 'Crea una cuenta para guardar tus lugares',
-                })
-              }
-            >
-              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
-                Abrir modal de auth
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  borderRadius: 12,
+                  backgroundColor: colors.primary,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+                onPress={() =>
+                  openAuthModal({ message: AUTH_MODAL_MESSAGES.savePin })
+                }
+              >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+                  savePin
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  borderRadius: 12,
+                  backgroundColor: colors.primary,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+                onPress={() =>
+                  openAuthModal({ message: AUTH_MODAL_MESSAGES.profile })
+                }
+              >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+                  profile
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Modal de confirmación (logout)
+          </Text>
+          <View
+            style={{
+              ...styles.sectionContent,
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              ...Shadow.subtle,
+            }}
+          >
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
+              ConfirmModal: mismo formato que Modal de auth (sheet, backdrop, sombra). Reemplaza
+              window.confirm / Alert.alert. Usos: cerrar sesión, eliminar spot. variant: default |
+              destructive.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  borderRadius: 12,
+                  backgroundColor: colors.stateError,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+                onPress={() => setShowLogoutConfirm(true)}
+              >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+                  Logout
+                </Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 14,
+                  paddingHorizontal: 28,
+                  borderRadius: 12,
+                  backgroundColor: colors.stateError,
+                  opacity: pressed ? 0.9 : 1,
+                })}
+                onPress={() => setShowDeleteSpotConfirm(true)}
+              >
+                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+                  Eliminar spot
+                </Text>
+              </Pressable>
+            </View>
+            <ConfirmModal
+              visible={showLogoutConfirm}
+              title="¿Cerrar sesión?"
+              confirmLabel="Cerrar sesión"
+              cancelLabel="Cancelar"
+              variant="destructive"
+              onConfirm={() => setShowLogoutConfirm(false)}
+              onCancel={() => setShowLogoutConfirm(false)}
+              dataSet={{ flowya: 'confirm-modal-logout-showcase' }}
+            />
+            <ConfirmModal
+              visible={showDeleteSpotConfirm}
+              title="¿Eliminar este spot?"
+              message="Esta acción no se puede deshacer."
+              confirmLabel="Eliminar"
+              cancelLabel="Cancelar"
+              variant="destructive"
+              onConfirm={() => setShowDeleteSpotConfirm(false)}
+              onCancel={() => setShowDeleteSpotConfirm(false)}
+              dataSet={{ flowya: 'confirm-modal-delete-spot-showcase' }}
+            />
           </View>
         </View>
 
@@ -491,8 +582,10 @@ export default function DesignSystemScreen() {
             }}
           >
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Controles del mapa: zoom in/out, centrar en ubicación. Sin contenedor visible (solo
-              los tres botones). Lucide icons. Aquí sin mapa (deshabilitados).
+              Controles del mapa: ver todo (encuadrar usuario + spots visibles), zoom in/out, centrar en
+              ubicación. Sin contenedor visible (solo botones circulares). Lucide icons.               MapControlButton
+              / ViewAll: FrameWithDot (custom, marco + punto), estados default / pressed / disabled (sin spots).
+              Aquí sin mapa (deshabilitados).
             </Text>
             <MapControls map={null} />
           </View>

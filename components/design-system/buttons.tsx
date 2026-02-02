@@ -1,37 +1,95 @@
 /**
  * Design System: Buttons.
- * Primary y secondary minimalistas. Sin estilos pesados.
+ * Primary y secondary con estados pressed canónicos.
+ * No usar opacity como feedback.
+ * Web: touch-action manipulation evita zoom por doble tap.
  */
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export function ButtonsShowcase() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+export type ButtonPrimaryProps = {
+  children: React.ReactNode;
+  onPress?: () => void;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  /** Web: dataSet para QA */
+  dataSet?: Record<string, string>;
+};
 
+export function ButtonPrimary({
+  children,
+  onPress,
+  disabled = false,
+  accessibilityLabel,
+  dataSet,
+}: ButtonPrimaryProps) {
+  const colors = Colors[useColorScheme() ?? 'light'];
+  return (
+    <Pressable
+      dataSet={dataSet}
+      style={({ pressed }) => [
+        styles.primary,
+        {
+          backgroundColor: disabled ? colors.primary : pressed ? colors.text : colors.primary,
+        },
+        WebTouchManipulation,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+    >
+      <Text style={styles.primaryLabel}>{children}</Text>
+    </Pressable>
+  );
+}
+
+export type ButtonSecondaryProps = {
+  children: React.ReactNode;
+  onPress?: () => void;
+  disabled?: boolean;
+  accessibilityLabel?: string;
+  /** Web: dataSet para QA */
+  dataSet?: Record<string, string>;
+};
+
+export function ButtonSecondary({
+  children,
+  onPress,
+  disabled = false,
+  accessibilityLabel,
+  dataSet,
+}: ButtonSecondaryProps) {
+  const colors = Colors[useColorScheme() ?? 'light'];
+  return (
+    <Pressable
+      dataSet={dataSet}
+      style={({ pressed }) => [
+        styles.secondary,
+        {
+          borderColor: colors.border,
+          backgroundColor: pressed && !disabled ? colors.backgroundElevated : 'transparent',
+        },
+        WebTouchManipulation,
+      ]}
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="button"
+    >
+      <Text style={[styles.secondaryLabel, { color: colors.text }]}>{children}</Text>
+    </Pressable>
+  );
+}
+
+export function ButtonsShowcase() {
   return (
     <View style={styles.wrapper}>
-      <Pressable
-        style={({ pressed }) => ({
-          ...styles.primary,
-          backgroundColor: colors.tint,
-          opacity: pressed ? 0.9 : 1,
-        })}
-      >
-        <Text style={styles.primaryLabel}>Primary</Text>
-      </Pressable>
-      <Pressable
-        style={({ pressed }) => ({
-          ...styles.secondary,
-          borderColor: colors.border,
-          opacity: pressed ? 0.9 : 1,
-        })}
-      >
-        <Text style={{ ...styles.secondaryLabel, color: colors.text }}>Secondary</Text>
-      </Pressable>
+      <ButtonPrimary>Primary</ButtonPrimary>
+      <ButtonSecondary>Secondary</ButtonSecondary>
     </View>
   );
 }
@@ -56,7 +114,7 @@ const styles = StyleSheet.create({
   primaryLabel: {
     color: '#fff',
     fontSize: 17,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   secondaryLabel: {
     fontSize: 17,

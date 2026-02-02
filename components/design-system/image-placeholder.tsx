@@ -18,6 +18,8 @@ export type ImagePlaceholderProps = {
   width?: number;
   /** Alto (opcional). Por defecto mínimo 120. */
   height?: number;
+  /** Si true: width fijo, height 100%, icono centrado. Para SpotCardMapSelection. */
+  fillHeight?: boolean;
   /** Esquinas redondeadas (por defecto Radius.md). */
   borderRadius?: number;
   /** Override de color scheme para showcase. */
@@ -29,6 +31,7 @@ export type ImagePlaceholderProps = {
 export function ImagePlaceholder({
   width,
   height = 120,
+  fillHeight = false,
   borderRadius = Radius.md,
   colorScheme: colorSchemeOverride,
   iconSize: iconSizeProp,
@@ -39,28 +42,38 @@ export function ImagePlaceholder({
   const bg = colors.surfaceMuted ?? colors.border;
   const iconSize = iconSizeProp ?? ICON_SIZE;
 
-  const isCompact = width != null && height != null;
-  const rootStyle = isCompact
+  const isCompact = !fillHeight && width != null && height != null;
+  const isFillHeight = fillHeight && width != null;
+  const rootStyle = isFillHeight
     ? [
-        styles.compactRoot,
+        styles.fillHeightRoot,
         {
           width,
-          height,
-          minHeight: height,
           backgroundColor: bg,
           borderRadius,
         },
       ]
-    : [
-        styles.placeholder,
-        {
-          backgroundColor: bg,
-          borderRadius,
-          minHeight: height,
-          height,
-          ...(width != null && { width }),
-        },
-      ];
+    : isCompact
+      ? [
+          styles.compactRoot,
+          {
+            width,
+            height,
+            minHeight: height,
+            backgroundColor: bg,
+            borderRadius,
+          },
+        ]
+      : [
+          styles.placeholder,
+          {
+            backgroundColor: bg,
+            borderRadius,
+            minHeight: height,
+            height,
+            ...(width != null && { width }),
+          },
+        ];
 
   return (
     <View dataSet={{ flowya: 'image-placeholder' }} style={rootStyle}>
@@ -82,6 +95,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: Spacing.lg,
+  },
+  fillHeightRoot: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
   compactRoot: {
     overflow: 'hidden',

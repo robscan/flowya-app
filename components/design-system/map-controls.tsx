@@ -1,9 +1,16 @@
 /**
  * Design System: Map controls (canonical).
- * Zoom in/out, locate. Usa IconButton canónico (44×44 circular).
+ * View all (fit bounds), zoom in/out, locate. Usa IconButton canónico (44×44 circular).
+ *
+ * MapControlButton / ViewAll:
+ * - Propósito: encuadrar el mapa para mostrar ubicación del usuario + spots visibles según el filtro.
+ * - Ícono: FrameWithDot (custom, marco + punto central).
+ * - Estados: default, pressed, disabled (cuando no hay spots visibles).
  */
 
 import { Locate, Minus, Plus } from 'lucide-react-native';
+
+import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { StyleSheet, View } from 'react-native';
 
@@ -17,15 +24,20 @@ export type MapControlsProps = {
   map: MapboxMap | null;
   /** Callback when locate is pressed (caller can run geolocation and then map.flyTo). */
   onLocate?: () => void;
+  /** Callback when "ver todo" is pressed (caller runs fitBounds con spots visibles). */
+  onViewAll?: () => void;
+  /** Si false, el botón ViewAll está disabled (ej. sin spots visibles). */
+  hasVisibleSpots?: boolean;
 };
 
 const ICON_SIZE = 22;
 
-export function MapControls({ map, onLocate }: MapControlsProps) {
+export function MapControls({ map, onLocate, onViewAll, hasVisibleSpots = false }: MapControlsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const enabled = map !== null;
   const iconColor = enabled ? colors.text : colors.textSecondary;
+  const viewAllEnabled = enabled && hasVisibleSpots && typeof onViewAll === 'function';
 
   const handleZoomIn = () => {
     if (enabled && map) map.zoomIn();
@@ -54,6 +66,19 @@ export function MapControls({ map, onLocate }: MapControlsProps) {
 
   return (
     <View dataSet={{ flowya: 'map-controls' }} style={styles.container}>
+      <IconButton
+        dataSet={{ flowya: 'map-controls-view-all' }}
+        variant="default"
+        onPress={onViewAll}
+        disabled={!viewAllEnabled}
+        accessibilityLabel="Ver todos los spots"
+      >
+        <FrameWithDot
+          size={ICON_SIZE}
+          color={viewAllEnabled ? colors.text : colors.textSecondary}
+          strokeWidth={2}
+        />
+      </IconButton>
       <IconButton
         dataSet={{ flowya: 'map-controls-zoom-in' }}
         variant="default"

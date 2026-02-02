@@ -1,8 +1,10 @@
 /**
  * Design System: SpotCardMapSelection (canónico).
  * Card que aparece al seleccionar un pin en el mapa.
- * Layout: Fila 1 = título | acciones. Fila 2 = descripción | miniatura 72×40 (derecha, debajo de botones).
- * Texto sin truncar; altura auto. Se cierra al tocar fuera; sin botón cerrar.
+ * Layout: 2 columnas. Izquierda: SpotImage full-height.
+ * Derecha: título, descripción.
+ * Botones guardar/compartir flotando sobre la imagen (fuera del contenedor, alineados izquierda).
+ * Altura definida por el contenido de la columna derecha. Se cierra al tocar fuera.
  */
 
 import { useRouter } from 'expo-router';
@@ -27,20 +29,17 @@ export type SpotCardSpot = {
 
 type SpotCardMapSelectionProps = {
   spot: SpotCardSpot;
-  /** Estado visual del botón Guardar pin: default (no guardado), toVisit, visited. */
   savePinState?: SavePinState;
   onSavePin?: () => void;
   onShare?: () => void;
-  /** Al tocar la imagen de portada (abrir en grande). */
+  /** @deprecated Tap en imagen ahora navega al detalle. */
   onImagePress?: (uri: string) => void;
 };
 
-const THUMB_WIDTH = 72;
-const THUMB_HEIGHT = 40;
+const LEFT_COLUMN_MAX_WIDTH = 128;
 const ICON_SIZE = 20;
-/** Dos IconButtons 44px + gap. */
-const ACTIONS_WIDTH = 44 * 2 + Spacing.xs;
-
+const ACTIONS_ICON_SIZE = 18;
+const ACTIONS_BUTTON_SIZE = 36;
 const ICON_ON_STATE = '#ffffff';
 
 export function SpotCardMapSelection({
@@ -48,7 +47,6 @@ export function SpotCardMapSelection({
   savePinState = 'default',
   onSavePin,
   onShare,
-  onImagePress,
 }: SpotCardMapSelectionProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -61,92 +59,37 @@ export function SpotCardMapSelection({
   };
 
   const savePinIconColor =
-    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.text;
+    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.background;
+
+  const thumbnailContent = (
+    <View style={styles.thumbnailBox}>
+      <SpotImage
+        uri={spot.cover_image_url}
+        width={LEFT_COLUMN_MAX_WIDTH}
+        height={undefined}
+        borderRadius={0}
+        iconSize={24}
+        placeholderFillHeight
+        colorScheme={colorScheme ?? undefined}
+      />
+    </View>
+  );
 
   return (
-    <View
-      dataSet={{ flowya: 'spot-card-map-selection' }}
-      style={[
-        styles.container,
-        {
-          backgroundColor: colors.backgroundElevated,
-          borderColor: colors.borderSubtle,
-          ...Shadow.card,
-        },
-      ]}
-    >
-      {/* Fila 1: Título (izq) | Acciones (der) */}
-      <View style={styles.row1}>
-        <Pressable
-          style={styles.titleBlock}
-          onPress={handleOpenDetail}
-          accessibilityRole="link"
-          accessibilityLabel={`Ver detalle de ${spot.title}`}
-        >
-          <Text
-            dataSet={{ flowya: 'spot-card-title' }}
-            style={[styles.title, { color: colors.text }]}
-          >
-            {spot.title}
-          </Text>
-        </Pressable>
-        <View style={[styles.actions, { pointerEvents: 'box-none' }]}>
-          {onSavePin ? (
-            <IconButton
-              dataSet={{ flowya: 'spot-card-save-pin' }}
-              variant="savePin"
-              savePinState={savePinState}
-              onPress={onSavePin}
-              accessibilityLabel="Guardar pin"
-            >
-              <Pin size={ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
-            </IconButton>
-          ) : null}
-          {onShare ? (
-            <IconButton
-              dataSet={{ flowya: 'spot-card-share' }}
-              variant="default"
-              onPress={onShare}
-              accessibilityLabel="Compartir"
-            >
-              <Share2 size={ICON_SIZE} color={colors.text} strokeWidth={2} />
-            </IconButton>
-          ) : null}
-        </View>
-      </View>
-
-      {/* Fila 2: Descripción (izq) | Miniatura a la derecha, debajo de los botones (der) */}
-      <View style={styles.row2}>
-        <Pressable
-          style={styles.descriptionBlock}
-          onPress={handleOpenDetail}
-          accessibilityRole="link"
-          accessibilityLabel={`Ver detalle de ${spot.title}`}
-        >
-          {spot.description_short ? (
-            <Text
-              dataSet={{ flowya: 'spot-card-description' }}
-              style={[styles.description, { color: colors.textSecondary }]}
-            >
-              {spot.description_short}
-            </Text>
-          ) : null}
-        </Pressable>
-        {spot.cover_image_url && onImagePress ? (
-          <View dataSet={{ flowya: 'spot-card-thumbnail' }} style={styles.thumbnailWrap}>
-            <View style={styles.thumbnailBox}>
-              <SpotImage
-                uri={spot.cover_image_url}
-                width={THUMB_WIDTH}
-                height={THUMB_HEIGHT}
-                borderRadius={Radius.md}
-                iconSize={16}
-                onPress={() => onImagePress(spot.cover_image_url!)}
-                colorScheme={colorScheme ?? undefined}
-              />
-            </View>
-          </View>
-        ) : (
+    <View dataSet={{ flowya: 'spot-card-map-selection' }} style={styles.wrapper}>
+      {/* Card */}
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: colors.backgroundElevated,
+            borderColor: colors.borderSubtle,
+            ...Shadow.card,
+          },
+        ]}
+      >
+        {/* Columna izquierda: imagen/placeholder. Tap → detalle. */}
+        <View style={styles.leftColumn}>
           <Pressable
             dataSet={{ flowya: 'spot-card-thumbnail' }}
             style={styles.thumbnailWrap}
@@ -154,19 +97,78 @@ export function SpotCardMapSelection({
             accessibilityRole="link"
             accessibilityLabel={`Ver detalle de ${spot.title}`}
           >
-            <View style={styles.thumbnailBox}>
-              <SpotImage
-                uri={spot.cover_image_url}
-                width={THUMB_WIDTH}
-                height={THUMB_HEIGHT}
-                borderRadius={Radius.md}
-                iconSize={16}
-                colorScheme={colorScheme ?? undefined}
-              />
-            </View>
+            {thumbnailContent}
           </Pressable>
-        )}
+        </View>
+
+        {/* Columna derecha: contenido textual */}
+        <View style={styles.rightColumn}>
+          <Pressable
+            style={styles.titleBlock}
+            onPress={handleOpenDetail}
+            accessibilityRole="link"
+            accessibilityLabel={`Ver detalle de ${spot.title}`}
+          >
+            <Text
+              dataSet={{ flowya: 'spot-card-title' }}
+              style={[styles.title, { color: colors.text }]}
+            >
+              {spot.title}
+            </Text>
+          </Pressable>
+
+          {spot.description_short ? (
+            <Pressable
+              style={styles.descriptionBlock}
+              onPress={handleOpenDetail}
+              accessibilityRole="link"
+              accessibilityLabel={`Ver detalle de ${spot.title}`}
+            >
+              <Text
+                dataSet={{ flowya: 'spot-card-description' }}
+                style={[styles.description, { color: colors.textSecondary }]}
+              >
+                {spot.description_short}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
+
+      {/* Botones flotando fuera de la card, sobre la imagen, alineados izquierda */}
+      {(onSavePin || onShare) ? (
+        <View
+          dataSet={{ flowya: 'spot-card-actions' }}
+          style={styles.floatingActions}
+          pointerEvents="box-none"
+        >
+          <View style={styles.actionsStack}>
+            {onSavePin ? (
+              <IconButton
+                dataSet={{ flowya: 'spot-card-save-pin' }}
+                variant="savePin"
+                savePinState={savePinState}
+                size={ACTIONS_BUTTON_SIZE}
+                onPress={onSavePin}
+                accessibilityLabel="Guardar pin"
+              >
+                <Pin size={ACTIONS_ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
+              </IconButton>
+            ) : null}
+            {onShare ? (
+              <IconButton
+                dataSet={{ flowya: 'spot-card-share' }}
+                variant="default"
+                size={ACTIONS_BUTTON_SIZE}
+                onPress={onShare}
+                accessibilityLabel="Compartir"
+              >
+                <Share2 size={ACTIONS_ICON_SIZE} color={colors.text} strokeWidth={2} />
+              </IconButton>
+            ) : null}
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -175,59 +177,71 @@ export function SpotCardMapSelection({
 export const SpotCard = SpotCardMapSelection;
 
 const styles = StyleSheet.create({
+  wrapper: {
+    position: 'relative',
+    alignSelf: 'stretch',
+    width: '100%',
+  },
   container: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    width: '100%',
+    minHeight: 96,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    padding: Spacing.base,
-  },
-  row1: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    overflow: 'hidden',
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
   },
-  titleBlock: {
+  floatingActions: {
+    position: 'absolute',
+    top: -44,
+    left: 0,
+    zIndex: 10,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+  },
+  leftColumn: {
+    position: 'relative',
+    alignSelf: 'stretch',
+    maxWidth: LEFT_COLUMN_MAX_WIDTH,
+    width: LEFT_COLUMN_MAX_WIDTH,
+    minHeight: 0,
+  },
+  actionsStack: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
+  },
+  rightColumn: {
     flex: 1,
     minWidth: 0,
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    padding: Spacing.base,
+  },
+  titleBlock: {
+    minWidth: 0,
+    marginBottom: Spacing.xs,
   },
   title: {
     fontSize: 17,
     fontWeight: '600',
     lineHeight: 22,
   },
-  actions: {
-    width: ACTIONS_WIDTH,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: Spacing.xs,
-  },
-  row2: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: Spacing.sm,
-  },
   thumbnailWrap: {
-    width: THUMB_WIDTH,
-    height: THUMB_HEIGHT,
-    borderRadius: Radius.md,
+    ...StyleSheet.absoluteFillObject,
+    borderTopLeftRadius: Radius.lg,
+    borderBottomLeftRadius: Radius.lg,
     overflow: 'hidden',
   },
-  /** Caja fija 72×40 para que el contenido (imagen o placeholder) tenga altura real en web. */
   thumbnailBox: {
-    width: THUMB_WIDTH,
-    height: THUMB_HEIGHT,
-    minHeight: THUMB_HEIGHT,
-    borderRadius: Radius.md,
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    borderTopLeftRadius: Radius.lg,
+    borderBottomLeftRadius: Radius.lg,
     overflow: 'hidden',
-  },
-  thumbnail: {
-    width: THUMB_WIDTH,
-    height: THUMB_HEIGHT,
-    borderRadius: Radius.md,
   },
   descriptionBlock: {
-    flex: 1,
     minWidth: 0,
   },
   description: {

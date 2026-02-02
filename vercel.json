@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/spot/:path*",
+      "destination": "/index.html"
+    }
+  ]
+}

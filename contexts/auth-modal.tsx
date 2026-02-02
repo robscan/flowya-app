@@ -29,6 +29,16 @@ import { supabase } from '@/lib/supabase';
 
 type AuthModalState = 'idle' | 'loading' | 'success' | 'error';
 
+/**
+ * Títulos del modal de auth por contexto de apertura.
+ * savePin: al intentar guardar pin sin sesión (SpotCard, SpotDetail).
+ * profile: al tocar icono de perfil sin sesión.
+ */
+export const AUTH_MODAL_MESSAGES = {
+  savePin: 'Crea una cuenta para guardar tus lugares',
+  profile: 'Ingresa a tu cuenta de FLOWYA',
+} as const;
+
 type AuthModalContextValue = {
   openAuthModal: (options: { message?: string; onSuccess?: () => void }) => void;
   closeAuthModal: () => void;
@@ -40,7 +50,7 @@ const POLL_SESSION_INTERVAL_MS = 2000;
 
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
-  const [message, setMessage] = useState('Crea una cuenta para guardar tus lugares');
+  const [message, setMessage] = useState(AUTH_MODAL_MESSAGES.savePin);
   const [email, setEmail] = useState('');
   const [state, setState] = useState<AuthModalState>('idle');
   const [errorText, setErrorText] = useState('');
@@ -61,7 +71,7 @@ export function AuthModalProvider({ children }: { children: React.ReactNode }) {
 
   const openAuthModal = useCallback(
     (options: { message?: string; onSuccess?: () => void } = {}) => {
-      setMessage(options.message ?? 'Crea una cuenta para guardar tus lugares');
+      setMessage(options.message ?? AUTH_MODAL_MESSAGES.savePin);
       setVisible(true);
       setState('idle');
       setErrorText('');
@@ -227,6 +237,9 @@ function AuthModalView({
             ) : (
               <>
                 <Text style={[styles.title, { color: colors.text }]}>{message}</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  Recibirás un correo con un enlace para entrar.
+                </Text>
                 <TextInput
                   style={[
                     styles.input,
@@ -316,6 +329,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
+    marginBottom: Spacing.sm,
+  },
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: Spacing.base,
   },
   hint: {

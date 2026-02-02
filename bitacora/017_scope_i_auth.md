@@ -53,8 +53,10 @@ Añadir un sistema de Sign up / Log in ultraliviano (Magic Link) solo para persi
 ## Pendientes futuros
 
 - Roles, perfiles, onboarding.
-- Logout visible en UI (opcional).
-- Mejoras de copy del modal.
+
+## Extensiones (post 017)
+
+- **Bitácora 018** — Botón de perfil (acceso al auth), logout con X y confirmación, toast (posición/tipo success), build web (expo export -p web), viewport 100dvh Safari iOS, copy post signup. Ver `018_scope_i_extensiones_y_ajustes.md`.
 
 ## Criterio de cierre
 

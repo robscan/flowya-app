@@ -22,6 +22,8 @@ export type SpotImageProps = {
   borderRadius?: number;
   /** Modo compacto para miniatura (ej. 72×40). */
   iconSize?: number;
+  /** Si true, el placeholder usa width fijo + height 100%, icono centrado (SpotCardMapSelection). */
+  placeholderFillHeight?: boolean;
   /** Al tocar la imagen (solo si hay imagen cargada). */
   onPress?: () => void;
   /** Override color scheme. */
@@ -34,6 +36,7 @@ export function SpotImage({
   height = 120,
   borderRadius = Radius.md,
   iconSize = 16,
+  placeholderFillHeight = false,
   onPress,
   colorScheme: colorSchemeOverride,
 }: SpotImageProps) {
@@ -47,7 +50,8 @@ export function SpotImage({
   const content = showPlaceholder ? (
     <ImagePlaceholder
       width={width}
-      height={height}
+      height={placeholderFillHeight ? undefined : height}
+      fillHeight={placeholderFillHeight}
       borderRadius={borderRadius}
       colorScheme={colorSchemeOverride ?? colorScheme ?? undefined}
       iconSize={iconSize}

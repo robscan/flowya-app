@@ -3,7 +3,10 @@
  * All new UI elements should be designed as reusable components here.
  */
 
-export { ButtonsShowcase } from './buttons';
+export { ConfirmModal } from '../ui/confirm-modal';
+export type { ConfirmModalProps, ConfirmModalVariant } from '../ui/confirm-modal';
+export { ButtonPrimary, ButtonSecondary, ButtonsShowcase } from './buttons';
+export type { ButtonPrimaryProps, ButtonSecondaryProps } from './buttons';
 export { CardsShowcase } from './cards';
 export { ColorsShowcase } from './colors-showcase';
 export { IconButton } from './icon-button';
@@ -21,7 +24,7 @@ export type {
     MapLocationPickerState
 } from './map-location-picker';
 export { MapPinFilter } from './map-pin-filter';
-export type { MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
+export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
 export { MapPinCreating, MapPinExisting, MapPinLocation, MapPinSpot, MapPinsShowcase } from './map-pins';
 export type { SpotPinStatus } from './map-pins';
 export { MapUIShowcase } from './map-ui';

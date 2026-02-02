@@ -13,7 +13,7 @@ import Map, { Marker } from 'react-map-gl/mapbox-legacy';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { reverseGeocode } from '@/lib/mapbox-geocoding';
 import { getSpotsNearby, type SpotNearby } from '@/lib/spot-duplicate-check';
@@ -186,7 +186,11 @@ export function MapLocationPicker({ onConfirm, spotTitle }: MapLocationPickerPro
           <Pressable
             style={({ pressed }) => [
               styles.confirmButton,
-              { backgroundColor: colors.tint, opacity: pressed ? 0.9 : 1 },
+              {
+                backgroundColor:
+                  confirming ? colors.border : pressed ? colors.text : colors.tint,
+              },
+              WebTouchManipulation,
               Platform.OS === 'web' && {
                 outlineWidth: 0,
                 outlineStyle: 'none' as const,

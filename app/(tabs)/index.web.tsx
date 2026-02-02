@@ -9,7 +9,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent } from 'react-map-gl/mapbox-legacy';
 import Map, { Marker } from 'react-map-gl/mapbox-legacy';
-import { Alert, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { IconButton } from '@/components/design-system/icon-button';
 import { ImageFullscreenModal } from '@/components/design-system/image-fullscreen-modal';
@@ -21,9 +21,10 @@ import {
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { MapPinLocation, MapPinSpot } from '@/components/design-system/map-pins';
 import { SpotCard } from '@/components/design-system/spot-card';
+import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useToast } from '@/components/ui/toast';
 import { Colors } from '@/constants/theme';
-import { useAuthModal } from '@/contexts/auth-modal';
+import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blurActiveElement, getAndClearSavedFocus } from '@/lib/focus-management';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
@@ -121,6 +122,7 @@ export default function MapScreen() {
   const [zoom, setZoom] = useState(FALLBACK_VIEW.zoom);
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const mapRootRef = useRef<View>(null);
   const isFocused = useIsFocused();
 
@@ -145,6 +147,15 @@ export default function MapScreen() {
     if (pinFilter === 'to_visit') return spots.filter((s) => s.pinStatus === 'to_visit');
     return spots.filter((s) => s.pinStatus === 'visited');
   }, [spots, pinFilter]);
+
+  /** Conteos derivados de spots (sin queries extra). */
+  const pinCounts = useMemo(
+    () => ({
+      to_visit: spots.filter((s) => s.pinStatus === 'to_visit').length,
+      visited: spots.filter((s) => s.pinStatus === 'visited').length,
+    }),
+    [spots]
+  );
 
   useEffect(() => {
     if (
@@ -229,6 +240,50 @@ export default function MapScreen() {
     tryCenterOnUser(map, setUserCoords);
   }, []);
 
+  /** Padding para fitBounds (px). Generoso para evitar pins pegados al borde. */
+  const FIT_BOUNDS_PADDING = 64;
+  const FIT_BOUNDS_DURATION_MS = 1200;
+
+  /**
+   * Encuadra el mapa mostrando: ubicación del usuario (si existe) + spots visibles según filtro.
+   * Nunca deja fuera al usuario. Comportamiento: "recentrar todo lo importante".
+   */
+  const handleViewAll = useCallback(() => {
+    if (!mapInstance || filteredSpots.length === 0) return;
+    const pts: { longitude: number; latitude: number }[] = userCoords
+      ? [
+          { longitude: userCoords.longitude, latitude: userCoords.latitude },
+          ...filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude })),
+        ]
+      : filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude }));
+
+    if (pts.length === 1) {
+      mapInstance.flyTo({
+        center: [pts[0].longitude, pts[0].latitude],
+        zoom: 14,
+        duration: FIT_BOUNDS_DURATION_MS / 1000,
+      });
+    } else {
+      let minLng = Infinity;
+      let minLat = Infinity;
+      let maxLng = -Infinity;
+      let maxLat = -Infinity;
+      for (const p of pts) {
+        minLng = Math.min(minLng, p.longitude);
+        minLat = Math.min(minLat, p.latitude);
+        maxLng = Math.max(maxLng, p.longitude);
+        maxLat = Math.max(maxLat, p.latitude);
+      }
+      mapInstance.fitBounds(
+        [
+          [minLng, minLat],
+          [maxLng, maxLat],
+        ],
+        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+      );
+    }
+  }, [mapInstance, filteredSpots, userCoords]);
+
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
@@ -253,28 +308,20 @@ export default function MapScreen() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user || user.is_anonymous) {
-      openAuthModal({ message: 'Crea una cuenta para guardar tus lugares' });
+      openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
     } else {
       setShowLogoutOption((prev) => !prev);
     }
   }, [openAuthModal]);
 
   const handleLogoutPress = useCallback(() => {
-    const message = '¿Cerrar sesión?';
-    if (Platform.OS === 'web') {
-      if (window.confirm(message)) {
-        supabase.auth.signOut();
-        setShowLogoutOption(false);
-      }
-    } else {
-      Alert.alert('Cerrar sesión', message, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Cerrar sesión', style: 'destructive', onPress: async () => {
-          await supabase.auth.signOut();
-          setShowLogoutOption(false);
-        } },
-      ]);
-    }
+    setShowLogoutConfirm(true);
+  }, []);
+
+  const handleLogoutConfirm = useCallback(async () => {
+    setShowLogoutConfirm(false);
+    setShowLogoutOption(false);
+    await supabase.auth.signOut();
   }, []);
   const handleSavePin = useCallback(
     async (spot: Spot) => {
@@ -295,7 +342,7 @@ export default function MapScreen() {
         const userId = await getCurrentUserId();
         if (!userId) {
           openAuthModal({
-            message: 'Crea una cuenta para guardar tus lugares',
+            message: AUTH_MODAL_MESSAGES.savePin,
             onSuccess: () => handleSavePin(spot),
           });
           return;
@@ -374,13 +421,21 @@ export default function MapScreen() {
       </Map>
       {selectedSpot ? (
         <>
-          <Pressable
+          <View
             dataSet={{ flowya: 'map-spot-card-backdrop' }}
             style={styles.cardBackdrop}
-            onPress={() => setSelectedSpot(null)}
-            accessibilityLabel="Cerrar selección"
-            accessibilityRole="button"
-          />
+            onTouchMove={() => setSelectedSpot(null)}
+            onMouseMove={(e) => {
+              if (e.buttons !== 0) setSelectedSpot(null);
+            }}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setSelectedSpot(null)}
+              accessibilityLabel="Cerrar selección"
+              accessibilityRole="button"
+            />
+          </View>
           <View
             dataSet={{ flowya: 'map-spot-card-overlay' }}
             style={[styles.cardOverlay, { pointerEvents: 'box-none' }]}
@@ -396,7 +451,6 @@ export default function MapScreen() {
               }
               onSavePin={() => handleSavePin(selectedSpot)}
               onShare={() => handleShare(selectedSpot)}
-              onImagePress={setFullscreenImageUri}
             />
           </View>
         </>
@@ -414,7 +468,7 @@ export default function MapScreen() {
         dataSet={{ flowya: 'map-pin-filter-overlay' }}
         style={[styles.filterOverlay, { pointerEvents: 'box-none' }]}
       >
-        <MapPinFilter value={pinFilter} onChange={setPinFilter} />
+        <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
       </View>
       <View
         dataSet={{ flowya: 'map-profile-button-overlay' }}
@@ -447,12 +501,26 @@ export default function MapScreen() {
         dataSet={{ flowya: 'map-controls-overlay' }}
         style={[styles.controlsOverlay, { pointerEvents: 'box-none' }]}
       >
-        <MapControls map={mapInstance} />
+        <MapControls
+          map={mapInstance}
+          onViewAll={handleViewAll}
+          hasVisibleSpots={filteredSpots.length > 0}
+        />
       </View>
       <ImageFullscreenModal
         visible={!!fullscreenImageUri}
         uri={fullscreenImageUri}
         onClose={() => setFullscreenImageUri(null)}
+      />
+      <ConfirmModal
+        visible={showLogoutConfirm}
+        title="¿Cerrar sesión?"
+        confirmLabel="Cerrar sesión"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        onConfirm={handleLogoutConfirm}
+        onCancel={() => setShowLogoutConfirm(false)}
+        dataSet={{ flowya: 'logout-confirm-modal' }}
       />
       <View style={styles.fabWrap}>
         <IconButton

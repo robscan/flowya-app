@@ -2,38 +2,119 @@ import '@/styles/mapbox-attribution-overrides.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import Map, { Marker } from 'react-map-gl/mapbox-legacy';
-import { StyleSheet, Text, View } from 'react-native';
+import { Locate, Route } from 'lucide-react-native';
 
+import { FrameWithDot } from '@/components/icons/FrameWithDot';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { useCallback, useEffect, useState } from 'react';
+import type { MapEvent } from 'react-map-gl/mapbox-legacy';
+import Map, { Marker } from 'react-map-gl/mapbox-legacy';
+import { Linking, StyleSheet, Text, View } from 'react-native';
+
+import { IconButton } from '@/components/design-system/icon-button';
 import { ImageFullscreenModal } from '@/components/design-system/image-fullscreen-modal';
-import type { SpotPinStatus } from '@/components/design-system/map-pins';
-import { MapPinSpot } from '@/components/design-system/map-pins';
+import {
+    MapPinLocation,
+    MapPinSpot,
+    type SpotPinStatus,
+} from '@/components/design-system/map-pins';
 import type { SpotDetailSpot } from '@/components/design-system/spot-detail';
 import { SpotDetail } from '@/components/design-system/spot-detail';
 import { useToast } from '@/components/ui/toast';
 import { Colors, Spacing } from '@/constants/theme';
-import { useAuthModal } from '@/contexts/auth-modal';
+import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+    distanceKm,
+    formatDistanceKm,
+    getMapsDirectionsUrl,
+} from '@/lib/geo-utils';
 import { getCurrentUserId, getPin, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { shareSpot } from '@/lib/share-spot';
 import { supabase } from '@/lib/supabase';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
-const MAP_SPOT_HEIGHT = 200;
+
+/**
+ * Genera HTML estático para cada spot en build time.
+ * Sin esto, links compartidos (/spot/xxx) dan 404 en acceso directo.
+ */
+export async function generateStaticParams(): Promise<{ id: string }[]> {
+  const { data } = await supabase.from('spots').select('id');
+  return (data ?? []).map((row) => ({ id: row.id }));
+}
+
+const MAP_SPOT_HEIGHT = 320;
+const MAP_CONTROLS_PADDING = 8;
+const FIT_BOUNDS_PADDING = 48;
+const FIT_BOUNDS_DURATION_MS = 1200;
+const ICON_SIZE = 22;
+
+type UserCoords = { latitude: number; longitude: number } | null;
 
 function SpotDetailMapSlot({
   latitude,
   longitude,
   pinStatus = 'default',
+  userCoords,
 }: {
   latitude: number;
   longitude: number;
   pinStatus?: SpotPinStatus;
+  userCoords: UserCoords;
 }) {
   const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const mapStyle =
     colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+
+  const onMapLoad = useCallback((e: MapEvent) => {
+    setMapInstance(e.target);
+  }, []);
+
+  const handleLocate = useCallback(() => {
+    if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapInstance.flyTo({
+          center: [pos.coords.longitude, pos.coords.latitude],
+          zoom: 14,
+          duration: 1500,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, [mapInstance]);
+
+  const handleOpenMaps = useCallback(() => {
+    const url = getMapsDirectionsUrl(latitude, longitude);
+    Linking.openURL(url);
+  }, [latitude, longitude]);
+
+  const handleReframe = useCallback(() => {
+    if (!mapInstance || !userCoords) return;
+    const spotLng = longitude;
+    const spotLat = latitude;
+    const userLng = userCoords.longitude;
+    const userLat = userCoords.latitude;
+    const minLng = Math.min(spotLng, userLng);
+    const minLat = Math.min(spotLat, userLat);
+    const maxLng = Math.max(spotLng, userLng);
+    const maxLat = Math.max(spotLat, userLat);
+    mapInstance.fitBounds(
+      [
+        [minLng, minLat],
+        [maxLng, maxLat],
+      ],
+      { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+    );
+  }, [mapInstance, userCoords, latitude, longitude]);
+
+  const mapEnabled = mapInstance !== null;
+  const iconColor = mapEnabled ? colors.text : colors.textSecondary;
+  const reframeEnabled = mapEnabled && userCoords !== null;
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -57,11 +138,59 @@ function SpotDetailMapSlot({
           zoom: 14,
         }}
         style={styles.map}
+        onLoad={onMapLoad}
       >
         <Marker longitude={longitude} latitude={latitude} anchor="center">
           <MapPinSpot status={pinStatus} />
         </Marker>
+        {userCoords ? (
+          <Marker
+            longitude={userCoords.longitude}
+            latitude={userCoords.latitude}
+            anchor="center"
+          >
+            <MapPinLocation />
+          </Marker>
+        ) : null}
       </Map>
+      <View
+        dataSet={{ flowya: 'spot-detail-map-controls' }}
+        style={[styles.mapControlsOverlay, { pointerEvents: 'box-none' }]}
+      >
+        <View style={styles.mapControlsStack}>
+          <IconButton
+            dataSet={{ flowya: 'spot-detail-map-reframe' }}
+            variant="default"
+            onPress={handleReframe}
+            disabled={!reframeEnabled}
+            accessibilityLabel="Ver todos"
+          >
+            <FrameWithDot
+              size={ICON_SIZE}
+              color={reframeEnabled ? iconColor : colors.textSecondary}
+              strokeWidth={2}
+            />
+          </IconButton>
+          <IconButton
+            dataSet={{ flowya: 'spot-detail-map-locate' }}
+            variant="default"
+            onPress={handleLocate}
+            disabled={!mapEnabled}
+            accessibilityLabel="Centrar en mi ubicación"
+          >
+            <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+          </IconButton>
+          <IconButton
+            dataSet={{ flowya: 'spot-detail-map-directions' }}
+            variant="default"
+            onPress={handleOpenMaps}
+            disabled={!mapEnabled}
+            accessibilityLabel="Cómo llegar"
+          >
+            <Route size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+          </IconButton>
+        </View>
+      </View>
     </View>
   );
 }
@@ -116,6 +245,31 @@ function SpotDetailScreenContent({
   setIsEditing: (v: boolean) => void;
 }) {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+  const [userCoords, setUserCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
+  /** Ubicación del usuario: una sola vez al cargar el spot. No watchPosition. */
+  useEffect(() => {
+    if (!spot || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setUserCoords({
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        });
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+    );
+  }, [spot?.id]);
+
+  /** Distancia al spot: calculada una vez con userCoords. No recalcular en re-renders/scroll. */
+  const distanceText =
+    spot && userCoords
+      ? `A ${formatDistanceKm(distanceKm(userCoords.latitude, userCoords.longitude, spot.latitude, spot.longitude))} de tu ubicación`
+      : null;
 
   useEffect(() => {
     let cancelled = false;
@@ -210,7 +364,7 @@ function SpotDetailScreenContent({
       const userId = await getCurrentUserId();
       if (!userId) {
         openAuthModal({
-          message: 'Crea una cuenta para guardar tus lugares',
+          message: AUTH_MODAL_MESSAGES.savePin,
           onSuccess: handleSavePin,
         });
         return;
@@ -268,8 +422,10 @@ function SpotDetailScreenContent({
             latitude={spot.latitude}
             longitude={spot.longitude}
             pinStatus={spot.pinStatus}
+            userCoords={userCoords}
           />
         }
+        distanceText={distanceText}
       />
       <ImageFullscreenModal
         visible={!!fullscreenImageUri}
@@ -291,10 +447,21 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     height: MAP_SPOT_HEIGHT,
+    position: 'relative',
   },
   map: {
     width: '100%',
     height: '100%',
+  },
+  mapControlsOverlay: {
+    position: 'absolute',
+    right: MAP_CONTROLS_PADDING,
+    bottom: MAP_CONTROLS_PADDING,
+    zIndex: 10,
+  },
+  mapControlsStack: {
+    flexDirection: 'column',
+    gap: Spacing.xs,
   },
   mapPlaceholder: {
     flex: 1,

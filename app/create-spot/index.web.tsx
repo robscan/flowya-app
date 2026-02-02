@@ -8,7 +8,7 @@ import {
     MapLocationPicker,
     type MapLocationPickerResult,
 } from '@/components/design-system/map-location-picker';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blurActiveElement } from '@/lib/focus-management';
 import { checkDuplicateSpot } from '@/lib/spot-duplicate-check';
@@ -329,6 +329,7 @@ export default function CreateSpotScreen() {
             style={[styles.flex, styles.stepWithFixedBar]}
           >
             <ScrollView
+              style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
             >
@@ -357,11 +358,19 @@ export default function CreateSpotScreen() {
               ]}
             >
               <Pressable
-                style={[
+                style={({ pressed }) => [
                   styles.primaryButton,
-                  { backgroundColor: colors.tint },
+                  {
+                    backgroundColor:
+                      !canNextStep2 || checkingDuplicate
+                        ? colors.border
+                        : pressed
+                          ? colors.text
+                          : colors.tint,
+                  },
                   (!canNextStep2 || checkingDuplicate) && styles.primaryButtonDisabled,
                   wizardPrimaryButtonFocusStyle,
+                  WebTouchManipulation,
                 ]}
                 onPress={handleNextFromStep2}
                 onFocus={() => setWizardButtonFocused(true)}
@@ -384,6 +393,7 @@ export default function CreateSpotScreen() {
         {step === 3 && (
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, styles.stepWithFixedBar]}>
             <ScrollView
+              style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
             >
@@ -411,7 +421,14 @@ export default function CreateSpotScreen() {
               ]}
             >
               <Pressable
-                style={[styles.primaryButton, { backgroundColor: colors.tint }, wizardPrimaryButtonFocusStyle]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    backgroundColor: pressed ? colors.text : colors.tint,
+                  },
+                  wizardPrimaryButtonFocusStyle,
+                  WebTouchManipulation,
+                ]}
                 onPress={handleNext}
                 onFocus={() => setWizardButtonFocused(true)}
                 onBlur={() => setWizardButtonFocused(false)}
@@ -428,6 +445,7 @@ export default function CreateSpotScreen() {
         {step === 4 && (
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, styles.stepWithFixedBar]}>
             <ScrollView
+              style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
             >
@@ -455,7 +473,12 @@ export default function CreateSpotScreen() {
               ]}
             >
               <Pressable
-                style={[styles.primaryButton, { backgroundColor: colors.tint }, wizardPrimaryButtonFocusStyle]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  { backgroundColor: pressed ? colors.text : colors.tint },
+                  wizardPrimaryButtonFocusStyle,
+                  WebTouchManipulation,
+                ]}
                 onPress={handleNext}
                 onFocus={() => setWizardButtonFocused(true)}
                 onBlur={() => setWizardButtonFocused(false)}
@@ -471,7 +494,10 @@ export default function CreateSpotScreen() {
 
         {step === 5 && (
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.flex, styles.stepWithFixedBar]}>
-            <ScrollView contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
+            >
               <View style={styles.stepImageOnly}>
                 {selectedCoverUri ? (
                   <View style={styles.coverPreviewWrap}>
@@ -519,7 +545,12 @@ export default function CreateSpotScreen() {
               ]}
             >
               <Pressable
-                style={[styles.primaryButton, { backgroundColor: colors.tint }, wizardPrimaryButtonFocusStyle]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  { backgroundColor: pressed ? colors.text : colors.tint },
+                  wizardPrimaryButtonFocusStyle,
+                  WebTouchManipulation,
+                ]}
                 onPress={handleNext}
                 onFocus={() => setWizardButtonFocused(true)}
                 onBlur={() => setWizardButtonFocused(false)}
@@ -535,7 +566,10 @@ export default function CreateSpotScreen() {
 
         {step === 6 && (
           <View style={[styles.step6Wrap, styles.stepWithFixedBar]}>
-            <ScrollView contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}>
+            <ScrollView
+              style={styles.scrollView}
+              contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
+            >
               <View style={[styles.summaryBlock, { backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle }]}>
                 <Text style={[styles.summaryTitle, { color: colors.text }]}>{title.trim() || 'Sin título'}</Text>
                 {location?.address ? (
@@ -558,7 +592,14 @@ export default function CreateSpotScreen() {
               ]}
             >
               <Pressable
-                style={[styles.primaryButton, { backgroundColor: colors.tint }, wizardPrimaryButtonFocusStyle]}
+                style={({ pressed }) => [
+                  styles.primaryButton,
+                  {
+                    backgroundColor: submitting ? colors.border : pressed ? colors.text : colors.tint,
+                  },
+                  wizardPrimaryButtonFocusStyle,
+                  WebTouchManipulation,
+                ]}
                 onPress={handleCreate}
                 onFocus={() => setWizardButtonFocused(true)}
                 onBlur={() => setWizardButtonFocused(false)}
@@ -589,6 +630,7 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+    minHeight: 0,
   },
   headerCloseTouchable: {
     padding: Spacing.sm,
@@ -603,6 +645,10 @@ const styles = StyleSheet.create({
   /** Contenedor con posición relativa para que la barra fija (absolute) se ancle al paso. */
   stepWithFixedBar: {
     position: 'relative',
+    minHeight: 0,
+  },
+  scrollView: {
+    flex: 1,
   },
   scrollContent: {
     padding: Spacing.base,
@@ -611,6 +657,7 @@ const styles = StyleSheet.create({
   scrollContentWithBar: {
     padding: Spacing.base,
     paddingBottom: Spacing.sm,
+    flexGrow: 1,
   },
   wizardButtonSpacer: {
     height: 88,

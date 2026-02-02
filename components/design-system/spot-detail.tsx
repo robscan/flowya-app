@@ -8,7 +8,6 @@ import { ArrowLeft, Pencil, Pin, Share2, X } from 'lucide-react-native';
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Platform,
     Pressable,
     ScrollView,
@@ -18,12 +17,14 @@ import {
     View,
 } from 'react-native';
 
-import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Colors, Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
 import { uploadSpotCover } from '@/lib/spot-image-upload';
 import { supabase } from '@/lib/supabase';
 
+import { ConfirmModal } from '../ui/confirm-modal';
+import { ButtonPrimary } from './buttons';
 import type { SavePinState } from './icon-button';
 import { IconButton } from './icon-button';
 import { ImagePlaceholder } from './image-placeholder';
@@ -63,6 +64,8 @@ export type SpotDetailProps = {
   onDeleteSpot?: () => void;
   /** Slot para el mapa (pantalla inyecta Mapbox; Design System puede usar placeholder). */
   mapSlot: React.ReactNode;
+  /** Texto de distancia, ej. "A 1.2 km de tu ubicación". Solo si hay ubicación del usuario. */
+  distanceText?: string | null;
   /** Al tocar la imagen del hero (abrir en grande). */
   onImagePress?: (uri: string) => void;
   /** Tras cambiar o quitar la foto de portada (Edit Spot). */
@@ -70,7 +73,7 @@ export type SpotDetailProps = {
 };
 
 const HERO_HEIGHT = 240;
-const MAP_SECTION_HEIGHT = 200;
+const MAP_SECTION_HEIGHT = 320;
 const ICON_SIZE = 22;
 
 /** Color del icono sobre fondos stateToVisit / stateSuccess. */
@@ -88,6 +91,7 @@ export function SpotDetail({
   onSaveEdit,
   onDeleteSpot,
   mapSlot,
+  distanceText,
   onImagePress,
   onCoverImageChange,
 }: SpotDetailProps) {
@@ -98,6 +102,7 @@ export function SpotDetail({
   const [short, setShort] = useState(spot.description_short ?? '');
   const [long, setLong] = useState(spot.description_long ?? '');
   const [coverUploading, setCoverUploading] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const prevEditing = useRef(isEditing);
   const backButtonRef = useRef<View>(null);
 
@@ -181,16 +186,12 @@ export function SpotDetail({
   }, [spot.id, onCoverImageChange]);
 
   const handleDeleteSpotPress = useCallback(() => {
-    if (!onDeleteSpot) return;
-    const message = '¿Eliminar este spot de forma permanente? Esta acción no se puede deshacer.';
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm(message)) onDeleteSpot();
-    } else {
-      Alert.alert('Eliminar spot', message, [
-        { text: 'Cancelar', style: 'cancel' },
-        { text: 'Eliminar', style: 'destructive', onPress: onDeleteSpot },
-      ]);
-    }
+    if (onDeleteSpot) setShowDeleteConfirm(true);
+  }, [onDeleteSpot]);
+
+  const handleDeleteConfirm = useCallback(() => {
+    setShowDeleteConfirm(false);
+    onDeleteSpot?.();
   }, [onDeleteSpot]);
 
   useLayoutEffect(() => {
@@ -199,13 +200,16 @@ export function SpotDetail({
   }, []);
 
   const savePinIconColor =
-    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.text;
+    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.background;
 
   return (
-    <View dataSet={{ flowya: 'spot-detail' }} style={styles.root}>
+    <View
+      dataSet={{ flowya: 'spot-detail' }}
+      style={[styles.root, Platform.OS === 'web' && styles.rootWebScroll]}
+    >
       <ScrollView
-        style={{ flex: 1, backgroundColor: colors.background }}
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
+        contentContainerStyle={[styles.scrollContent, styles.scrollContentGrow]}
         showsVerticalScrollIndicator
       >
         {/* Hero */}
@@ -382,53 +386,77 @@ export function SpotDetail({
                 </Text>
               ) : null}
               {spot.description_long ? (
-                <Text style={[styles.descriptionLong, { color: colors.textSecondary }]}>
-                  {spot.description_long}
-                </Text>
-              ) : null}
-              {spot.address ? (
-                <View style={styles.metadata}>
-                  <Text style={[styles.metadataLabel, { color: colors.textSecondary }]}>
-                    Ubicación
+                <>
+                  <Text style={[styles.sectionHeading, { color: colors.text }]}>¿Por qué importa?</Text>
+                  <Text style={[styles.descriptionLong, { color: colors.textSecondary }]}>
+                    {spot.description_long}
                   </Text>
-                  <Text style={[styles.metadataValue, { color: colors.text }]}>
-                    {spot.address}
-                  </Text>
-                </View>
+                </>
               ) : null}
             </>
           )}
         </View>
 
-        {/* Mapa del spot (al final del layout) */}
-        <View
-          dataSet={{ flowya: 'spot-detail-map' }}
-          style={[styles.mapSection, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
-        >
-          {mapSlot}
-        </View>
+        {/* Sección mapa: ancla semántica + distancia + mapa + dirección */}
+        {!isEditing ? (
+          <>
+            <View
+              dataSet={{ flowya: 'spot-detail-map-section' }}
+              style={[styles.mapSectionWrap, { borderTopColor: colors.borderSubtle }]}
+            >
+              <Text style={[styles.sectionHeading, { color: colors.text }]}>¿Dónde está?</Text>
+              {distanceText ? (
+                <Text style={[styles.distanceText, { color: colors.textSecondary }]}>
+                  {distanceText}
+                </Text>
+              ) : null}
+            </View>
+            <View
+              dataSet={{ flowya: 'spot-detail-map' }}
+              style={[styles.mapSection, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
+            >
+              {mapSlot}
+            </View>
+            {spot.address ? (
+              <View
+                dataSet={{ flowya: 'spot-detail-location-info' }}
+                style={[styles.locationInfo, { borderTopColor: colors.borderSubtle }]}
+              >
+                <Text style={[styles.locationAddress, { color: colors.textSecondary }]}>
+                  {spot.address}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : (
+          <View
+            dataSet={{ flowya: 'spot-detail-map' }}
+            style={[styles.mapSection, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
+          >
+            {mapSlot}
+          </View>
+        )}
 
         {/* Footer en modo edición: Guardar + Eliminar Spot */}
         {isEditing ? (
           <View style={[styles.editFooter, { borderTopColor: colors.borderSubtle }]}>
-            <Pressable
+            <ButtonPrimary
               dataSet={{ flowya: 'spot-detail-save-primary' }}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                { backgroundColor: colors.primary, opacity: pressed ? 0.9 : 1 },
-              ]}
               onPress={handleSaveEdit}
               accessibilityLabel="Guardar"
-              accessibilityRole="button"
             >
-              <Text style={styles.primaryButtonLabel}>Guardar</Text>
-            </Pressable>
+              Guardar
+            </ButtonPrimary>
             {onDeleteSpot ? (
               <Pressable
                 dataSet={{ flowya: 'spot-detail-delete' }}
                 style={({ pressed }) => [
                   styles.secondaryButton,
-                  { borderColor: colors.borderSubtle, opacity: pressed ? 0.9 : 1 },
+                  {
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: pressed ? colors.backgroundElevated : 'transparent',
+                  },
+                  WebTouchManipulation,
                 ]}
                 onPress={handleDeleteSpotPress}
                 accessibilityLabel="Eliminar spot"
@@ -442,6 +470,17 @@ export function SpotDetail({
           </View>
         ) : null}
       </ScrollView>
+      <ConfirmModal
+        visible={showDeleteConfirm}
+        title="¿Eliminar este spot?"
+        message="Esta acción no se puede deshacer."
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setShowDeleteConfirm(false)}
+        dataSet={{ flowya: 'spot-detail-delete-confirm-modal' }}
+      />
     </View>
   );
 }
@@ -450,8 +489,19 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
   },
+  /** Web: minHeight 0 permite que ScrollView reciba altura acotada y habilite overflow. */
+  rootWebScroll: {
+    minHeight: 0,
+  },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
     paddingBottom: Spacing.xxl,
+  },
+  /** Permite que el contenido crezca más que el viewport para habilitar scroll. */
+  scrollContentGrow: {
+    flexGrow: 1,
   },
   hero: {
     height: HERO_HEIGHT,
@@ -474,10 +524,34 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: Spacing.xs,
   },
+  sectionHeading: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+    lineHeight: 24,
+  },
+  mapSectionWrap: {
+    padding: Spacing.lg,
+    paddingBottom: Spacing.sm,
+    borderTopWidth: 1,
+  },
+  distanceText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
   mapSection: {
     height: MAP_SECTION_HEIGHT,
     width: '100%',
     overflow: 'hidden',
+  },
+  locationInfo: {
+    padding: Spacing.lg,
+    paddingTop: Spacing.sm,
+    borderTopWidth: 1,
+  },
+  locationAddress: {
+    fontSize: 14,
+    lineHeight: 20,
   },
   content: {
     padding: Spacing.lg,

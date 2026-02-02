@@ -2,17 +2,23 @@
  * Design System: IconButton (canonical).
  * Fuente de verdad visual: estilo del Hero de Spot Detail.
  * Todos los botones de icono del sistema usan este componente.
+ *
+ * Estados pressed/selected canónicos:
+ * - Tap/click: feedback inmediato (bg primary, icon blanco).
+ * - No usar opacity como feedback.
  */
 
-import React, { forwardRef, useState } from 'react';
+import React, { Children, cloneElement, forwardRef, isValidElement, useState } from 'react';
 import type { View } from 'react-native';
 import { Platform, Pressable, ViewStyle } from 'react-native';
 
-import { Colors, Shadow } from '@/constants/theme';
+import { Colors, Shadow, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-const SIZE = 44;
-const BORDER_RADIUS = SIZE / 2;
+const SIZE_DEFAULT = 44;
+
+/** Color del icono en estado pressed (contraste sobre primary). */
+const PRESSED_ICON_COLOR = '#ffffff';
 
 export type IconButtonVariant = 'default' | 'primary' | 'savePin';
 export type SavePinState = 'default' | 'toVisit' | 'visited';
@@ -26,6 +32,8 @@ export type IconButtonProps = {
   variant?: IconButtonVariant;
   /** Solo relevante si variant === 'savePin'. */
   savePinState?: SavePinState;
+  /** Tamaño del botón (44 por defecto). */
+  size?: number;
   /** Web: dataSet para QA. */
   dataSet?: Record<string, string>;
   testID?: string;
@@ -40,6 +48,7 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     accessibilityRole = 'button',
     variant = 'default',
     savePinState = 'default',
+    size = SIZE_DEFAULT,
     dataSet,
     testID,
   },
@@ -49,7 +58,7 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
   const colors = Colors[colorScheme ?? 'light'];
   const [focused, setFocused] = useState(false);
 
-  const backgroundColor =
+  const restingBackgroundColor =
     variant === 'primary'
       ? colors.tint
       : variant === 'savePin'
@@ -57,27 +66,11 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
           ? colors.stateToVisit
           : savePinState === 'visited'
             ? colors.stateSuccess
-            : colors.backgroundElevated
+            : colors.text
         : colors.backgroundElevated;
 
-  const borderColor =
-    variant === 'primary' || variant === 'savePin'
-      ? savePinState !== 'default'
-        ? 'transparent'
-        : colors.borderSubtle
-      : colors.borderSubtle;
-
-  const baseStyle: ViewStyle = {
-    width: SIZE,
-    height: SIZE,
-    borderRadius: BORDER_RADIUS,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor,
-    borderWidth: 1,
-    borderColor,
-    ...Shadow.subtle,
-  };
+  const restingBorderColor =
+    variant === 'primary' || variant === 'savePin' ? 'transparent' : colors.borderSubtle;
 
   const focusStyle =
     Platform.OS === 'web'
@@ -99,11 +92,21 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
       dataSet={dataSet}
       testID={testID}
       style={({ pressed }) => [
-        baseStyle,
-        focusStyle,
         {
-          opacity: disabled ? 0.5 : pressed ? 0.8 : 1,
-        },
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 1,
+          ...Shadow.subtle,
+          backgroundColor:
+            disabled ? restingBackgroundColor : pressed ? colors.primary : restingBackgroundColor,
+          borderColor: pressed && !disabled ? 'transparent' : restingBorderColor,
+          opacity: disabled ? 0.5 : 1,
+        } as ViewStyle,
+        WebTouchManipulation,
+        focusStyle,
       ]}
       onPress={onPress}
       onFocus={() => setFocused(true)}
@@ -112,7 +115,14 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
     >
-      {children}
+      {({ pressed }) => {
+        const iconColor = pressed && !disabled ? PRESSED_ICON_COLOR : undefined;
+        return Children.map(children, (child) =>
+          isValidElement(child) && iconColor != null
+            ? cloneElement(child as React.ReactElement<{ color?: string }>, { color: iconColor })
+            : child
+        );
+      }}
     </Pressable>
   );
 });
