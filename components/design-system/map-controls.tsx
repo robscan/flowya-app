@@ -1,0 +1,94 @@
+/**
+ * Design System: Map controls (canonical).
+ * Zoom in/out, locate. Usa IconButton canónico (44×44 circular).
+ */
+
+import { Locate, Minus, Plus } from 'lucide-react-native';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { StyleSheet, View } from 'react-native';
+
+import { Colors, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+
+import { IconButton } from './icon-button';
+
+export type MapControlsProps = {
+  /** Map instance (Mapbox). When null, buttons are disabled (e.g. Design System showcase). */
+  map: MapboxMap | null;
+  /** Callback when locate is pressed (caller can run geolocation and then map.flyTo). */
+  onLocate?: () => void;
+};
+
+const ICON_SIZE = 22;
+
+export function MapControls({ map, onLocate }: MapControlsProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
+  const enabled = map !== null;
+  const iconColor = enabled ? colors.text : colors.textSecondary;
+
+  const handleZoomIn = () => {
+    if (enabled && map) map.zoomIn();
+  };
+
+  const handleZoomOut = () => {
+    if (enabled && map) map.zoomOut();
+  };
+
+  const handleLocate = () => {
+    if (onLocate) onLocate();
+    else if (enabled && map && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.flyTo({
+            center: [pos.coords.longitude, pos.coords.latitude],
+            zoom: 14,
+            duration: 1500,
+          });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      );
+    }
+  };
+
+  return (
+    <View dataSet={{ flowya: 'map-controls' }} style={styles.container}>
+      <IconButton
+        dataSet={{ flowya: 'map-controls-zoom-in' }}
+        variant="default"
+        onPress={handleZoomIn}
+        disabled={!enabled}
+        accessibilityLabel="Zoom in"
+      >
+        <Plus size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+      </IconButton>
+      <IconButton
+        dataSet={{ flowya: 'map-controls-zoom-out' }}
+        variant="default"
+        onPress={handleZoomOut}
+        disabled={!enabled}
+        accessibilityLabel="Zoom out"
+      >
+        <Minus size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+      </IconButton>
+      <IconButton
+        dataSet={{ flowya: 'map-controls-locate' }}
+        variant="default"
+        onPress={handleLocate}
+        disabled={!enabled}
+        accessibilityLabel="Center on my location"
+      >
+        <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+      </IconButton>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'column',
+    padding: Spacing.xs,
+    gap: Spacing.xs,
+  },
+});

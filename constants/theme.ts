@@ -1,41 +1,173 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Librería global de colores del proyecto.
+ * Fuente única de verdad: primarios, secundarios, texto, botones, estados.
+ * Light y Dark mode. Map pins y UI referencian esta paleta.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
+// — Paleta Light (valores únicos; pines y UI referencian estas claves)
+const primaryLight = '#0071e3';
+const secondaryLight = '#6e6e73';
+const textLight = '#1d1d1f';
+const textSecondaryLight = '#6e6e73';
+const backgroundLight = '#fbfbfd';
+const backgroundElevatedLight = '#ffffff';
+const borderLight = 'rgba(0, 0, 0, 0.06)';
+const borderSubtleLight = 'rgba(0, 0, 0, 0.04)';
+const surfaceMutedLight = '#e8e8ed';
+const stateSuccessLight = '#34c759';
+const stateErrorLight = '#ff3b30';
+const stateToVisitLight = '#e6862b';
+const surfaceOnMapLight = '#ffffff';
+
+// — Pines en mapa (visibles sobre mapa claro en light y dark)
+const pinDefaultLight = '#1d1d1f';
+const pinPlannedLight = '#e6862b';
+const pinVisitedLight = '#34c759';
+const pinOutlineLight = '#ffffff';
+const locationPrimaryLight = '#007AFF';
+
+// — Paleta Dark
+const primaryDark = '#2997ff';
+const secondaryDark = '#a1a1a6';
+const textDark = '#f5f5f7';
+const textSecondaryDark = '#a1a1a6';
+const backgroundDark = '#000000';
+const backgroundElevatedDark = '#1d1d1f';
+const borderDark = 'rgba(255, 255, 255, 0.08)';
+const borderSubtleDark = 'rgba(255, 255, 255, 0.04)';
+const surfaceMutedDark = '#2c2c2e';
+const stateSuccessDark = '#30d158';
+const stateErrorDark = '#ff453a';
+const stateToVisitDark = '#ff9f0a';
+const surfaceOnMapDark = 'rgba(255, 255, 255, 0.9)';
+
+// — Pines en mapa (dark mode: mismos valores que light para contraste sobre mapa claro)
+const pinDefaultDark = '#1d1d1f';
+const pinPlannedDark = '#e6862b';
+const pinVisitedDark = '#34c759';
+const pinOutlineDark = '#ffffff';
+const locationPrimaryDark = '#0a84ff';
 
 export const Colors = {
   light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    primary: primaryLight,
+    secondary: secondaryLight,
+    text: textLight,
+    textSecondary: textSecondaryLight,
+    background: backgroundLight,
+    backgroundElevated: backgroundElevatedLight,
+    border: borderLight,
+    borderSubtle: borderSubtleLight,
+    surfaceMuted: surfaceMutedLight,
+    stateSuccess: stateSuccessLight,
+    stateError: stateErrorLight,
+    stateToVisit: stateToVisitLight,
+    surfaceOnMap: surfaceOnMapLight,
+    tint: primaryLight,
+    icon: textSecondaryLight,
+    tabIconDefault: textSecondaryLight,
+    tabIconSelected: primaryLight,
+    buttonPrimary: primaryLight,
+    buttonSecondary: borderLight,
+    pin: {
+      default: pinDefaultLight,
+      planned: pinPlannedLight,
+      visited: pinVisitedLight,
+      outline: pinOutlineLight,
+    },
+    location: { primary: locationPrimaryLight },
+    pinUserLocation: locationPrimaryLight,
+    pinSpotDefault: pinDefaultLight,
+    pinSpotToVisit: pinPlannedLight,
+    pinSpotVisited: pinVisitedLight,
+    pinSpotOutline: pinOutlineLight,
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    primary: primaryDark,
+    secondary: secondaryDark,
+    text: textDark,
+    textSecondary: textSecondaryDark,
+    background: backgroundDark,
+    backgroundElevated: backgroundElevatedDark,
+    border: borderDark,
+    borderSubtle: borderSubtleDark,
+    surfaceMuted: surfaceMutedDark,
+    stateSuccess: stateSuccessDark,
+    stateError: stateErrorDark,
+    stateToVisit: stateToVisitDark,
+    surfaceOnMap: surfaceOnMapDark,
+    tint: primaryDark,
+    icon: textSecondaryDark,
+    tabIconDefault: textSecondaryDark,
+    tabIconSelected: primaryDark,
+    buttonPrimary: primaryDark,
+    buttonSecondary: borderDark,
+    pin: {
+      default: pinDefaultDark,
+      planned: pinPlannedDark,
+      visited: pinVisitedDark,
+      outline: pinOutlineDark,
+    },
+    location: { primary: locationPrimaryDark },
+    pinUserLocation: locationPrimaryDark,
+    pinSpotDefault: pinDefaultDark,
+    pinSpotToVisit: pinPlannedDark,
+    pinSpotVisited: pinVisitedDark,
+    pinSpotOutline: pinOutlineDark,
   },
 };
 
+/** Ritmo de espaciado (px). */
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  base: 16,
+  lg: 24,
+  xl: 32,
+  xxl: 48,
+  xxxl: 64,
+} as const;
+
+/** Sombras muy sutiles para superficies elevadas. */
+export const Shadow = {
+  subtle: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.04,
+      shadowRadius: 8,
+    },
+    android: { elevation: 1 },
+    default: {},
+  }),
+  card: Platform.select({
+    ios: {
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+    },
+    android: { elevation: 2 },
+    default: {},
+  }),
+} as const;
+
+/** Radios de borde suaves. */
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+} as const;
+
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {
@@ -45,9 +177,9 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    sans: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+    rounded: "'SF Pro Rounded', -apple-system, sans-serif",
+    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
   },
 });

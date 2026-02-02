@@ -1,11 +1,12 @@
 import { Image } from 'expo-image';
+import { Link } from 'expo-router';
 import { Platform, StyleSheet } from 'react-native';
 
-import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Collapsible } from '@/components/ui/collapsible';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 
@@ -31,6 +32,11 @@ export default function TabTwoScreen() {
         </ThemedText>
       </ThemedView>
       <ThemedText>This app includes example code to help you get started.</ThemedText>
+      <Link href="/design-system" asChild>
+        <ThemedText type="link" style={styles.designSystemLink}>
+          Open Design System →
+        </ThemedText>
+      </Link>
       <Collapsible title="File-based routing">
         <ThemedText>
           This app has two screens:{' '}
@@ -99,6 +105,10 @@ export default function TabTwoScreen() {
 }
 
 const styles = StyleSheet.create({
+  designSystemLink: {
+    marginTop: 12,
+    marginBottom: 8,
+  },
   headerImage: {
     color: '#808080',
     bottom: -90,

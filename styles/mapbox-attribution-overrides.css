@@ -1,0 +1,11 @@
+/**
+ * Oculta la atribución de Mapbox (logo + botón "i") en el mapa.
+ */
+.mapboxgl-ctrl-attrib,
+.mapboxgl-ctrl-attrib.mapboxgl-compact,
+a.mapboxgl-ctrl-logo,
+.mapboxgl-ctrl-attrib-button {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
