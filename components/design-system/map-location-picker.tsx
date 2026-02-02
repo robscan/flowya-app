@@ -44,6 +44,9 @@ export type MapLocationPickerProps = {
   onCancel?: () => void;
   /** Opcional: nombre del spot en creación; se muestra debajo del pin cuando hay ubicación. */
   spotTitle?: string | null;
+  /** Edit Spot: ubicación inicial del pin (sin centrar en usuario). */
+  initialLatitude?: number;
+  initialLongitude?: number;
 };
 
 function tryCenterOnUser(
@@ -67,12 +70,25 @@ function tryCenterOnUser(
   );
 }
 
-export function MapLocationPicker({ onConfirm, spotTitle }: MapLocationPickerProps) {
+export function MapLocationPicker({
+  onConfirm,
+  spotTitle,
+  initialLatitude,
+  initialLongitude,
+}: MapLocationPickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
-  const [state, setState] = useState<MapLocationPickerState>('empty');
-  const [lngLat, setLngLat] = useState<{ lng: number; lat: number } | null>(null);
+  const hasInitialCoords =
+    initialLatitude != null && initialLongitude != null;
+  const [state, setState] = useState<MapLocationPickerState>(
+    hasInitialCoords ? 'selecting' : 'empty'
+  );
+  const [lngLat, setLngLat] = useState<{ lng: number; lat: number } | null>(
+    hasInitialCoords && initialLatitude != null && initialLongitude != null
+      ? { lng: initialLongitude, lat: initialLatitude }
+      : null
+  );
   const [nearbySpots, setNearbySpots] = useState<SpotNearby[]>([]);
   const [confirming, setConfirming] = useState(false);
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
@@ -92,14 +108,25 @@ export function MapLocationPicker({ onConfirm, spotTitle }: MapLocationPickerPro
     };
   }, [lngLat?.lat, lngLat?.lng]);
 
-  const onMapLoad = useCallback((e: MapEvent) => {
-    const map = e.target;
-    setMapInstance(map);
-    tryCenterOnUser(map, (lng, lat) => {
-      setLngLat({ lng, lat });
-      setState('selecting');
-    });
-  }, []);
+  const onMapLoad = useCallback(
+    (e: MapEvent) => {
+      const map = e.target;
+      setMapInstance(map);
+      if (hasInitialCoords && initialLatitude != null && initialLongitude != null) {
+        map.flyTo({
+          center: [initialLongitude, initialLatitude],
+          zoom: 14,
+          duration: 0,
+        });
+      } else {
+        tryCenterOnUser(map, (lng, lat) => {
+          setLngLat({ lng, lat });
+          setState('selecting');
+        });
+      }
+    },
+    [hasInitialCoords, initialLatitude, initialLongitude]
+  );
 
   const onMapClick = useCallback((e: MapLayerMouseEvent) => {
     e.originalEvent?.stopPropagation?.();
@@ -134,13 +161,21 @@ export function MapLocationPicker({ onConfirm, spotTitle }: MapLocationPickerPro
   const mapStyle =
     colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
 
+  const initialViewState = hasInitialCoords
+    ? {
+        longitude: initialLongitude!,
+        latitude: initialLatitude!,
+        zoom: 14,
+      }
+    : FALLBACK_VIEW;
+
   return (
     <View style={styles.container} dataSet={{ flowya: 'map-location-picker' }}>
       <Map
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
-        initialViewState={FALLBACK_VIEW}
+        initialViewState={initialViewState}
         style={styles.map}
         onClick={onMapClick}
         onLoad={onMapLoad}

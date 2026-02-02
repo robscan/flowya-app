@@ -21,9 +21,11 @@ import {
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { MapPinLocation, MapPinSpot } from '@/components/design-system/map-pins';
 import { SpotCard } from '@/components/design-system/spot-card';
+import { TypographyStyles } from '@/components/design-system/typography';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { useToast } from '@/components/ui/toast';
-import { Colors } from '@/constants/theme';
+import { Colors, WebTouchManipulation } from '@/constants/theme';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blurActiveElement, getAndClearSavedFocus } from '@/lib/focus-management';
@@ -123,6 +125,7 @@ export default function MapScreen() {
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showBetaModal, setShowBetaModal] = useState(false);
   const mapRootRef = useRef<View>(null);
   const isFocused = useIsFocused();
 
@@ -464,6 +467,23 @@ export default function MapScreen() {
           accessibilityRole="button"
         />
       ) : null}
+      <Pressable
+        dataSet={{ flowya: 'map-flowya-label' }}
+        style={[styles.flowyaLabelWrap, WebTouchManipulation]}
+        onPress={() => setShowBetaModal(true)}
+        accessibilityLabel="FLOWYA Beta"
+      >
+        {({ pressed }) => (
+          <Text
+            style={[
+              TypographyStyles.heading2,
+              { color: colors.text, opacity: pressed ? 0.7 : 1 },
+            ]}
+          >
+            FLOWYA
+          </Text>
+        )}
+      </Pressable>
       <View
         dataSet={{ flowya: 'map-pin-filter-overlay' }}
         style={[styles.filterOverlay, { pointerEvents: 'box-none' }]}
@@ -522,6 +542,11 @@ export default function MapScreen() {
         onCancel={() => setShowLogoutConfirm(false)}
         dataSet={{ flowya: 'logout-confirm-modal' }}
       />
+      <FlowyaBetaModal
+        visible={showBetaModal}
+        onClose={() => setShowBetaModal(false)}
+        dataSet={{ flowya: 'flowya-beta-modal' }}
+      />
       <View style={styles.fabWrap}>
         <IconButton
           dataSet={{ flowya: 'map-create-spot-fab' }}
@@ -553,6 +578,8 @@ const PROFILE_BUTTON_TOP = 16;
 const PROFILE_BUTTON_LEFT = 16;
 const FAB_TOP = 16;
 const FAB_RIGHT = 16;
+const FLOWYA_LABEL_BOTTOM = 16;
+const FLOWYA_LABEL_LEFT = 16;
 
 const styles = StyleSheet.create({
   mapScreenRoot: {
@@ -619,6 +646,14 @@ const styles = StyleSheet.create({
     top: FAB_TOP,
     right: FAB_RIGHT,
     zIndex: 10,
+  },
+  flowyaLabelWrap: {
+    position: 'absolute',
+    left: FLOWYA_LABEL_LEFT,
+    bottom: FLOWYA_LABEL_BOTTOM,
+    zIndex: 5,
+    alignSelf: 'flex-start',
+    padding: 8,
   },
   placeholder: {
     flex: 1,

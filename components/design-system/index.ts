@@ -5,6 +5,8 @@
 
 export { ConfirmModal } from '../ui/confirm-modal';
 export type { ConfirmModalProps, ConfirmModalVariant } from '../ui/confirm-modal';
+export { FlowyaBetaModal } from '../ui/flowya-beta-modal';
+export type { FlowyaBetaModalProps } from '../ui/flowya-beta-modal';
 export { ButtonPrimary, ButtonSecondary, ButtonsShowcase } from './buttons';
 export type { ButtonPrimaryProps, ButtonSecondaryProps } from './buttons';
 export { CardsShowcase } from './cards';
@@ -34,5 +36,5 @@ export { SpotDetail, SpotDetailShowcase } from './spot-detail';
 export type { SpotDetailProps, SpotDetailSpot } from './spot-detail';
 export { SpotImage } from './spot-image';
 export type { SpotImageProps } from './spot-image';
-export { TypographyShowcase } from './typography';
+export { TypographyShowcase, TypographyStyles } from './typography';
 

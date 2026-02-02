@@ -14,21 +14,19 @@ export function TypographyShowcase() {
 
   return (
     <View style={styles.wrapper}>
-      <Text style={{ ...styles.heading1, color: colors.text }}>Heading 1</Text>
-      <Text style={{ ...styles.heading2, color: colors.text }}>Heading 2</Text>
-      <Text style={{ ...styles.heading3, color: colors.text }}>Heading 3</Text>
-      <Text style={{ ...styles.body, color: colors.text }}>
+      <Text style={{ ...TypographyStyles.heading1, color: colors.text }}>Heading 1</Text>
+      <Text style={{ ...TypographyStyles.heading2, color: colors.text }}>Heading 2</Text>
+      <Text style={{ ...TypographyStyles.heading3, color: colors.text }}>Heading 3</Text>
+      <Text style={{ ...TypographyStyles.body, color: colors.text }}>
         Body text. Use for paragraphs and default content. Enough line height for readability.
       </Text>
-      <Text style={{ ...styles.caption, color: colors.textSecondary }}>Caption or metadata</Text>
+      <Text style={{ ...TypographyStyles.caption, color: colors.textSecondary }}>Caption or metadata</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    gap: Spacing.base,
-  },
+/** Estilos canónicos para uso en otros componentes. */
+export const TypographyStyles = StyleSheet.create({
   heading1: {
     fontSize: 40,
     fontWeight: '600',
@@ -55,5 +53,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '400',
     lineHeight: 20,
+  },
+});
+
+const styles = StyleSheet.create({
+  wrapper: {
+    gap: Spacing.base,
   },
 });
