@@ -1,4 +1,5 @@
 import '@/styles/mapbox-attribution-overrides.css';
+import '@/styles/viewport-dvh.css';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
@@ -327,7 +328,12 @@ export default function MapScreen() {
     colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
 
   return (
-    <View ref={mapRootRef} style={styles.mapScreenRoot} dataSet={{ flowya: 'map-screen-root' }}>
+    <View
+      ref={mapRootRef}
+      style={styles.mapScreenRoot}
+      {...(Platform.OS === 'web' && { className: 'map-screen-root-dvh' })}
+      dataSet={{ flowya: 'map-screen-root' }}
+    >
       <Map
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
@@ -490,8 +496,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       web: {
         width: '100%',
-        height: '100vh',
-        minHeight: '100vh',
+        /* height / maxHeight / overflow vía clase .map-screen-root-dvh (100dvh + fallback 100vh) */
       },
       default: {},
     }),

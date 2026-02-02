@@ -1,0 +1,11 @@
+/**
+ * Safari iOS: 100vh incluye la barra del navegador y corta el contenido abajo.
+ * 100dvh = dynamic viewport height = altura visible real.
+ * Fallback: 100vh para navegadores sin soporte dvh.
+ */
+.map-screen-root-dvh {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+}
