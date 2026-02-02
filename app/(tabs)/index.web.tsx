@@ -4,13 +4,22 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MapPinPlus, User, X } from 'lucide-react-native';
+import { MapPinPlus, Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent } from 'react-map-gl/mapbox-legacy';
 import Map, { Marker } from 'react-map-gl/mapbox-legacy';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from 'react-native';
 
+import { ButtonPrimary } from '@/components/design-system/buttons';
 import { IconButton } from '@/components/design-system/icon-button';
 import { ImageFullscreenModal } from '@/components/design-system/image-fullscreen-modal';
 import { MapControls } from '@/components/design-system/map-controls';
@@ -20,15 +29,17 @@ import {
 } from '@/components/design-system/map-pin-filter';
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { MapPinLocation, MapPinSpot } from '@/components/design-system/map-pins';
+import { SearchResultCard } from '@/components/design-system/search-result-card';
 import { SpotCard } from '@/components/design-system/spot-card';
 import { TypographyStyles } from '@/components/design-system/typography';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { useToast } from '@/components/ui/toast';
-import { Colors, WebTouchManipulation } from '@/constants/theme';
+import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { blurActiveElement, getAndClearSavedFocus } from '@/lib/focus-management';
+import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } from '@/lib/focus-management';
+import { distanceKm } from '@/lib/geo-utils';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { shareSpot } from '@/lib/share-spot';
 import { supabase } from '@/lib/supabase';
@@ -126,7 +137,13 @@ export default function MapScreen() {
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPinScreenPos, setSelectedPinScreenPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const mapRootRef = useRef<View>(null);
+  const searchInputRef = useRef<TextInput>(null);
   const isFocused = useIsFocused();
 
   useEffect(() => {
@@ -159,6 +176,25 @@ export default function MapScreen() {
     }),
     [spots]
   );
+
+  /** Resultados de búsqueda: filteredSpots filtrados por query (solo por título, match simple). Sin texto no se muestran resultados. */
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return filteredSpots.filter((s) => s.title.toLowerCase().includes(q));
+  }, [filteredSpots, searchQuery]);
+
+  /** Predeterminado sin texto: 10 spots más cercanos al usuario (o al centro fallback del mapa). */
+  const defaultSpots = useMemo(() => {
+    const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
+    return [...filteredSpots]
+      .sort(
+        (a, b) =>
+          distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
+          distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude)
+      )
+      .slice(0, 10);
+  }, [filteredSpots, userCoords]);
 
   useEffect(() => {
     if (
@@ -290,12 +326,36 @@ export default function MapScreen() {
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
-    const onMoveEnd = () => setZoom(map.getZoom());
+    const onMoveEnd = () => {
+      setZoom(map.getZoom());
+      if (selectedSpot) {
+        try {
+          const pt = map.project([selectedSpot.longitude, selectedSpot.latitude]);
+          setSelectedPinScreenPos({ x: pt.x, y: pt.y });
+        } catch {
+          setSelectedPinScreenPos(null);
+        }
+      }
+    };
     map.on('moveend', onMoveEnd);
     return () => {
       map.off('moveend', onMoveEnd);
     };
-  }, [mapInstance]);
+  }, [mapInstance, selectedSpot]);
+
+  /** Posición en pantalla del pin seleccionado (para hit area que navega a detail). */
+  useEffect(() => {
+    if (!mapInstance || !selectedSpot) {
+      setSelectedPinScreenPos(null);
+      return;
+    }
+    try {
+      const pt = mapInstance.project([selectedSpot.longitude, selectedSpot.latitude]);
+      setSelectedPinScreenPos({ x: pt.x, y: pt.y });
+    } catch {
+      setSelectedPinScreenPos(null);
+    }
+  }, [mapInstance, selectedSpot]);
 
   const toast = useToast();
   const { openAuthModal } = useAuthModal();
@@ -326,6 +386,73 @@ export default function MapScreen() {
     setShowLogoutOption(false);
     await supabase.auth.signOut();
   }, []);
+  const handleToggleSearch = useCallback(() => {
+    setSearchActive((prev) => !prev);
+  }, []);
+
+  /** Cerrar solo la UI de búsqueda; no borra searchQuery ni searchResults (estado latente). */
+  const exitSearchMode = useCallback(() => {
+    setSearchActive(false);
+  }, []);
+
+  /** Cerrar y limpiar búsqueda (ej. al ir a Create spot). */
+  const handleCloseSearch = useCallback(() => {
+    setSearchActive(false);
+    setSearchQuery('');
+  }, []);
+
+  /** Botón clear: vacía el input y mantiene modo búsqueda; la X es el único mecanismo para cancelar explícitamente. */
+  const handleClearSearch = useCallback(() => {
+    setSearchQuery('');
+    if (searchInputRef.current && typeof searchInputRef.current.focus === 'function') {
+      searchInputRef.current.focus();
+    }
+  }, []);
+
+  /** Tap en pin: si ya está seleccionado → ir a spot detail; si no → seleccionar y mostrar card. */
+  const handlePinClick = useCallback(
+    (spot: Spot) => {
+      if (selectedSpot?.id === spot.id) {
+        saveFocusBeforeNavigate();
+        blurActiveElement();
+        (router.push as (href: string) => void)(`/spot/${spot.id}`);
+      } else {
+        setSelectedSpot(spot);
+      }
+    },
+    [selectedSpot?.id, router]
+  );
+
+  /** Tap en el pin ya seleccionado (hit area sobre el mapa) → ir a spot detail. */
+  const handleSelectedPinTap = useCallback(() => {
+    if (!selectedSpot) return;
+    saveFocusBeforeNavigate();
+    blurActiveElement();
+    (router.push as (href: string) => void)(`/spot/${selectedSpot.id}`);
+  }, [selectedSpot, router]);
+
+  /** Al seleccionar un resultado: salir de modo búsqueda (sin borrar texto), centrar pin y mostrar SpotCardMapSelection. */
+  const handleSearchResultSelect = useCallback(
+    (spot: Spot) => {
+      setSearchActive(false);
+      setSelectedSpot(spot);
+      if (mapInstance) {
+        mapInstance.flyTo({
+          center: [spot.longitude, spot.latitude],
+          zoom: 15,
+          duration: 800,
+        });
+      }
+    },
+    [mapInstance]
+  );
+
+  const handleCreateSpotFromSearch = useCallback(() => {
+    exitSearchMode();
+    blurActiveElement();
+    (router.push as (href: string) => void)('/create-spot');
+  }, [exitSearchMode, router]);
+
   const handleSavePin = useCallback(
     async (spot: Spot) => {
       const current =
@@ -408,7 +535,7 @@ export default function MapScreen() {
             latitude={spot.latitude}
             longitude={spot.longitude}
             anchor="center"
-            onClick={() => setSelectedSpot(spot)}
+            onClick={() => handlePinClick(spot)}
           >
             <MapPinSpot
               status={spot.pinStatus ?? 'default'}
@@ -422,6 +549,15 @@ export default function MapScreen() {
           </Marker>
         ))}
       </Map>
+      {searchActive ? (
+        <Pressable
+          dataSet={{ flowya: 'map-search-backdrop' }}
+          style={styles.searchBackdrop}
+          onPress={exitSearchMode}
+          accessibilityLabel="Cerrar búsqueda"
+          accessibilityRole="button"
+        />
+      ) : null}
       {selectedSpot ? (
         <>
           <View
@@ -439,6 +575,21 @@ export default function MapScreen() {
               accessibilityRole="button"
             />
           </View>
+          {selectedPinScreenPos ? (
+            <Pressable
+              dataSet={{ flowya: 'map-selected-pin-hit-area' }}
+              style={[
+                styles.selectedPinHitArea,
+                {
+                  left: selectedPinScreenPos.x - SELECTED_PIN_HIT_RADIUS,
+                  top: selectedPinScreenPos.y - SELECTED_PIN_HIT_RADIUS,
+                },
+              ]}
+              onPress={handleSelectedPinTap}
+              accessibilityLabel={`Ir al detalle de ${selectedSpot.title}`}
+              accessibilityRole="button"
+            />
+          ) : null}
           <View
             dataSet={{ flowya: 'map-spot-card-overlay' }}
             style={[styles.cardOverlay, { pointerEvents: 'box-none' }]}
@@ -486,14 +637,139 @@ export default function MapScreen() {
       </Pressable>
       <View
         dataSet={{ flowya: 'map-pin-filter-overlay' }}
-        style={[styles.filterOverlay, { pointerEvents: 'box-none' }]}
+        style={[
+          styles.filterOverlay,
+          searchActive && styles.filterOverlaySearchActive,
+          { pointerEvents: 'box-none' },
+        ]}
       >
         <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
+        {searchActive ? (
+          <>
+            <View dataSet={{ flowya: 'map-search-input-wrap' }} style={styles.searchInputWrap}>
+              <TextInput
+                ref={searchInputRef}
+                dataSet={{ flowya: 'map-search-input' }}
+                style={[
+                  styles.searchInput,
+                  {
+                    backgroundColor: colors.backgroundElevated,
+                    borderColor: colors.borderSubtle,
+                    color: colors.text,
+                    paddingRight: searchQuery.length > 0 ? 44 : Spacing.base,
+                  },
+                  WebTouchManipulation,
+                ]}
+                placeholder="Buscar lugares…"
+                placeholderTextColor={colors.textSecondary}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                accessibilityLabel="Buscar lugares"
+              />
+              {searchQuery.length > 0 ? (
+                <Pressable
+                  dataSet={{ flowya: 'map-search-clear' }}
+                  style={[styles.searchClearButton, { backgroundColor: colors.backgroundElevated }]}
+                  onPress={handleClearSearch}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel="Limpiar búsqueda"
+                  accessibilityRole="button"
+                  {...WebTouchManipulation}
+                >
+                  <X size={20} color={colors.textSecondary} strokeWidth={2} />
+                </Pressable>
+              ) : null}
+            </View>
+            <View
+              dataSet={{ flowya: 'map-search-results-area' }}
+              style={styles.searchResultsArea}
+            >
+              {searchQuery.trim() === '' ? (
+                <ScrollView
+                  dataSet={{ flowya: 'map-search-results' }}
+                  style={styles.searchResultsScroll}
+                  contentContainerStyle={styles.searchResultsContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator
+                >
+                  {defaultSpots.map((spot) => (
+                    <View key={spot.id} style={styles.searchResultItemWrap}>
+                      <SearchResultCard
+                        spot={spot}
+                        savePinState={
+                          spot.pinStatus === 'to_visit'
+                            ? 'toVisit'
+                            : spot.pinStatus === 'visited'
+                              ? 'visited'
+                              : 'default'
+                        }
+                        onPress={() => handleSearchResultSelect(spot)}
+                      />
+                    </View>
+                  ))}
+                </ScrollView>
+              ) : searchResults.length > 0 ? (
+                <ScrollView
+                  dataSet={{ flowya: 'map-search-results' }}
+                  style={styles.searchResultsScroll}
+                  contentContainerStyle={styles.searchResultsContent}
+                  keyboardShouldPersistTaps="handled"
+                  showsVerticalScrollIndicator
+                >
+                  {searchResults.map((spot) => (
+                    <View key={spot.id} style={styles.searchResultItemWrap}>
+                      <SearchResultCard
+                        spot={spot}
+                        savePinState={
+                          spot.pinStatus === 'to_visit'
+                            ? 'toVisit'
+                            : spot.pinStatus === 'visited'
+                              ? 'visited'
+                              : 'default'
+                        }
+                        onPress={() => handleSearchResultSelect(spot)}
+                      />
+                    </View>
+                  ))}
+                  <ButtonPrimary
+                    dataSet={{ flowya: 'map-search-create-spot-end' }}
+                    onPress={handleCreateSpotFromSearch}
+                    accessibilityLabel="Crear nuevo spot"
+                  >
+                    Crear nuevo spot
+                  </ButtonPrimary>
+                </ScrollView>
+              ) : (
+                <View
+                  dataSet={{ flowya: 'map-search-no-results' }}
+                  style={styles.searchNoResults}
+                >
+                  <Text
+                    style={[
+                      styles.searchNoResultsText,
+                      { color: colors.textSecondary },
+                    ]}
+                  >
+                    ¿No encontraste lo que buscas?
+                  </Text>
+                  <ButtonPrimary
+                    dataSet={{ flowya: 'map-search-create-spot' }}
+                    onPress={handleCreateSpotFromSearch}
+                    accessibilityLabel="Crear nuevo spot"
+                  >
+                    Crear nuevo spot
+                  </ButtonPrimary>
+                </View>
+              )}
+            </View>
+          </>
+        ) : null}
       </View>
-      <View
-        dataSet={{ flowya: 'map-profile-button-overlay' }}
-        style={[styles.profileButtonOverlay, { pointerEvents: 'box-none' }]}
-      >
+      {!searchActive ? (
+        <View
+          dataSet={{ flowya: 'map-profile-button-overlay' }}
+          style={[styles.profileButtonOverlay, { pointerEvents: 'box-none' }]}
+        >
         <IconButton
           variant="default"
           onPress={handleProfilePress}
@@ -516,17 +792,20 @@ export default function MapScreen() {
             </IconButton>
           </View>
         ) : null}
-      </View>
-      <View
-        dataSet={{ flowya: 'map-controls-overlay' }}
-        style={[styles.controlsOverlay, { pointerEvents: 'box-none' }]}
-      >
-        <MapControls
-          map={mapInstance}
-          onViewAll={handleViewAll}
-          hasVisibleSpots={filteredSpots.length > 0}
-        />
-      </View>
+        </View>
+      ) : null}
+      {!searchActive ? (
+        <View
+          dataSet={{ flowya: 'map-controls-overlay' }}
+          style={[styles.controlsOverlay, { pointerEvents: 'box-none' }]}
+        >
+          <MapControls
+            map={mapInstance}
+            onViewAll={handleViewAll}
+            hasVisibleSpots={filteredSpots.length > 0}
+          />
+        </View>
+      ) : null}
       <ImageFullscreenModal
         visible={!!fullscreenImageUri}
         uri={fullscreenImageUri}
@@ -549,16 +828,27 @@ export default function MapScreen() {
       />
       <View style={styles.fabWrap}>
         <IconButton
-          dataSet={{ flowya: 'map-create-spot-fab' }}
+          dataSet={{ flowya: 'map-search-fab' }}
           variant="default"
-          onPress={() => {
-            blurActiveElement();
-            (router.push as (href: string) => void)('/create-spot');
-          }}
-          accessibilityLabel="Crear spot"
+          selected={searchActive}
+          onPress={handleToggleSearch}
+          accessibilityLabel="Buscar"
         >
-          <MapPinPlus size={24} color={colors.text} strokeWidth={2} />
+          <Search size={24} color={colors.text} strokeWidth={2} />
         </IconButton>
+        {!searchActive ? (
+          <IconButton
+            dataSet={{ flowya: 'map-create-spot-fab' }}
+            variant="default"
+            onPress={() => {
+              blurActiveElement();
+              (router.push as (href: string) => void)('/create-spot');
+            }}
+            accessibilityLabel="Crear spot"
+          >
+            <MapPinPlus size={24} color={colors.text} strokeWidth={2} />
+          </IconButton>
+        ) : null}
       </View>
     </View>
   );
@@ -580,6 +870,9 @@ const FAB_TOP = 16;
 const FAB_RIGHT = 16;
 const FLOWYA_LABEL_BOTTOM = 16;
 const FLOWYA_LABEL_LEFT = 16;
+const SEARCH_PANEL_PADDING = 16;
+/** Radio del hit area del pin seleccionado (tap → spot detail). */
+const SELECTED_PIN_HIT_RADIUS = 24;
 
 const styles = StyleSheet.create({
   mapScreenRoot: {
@@ -606,6 +899,13 @@ const styles = StyleSheet.create({
     zIndex: 9,
     backgroundColor: 'transparent',
   },
+  selectedPinHitArea: {
+    position: 'absolute',
+    width: SELECTED_PIN_HIT_RADIUS * 2,
+    height: SELECTED_PIN_HIT_RADIUS * 2,
+    zIndex: 10,
+    backgroundColor: 'transparent',
+  },
   cardOverlay: {
     position: 'absolute',
     left: CARD_OVERLAY_LEFT,
@@ -620,6 +920,64 @@ const styles = StyleSheet.create({
     top: FILTER_OVERLAY_TOP,
     alignItems: 'center',
     zIndex: 10,
+  },
+  /** Modo búsqueda: overlay a pantalla completa para que el listado use 100% del alto disponible. */
+  filterOverlaySearchActive: {
+    top: 0,
+    bottom: 0,
+    alignItems: 'stretch',
+    flexDirection: 'column',
+    paddingTop: FILTER_OVERLAY_TOP,
+    paddingHorizontal: SEARCH_PANEL_PADDING,
+  },
+  searchBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 8,
+    backgroundColor: 'transparent',
+  },
+  searchInputWrap: {
+    position: 'relative',
+    marginTop: Spacing.sm,
+  },
+  searchInput: {
+    height: 44,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.base,
+    fontSize: 16,
+  },
+  searchClearButton: {
+    position: 'absolute',
+    right: Spacing.sm,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 36,
+  },
+  searchResultsArea: {
+    flex: 1,
+    minHeight: 0,
+    marginTop: Spacing.sm,
+  },
+  searchResultsScroll: {
+    flex: 1,
+  },
+  searchResultsContent: {
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  searchResultItemWrap: {
+    width: '100%',
+  },
+  searchNoResults: {
+    marginTop: Spacing.base,
+    alignItems: 'center',
+    gap: Spacing.base,
+  },
+  searchNoResultsText: {
+    fontSize: 15,
+    textAlign: 'center',
   },
   logoutBackdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -646,6 +1004,8 @@ const styles = StyleSheet.create({
     top: FAB_TOP,
     right: FAB_RIGHT,
     zIndex: 10,
+    flexDirection: 'column',
+    gap: Spacing.xs,
   },
   flowyaLabelWrap: {
     position: 'absolute',

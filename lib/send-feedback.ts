@@ -35,7 +35,6 @@ export async function sendFeedback(payload: SendFeedbackPayload): Promise<SendFe
   };
 
   if (isDev()) {
-    console.log('[FLOWYA Feedback - dev]', body);
     return { ok: true };
   }
 

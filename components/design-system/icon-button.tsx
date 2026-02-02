@@ -34,6 +34,8 @@ export type IconButtonProps = {
   savePinState?: SavePinState;
   /** Tamaño del botón (44 por defecto). */
   size?: number;
+  /** Estado selected (persistente): mismo aspecto que pressed — bg primary, icono blanco. */
+  selected?: boolean;
   /** Web: dataSet para QA. */
   dataSet?: Record<string, string>;
   testID?: string;
@@ -49,6 +51,7 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     variant = 'default',
     savePinState = 'default',
     size = SIZE_DEFAULT,
+    selected = false,
     dataSet,
     testID,
   },
@@ -101,8 +104,12 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
           borderWidth: 1,
           ...Shadow.subtle,
           backgroundColor:
-            disabled ? restingBackgroundColor : pressed ? colors.primary : restingBackgroundColor,
-          borderColor: pressed && !disabled ? 'transparent' : restingBorderColor,
+            disabled
+              ? restingBackgroundColor
+              : pressed || selected
+                ? colors.primary
+                : restingBackgroundColor,
+          borderColor: (pressed || selected) && !disabled ? 'transparent' : restingBorderColor,
           opacity: disabled ? 0.5 : 1,
         } as ViewStyle,
         WebTouchManipulation,
@@ -116,7 +123,8 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
       accessibilityRole={accessibilityRole}
     >
       {({ pressed }) => {
-        const iconColor = pressed && !disabled ? PRESSED_ICON_COLOR : undefined;
+        const iconColor =
+          (pressed || selected) && !disabled ? PRESSED_ICON_COLOR : undefined;
         return Children.map(children, (child) =>
           isValidElement(child) && iconColor != null
             ? cloneElement(child as React.ReactElement<{ color?: string }>, { color: iconColor })

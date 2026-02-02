@@ -1,3 +1,4 @@
+// FLOWYA v0.34 — Frozen baseline (post-search)
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

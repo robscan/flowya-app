@@ -23,6 +23,7 @@ import {
     MapPinFilter,
     MapPinsShowcase,
     MapUIShowcase,
+    SearchResultsShowcase,
     SpotCard,
     SpotDetailShowcase,
     SpotImage,
@@ -453,6 +454,28 @@ export default function DesignSystemScreen() {
               onSavePin={() => {}}
               onShare={() => {}}
             />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Search result card (listado de búsqueda)
+          </Text>
+          <View
+            style={{
+              ...styles.sectionContent,
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              ...Shadow.subtle,
+            }}
+          >
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
+              SearchResultCard: card del listado de resultados de búsqueda en el mapa. Misma base
+              visual que SpotCardMapSelection pero sin botones guardar/compartir (hideActions).
+              Estados savePinState: default, toVisit, visited. SearchResultsShowcase: ejemplo de
+              varias cards apiladas como en el listado.
+            </Text>
+            <SearchResultsShowcase />
           </View>
         </View>
 

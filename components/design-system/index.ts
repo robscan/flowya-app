@@ -30,6 +30,8 @@ export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from '.
 export { MapPinCreating, MapPinExisting, MapPinLocation, MapPinSpot, MapPinsShowcase } from './map-pins';
 export type { SpotPinStatus } from './map-pins';
 export { MapUIShowcase } from './map-ui';
+export { SearchResultCard, SearchResultsShowcase } from './search-result-card';
+export type { SearchResultCardProps } from './search-result-card';
 export { SpotCard, SpotCardMapSelection } from './spot-card';
 export type { SpotCardSpot } from './spot-card';
 export { SpotDetail, SpotDetailShowcase } from './spot-detail';

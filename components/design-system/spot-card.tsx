@@ -32,6 +32,10 @@ type SpotCardMapSelectionProps = {
   savePinState?: SavePinState;
   onSavePin?: () => void;
   onShare?: () => void;
+  /** Si true, no se muestran botones guardar/compartir (ej. resultados de búsqueda). */
+  hideActions?: boolean;
+  /** Si se proporciona, el tap en la card llama a onCardPress en lugar de navegar al detalle (ej. SearchResultCard). */
+  onCardPress?: () => void;
   /** @deprecated Tap en imagen ahora navega al detalle. */
   onImagePress?: (uri: string) => void;
 };
@@ -47,12 +51,18 @@ export function SpotCardMapSelection({
   savePinState = 'default',
   onSavePin,
   onShare,
+  hideActions = false,
+  onCardPress,
 }: SpotCardMapSelectionProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const router = useRouter();
 
   const handleOpenDetail = () => {
+    if (onCardPress) {
+      onCardPress();
+      return;
+    }
     saveFocusBeforeNavigate();
     blurActiveElement();
     router.push(`/spot/${spot.id}` as const);
@@ -60,6 +70,11 @@ export function SpotCardMapSelection({
 
   const savePinIconColor =
     savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.background;
+
+  const cardPressLabel = onCardPress
+    ? `Seleccionar ${spot.title}`
+    : `Ver detalle de ${spot.title}`;
+  const cardPressRole = onCardPress ? 'button' : 'link';
 
   const thumbnailContent = (
     <View style={styles.thumbnailBox}>
@@ -88,14 +103,14 @@ export function SpotCardMapSelection({
           },
         ]}
       >
-        {/* Columna izquierda: imagen/placeholder. Tap → detalle. */}
+        {/* Columna izquierda: imagen/placeholder. Tap → detalle o onCardPress. */}
         <View style={styles.leftColumn}>
           <Pressable
             dataSet={{ flowya: 'spot-card-thumbnail' }}
             style={styles.thumbnailWrap}
             onPress={handleOpenDetail}
-            accessibilityRole="link"
-            accessibilityLabel={`Ver detalle de ${spot.title}`}
+            accessibilityRole={cardPressRole}
+            accessibilityLabel={cardPressLabel}
           >
             {thumbnailContent}
           </Pressable>
@@ -106,8 +121,8 @@ export function SpotCardMapSelection({
           <Pressable
             style={styles.titleBlock}
             onPress={handleOpenDetail}
-            accessibilityRole="link"
-            accessibilityLabel={`Ver detalle de ${spot.title}`}
+            accessibilityRole={cardPressRole}
+            accessibilityLabel={cardPressLabel}
           >
             <Text
               dataSet={{ flowya: 'spot-card-title' }}
@@ -121,8 +136,8 @@ export function SpotCardMapSelection({
             <Pressable
               style={styles.descriptionBlock}
               onPress={handleOpenDetail}
-              accessibilityRole="link"
-              accessibilityLabel={`Ver detalle de ${spot.title}`}
+              accessibilityRole={cardPressRole}
+              accessibilityLabel={cardPressLabel}
             >
               <Text
                 dataSet={{ flowya: 'spot-card-description' }}
@@ -136,7 +151,7 @@ export function SpotCardMapSelection({
       </View>
 
       {/* Botones flotando fuera de la card, sobre la imagen, alineados izquierda */}
-      {(onSavePin || onShare) ? (
+      {!hideActions && (onSavePin || onShare) ? (
         <View
           dataSet={{ flowya: 'spot-card-actions' }}
           style={styles.floatingActions}
