@@ -91,7 +91,7 @@ function SpotDetailMapSlot({
       (pos) => {
         mapInstance.flyTo({
           center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 14,
+          zoom: 15,
           duration: 1500,
         });
       },

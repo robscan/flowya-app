@@ -4,7 +4,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Search, User, X } from 'lucide-react-native';
+import { LogOut, Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent, MapLayerMouseEvent, MapLayerTouchEvent } from 'react-map-gl/mapbox-legacy';
@@ -313,16 +313,16 @@ export default function MapScreen() {
         setUserCoords(coords);
         mapInstance.flyTo({
           center: [coords.longitude, coords.latitude],
-          zoom: 14,
-          duration: 1.5,
+          zoom: 15,
+          duration: 1500,
         });
       },
       () => {
         if (userCoords) {
           mapInstance.flyTo({
             center: [userCoords.longitude, userCoords.latitude],
-            zoom: 14,
-            duration: 1.5,
+            zoom: 15,
+            duration: 1500,
           });
         }
       },
@@ -755,15 +755,6 @@ export default function MapScreen() {
           </View>
         </>
       ) : null}
-      {showLogoutOption && isAuthUser ? (
-        <Pressable
-          dataSet={{ flowya: 'map-logout-backdrop' }}
-          style={styles.logoutBackdrop}
-          onPress={() => setShowLogoutOption(false)}
-          accessibilityLabel="Cerrar opción de salir"
-          accessibilityRole="button"
-        />
-      ) : null}
       <Pressable
         dataSet={{ flowya: 'map-flowya-label' }}
         style={[styles.flowyaLabelWrap, WebTouchManipulation]}
@@ -929,13 +920,18 @@ export default function MapScreen() {
         </IconButton>
         {showLogoutOption && isAuthUser ? (
           <View style={styles.logoutButtonWrap}>
-            <IconButton
-              variant="default"
+            <Pressable
+              dataSet={{ flowya: 'map-logout-button' }}
+              style={({ pressed }) => [
+                styles.logoutButtonFloating,
+                pressed && styles.logoutButtonFloatingPressed,
+              ]}
               onPress={handleLogoutPress}
-              accessibilityLabel="Salir de la cuenta"
+              accessibilityLabel="Cerrar sesión"
+              accessibilityRole="button"
             >
-              <X size={24} color={colors.stateError} strokeWidth={2} />
-            </IconButton>
+              <LogOut size={24} color={colors.stateError} strokeWidth={2} />
+            </Pressable>
           </View>
         ) : null}
         </View>
@@ -965,7 +961,10 @@ export default function MapScreen() {
         cancelLabel="Cancelar"
         variant="destructive"
         onConfirm={handleLogoutConfirm}
-        onCancel={() => setShowLogoutConfirm(false)}
+        onCancel={() => {
+          setShowLogoutConfirm(false);
+          setShowLogoutOption(false);
+        }}
         dataSet={{ flowya: 'logout-confirm-modal' }}
       />
       <FlowyaBetaModal
@@ -1123,11 +1122,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
   },
-  logoutBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-    backgroundColor: 'transparent',
-  },
   profileButtonOverlay: {
     position: 'absolute',
     top: PROFILE_BUTTON_TOP,
@@ -1136,6 +1130,17 @@ const styles = StyleSheet.create({
   },
   logoutButtonWrap: {
     marginTop: 8,
+  },
+  logoutButtonFloating: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoutButtonFloatingPressed: {
+    opacity: 0.85,
   },
   controlsOverlay: {
     position: 'absolute',
