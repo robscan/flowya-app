@@ -17,7 +17,7 @@ import { uploadSpotCover } from '@/lib/spot-image-upload';
 import { supabase } from '@/lib/supabase';
 import { HeaderBackButton, type HeaderBackButtonProps } from '@react-navigation/elements';
 import { Image } from 'expo-image';
-import { useNavigation, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import {
@@ -37,8 +37,77 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 export default function CreateSpotScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    lat?: string;
+    lng?: string;
+    from?: string;
+    mapLng?: string;
+    mapLat?: string;
+    mapZoom?: string;
+    mapBearing?: string;
+    mapPitch?: string;
+  }>();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+
+  const initialLatitude =
+    params.lat != null && params.lng != null
+      ? (() => {
+          const n = Number.parseFloat(params.lat!);
+          return Number.isFinite(n) ? n : undefined;
+        })()
+      : undefined;
+  const initialLongitude =
+    params.lat != null && params.lng != null
+      ? (() => {
+          const n = Number.parseFloat(params.lng!);
+          return Number.isFinite(n) ? n : undefined;
+        })()
+      : undefined;
+
+  const hasMapViewParams =
+    params.mapLng != null &&
+    params.mapLat != null &&
+    params.mapZoom != null;
+  const initialViewLongitude = hasMapViewParams
+    ? (() => {
+        const n = Number.parseFloat(params.mapLng!);
+        return Number.isFinite(n) ? n : undefined;
+      })()
+    : undefined;
+  const initialViewLatitude = hasMapViewParams
+    ? (() => {
+        const n = Number.parseFloat(params.mapLat!);
+        return Number.isFinite(n) ? n : undefined;
+      })()
+    : undefined;
+  const initialViewZoom = hasMapViewParams
+    ? (() => {
+        const n = Number.parseFloat(params.mapZoom!);
+        return Number.isFinite(n) ? n : undefined;
+      })()
+    : undefined;
+  const initialViewBearing =
+    params.mapBearing != null
+      ? (() => {
+          const n = Number.parseFloat(params.mapBearing);
+          return Number.isFinite(n) ? n : undefined;
+        })()
+      : undefined;
+  const initialViewPitch =
+    params.mapPitch != null
+      ? (() => {
+          const n = Number.parseFloat(params.mapPitch);
+          return Number.isFinite(n) ? n : undefined;
+        })()
+      : undefined;
+
+  const preserveView =
+    initialLatitude != null &&
+    initialLongitude != null &&
+    initialViewLongitude != null &&
+    initialViewLatitude != null &&
+    initialViewZoom != null;
 
   const [step, setStep] = useState<Step>(1);
   const [location, setLocation] = useState<MapLocationPickerResult | null>(null);
@@ -253,9 +322,12 @@ export default function CreateSpotScreen() {
     navigation.setOptions({
       title,
       headerTitleAlign: 'center',
-      headerLeft: (props: HeaderBackButtonProps) => (
-        <HeaderBackButton {...props} onPress={handleBack} />
-      ),
+      headerLeft:
+        step === 1
+          ? () => null
+          : (props: HeaderBackButtonProps) => (
+              <HeaderBackButton {...props} onPress={handleBack} />
+            ),
       headerRight: () => (
         <Pressable
           onPress={handleClose}
@@ -319,6 +391,17 @@ export default function CreateSpotScreen() {
                 <MapLocationPicker
                   onConfirm={handleLocationConfirm}
                   spotTitle={title.trim() || undefined}
+                  initialLatitude={initialLatitude}
+                  initialLongitude={initialLongitude}
+                  {...(preserveView
+                    ? {
+                        initialViewLongitude,
+                        initialViewLatitude,
+                        initialViewZoom,
+                        initialViewBearing,
+                        initialViewPitch,
+                      }
+                    : {})}
                 />
               </View>
             )}

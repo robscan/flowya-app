@@ -4,10 +4,10 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { MapPinPlus, Search, User, X } from 'lucide-react-native';
+import { Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapEvent } from 'react-map-gl/mapbox-legacy';
+import type { MapEvent, MapLayerMouseEvent, MapLayerTouchEvent } from 'react-map-gl/mapbox-legacy';
 import Map, { Marker } from 'react-map-gl/mapbox-legacy';
 import {
     Platform,
@@ -144,7 +144,11 @@ export default function MapScreen() {
   );
   const mapRootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
   const isFocused = useIsFocused();
+
+  const LONG_PRESS_MS = 500;
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -283,43 +287,95 @@ export default function MapScreen() {
   const FIT_BOUNDS_PADDING = 64;
   const FIT_BOUNDS_DURATION_MS = 1200;
 
+  const geoOptions: PositionOptions = {
+    enableHighAccuracy: true,
+    timeout: 10000,
+    maximumAge: 300000,
+  };
+
+  /** Ubicación actual: refresca coords y centra en el usuario. Si getCurrentPosition falla, usa userCoords existentes y no bloquea. */
+  const handleLocate = useCallback(() => {
+    if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords: UserCoords = {
+          latitude: pos.coords.latitude,
+          longitude: pos.coords.longitude,
+        };
+        setUserCoords(coords);
+        mapInstance.flyTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: 14,
+          duration: 1.5,
+        });
+      },
+      () => {
+        if (userCoords) {
+          mapInstance.flyTo({
+            center: [userCoords.longitude, userCoords.latitude],
+            zoom: 14,
+            duration: 1.5,
+          });
+        }
+      },
+      geoOptions
+    );
+  }, [mapInstance, userCoords]);
+
   /**
    * Encuadra el mapa mostrando: ubicación del usuario (si existe) + spots visibles según filtro.
-   * Nunca deja fuera al usuario. Comportamiento: "recentrar todo lo importante".
+   * Refresca la ubicación antes; si getCurrentPosition falla, usa userCoords existentes y no bloquea el encuadre.
    */
   const handleViewAll = useCallback(() => {
     if (!mapInstance || filteredSpots.length === 0) return;
-    const pts: { longitude: number; latitude: number }[] = userCoords
-      ? [
-          { longitude: userCoords.longitude, latitude: userCoords.latitude },
-          ...filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude })),
-        ]
-      : filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude }));
-
-    if (pts.length === 1) {
-      mapInstance.flyTo({
-        center: [pts[0].longitude, pts[0].latitude],
-        zoom: 14,
-        duration: FIT_BOUNDS_DURATION_MS / 1000,
-      });
-    } else {
-      let minLng = Infinity;
-      let minLat = Infinity;
-      let maxLng = -Infinity;
-      let maxLat = -Infinity;
-      for (const p of pts) {
-        minLng = Math.min(minLng, p.longitude);
-        minLat = Math.min(minLat, p.latitude);
-        maxLng = Math.max(maxLng, p.longitude);
-        maxLat = Math.max(maxLat, p.latitude);
+    const runFitBounds = (coords: UserCoords) => {
+      const pts: { longitude: number; latitude: number }[] = coords
+        ? [
+            { longitude: coords.longitude, latitude: coords.latitude },
+            ...filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude })),
+          ]
+        : filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude }));
+      if (pts.length === 1) {
+        mapInstance.flyTo({
+          center: [pts[0].longitude, pts[0].latitude],
+          zoom: 14,
+          duration: FIT_BOUNDS_DURATION_MS / 1000,
+        });
+      } else {
+        let minLng = Infinity;
+        let minLat = Infinity;
+        let maxLng = -Infinity;
+        let maxLat = -Infinity;
+        for (const p of pts) {
+          minLng = Math.min(minLng, p.longitude);
+          minLat = Math.min(minLat, p.latitude);
+          maxLng = Math.max(maxLng, p.longitude);
+          maxLat = Math.max(maxLat, p.latitude);
+        }
+        mapInstance.fitBounds(
+          [
+            [minLng, minLat],
+            [maxLng, maxLat],
+          ],
+          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+        );
       }
-      mapInstance.fitBounds(
-        [
-          [minLng, minLat],
-          [maxLng, maxLat],
-        ],
-        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+    };
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const coords: UserCoords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+          setUserCoords(coords);
+          runFitBounds(coords);
+        },
+        () => runFitBounds(userCoords),
+        geoOptions
       );
+    } else {
+      runFitBounds(userCoords);
     }
   }, [mapInstance, filteredSpots, userCoords]);
 
@@ -395,12 +451,6 @@ export default function MapScreen() {
     setSearchActive(false);
   }, []);
 
-  /** Cerrar y limpiar búsqueda (ej. al ir a Create spot). */
-  const handleCloseSearch = useCallback(() => {
-    setSearchActive(false);
-    setSearchQuery('');
-  }, []);
-
   /** Botón clear: vacía el input y mantiene modo búsqueda; la X es el único mecanismo para cancelar explícitamente. */
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
@@ -448,10 +498,61 @@ export default function MapScreen() {
   );
 
   const handleCreateSpotFromSearch = useCallback(() => {
-    exitSearchMode();
+    setSelectedSpot(null);
+    setSearchActive(false);
     blurActiveElement();
-    (router.push as (href: string) => void)('/create-spot');
-  }, [exitSearchMode, router]);
+    (router.push as (href: string) => void)('/create-spot?from=search');
+  }, [router]);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current !== null) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressLngLatRef.current = null;
+  }, []);
+
+  const handleMapLongPress = useCallback(() => {
+    const coords = longPressLngLatRef.current;
+    longPressLngLatRef.current = null;
+    if (!coords) return;
+    setSelectedSpot(null);
+    setSearchActive(false);
+    blurActiveElement();
+    let query = `lat=${coords.lat}&lng=${coords.lng}`;
+    if (mapInstance) {
+      const center = mapInstance.getCenter();
+      const zoom = mapInstance.getZoom();
+      const bearing = mapInstance.getBearing();
+      const pitch = mapInstance.getPitch();
+      query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${zoom}`;
+      if (bearing !== 0) query += `&mapBearing=${bearing}`;
+      if (pitch !== 0) query += `&mapPitch=${pitch}`;
+    }
+    (router.push as (href: string) => void)(`/create-spot?${query}`);
+  }, [router, mapInstance]);
+
+  const handleMapPointerDown = useCallback(
+    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapLayerMouseEvent).lngLat;
+      if (!lngLat) return;
+      longPressLngLatRef.current = { lat: lngLat.lat, lng: lngLat.lng };
+      longPressTimerRef.current = setTimeout(handleMapLongPress, LONG_PRESS_MS);
+    },
+    [handleMapLongPress]
+  );
+
+  const handleMapPointerUp = useCallback(() => {
+    clearLongPressTimer();
+  }, [clearLongPressTimer]);
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current !== null) {
+        clearTimeout(longPressTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleSavePin = useCallback(
     async (spot: Spot) => {
@@ -519,6 +620,11 @@ export default function MapScreen() {
         initialViewState={FALLBACK_VIEW}
         style={styles.map}
         onLoad={onMapLoad}
+        onMouseDown={handleMapPointerDown}
+        onMouseUp={handleMapPointerUp}
+        onMouseLeave={handleMapPointerUp}
+        onTouchStart={handleMapPointerDown}
+        onTouchEnd={handleMapPointerUp}
       >
         {userCoords ? (
           <Marker
@@ -549,32 +655,8 @@ export default function MapScreen() {
           </Marker>
         ))}
       </Map>
-      {searchActive ? (
-        <Pressable
-          dataSet={{ flowya: 'map-search-backdrop' }}
-          style={styles.searchBackdrop}
-          onPress={exitSearchMode}
-          accessibilityLabel="Cerrar búsqueda"
-          accessibilityRole="button"
-        />
-      ) : null}
-      {selectedSpot ? (
+      {selectedSpot && !searchActive ? (
         <>
-          <View
-            dataSet={{ flowya: 'map-spot-card-backdrop' }}
-            style={styles.cardBackdrop}
-            onTouchMove={() => setSelectedSpot(null)}
-            onMouseMove={(e) => {
-              if (e.buttons !== 0) setSelectedSpot(null);
-            }}
-          >
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => setSelectedSpot(null)}
-              accessibilityLabel="Cerrar selección"
-              accessibilityRole="button"
-            />
-          </View>
           {selectedPinScreenPos ? (
             <Pressable
               dataSet={{ flowya: 'map-selected-pin-hit-area' }}
@@ -605,6 +687,7 @@ export default function MapScreen() {
               }
               onSavePin={() => handleSavePin(selectedSpot)}
               onShare={() => handleShare(selectedSpot)}
+              onClose={() => setSelectedSpot(null)}
             />
           </View>
         </>
@@ -801,6 +884,7 @@ export default function MapScreen() {
         >
           <MapControls
             map={mapInstance}
+            onLocate={handleLocate}
             onViewAll={handleViewAll}
             hasVisibleSpots={filteredSpots.length > 0}
           />
@@ -832,23 +916,14 @@ export default function MapScreen() {
           variant="default"
           selected={searchActive}
           onPress={handleToggleSearch}
-          accessibilityLabel="Buscar"
+          accessibilityLabel={searchActive ? 'Cerrar búsqueda' : 'Buscar'}
         >
-          <Search size={24} color={colors.text} strokeWidth={2} />
+          {searchActive ? (
+            <X size={24} color={colors.text} strokeWidth={2} />
+          ) : (
+            <Search size={24} color={colors.text} strokeWidth={2} />
+          )}
         </IconButton>
-        {!searchActive ? (
-          <IconButton
-            dataSet={{ flowya: 'map-create-spot-fab' }}
-            variant="default"
-            onPress={() => {
-              blurActiveElement();
-              (router.push as (href: string) => void)('/create-spot');
-            }}
-            accessibilityLabel="Crear spot"
-          >
-            <MapPinPlus size={24} color={colors.text} strokeWidth={2} />
-          </IconButton>
-        ) : null}
       </View>
     </View>
   );
@@ -894,11 +969,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  cardBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9,
-    backgroundColor: 'transparent',
-  },
   selectedPinHitArea: {
     position: 'absolute',
     width: SELECTED_PIN_HIT_RADIUS * 2,
@@ -929,11 +999,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     paddingTop: FILTER_OVERLAY_TOP,
     paddingHorizontal: SEARCH_PANEL_PADDING,
-  },
-  searchBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 8,
-    backgroundColor: 'transparent',
   },
   searchInputWrap: {
     position: 'relative',

@@ -47,6 +47,12 @@ export type MapLocationPickerProps = {
   /** Edit Spot: ubicación inicial del pin (sin centrar en usuario). */
   initialLatitude?: number;
   initialLongitude?: number;
+  /** Entrada desde mapa (long-press): vista a preservar; no se hace flyTo ni centrado. */
+  initialViewLongitude?: number;
+  initialViewLatitude?: number;
+  initialViewZoom?: number;
+  initialViewBearing?: number;
+  initialViewPitch?: number;
 };
 
 function tryCenterOnUser(
@@ -75,12 +81,24 @@ export function MapLocationPicker({
   spotTitle,
   initialLatitude,
   initialLongitude,
+  initialViewLongitude,
+  initialViewLatitude,
+  initialViewZoom,
+  initialViewBearing,
+  initialViewPitch,
 }: MapLocationPickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const hasInitialCoords =
     initialLatitude != null && initialLongitude != null;
+  const preserveView =
+    initialViewLongitude != null &&
+    initialViewLatitude != null &&
+    initialViewZoom != null &&
+    Number.isFinite(initialViewLongitude) &&
+    Number.isFinite(initialViewLatitude) &&
+    Number.isFinite(initialViewZoom);
   const [state, setState] = useState<MapLocationPickerState>(
     hasInitialCoords ? 'selecting' : 'empty'
   );
@@ -112,6 +130,10 @@ export function MapLocationPicker({
     (e: MapEvent) => {
       const map = e.target;
       setMapInstance(map);
+      if (preserveView) {
+        // Vista preservada desde mapa (long-press): no flyTo ni centrado.
+        return;
+      }
       if (hasInitialCoords && initialLatitude != null && initialLongitude != null) {
         map.flyTo({
           center: [initialLongitude, initialLatitude],
@@ -125,7 +147,7 @@ export function MapLocationPicker({
         });
       }
     },
-    [hasInitialCoords, initialLatitude, initialLongitude]
+    [preserveView, hasInitialCoords, initialLatitude, initialLongitude]
   );
 
   const onMapClick = useCallback((e: MapLayerMouseEvent) => {
@@ -161,13 +183,25 @@ export function MapLocationPicker({
   const mapStyle =
     colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
 
-  const initialViewState = hasInitialCoords
+  const initialViewState = preserveView
     ? {
-        longitude: initialLongitude!,
-        latitude: initialLatitude!,
-        zoom: 14,
+        longitude: initialViewLongitude!,
+        latitude: initialViewLatitude!,
+        zoom: initialViewZoom!,
+        ...(initialViewBearing != null && Number.isFinite(initialViewBearing)
+          ? { bearing: initialViewBearing }
+          : {}),
+        ...(initialViewPitch != null && Number.isFinite(initialViewPitch)
+          ? { pitch: initialViewPitch }
+          : {}),
       }
-    : FALLBACK_VIEW;
+    : hasInitialCoords
+      ? {
+          longitude: initialLongitude!,
+          latitude: initialLatitude!,
+          zoom: 14,
+        }
+      : FALLBACK_VIEW;
 
   return (
     <View style={styles.container} dataSet={{ flowya: 'map-location-picker' }}>
