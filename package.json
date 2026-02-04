@@ -1,6 +1,6 @@
 {
   "name": "flowya-app",
-  "description": "FLOWYA v0.34 — Frozen baseline (post-search)",
+  "description": "FLOWYA — V26.02.002 (bitácoras 001 consulta spots, 002 create-spot modo ubicación)",
   "main": "expo-router/entry",
   "version": "0.34.0",
   "scripts": {

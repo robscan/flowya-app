@@ -3,12 +3,12 @@
  * Card que aparece al seleccionar un pin en el mapa.
  * Layout: 2 columnas. Izquierda: SpotImage full-height.
  * Derecha: título, descripción.
- * Botones guardar/compartir flotando sobre la imagen (fuera del contenedor, alineados izquierda).
- * Altura definida por el contenido de la columna derecha. Se cierra al tocar fuera.
+ * Botones guardar/compartir flotando sobre la imagen (alineados izquierda).
+ * Si onClose está definida, botón X flotante a la derecha para cerrar.
  */
 
 import { useRouter } from 'expo-router';
-import { Pin, Share2 } from 'lucide-react-native';
+import { Pin, Share2, X } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -32,6 +32,8 @@ type SpotCardMapSelectionProps = {
   savePinState?: SavePinState;
   onSavePin?: () => void;
   onShare?: () => void;
+  /** Si se proporciona, se muestra botón X para cerrar la card (solo en mapa). */
+  onClose?: () => void;
   /** Si true, no se muestran botones guardar/compartir (ej. resultados de búsqueda). */
   hideActions?: boolean;
   /** Si se proporciona, el tap en la card llama a onCardPress en lugar de navegar al detalle (ej. SearchResultCard). */
@@ -46,11 +48,14 @@ const ACTIONS_ICON_SIZE = 18;
 const ACTIONS_BUTTON_SIZE = 36;
 const ICON_ON_STATE = '#ffffff';
 
+const CLOSE_BUTTON_SIZE = 36;
+
 export function SpotCardMapSelection({
   spot,
   savePinState = 'default',
   onSavePin,
   onShare,
+  onClose,
   hideActions = false,
   onCardPress,
 }: SpotCardMapSelectionProps) {
@@ -150,40 +155,54 @@ export function SpotCardMapSelection({
         </View>
       </View>
 
-      {/* Botones flotando fuera de la card, sobre la imagen, alineados izquierda */}
-      {!hideActions && (onSavePin || onShare) ? (
-        <View
-          dataSet={{ flowya: 'spot-card-actions' }}
-          style={styles.floatingActions}
-          pointerEvents="box-none"
-        >
-          <View style={styles.actionsStack}>
-            {onSavePin ? (
-              <IconButton
-                dataSet={{ flowya: 'spot-card-save-pin' }}
-                variant="savePin"
-                savePinState={savePinState}
-                size={ACTIONS_BUTTON_SIZE}
-                onPress={onSavePin}
-                accessibilityLabel="Guardar pin"
-              >
-                <Pin size={ACTIONS_ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
-              </IconButton>
-            ) : null}
-            {onShare ? (
-              <IconButton
-                dataSet={{ flowya: 'spot-card-share' }}
-                variant="default"
-                size={ACTIONS_BUTTON_SIZE}
-                onPress={onShare}
-                accessibilityLabel="Compartir"
-              >
-                <Share2 size={ACTIONS_ICON_SIZE} color={colors.text} strokeWidth={2} />
-              </IconButton>
-            ) : null}
+      {/* Botones flotando fuera de la card: izquierda guardar/compartir; derecha cerrar (si onClose) */}
+      <View
+        dataSet={{ flowya: 'spot-card-floating-row' }}
+        style={styles.floatingRow}
+        pointerEvents="box-none"
+      >
+        {!hideActions && (onSavePin || onShare) ? (
+          <View dataSet={{ flowya: 'spot-card-actions' }} style={styles.floatingActions}>
+            <View style={styles.actionsStack}>
+              {onSavePin ? (
+                <IconButton
+                  dataSet={{ flowya: 'spot-card-save-pin' }}
+                  variant="savePin"
+                  savePinState={savePinState}
+                  size={ACTIONS_BUTTON_SIZE}
+                  onPress={onSavePin}
+                  accessibilityLabel="Guardar pin"
+                >
+                  <Pin size={ACTIONS_ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
+                </IconButton>
+              ) : null}
+              {onShare ? (
+                <IconButton
+                  dataSet={{ flowya: 'spot-card-share' }}
+                  variant="default"
+                  size={ACTIONS_BUTTON_SIZE}
+                  onPress={onShare}
+                  accessibilityLabel="Compartir"
+                >
+                  <Share2 size={ACTIONS_ICON_SIZE} color={colors.text} strokeWidth={2} />
+                </IconButton>
+              ) : null}
+            </View>
           </View>
-        </View>
-      ) : null}
+        ) : null}
+        {onClose ? (
+          <Pressable
+            dataSet={{ flowya: 'spot-card-close' }}
+            style={[styles.closeButton, { backgroundColor: colors.borderSubtle }]}
+            onPress={onClose}
+            hitSlop={12}
+            accessibilityLabel="Cerrar"
+            accessibilityRole="button"
+          >
+            <X size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -207,13 +226,27 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     gap: Spacing.sm,
   },
-  floatingActions: {
+  floatingRow: {
     position: 'absolute',
     top: -44,
     left: 0,
+    right: 0,
     zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    pointerEvents: 'box-none',
+  },
+  floatingActions: {
     alignItems: 'flex-start',
     justifyContent: 'flex-start',
+  },
+  closeButton: {
+    width: CLOSE_BUTTON_SIZE,
+    height: CLOSE_BUTTON_SIZE,
+    borderRadius: CLOSE_BUTTON_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   leftColumn: {
     position: 'relative',

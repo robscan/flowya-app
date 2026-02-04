@@ -8,7 +8,7 @@
  * - Estados: default, pressed, disabled (cuando no hay spots visibles).
  */
 
-import { Locate, Minus, Plus } from 'lucide-react-native';
+import { Locate } from 'lucide-react-native';
 
 import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -38,14 +38,6 @@ export function MapControls({ map, onLocate, onViewAll, hasVisibleSpots = false 
   const enabled = map !== null;
   const iconColor = enabled ? colors.text : colors.textSecondary;
   const viewAllEnabled = enabled && hasVisibleSpots && typeof onViewAll === 'function';
-
-  const handleZoomIn = () => {
-    if (enabled && map) map.zoomIn();
-  };
-
-  const handleZoomOut = () => {
-    if (enabled && map) map.zoomOut();
-  };
 
   const handleLocate = () => {
     if (onLocate) onLocate();
@@ -78,24 +70,6 @@ export function MapControls({ map, onLocate, onViewAll, hasVisibleSpots = false 
           color={viewAllEnabled ? colors.text : colors.textSecondary}
           strokeWidth={2}
         />
-      </IconButton>
-      <IconButton
-        dataSet={{ flowya: 'map-controls-zoom-in' }}
-        variant="default"
-        onPress={handleZoomIn}
-        disabled={!enabled}
-        accessibilityLabel="Zoom in"
-      >
-        <Plus size={ICON_SIZE} color={iconColor} strokeWidth={2} />
-      </IconButton>
-      <IconButton
-        dataSet={{ flowya: 'map-controls-zoom-out' }}
-        variant="default"
-        onPress={handleZoomOut}
-        disabled={!enabled}
-        accessibilityLabel="Zoom out"
-      >
-        <Minus size={ICON_SIZE} color={iconColor} strokeWidth={2} />
       </IconButton>
       <IconButton
         dataSet={{ flowya: 'map-controls-locate' }}

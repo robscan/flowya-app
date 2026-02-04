@@ -20,8 +20,9 @@ Definir y aplicar un único modo de entrada a Create Spot y las reglas de ubicac
 
 ### Desde el mapa
 
-- **Única acción:** long-press (mantener dedo/ratón ~500 ms) sobre el mapa.
-- Al detectar long-press: se cierra SpotCard (`setSelectedSpot(null)`), se cierra Search (`setSearchActive(false)`), y se navega a `/create-spot?lat=…&lng=…` con el punto bajo el cursor/dedo.
+- **Única acción:** long-press firme (mantener dedo/ratón **3 segundos**) sobre el mapa. Comportamiento alineado con Google Maps.
+- Si hay **movimiento o arrastre** por encima de un umbral (~10 px) antes de que venza el tiempo, el long-press se **cancela** (timer y refs se limpian en `onMouseMove`/`onTouchMove`).
+- Al detectar long-press: se cierra SpotCard y Search; se muestra un **modal de confirmación** (“¿Crear spot aquí?”) con opción “No volver a mostrar” (persistencia en `localStorage`). Si el usuario ya eligió no mostrar, se navega directamente a `/create-spot?lat=…&lng=…` con el punto y la vista actual.
 - Un tap corto no abre Create Spot; el timer se cancela en `onMouseUp`, `onTouchEnd` y `onMouseLeave`.
 
 ### Desde Search
@@ -77,4 +78,47 @@ Revertir la rama `scope/create-spot-location-v1` (o no mergear) restaura: FAB co
 
 ## Cierre del scope
 
-**Estado:** Cerrado. El scope create-spot-location-v1 (incluido el ajuste incremental de continuidad de mapa) está completo y funcional. No se abren nuevos scopes ni refactors adicionales con este cierre.
+**Estado:** Cerrado.
+
+**Scopes cerrados en este release:** scope/map-spot-consultation-v1, scope/create-spot-location-v1.
+
+**Confirmación:** Los ajustes post-auditoría (botón X en SpotCard, eliminación de Zoom In/Out, FAB Search X con fondo negro e icono rojo, long-press 3 s con cancelación por movimiento, modal de confirmación y “No volver a mostrar”) quedaron aplicados. El comportamiento en producción coincide con la documentación de las bitácoras 001 y 002. Release: **FLOWYA V26.02.002**.
+
+---
+
+## Auditoría post-suggested-scope
+
+**Implementado (scope create-spot-location-v1):**
+
+- FAB sin botón Create Spot en el mapa; solo Search/X.
+- Entrada a Create Spot por long-press en el mapa (3 s, cancelación por movimiento) con modal de confirmación y opción “No volver a mostrar”; luego `lat`/`lng` y params de vista (`mapLng`, `mapLat`, `mapZoom`); cancelación del timer en `onMouseUp`/`onTouchEnd`/`onMouseLeave`.
+- Entrada desde Search: `handleCreateSpotFromSearch` cierra SpotCard y Search y navega a `/create-spot?from=search`.
+- Create Spot paso 1: header solo botón X; a partir del paso 2, flecha atrás.
+- Continuidad de vista: MapLocationPicker recibe vista preservada y no ejecuta flyTo cuando hay params de vista.
+
+**Implementado (scope map-spot-consultation-v1, mismo código):**
+
+- Search: salida solo con botón X del FAB; no existe cierre por tap fuera (sin searchBackdrop).
+- SpotCard solo visible cuando `selectedSpot && !searchActive`.
+
+**No implementado o incoherente con bitácora (corregido en esta sesión):**
+
+- **SpotCard:** La bitácora 001 declara botón X y prop `onClose`; el código pasaba `onClose` pero el componente no lo aceptaba ni mostraba el X. **Corregido:** añadida prop `onClose` y botón X flotante a la derecha.
+- **MapControls:** La bitácora 001 declara Zoom In/Zoom Out eliminados; en código seguían presentes. **Corregido:** eliminados Plus/Minus; solo quedan Ver todos y Ubicación actual.
+
+---
+
+## Correcciones aplicadas (post-auditoría)
+
+- **SpotCardMapSelection:** prop `onClose` añadida al tipo; cuando está definida se muestra un botón X circular a la derecha de la card (mismo tamaño que acciones). Cierre solo con ese botón (sin tap fuera).
+- **MapControls:** eliminados botones Zoom In y Zoom Out; el zoom se hace solo por gestos (pinch). Controles visibles: Ver todos los spots, Ubicación actual.
+- **FAB Search (botón X):** cuando el modo búsqueda está activo, el FAB muestra fondo negro e icono rojo (`stateError`) para “Cerrar búsqueda”; estado pressed con opacidad 0,85.
+
+---
+
+## Ajustes finales Create Spot
+
+- **Long-press firme:** umbral de **3 segundos** (ajustado desde 4 s tras feedback; antes 500 ms). Cancelación si el puntero/dedo se mueve por encima de ~10 px (`onMouseMove`/`onTouchMove`).
+- **Modal de confirmación:** nuevo modal (mismo diseño del DS: backdrop, sheet, título, botones) antes de entrar a Create Spot. Título “¿Crear spot aquí?”; mensaje explicativo; botones Cancelar y “Crear spot”. No se reutiliza `ConfirmModal` (componente nuevo `CreateSpotConfirmModal`).
+- **Checkbox “No volver a mostrar”:** en el modal; si el usuario lo marca y confirma, se persiste en `localStorage` (`flowya_create_spot_skip_confirm` = `'true'`). En long-presses posteriores se navega directamente sin mostrar el modal.
+- Sin cambios en backend, guardado, validaciones ni animaciones; consola limpia.

@@ -33,6 +33,7 @@ import { SearchResultCard } from '@/components/design-system/search-result-card'
 import { SpotCard } from '@/components/design-system/spot-card';
 import { TypographyStyles } from '@/components/design-system/typography';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { CreateSpotConfirmModal } from '@/components/ui/create-spot-confirm-modal';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { useToast } from '@/components/ui/toast';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
@@ -142,13 +143,20 @@ export default function MapScreen() {
   const [selectedPinScreenPos, setSelectedPinScreenPos] = useState<{ x: number; y: number } | null>(
     null
   );
+  const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] = useState(false);
+  const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const mapRootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
+  const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const isFocused = useIsFocused();
 
-  const LONG_PRESS_MS = 500;
+  const LONG_PRESS_MS = 3000;
+  const LONG_PRESS_DRAG_THRESHOLD_PX = 10;
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -510,7 +518,27 @@ export default function MapScreen() {
       longPressTimerRef.current = null;
     }
     longPressLngLatRef.current = null;
+    longPressPointerStartRef.current = null;
   }, []);
+
+  const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
+
+  const navigateToCreateSpot = useCallback(
+    (coords: { lat: number; lng: number }) => {
+      let query = `lat=${coords.lat}&lng=${coords.lng}`;
+      if (mapInstance) {
+        const center = mapInstance.getCenter();
+        const zoom = mapInstance.getZoom();
+        const bearing = mapInstance.getBearing();
+        const pitch = mapInstance.getPitch();
+        query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${zoom}`;
+        if (bearing !== 0) query += `&mapBearing=${bearing}`;
+        if (pitch !== 0) query += `&mapPitch=${pitch}`;
+      }
+      (router.push as (href: string) => void)(`/create-spot?${query}`);
+    },
+    [router, mapInstance]
+  );
 
   const handleMapLongPress = useCallback(() => {
     const coords = longPressLngLatRef.current;
@@ -519,27 +547,60 @@ export default function MapScreen() {
     setSelectedSpot(null);
     setSearchActive(false);
     blurActiveElement();
-    let query = `lat=${coords.lat}&lng=${coords.lng}`;
-    if (mapInstance) {
-      const center = mapInstance.getCenter();
-      const zoom = mapInstance.getZoom();
-      const bearing = mapInstance.getBearing();
-      const pitch = mapInstance.getPitch();
-      query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${zoom}`;
-      if (bearing !== 0) query += `&mapBearing=${bearing}`;
-      if (pitch !== 0) query += `&mapPitch=${pitch}`;
+    const skipConfirm =
+      typeof localStorage !== 'undefined' &&
+      localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
+    if (skipConfirm) {
+      navigateToCreateSpot(coords);
+    } else {
+      setPendingCreateSpotCoords(coords);
+      setShowCreateSpotConfirmModal(true);
     }
-    (router.push as (href: string) => void)(`/create-spot?${query}`);
-  }, [router, mapInstance]);
+  }, [navigateToCreateSpot]);
+
+  const handleCreateSpotConfirm = useCallback(
+    (dontShowAgain: boolean) => {
+      if (pendingCreateSpotCoords === null) return;
+      if (dontShowAgain && typeof localStorage !== 'undefined') {
+        localStorage.setItem(SKIP_CREATE_SPOT_CONFIRM_KEY, 'true');
+      }
+      navigateToCreateSpot(pendingCreateSpotCoords);
+      setPendingCreateSpotCoords(null);
+      setShowCreateSpotConfirmModal(false);
+    },
+    [pendingCreateSpotCoords, navigateToCreateSpot]
+  );
+
+  const handleCreateSpotConfirmCancel = useCallback(() => {
+    setPendingCreateSpotCoords(null);
+    setShowCreateSpotConfirmModal(false);
+  }, []);
 
   const handleMapPointerDown = useCallback(
     (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
       const lngLat = 'lngLat' in e ? e.lngLat : (e as MapLayerMouseEvent).lngLat;
       if (!lngLat) return;
+      const point = 'point' in e && e.point ? e.point : undefined;
+      const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
+      const y = point?.y ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientY?: number }).clientY ?? 0 : 0);
       longPressLngLatRef.current = { lat: lngLat.lat, lng: lngLat.lng };
+      longPressPointerStartRef.current = { x, y };
       longPressTimerRef.current = setTimeout(handleMapLongPress, LONG_PRESS_MS);
     },
     [handleMapLongPress]
+  );
+
+  const handleMapPointerMove = useCallback(
+    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+      if (longPressTimerRef.current === null || longPressPointerStartRef.current === null) return;
+      const point = 'point' in e && e.point ? e.point : undefined;
+      const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
+      const y = point?.y ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientY?: number }).clientY ?? 0 : 0);
+      const start = longPressPointerStartRef.current;
+      const dist = Math.hypot(x - start.x, y - start.y);
+      if (dist > LONG_PRESS_DRAG_THRESHOLD_PX) clearLongPressTimer();
+    },
+    [clearLongPressTimer]
   );
 
   const handleMapPointerUp = useCallback(() => {
@@ -621,9 +682,11 @@ export default function MapScreen() {
         style={styles.map}
         onLoad={onMapLoad}
         onMouseDown={handleMapPointerDown}
+        onMouseMove={handleMapPointerMove}
         onMouseUp={handleMapPointerUp}
         onMouseLeave={handleMapPointerUp}
         onTouchStart={handleMapPointerDown}
+        onTouchMove={handleMapPointerMove}
         onTouchEnd={handleMapPointerUp}
       >
         {userCoords ? (
@@ -910,20 +973,36 @@ export default function MapScreen() {
         onClose={() => setShowBetaModal(false)}
         dataSet={{ flowya: 'flowya-beta-modal' }}
       />
+      <CreateSpotConfirmModal
+        visible={showCreateSpotConfirmModal}
+        onConfirm={handleCreateSpotConfirm}
+        onCancel={handleCreateSpotConfirmCancel}
+        dataSet={{ flowya: 'create-spot-confirm-modal' }}
+      />
       <View style={styles.fabWrap}>
-        <IconButton
-          dataSet={{ flowya: 'map-search-fab' }}
-          variant="default"
-          selected={searchActive}
-          onPress={handleToggleSearch}
-          accessibilityLabel={searchActive ? 'Cerrar búsqueda' : 'Buscar'}
-        >
-          {searchActive ? (
-            <X size={24} color={colors.text} strokeWidth={2} />
-          ) : (
+        {searchActive ? (
+          <Pressable
+            dataSet={{ flowya: 'map-search-fab' }}
+            style={({ pressed }) => [
+              styles.fabSearchClose,
+              pressed && styles.fabSearchClosePressed,
+            ]}
+            onPress={handleToggleSearch}
+            accessibilityLabel="Cerrar búsqueda"
+            accessibilityRole="button"
+          >
+            <X size={24} color={colors.stateError} strokeWidth={2} />
+          </Pressable>
+        ) : (
+          <IconButton
+            dataSet={{ flowya: 'map-search-fab' }}
+            variant="default"
+            onPress={handleToggleSearch}
+            accessibilityLabel="Buscar"
+          >
             <Search size={24} color={colors.text} strokeWidth={2} />
-          )}
-        </IconButton>
+          </IconButton>
+        )}
       </View>
     </View>
   );
@@ -1071,6 +1150,17 @@ const styles = StyleSheet.create({
     zIndex: 10,
     flexDirection: 'column',
     gap: Spacing.xs,
+  },
+  fabSearchClose: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabSearchClosePressed: {
+    opacity: 0.85,
   },
   flowyaLabelWrap: {
     position: 'absolute',
