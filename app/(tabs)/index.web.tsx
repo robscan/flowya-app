@@ -294,6 +294,8 @@ export default function MapScreen() {
   /** Padding para fitBounds (px). Generoso para evitar pins pegados al borde. */
   const FIT_BOUNDS_PADDING = 64;
   const FIT_BOUNDS_DURATION_MS = 1200;
+  /** Zoom para foco en spot (reencuadre contextual y ubicación actual). */
+  const SPOT_FOCUS_ZOOM = 15;
 
   const geoOptions: PositionOptions = {
     enableHighAccuracy: true,
@@ -313,7 +315,7 @@ export default function MapScreen() {
         setUserCoords(coords);
         mapInstance.flyTo({
           center: [coords.longitude, coords.latitude],
-          zoom: 15,
+          zoom: SPOT_FOCUS_ZOOM,
           duration: 1500,
         });
       },
@@ -321,7 +323,7 @@ export default function MapScreen() {
         if (userCoords) {
           mapInstance.flyTo({
             center: [userCoords.longitude, userCoords.latitude],
-            zoom: 15,
+            zoom: SPOT_FOCUS_ZOOM,
             duration: 1500,
           });
         }
@@ -347,7 +349,7 @@ export default function MapScreen() {
         mapInstance.flyTo({
           center: [pts[0].longitude, pts[0].latitude],
           zoom: 14,
-          duration: FIT_BOUNDS_DURATION_MS / 1000,
+          duration: FIT_BOUNDS_DURATION_MS,
         });
       } else {
         let minLng = Infinity;
@@ -386,6 +388,61 @@ export default function MapScreen() {
       runFitBounds(userCoords);
     }
   }, [mapInstance, filteredSpots, userCoords]);
+
+  /** Centra el mapa en el spot seleccionado con zoom fijo (reencuadre solo spot). */
+  const handleReframeSpot = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    mapInstance.flyTo({
+      center: [selectedSpot.longitude, selectedSpot.latitude],
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+    });
+  }, [mapInstance, selectedSpot]);
+
+  /** Encuadra spot seleccionado + ubicación del usuario; refresca ubicación antes. */
+  const handleReframeSpotAndUser = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    const runReframe = (coords: UserCoords) => {
+      const pts: { longitude: number; latitude: number }[] = coords
+        ? [
+            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
+            { longitude: coords.longitude, latitude: coords.latitude },
+          ]
+        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
+      if (pts.length === 1) {
+        mapInstance.flyTo({
+          center: [pts[0].longitude, pts[0].latitude],
+          zoom: SPOT_FOCUS_ZOOM,
+          duration: FIT_BOUNDS_DURATION_MS,
+        });
+      } else {
+        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+        for (const p of pts) {
+          minLng = Math.min(minLng, p.longitude);
+          minLat = Math.min(minLat, p.latitude);
+          maxLng = Math.max(maxLng, p.longitude);
+          maxLat = Math.max(maxLat, p.latitude);
+        }
+        mapInstance.fitBounds(
+          [[minLng, minLat], [maxLng, maxLat]],
+          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+        );
+      }
+    };
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const c: UserCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          setUserCoords(c);
+          runReframe(c);
+        },
+        () => runReframe(userCoords),
+        geoOptions
+      );
+    } else {
+      runReframe(userCoords);
+    }
+  }, [mapInstance, selectedSpot, userCoords]);
 
   useEffect(() => {
     const map = mapInstance;
@@ -694,6 +751,7 @@ export default function MapScreen() {
             latitude={userCoords.latitude}
             longitude={userCoords.longitude}
             anchor="center"
+            style={{ zIndex: 9999 }}
           >
             <MapPinLocation />
           </Marker>
@@ -946,6 +1004,9 @@ export default function MapScreen() {
             onLocate={handleLocate}
             onViewAll={handleViewAll}
             hasVisibleSpots={filteredSpots.length > 0}
+            selectedSpot={selectedSpot}
+            onReframeSpot={handleReframeSpot}
+            onReframeSpotAndUser={handleReframeSpotAndUser}
           />
         </View>
       ) : null}
