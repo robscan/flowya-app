@@ -587,8 +587,18 @@ export default function MapScreen() {
     setSelectedSpot(null);
     setSearchActive(false);
     blurActiveElement();
-    (router.push as (href: string) => void)('/create-spot?from=search');
-  }, [router]);
+    if (resolvedPlace) {
+      const params = new URLSearchParams({
+        name: resolvedPlace.name,
+        lat: String(resolvedPlace.latitude),
+        lng: String(resolvedPlace.longitude),
+        source: 'search',
+      });
+      (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
+    } else {
+      (router.push as (href: string) => void)('/create-spot?source=search');
+    }
+  }, [router, resolvedPlace]);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
