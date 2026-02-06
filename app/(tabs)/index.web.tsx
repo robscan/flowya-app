@@ -43,6 +43,7 @@ import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } fro
 import { distanceKm } from '@/lib/geo-utils';
 import { resolvePlace, type ResolvedPlace } from '@/lib/mapbox-geocoding';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
+import { checkDuplicateSpot, normalizeSpotTitle } from '@/lib/spot-duplicate-check';
 import { shareSpot } from '@/lib/share-spot';
 import { supabase } from '@/lib/supabase';
 
@@ -155,6 +156,10 @@ export default function MapScreen() {
     lat: number;
     lng: number;
   } | null>(null);
+  /** B2-MS8: advertencia antes de crear si hay coincidencia débil (mismo nombre o spot cercano). */
+  const [showCreateSpotDuplicateWarning, setShowCreateSpotDuplicateWarning] = useState(false);
+  const [duplicateWarningSpotTitle, setDuplicateWarningSpotTitle] = useState<string | null>(null);
+  const pendingCreateFromSearchRef = useRef<{ resolvedPlace: ResolvedPlace | null } | null>(null);
   const [activeMapControl, setActiveMapControl] = useState<
     'world' | 'contextual' | 'location' | null
   >(null);
@@ -606,22 +611,68 @@ export default function MapScreen() {
     [mapInstance]
   );
 
-  const handleCreateSpotFromSearch = useCallback(() => {
-    setSelectedSpot(null);
-    setSearchActive(false);
-    blurActiveElement();
+  const navigateToCreateSpotFromSearch = useCallback(
+    (place: ResolvedPlace | null) => {
+      setSelectedSpot(null);
+      setSearchActive(false);
+      blurActiveElement();
+      if (place) {
+        const params = new URLSearchParams({
+          name: place.name,
+          lat: String(place.latitude),
+          lng: String(place.longitude),
+          source: 'search',
+        });
+        (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
+      } else {
+        (router.push as (href: string) => void)('/create-spot?source=search');
+      }
+    },
+    [router]
+  );
+
+  const handleCreateSpotFromSearch = useCallback(async () => {
+    const q = searchQuery.trim();
     if (resolvedPlace) {
-      const params = new URLSearchParams({
-        name: resolvedPlace.name,
-        lat: String(resolvedPlace.latitude),
-        lng: String(resolvedPlace.longitude),
-        source: 'search',
-      });
-      (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
-    } else {
-      (router.push as (href: string) => void)('/create-spot?source=search');
+      const dup = await checkDuplicateSpot(
+        resolvedPlace.name,
+        resolvedPlace.latitude,
+        resolvedPlace.longitude,
+        300
+      );
+      if (dup.duplicate) {
+        setDuplicateWarningSpotTitle(dup.existingTitle);
+        pendingCreateFromSearchRef.current = { resolvedPlace };
+        setShowCreateSpotDuplicateWarning(true);
+        return;
+      }
+    } else if (q) {
+      const weakMatch = filteredSpots.find(
+        (s) => normalizeSpotTitle(s.title) === normalizeSpotTitle(q)
+      );
+      if (weakMatch) {
+        setDuplicateWarningSpotTitle(weakMatch.title);
+        pendingCreateFromSearchRef.current = { resolvedPlace: null };
+        setShowCreateSpotDuplicateWarning(true);
+        return;
+      }
     }
-  }, [router, resolvedPlace]);
+    navigateToCreateSpotFromSearch(resolvedPlace);
+  }, [resolvedPlace, searchQuery, filteredSpots, navigateToCreateSpotFromSearch]);
+
+  const handleCreateSpotDuplicateWarningConfirm = useCallback(() => {
+    const pending = pendingCreateFromSearchRef.current;
+    pendingCreateFromSearchRef.current = null;
+    setShowCreateSpotDuplicateWarning(false);
+    setDuplicateWarningSpotTitle(null);
+    if (pending) navigateToCreateSpotFromSearch(pending.resolvedPlace);
+  }, [navigateToCreateSpotFromSearch]);
+
+  const handleCreateSpotDuplicateWarningCancel = useCallback(() => {
+    pendingCreateFromSearchRef.current = null;
+    setShowCreateSpotDuplicateWarning(false);
+    setDuplicateWarningSpotTitle(null);
+  }, []);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -1082,6 +1133,19 @@ export default function MapScreen() {
         visible={showCreateSpotConfirmModal}
         onConfirm={handleCreateSpotConfirm}
         onCancel={handleCreateSpotConfirmCancel}
+      />
+      <ConfirmModal
+        visible={showCreateSpotDuplicateWarning}
+        title="Spot parecido"
+        message={
+          duplicateWarningSpotTitle
+            ? `Ya existe un spot parecido: "${duplicateWarningSpotTitle}". ¿Crear otro?`
+            : '¿Crear otro spot?'
+        }
+        confirmLabel="Crear otro"
+        cancelLabel="Cancelar"
+        onConfirm={handleCreateSpotDuplicateWarningConfirm}
+        onCancel={handleCreateSpotDuplicateWarningCancel}
       />
       <View style={styles.fabWrap}>
         {searchActive ? (
