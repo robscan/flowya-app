@@ -210,6 +210,29 @@ export default function MapScreen() {
     return filteredSpots.filter((s) => s.title.toLowerCase().includes(q));
   }, [filteredSpots, searchQuery]);
 
+  /** B2-MS6: Orden por viewport primero, luego por distancia. Si no hay mapInstance, no reordenar (evitar saltos al cargar). */
+  const orderedSearchResults = useMemo(() => {
+    if (!mapInstance || searchResults.length === 0) return searchResults;
+    try {
+      const bounds = mapInstance.getBounds();
+      const center = mapInstance.getCenter();
+      if (!bounds) return searchResults;
+      const inView = (s: Spot) => bounds.contains([s.longitude, s.latitude]);
+      return [...searchResults].sort((a, b) => {
+        const aIn = inView(a);
+        const bIn = inView(b);
+        if (aIn && !bIn) return -1;
+        if (!aIn && bIn) return 1;
+        return (
+          distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
+          distanceKm(center.lat, center.lng, b.latitude, b.longitude)
+        );
+      });
+    } catch {
+      return searchResults;
+    }
+  }, [searchResults, mapInstance]);
+
   /** Predeterminado sin texto: 10 spots más cercanos al usuario (o al centro fallback del mapa). */
   const defaultSpots = useMemo(() => {
     const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
@@ -931,7 +954,7 @@ export default function MapScreen() {
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator
                 >
-                  {searchResults.map((spot) => (
+                  {orderedSearchResults.map((spot) => (
                     <View key={spot.id} style={styles.searchResultItemWrap}>
                       <SearchResultCard
                         spot={spot}
