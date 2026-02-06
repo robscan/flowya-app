@@ -1,6 +1,6 @@
 # Search V2 — Source of truth
 
-**Estado:** En implementación (S1–S5). Feature flag: `SEARCH_V2_ENABLED` en `constants/flags.ts`. Rollback: poner flag en `false`.
+**Estado:** Search V2 es el **único** search del mapa (S5: legacy eliminado). Create Spot paso 1 siempre usa SearchInputV2 (mode="places"). Ya no hay feature flag; rollback = revert del PR de S5.
 
 ---
 
@@ -26,6 +26,8 @@
 |----------|------------|--------------------|-----------|---------|
 | spots    | Mapa       | Spots/DB por bbox  | Sí        | Sí      |
 | places   | Create Spot| Mapbox forward     | No        | No      |
+
+**Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag.
 
 ---
 
@@ -96,7 +98,7 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 - CTA "Confirmar ubicación" del paso 1 requiere pin (manual o desde búsqueda); con selectedPlace se pasa `externalCenter` y el pin se coloca ahí.
 - **Params desde search:** `/create-spot?name=...&lat=...&lng=...&source=search` → se inicializa **selectedPlace** con esos datos y el mapa centra (initialLatitude/initialLongitude); SearchInputV2 sigue visible always-open. No ocultar el buscador.
 - **Clear X:** limpia query y resultados; **selectedPlace se mantiene** (el pin no se quita; el usuario puede buscar otro lugar o confirmar el actual). Documentado en bitácora 031.
-- Create Spot V2 **no depende del flag** `SEARCH_V2_ENABLED`; el paso 1 con búsqueda de lugares es siempre así.
+- Create Spot paso 1 con búsqueda de lugares es siempre V2 (sin flag).
 
 ---
 
