@@ -108,7 +108,6 @@ export function MapPinSpot({
   const fill = getSpotPinFillColor(colors, status);
   const outline = getSpotPinOutlineColor(colors);
   const labelColor = colors.text;
-  const labelOpacity = selected ? 1 : 0.9;
   const labelWeight = selected ? '600' : '500';
 
   const isSavedPin = status === 'to_visit' || status === 'visited';
@@ -173,7 +172,7 @@ export function MapPinSpot({
             styles.spotPinLabel,
             {
               color: labelColor,
-              opacity: labelOpacity,
+              opacity: 1,
               fontWeight: labelWeight,
             },
           ]}
