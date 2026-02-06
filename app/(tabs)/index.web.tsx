@@ -927,9 +927,9 @@ export default function MapScreen() {
                   </Text>
                   <ButtonPrimary
                     onPress={handleCreateSpotFromSearch}
-                    accessibilityLabel="Crear nuevo spot"
+                    accessibilityLabel={`Crear spot: ${searchQuery.trim()}`}
                   >
-                    Crear nuevo spot
+                    {`Crear spot: ${searchQuery.trim()}`}
                   </ButtonPrimary>
                 </View>
               )}
