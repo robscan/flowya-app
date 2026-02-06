@@ -925,28 +925,41 @@ export default function MapScreen() {
               style={styles.searchResultsArea}
             >
               {searchQuery.trim() === '' ? (
-                <ScrollView
-                  style={styles.searchResultsScroll}
-                  contentContainerStyle={styles.searchResultsContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator
-                >
-                  {defaultSpots.map((spot) => (
-                    <View key={spot.id} style={styles.searchResultItemWrap}>
-                      <SearchResultCard
-                        spot={spot}
-                        savePinState={
-                          spot.pinStatus === 'to_visit'
-                            ? 'toVisit'
-                            : spot.pinStatus === 'visited'
-                              ? 'visited'
-                              : 'default'
-                        }
-                        onPress={() => handleSearchResultSelect(spot)}
-                      />
-                    </View>
-                  ))}
-                </ScrollView>
+                defaultSpots.length > 0 ? (
+                  <ScrollView
+                    style={styles.searchResultsScroll}
+                    contentContainerStyle={styles.searchResultsContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator
+                  >
+                    {defaultSpots.map((spot) => (
+                      <View key={spot.id} style={styles.searchResultItemWrap}>
+                        <SearchResultCard
+                          spot={spot}
+                          savePinState={
+                            spot.pinStatus === 'to_visit'
+                              ? 'toVisit'
+                              : spot.pinStatus === 'visited'
+                                ? 'visited'
+                                : 'default'
+                          }
+                          onPress={() => handleSearchResultSelect(spot)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.searchNoResults}>
+                    <Text
+                      style={[
+                        styles.searchNoResultsText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      No hay spots cercanos. Mantén pulsado el mapa para crear uno.
+                    </Text>
+                  </View>
+                )
               ) : searchResults.length > 0 ? (
                 <ScrollView
                   style={styles.searchResultsScroll}
