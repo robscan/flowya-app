@@ -61,6 +61,12 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 // Fallback when geolocation is denied/unavailable: Riviera Maya
 const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
 
+/** Bounds globales para el control "Ver el mundo" (límites Web Mercator). */
+const WORLD_BOUNDS: [[number, number], [number, number]] = [
+  [-180, -85.051129],
+  [180, 85.051129],
+];
+
 /** Zoom mínimo para mostrar nombres de spots (como Mapbox: labels solo cuando hay espacio). */
 const LABEL_MIN_ZOOM = 12;
 
@@ -148,6 +154,10 @@ export default function MapScreen() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [activeMapControl, setActiveMapControl] = useState<
+    'world' | 'contextual' | 'location' | null
+  >(null);
+  const programmaticMoveRef = useRef(false);
   const mapRootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -259,6 +269,10 @@ export default function MapScreen() {
     }, [mapInstance])
   );
 
+  const FIT_BOUNDS_PADDING = 64;
+  const FIT_BOUNDS_DURATION_MS = 1200;
+  const SPOT_FOCUS_ZOOM = 15;
+
   useEffect(() => {
     const node = mapRootRef.current as unknown as HTMLElement | null;
     if (typeof document === 'undefined' || !node) return;
@@ -275,25 +289,43 @@ export default function MapScreen() {
       if (cancelled) return;
       const spot = (data as Spot[] | null)?.find((s) => s.id === createdId);
       if (spot) setSelectedSpot(spot);
-      router.replace('/(tabs)' as const);
+      if (mapInstance && spot) {
+        mapInstance.flyTo({
+          center: [spot.longitude, spot.latitude],
+          zoom: SPOT_FOCUS_ZOOM,
+          duration: FIT_BOUNDS_DURATION_MS,
+        });
+        router.replace('/(tabs)' as const);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.created, refetchSpots, router]);
+  }, [params.created, refetchSpots, router, mapInstance]);
 
-  const onMapLoad = useCallback((e: MapEvent) => {
-    const map = e.target;
-    setMapInstance(map);
-    setZoom(map.getZoom());
-    applyGlobeAndAtmosphere(map);
-    hideNoiseLayers(map);
-    tryCenterOnUser(map, setUserCoords);
-  }, []);
+  /** Cuando volvemos con created y el mapa se monta después: encuadrar al spot creado y limpiar param. */
+  useEffect(() => {
+    const createdId = params.created;
+    if (!createdId || !mapInstance || !selectedSpot || selectedSpot.id !== createdId) return;
+    mapInstance.flyTo({
+      center: [selectedSpot.longitude, selectedSpot.latitude],
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+    });
+    router.replace('/(tabs)' as const);
+  }, [params.created, mapInstance, selectedSpot, router]);
 
-  /** Padding para fitBounds (px). Generoso para evitar pins pegados al borde. */
-  const FIT_BOUNDS_PADDING = 64;
-  const FIT_BOUNDS_DURATION_MS = 1200;
+  const onMapLoad = useCallback(
+    (e: MapEvent) => {
+      const map = e.target;
+      setMapInstance(map);
+      setZoom(map.getZoom());
+      applyGlobeAndAtmosphere(map);
+      hideNoiseLayers(map);
+      if (!params.created) tryCenterOnUser(map, setUserCoords);
+    },
+    [params.created]
+  );
 
   const geoOptions = useMemo<PositionOptions>(
     () => ({
@@ -307,6 +339,8 @@ export default function MapScreen() {
   /** Ubicación actual: refresca coords y centra en el usuario. Si getCurrentPosition falla, usa userCoords existentes y no bloquea. */
   const handleLocate = useCallback(() => {
     if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('location');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords: UserCoords = {
@@ -333,24 +367,35 @@ export default function MapScreen() {
     );
   }, [mapInstance, userCoords, geoOptions]);
 
-  /**
-   * Encuadra el mapa mostrando: ubicación del usuario (si existe) + spots visibles según filtro.
-   * Refresca la ubicación antes; si getCurrentPosition falla, usa userCoords existentes y no bloquea el encuadre.
-   */
-  const handleViewAll = useCallback(() => {
-    if (!mapInstance || filteredSpots.length === 0) return;
-    const runFitBounds = (coords: UserCoords) => {
+  /** Encuadra solo el spot seleccionado (zoom fijo). Solo se usa con spot seleccionado. */
+  const handleReframeSpot = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('contextual');
+    mapInstance.flyTo({
+      center: [selectedSpot.longitude, selectedSpot.latitude],
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+    });
+  }, [mapInstance, selectedSpot]);
+
+  /** Encuadra spot seleccionado + ubicación del usuario. Solo se usa con spot seleccionado. */
+  const handleReframeSpotAndUser = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('contextual');
+    const runReframe = (coords: UserCoords) => {
       const pts: { longitude: number; latitude: number }[] = coords
         ? [
+            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
             { longitude: coords.longitude, latitude: coords.latitude },
-            ...filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude })),
           ]
-        : filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude }));
+        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
       if (pts.length === 1) {
         mapInstance.flyTo({
           center: [pts[0].longitude, pts[0].latitude],
-          zoom: 14,
-          duration: FIT_BOUNDS_DURATION_MS / 1000,
+          zoom: SPOT_FOCUS_ZOOM,
+          duration: FIT_BOUNDS_DURATION_MS,
         });
       } else {
         let minLng = Infinity;
@@ -375,25 +420,35 @@ export default function MapScreen() {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const coords: UserCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setUserCoords(coords);
-          runFitBounds(coords);
+          const c: UserCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+          setUserCoords(c);
+          runReframe(c);
         },
-        () => runFitBounds(userCoords),
+        () => runReframe(userCoords),
         geoOptions
       );
     } else {
-      runFitBounds(userCoords);
+      runReframe(userCoords);
     }
-  }, [mapInstance, filteredSpots, userCoords, geoOptions]);
+  }, [mapInstance, selectedSpot, userCoords, geoOptions]);
+
+  /** Vista global (control "Ver el mundo"): fitBounds(world). Estado activo se desactiva en moveend si fue interacción del usuario. */
+  const handleViewWorld = useCallback(() => {
+    if (!mapInstance) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('world');
+    mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
+  }, [mapInstance]);
 
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
     const onMoveEnd = () => {
+      if (programmaticMoveRef.current) {
+        programmaticMoveRef.current = false;
+      } else {
+        setActiveMapControl(null);
+      }
       setZoom(map.getZoom());
       if (selectedSpot) {
         try {
@@ -687,15 +742,6 @@ export default function MapScreen() {
         onTouchMove={handleMapPointerMove}
         onTouchEnd={handleMapPointerUp}
       >
-        {userCoords ? (
-          <Marker
-            latitude={userCoords.latitude}
-            longitude={userCoords.longitude}
-            anchor="center"
-          >
-            <MapPinLocation />
-          </Marker>
-        ) : null}
         {filteredSpots.map((spot) => (
           <Marker
             key={spot.id}
@@ -715,6 +761,15 @@ export default function MapScreen() {
             />
           </Marker>
         ))}
+        {userCoords ? (
+          <Marker
+            latitude={userCoords.latitude}
+            longitude={userCoords.longitude}
+            anchor="center"
+          >
+            <MapPinLocation />
+          </Marker>
+        ) : null}
       </Map>
       {selectedSpot && !searchActive ? (
         <>
@@ -723,8 +778,8 @@ export default function MapScreen() {
               style={[
                 styles.selectedPinHitArea,
                 {
-                  left: selectedPinScreenPos.x - SELECTED_PIN_HIT_RADIUS,
-                  top: selectedPinScreenPos.y - SELECTED_PIN_HIT_RADIUS,
+                  left: Math.round(selectedPinScreenPos.x) - SELECTED_PIN_HIT_RADIUS,
+                  top: Math.round(selectedPinScreenPos.y) - SELECTED_PIN_HIT_RADIUS,
                 },
               ]}
               onPress={handleSelectedPinTap}
@@ -857,12 +912,6 @@ export default function MapScreen() {
                       />
                     </View>
                   ))}
-                  <ButtonPrimary
-                    onPress={handleCreateSpotFromSearch}
-                    accessibilityLabel="Crear nuevo spot"
-                  >
-                    Crear nuevo spot
-                  </ButtonPrimary>
                 </ScrollView>
               ) : (
                 <View
@@ -928,8 +977,11 @@ export default function MapScreen() {
             map={mapInstance}
             onLocate={handleLocate}
             selectedSpot={selectedSpot}
-            onViewAll={handleViewAll}
-            hasVisibleSpots={filteredSpots.length > 0}
+            onReframeSpot={handleReframeSpot}
+            onReframeSpotAndUser={handleReframeSpotAndUser}
+            hasUserLocation={userCoords != null}
+            onViewWorld={handleViewWorld}
+            activeMapControl={activeMapControl}
           />
         </View>
       ) : null}
