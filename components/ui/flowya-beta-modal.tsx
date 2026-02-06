@@ -27,14 +27,11 @@ import { supabase } from '@/lib/supabase';
 export type FlowyaBetaModalProps = {
   visible: boolean;
   onClose: () => void;
-  /** dataSet para QA (web). */
-  dataSet?: Record<string, string>;
 };
 
 export function FlowyaBetaModal({
   visible,
   onClose,
-  dataSet,
 }: FlowyaBetaModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -85,7 +82,6 @@ export function FlowyaBetaModal({
           style={styles.centered}
         >
           <Pressable
-            dataSet={dataSet}
             style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]}
             onPress={(e) => e.stopPropagation()}
           >

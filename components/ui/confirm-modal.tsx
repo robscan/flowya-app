@@ -27,8 +27,6 @@ export type ConfirmModalProps = {
   variant?: ConfirmModalVariant;
   onConfirm: () => void;
   onCancel: () => void;
-  /** dataSet para QA (web). */
-  dataSet?: Record<string, string>;
 };
 
 export function ConfirmModal({
@@ -40,7 +38,6 @@ export function ConfirmModal({
   variant = 'default',
   onConfirm,
   onCancel,
-  dataSet,
 }: ConfirmModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -64,7 +61,6 @@ export function ConfirmModal({
       >
         <View style={styles.centered}>
           <Pressable
-            dataSet={dataSet}
             style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]}
             onPress={(e) => e.stopPropagation()}
           >

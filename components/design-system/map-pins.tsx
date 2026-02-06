@@ -39,7 +39,6 @@ export function MapPinLocation({
   const fill = colors.location?.primary ?? colors.pinUserLocation;
   return (
     <View
-      dataSet={{ flowya: 'map-pin-location' }}
       style={[
         styles.locationPin,
         {
@@ -114,7 +113,6 @@ export function MapPinSpot({
 
   return (
     <View
-      dataSet={{ flowya: 'map-pin-spot', flowyaPinStatus: status }}
       style={[styles.spotPinWithLabel, { pointerEvents: 'box-none' }]}
     >
       <View
@@ -154,7 +152,6 @@ export function MapPinSpot({
       </View>
       {label ? (
         <Text
-          dataSet={{ flowya: 'map-pin-spot-label' }}
           style={[
             styles.spotPinLabel,
             {
@@ -197,7 +194,6 @@ export function MapPinCreating({
   const inner = CREATING_PIN_SIZE - CREATING_PIN_STROKE * 2;
   return (
     <View
-      dataSet={{ flowya: 'map-pin-creating' }}
       style={[styles.creatingPinWithLabel, { pointerEvents: 'box-none' }]}
     >
       <View
@@ -226,7 +222,6 @@ export function MapPinCreating({
       </View>
       {label ? (
         <Text
-          dataSet={{ flowya: 'map-pin-creating-label' }}
           style={[
             styles.creatingPinLabel,
             {
@@ -260,7 +255,6 @@ export function MapPinExisting({
   const inner = EXISTING_PIN_SIZE - EXISTING_PIN_STROKE * 2;
   return (
     <View
-      dataSet={{ flowya: 'map-pin-existing' }}
       style={[styles.existingPinWithLabel, { pointerEvents: 'box-none' }]}
     >
       <View
@@ -289,7 +283,6 @@ export function MapPinExisting({
       </View>
       {label ? (
         <Text
-          dataSet={{ flowya: 'map-pin-existing-label' }}
           style={[
             styles.existingPinLabel,
             {

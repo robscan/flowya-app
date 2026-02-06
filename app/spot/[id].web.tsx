@@ -166,12 +166,10 @@ function SpotDetailMapSlot({
         ) : null}
       </Map>
       <View
-        dataSet={{ flowya: 'spot-detail-map-controls' }}
         style={[styles.mapControlsOverlay, { pointerEvents: 'box-none' }]}
       >
         <View style={styles.mapControlsStack}>
           <IconButton
-            dataSet={{ flowya: 'spot-detail-map-reframe' }}
             variant="default"
             onPress={handleReframe}
             disabled={!reframeEnabled}
@@ -184,7 +182,6 @@ function SpotDetailMapSlot({
             />
           </IconButton>
           <IconButton
-            dataSet={{ flowya: 'spot-detail-map-locate' }}
             variant="default"
             onPress={handleLocate}
             disabled={!mapEnabled}
@@ -193,7 +190,6 @@ function SpotDetailMapSlot({
             <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
           </IconButton>
           <IconButton
-            dataSet={{ flowya: 'spot-detail-map-directions' }}
             variant="default"
             onPress={handleOpenMaps}
             disabled={!mapEnabled}
@@ -247,11 +243,9 @@ function EditSpotMapSlot({
         </Marker>
       </Map>
       <View
-        dataSet={{ flowya: 'edit-spot-map-overlay' }}
         style={[styles.editMapOverlay, { pointerEvents: 'box-none' }]}
       >
         <Pressable
-          dataSet={{ flowya: 'edit-spot-location-button' }}
           style={({ pressed }) => [
             styles.editLocationButton,
             {

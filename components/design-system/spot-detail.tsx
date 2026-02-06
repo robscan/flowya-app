@@ -204,7 +204,6 @@ export function SpotDetail({
 
   return (
     <View
-      dataSet={{ flowya: 'spot-detail' }}
       style={[styles.root, Platform.OS === 'web' && styles.rootWebScroll]}
     >
       <ScrollView
@@ -214,7 +213,6 @@ export function SpotDetail({
       >
         {/* Hero */}
         <View
-          dataSet={{ flowya: 'spot-detail-hero' }}
           style={[styles.hero, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
         >
           <SpotImage
@@ -230,13 +228,11 @@ export function SpotDetail({
           />
           {/* Overlay de acciones */}
           <View
-            dataSet={{ flowya: 'spot-detail-hero-actions' }}
             style={[styles.heroActions, { pointerEvents: 'box-none' }]}
           >
             <View style={styles.heroActionsLeft}>
               <IconButton
                 ref={backButtonRef}
-                dataSet={{ flowya: 'spot-detail-back' }}
                 variant="default"
                 onPress={onBack}
                 accessibilityLabel="Volver"
@@ -247,7 +243,6 @@ export function SpotDetail({
             <View style={styles.heroActionsRight}>
               {onSavePin ? (
                 <IconButton
-                  dataSet={{ flowya: 'spot-detail-save-pin' }}
                   variant="savePin"
                   savePinState={savePinState}
                   onPress={onSavePin}
@@ -258,7 +253,6 @@ export function SpotDetail({
               ) : null}
               {onShare ? (
                 <IconButton
-                  dataSet={{ flowya: 'spot-detail-share' }}
                   variant="default"
                   onPress={onShare}
                   accessibilityLabel="Compartir"
@@ -267,7 +261,6 @@ export function SpotDetail({
                 </IconButton>
               ) : null}
               <IconButton
-                dataSet={{ flowya: 'spot-detail-edit' }}
                 variant={isEditing ? 'primary' : 'default'}
                 onPress={isEditing ? onCancelEdit : onEdit}
                 accessibilityLabel={isEditing ? 'Salir de edición' : 'Editar'}
@@ -284,7 +277,6 @@ export function SpotDetail({
 
         {/* Contenido */}
         <View
-          dataSet={{ flowya: 'spot-detail-content' }}
           style={[styles.content, { borderColor: colors.borderSubtle }]}
         >
           {isEditing ? (
@@ -351,7 +343,6 @@ export function SpotDetail({
                 </View>
               ) : null}
               <TextInput
-                dataSet={{ flowya: 'spot-detail-input-title' }}
                 style={[styles.titleInput, { color: colors.text, borderColor: colors.border }]}
                 value={title}
                 onChangeText={setTitle}
@@ -359,7 +350,6 @@ export function SpotDetail({
                 placeholderTextColor={colors.textSecondary}
               />
               <TextInput
-                dataSet={{ flowya: 'spot-detail-input-short' }}
                 style={[styles.descInput, { color: colors.text, borderColor: colors.border }]}
                 value={short}
                 onChangeText={setShort}
@@ -368,7 +358,6 @@ export function SpotDetail({
                 multiline
               />
               <TextInput
-                dataSet={{ flowya: 'spot-detail-input-long' }}
                 style={[styles.descInput, styles.descInputLong, { color: colors.text, borderColor: colors.border }]}
                 value={long}
                 onChangeText={setLong}
@@ -401,7 +390,6 @@ export function SpotDetail({
         {!isEditing ? (
           <>
             <View
-              dataSet={{ flowya: 'spot-detail-map-section' }}
               style={[styles.mapSectionWrap, { borderTopColor: colors.borderSubtle }]}
             >
               <Text style={[styles.sectionHeading, { color: colors.text }]}>¿Dónde está?</Text>
@@ -412,14 +400,12 @@ export function SpotDetail({
               ) : null}
             </View>
             <View
-              dataSet={{ flowya: 'spot-detail-map' }}
               style={[styles.mapSection, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
             >
               {mapSlot}
             </View>
             {spot.address ? (
               <View
-                dataSet={{ flowya: 'spot-detail-location-info' }}
                 style={[styles.locationInfo, { borderTopColor: colors.borderSubtle }]}
               >
                 <Text style={[styles.locationAddress, { color: colors.textSecondary }]}>
@@ -430,7 +416,6 @@ export function SpotDetail({
           </>
         ) : (
           <View
-            dataSet={{ flowya: 'spot-detail-map' }}
             style={[styles.mapSection, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
           >
             {mapSlot}
@@ -441,7 +426,6 @@ export function SpotDetail({
         {isEditing ? (
           <View style={[styles.editFooter, { borderTopColor: colors.borderSubtle }]}>
             <ButtonPrimary
-              dataSet={{ flowya: 'spot-detail-save-primary' }}
               onPress={handleSaveEdit}
               accessibilityLabel="Guardar"
             >
@@ -449,7 +433,6 @@ export function SpotDetail({
             </ButtonPrimary>
             {onDeleteSpot ? (
               <Pressable
-                dataSet={{ flowya: 'spot-detail-delete' }}
                 style={({ pressed }) => [
                   styles.secondaryButton,
                   {
@@ -479,7 +462,6 @@ export function SpotDetail({
         variant="destructive"
         onConfirm={handleDeleteConfirm}
         onCancel={() => setShowDeleteConfirm(false)}
-        dataSet={{ flowya: 'spot-detail-delete-confirm-modal' }}
       />
     </View>
   );

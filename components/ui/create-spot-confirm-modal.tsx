@@ -21,14 +21,12 @@ export type CreateSpotConfirmModalProps = {
   visible: boolean;
   onConfirm: (dontShowAgain: boolean) => void;
   onCancel: () => void;
-  dataSet?: Record<string, string>;
 };
 
 export function CreateSpotConfirmModal({
   visible,
   onConfirm,
   onCancel,
-  dataSet,
 }: CreateSpotConfirmModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -61,7 +59,6 @@ export function CreateSpotConfirmModal({
       >
         <View style={styles.centered}>
           <Pressable
-            dataSet={dataSet}
             style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]}
             onPress={(e) => e.stopPropagation()}
           >

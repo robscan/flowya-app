@@ -7,7 +7,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LogOut, Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapEvent, MapLayerMouseEvent, MapLayerTouchEvent } from 'react-map-gl/mapbox-legacy';
+import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
 import Map, { Marker } from 'react-map-gl/mapbox-legacy';
 import {
     Platform,
@@ -294,8 +294,6 @@ export default function MapScreen() {
   /** Padding para fitBounds (px). Generoso para evitar pins pegados al borde. */
   const FIT_BOUNDS_PADDING = 64;
   const FIT_BOUNDS_DURATION_MS = 1200;
-  /** Zoom para foco en spot (reencuadre contextual y ubicación actual). */
-  const SPOT_FOCUS_ZOOM = 15;
 
   const geoOptions: PositionOptions = {
     enableHighAccuracy: true,
@@ -315,7 +313,7 @@ export default function MapScreen() {
         setUserCoords(coords);
         mapInstance.flyTo({
           center: [coords.longitude, coords.latitude],
-          zoom: SPOT_FOCUS_ZOOM,
+          zoom: 15,
           duration: 1500,
         });
       },
@@ -323,7 +321,7 @@ export default function MapScreen() {
         if (userCoords) {
           mapInstance.flyTo({
             center: [userCoords.longitude, userCoords.latitude],
-            zoom: SPOT_FOCUS_ZOOM,
+            zoom: 15,
             duration: 1500,
           });
         }
@@ -349,7 +347,7 @@ export default function MapScreen() {
         mapInstance.flyTo({
           center: [pts[0].longitude, pts[0].latitude],
           zoom: 14,
-          duration: FIT_BOUNDS_DURATION_MS,
+          duration: FIT_BOUNDS_DURATION_MS / 1000,
         });
       } else {
         let minLng = Infinity;
@@ -388,61 +386,6 @@ export default function MapScreen() {
       runFitBounds(userCoords);
     }
   }, [mapInstance, filteredSpots, userCoords]);
-
-  /** Centra el mapa en el spot seleccionado con zoom fijo (reencuadre solo spot). */
-  const handleReframeSpot = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    mapInstance.flyTo({
-      center: [selectedSpot.longitude, selectedSpot.latitude],
-      zoom: SPOT_FOCUS_ZOOM,
-      duration: FIT_BOUNDS_DURATION_MS,
-    });
-  }, [mapInstance, selectedSpot]);
-
-  /** Encuadra spot seleccionado + ubicación del usuario; refresca ubicación antes. */
-  const handleReframeSpotAndUser = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    const runReframe = (coords: UserCoords) => {
-      const pts: { longitude: number; latitude: number }[] = coords
-        ? [
-            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
-            { longitude: coords.longitude, latitude: coords.latitude },
-          ]
-        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
-      if (pts.length === 1) {
-        mapInstance.flyTo({
-          center: [pts[0].longitude, pts[0].latitude],
-          zoom: SPOT_FOCUS_ZOOM,
-          duration: FIT_BOUNDS_DURATION_MS,
-        });
-      } else {
-        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-        for (const p of pts) {
-          minLng = Math.min(minLng, p.longitude);
-          minLat = Math.min(minLat, p.latitude);
-          maxLng = Math.max(maxLng, p.longitude);
-          maxLat = Math.max(maxLat, p.latitude);
-        }
-        mapInstance.fitBounds(
-          [[minLng, minLat], [maxLng, maxLat]],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
-        );
-      }
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const c: UserCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-          setUserCoords(c);
-          runReframe(c);
-        },
-        () => runReframe(userCoords),
-        geoOptions
-      );
-    } else {
-      runReframe(userCoords);
-    }
-  }, [mapInstance, selectedSpot, userCoords]);
 
   useEffect(() => {
     const map = mapInstance;
@@ -634,8 +577,8 @@ export default function MapScreen() {
   }, []);
 
   const handleMapPointerDown = useCallback(
-    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapLayerMouseEvent).lngLat;
+    (e: MapMouseEvent | MapTouchEvent) => {
+      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapMouseEvent).lngLat;
       if (!lngLat) return;
       const point = 'point' in e && e.point ? e.point : undefined;
       const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
@@ -648,7 +591,7 @@ export default function MapScreen() {
   );
 
   const handleMapPointerMove = useCallback(
-    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+    (e: MapMouseEvent | MapTouchEvent) => {
       if (longPressTimerRef.current === null || longPressPointerStartRef.current === null) return;
       const point = 'point' in e && e.point ? e.point : undefined;
       const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
@@ -728,7 +671,6 @@ export default function MapScreen() {
       ref={mapRootRef}
       style={styles.mapScreenRoot}
       {...(Platform.OS === 'web' && { className: 'map-screen-root-dvh' })}
-      dataSet={{ flowya: 'map-screen-root' }}
     >
       <Map
         key={mapStyle}
@@ -751,7 +693,6 @@ export default function MapScreen() {
             latitude={userCoords.latitude}
             longitude={userCoords.longitude}
             anchor="center"
-            style={{ zIndex: 9999 }}
           >
             <MapPinLocation />
           </Marker>
@@ -780,7 +721,6 @@ export default function MapScreen() {
         <>
           {selectedPinScreenPos ? (
             <Pressable
-              dataSet={{ flowya: 'map-selected-pin-hit-area' }}
               style={[
                 styles.selectedPinHitArea,
                 {
@@ -794,7 +734,6 @@ export default function MapScreen() {
             />
           ) : null}
           <View
-            dataSet={{ flowya: 'map-spot-card-overlay' }}
             style={[styles.cardOverlay, { pointerEvents: 'box-none' }]}
           >
             <SpotCard
@@ -814,7 +753,6 @@ export default function MapScreen() {
         </>
       ) : null}
       <Pressable
-        dataSet={{ flowya: 'map-flowya-label' }}
         style={[styles.flowyaLabelWrap, WebTouchManipulation]}
         onPress={() => setShowBetaModal(true)}
         accessibilityLabel="FLOWYA Beta"
@@ -831,7 +769,6 @@ export default function MapScreen() {
         )}
       </Pressable>
       <View
-        dataSet={{ flowya: 'map-pin-filter-overlay' }}
         style={[
           styles.filterOverlay,
           searchActive && styles.filterOverlaySearchActive,
@@ -841,10 +778,9 @@ export default function MapScreen() {
         <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
         {searchActive ? (
           <>
-            <View dataSet={{ flowya: 'map-search-input-wrap' }} style={styles.searchInputWrap}>
+            <View style={styles.searchInputWrap}>
               <TextInput
                 ref={searchInputRef}
-                dataSet={{ flowya: 'map-search-input' }}
                 style={[
                   styles.searchInput,
                   {
@@ -863,7 +799,6 @@ export default function MapScreen() {
               />
               {searchQuery.length > 0 ? (
                 <Pressable
-                  dataSet={{ flowya: 'map-search-clear' }}
                   style={[styles.searchClearButton, { backgroundColor: colors.backgroundElevated }]}
                   onPress={handleClearSearch}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -876,12 +811,10 @@ export default function MapScreen() {
               ) : null}
             </View>
             <View
-              dataSet={{ flowya: 'map-search-results-area' }}
               style={styles.searchResultsArea}
             >
               {searchQuery.trim() === '' ? (
                 <ScrollView
-                  dataSet={{ flowya: 'map-search-results' }}
                   style={styles.searchResultsScroll}
                   contentContainerStyle={styles.searchResultsContent}
                   keyboardShouldPersistTaps="handled"
@@ -905,7 +838,6 @@ export default function MapScreen() {
                 </ScrollView>
               ) : searchResults.length > 0 ? (
                 <ScrollView
-                  dataSet={{ flowya: 'map-search-results' }}
                   style={styles.searchResultsScroll}
                   contentContainerStyle={styles.searchResultsContent}
                   keyboardShouldPersistTaps="handled"
@@ -927,7 +859,6 @@ export default function MapScreen() {
                     </View>
                   ))}
                   <ButtonPrimary
-                    dataSet={{ flowya: 'map-search-create-spot-end' }}
                     onPress={handleCreateSpotFromSearch}
                     accessibilityLabel="Crear nuevo spot"
                   >
@@ -936,7 +867,6 @@ export default function MapScreen() {
                 </ScrollView>
               ) : (
                 <View
-                  dataSet={{ flowya: 'map-search-no-results' }}
                   style={styles.searchNoResults}
                 >
                   <Text
@@ -948,7 +878,6 @@ export default function MapScreen() {
                     ¿No encontraste lo que buscas?
                   </Text>
                   <ButtonPrimary
-                    dataSet={{ flowya: 'map-search-create-spot' }}
                     onPress={handleCreateSpotFromSearch}
                     accessibilityLabel="Crear nuevo spot"
                   >
@@ -962,7 +891,6 @@ export default function MapScreen() {
       </View>
       {!searchActive ? (
         <View
-          dataSet={{ flowya: 'map-profile-button-overlay' }}
           style={[styles.profileButtonOverlay, { pointerEvents: 'box-none' }]}
         >
         <IconButton
@@ -979,7 +907,6 @@ export default function MapScreen() {
         {showLogoutOption && isAuthUser ? (
           <View style={styles.logoutButtonWrap}>
             <Pressable
-              dataSet={{ flowya: 'map-logout-button' }}
               style={({ pressed }) => [
                 styles.logoutButtonFloating,
                 pressed && styles.logoutButtonFloatingPressed,
@@ -996,7 +923,6 @@ export default function MapScreen() {
       ) : null}
       {!searchActive ? (
         <View
-          dataSet={{ flowya: 'map-controls-overlay' }}
           style={[styles.controlsOverlay, { pointerEvents: 'box-none' }]}
         >
           <MapControls
@@ -1004,9 +930,6 @@ export default function MapScreen() {
             onLocate={handleLocate}
             onViewAll={handleViewAll}
             hasVisibleSpots={filteredSpots.length > 0}
-            selectedSpot={selectedSpot}
-            onReframeSpot={handleReframeSpot}
-            onReframeSpotAndUser={handleReframeSpotAndUser}
           />
         </View>
       ) : null}
@@ -1026,23 +949,19 @@ export default function MapScreen() {
           setShowLogoutConfirm(false);
           setShowLogoutOption(false);
         }}
-        dataSet={{ flowya: 'logout-confirm-modal' }}
       />
       <FlowyaBetaModal
         visible={showBetaModal}
         onClose={() => setShowBetaModal(false)}
-        dataSet={{ flowya: 'flowya-beta-modal' }}
       />
       <CreateSpotConfirmModal
         visible={showCreateSpotConfirmModal}
         onConfirm={handleCreateSpotConfirm}
         onCancel={handleCreateSpotConfirmCancel}
-        dataSet={{ flowya: 'create-spot-confirm-modal' }}
       />
       <View style={styles.fabWrap}>
         {searchActive ? (
           <Pressable
-            dataSet={{ flowya: 'map-search-fab' }}
             style={({ pressed }) => [
               styles.fabSearchClose,
               pressed && styles.fabSearchClosePressed,
@@ -1055,7 +974,6 @@ export default function MapScreen() {
           </Pressable>
         ) : (
           <IconButton
-            dataSet={{ flowya: 'map-search-fab' }}
             variant="default"
             onPress={handleToggleSearch}
             accessibilityLabel="Buscar"

@@ -26,7 +26,7 @@ export function SearchResultCard({
   onPress,
 }: SearchResultCardProps) {
   return (
-    <View dataSet={{ flowya: 'search-result-card' }} style={styles.wrap}>
+    <View style={styles.wrap}>
       <SpotCardMapSelection
         spot={spot}
         savePinState={savePinState}
@@ -61,7 +61,7 @@ const MOCK_SPOTS: SpotCardSpot[] = [
 /** Showcase para Design System: listado de SearchResultCard (resultados de búsqueda). */
 export function SearchResultsShowcase() {
   return (
-    <View dataSet={{ flowya: 'search-results-showcase' }} style={styles.showcase}>
+    <View style={styles.showcase}>
       {MOCK_SPOTS.map((spot, i) => (
         <SearchResultCard
           key={spot.id}

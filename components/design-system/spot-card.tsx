@@ -96,7 +96,7 @@ export function SpotCardMapSelection({
   );
 
   return (
-    <View dataSet={{ flowya: 'spot-card-map-selection' }} style={styles.wrapper}>
+    <View style={styles.wrapper}>
       {/* Card */}
       <View
         style={[
@@ -111,7 +111,6 @@ export function SpotCardMapSelection({
         {/* Columna izquierda: imagen/placeholder. Tap → detalle o onCardPress. */}
         <View style={styles.leftColumn}>
           <Pressable
-            dataSet={{ flowya: 'spot-card-thumbnail' }}
             style={styles.thumbnailWrap}
             onPress={handleOpenDetail}
             accessibilityRole={cardPressRole}
@@ -130,7 +129,6 @@ export function SpotCardMapSelection({
             accessibilityLabel={cardPressLabel}
           >
             <Text
-              dataSet={{ flowya: 'spot-card-title' }}
               style={[styles.title, { color: colors.text }]}
             >
               {spot.title}
@@ -145,7 +143,6 @@ export function SpotCardMapSelection({
               accessibilityLabel={cardPressLabel}
             >
               <Text
-                dataSet={{ flowya: 'spot-card-description' }}
                 style={[styles.description, { color: colors.textSecondary }]}
               >
                 {spot.description_short}
@@ -157,16 +154,14 @@ export function SpotCardMapSelection({
 
       {/* Botones flotando fuera de la card: izquierda guardar/compartir; derecha cerrar (si onClose) */}
       <View
-        dataSet={{ flowya: 'spot-card-floating-row' }}
         style={styles.floatingRow}
         pointerEvents="box-none"
       >
         {!hideActions && (onSavePin || onShare) ? (
-          <View dataSet={{ flowya: 'spot-card-actions' }} style={styles.floatingActions}>
+          <View style={styles.floatingActions}>
             <View style={styles.actionsStack}>
               {onSavePin ? (
                 <IconButton
-                  dataSet={{ flowya: 'spot-card-save-pin' }}
                   variant="savePin"
                   savePinState={savePinState}
                   size={ACTIONS_BUTTON_SIZE}
@@ -178,7 +173,6 @@ export function SpotCardMapSelection({
               ) : null}
               {onShare ? (
                 <IconButton
-                  dataSet={{ flowya: 'spot-card-share' }}
                   variant="default"
                   size={ACTIONS_BUTTON_SIZE}
                   onPress={onShare}
@@ -192,7 +186,6 @@ export function SpotCardMapSelection({
         ) : null}
         {onClose ? (
           <Pressable
-            dataSet={{ flowya: 'spot-card-close' }}
             style={[styles.closeButton, { backgroundColor: colors.borderSubtle }]}
             onPress={onClose}
             hitSlop={12}
