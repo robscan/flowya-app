@@ -315,16 +315,6 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 16,
-      },
-      android: { elevation: 8 },
-      default: {},
-    }),
   },
   title: {
     fontSize: 18,

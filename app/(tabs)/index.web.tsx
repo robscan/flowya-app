@@ -7,8 +7,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LogOut, Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapEvent, MapLayerMouseEvent, MapLayerTouchEvent } from 'react-map-gl/mapbox-legacy';
-import Map, { Marker } from 'react-map-gl/mapbox-legacy';
+import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
+import { Map, Marker } from 'react-map-gl/mapbox-legacy';
 import {
     Platform,
     Pressable,
@@ -41,7 +41,9 @@ import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } from '@/lib/focus-management';
 import { distanceKm } from '@/lib/geo-utils';
+import { resolvePlace, type ResolvedPlace } from '@/lib/mapbox-geocoding';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
+import { checkDuplicateSpot, normalizeSpotTitle } from '@/lib/spot-duplicate-check';
 import { shareSpot } from '@/lib/share-spot';
 import { supabase } from '@/lib/supabase';
 
@@ -60,6 +62,12 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
 // Fallback when geolocation is denied/unavailable: Riviera Maya
 const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
+
+/** Bounds globales para el control "Ver el mundo" (límites Web Mercator). */
+const WORLD_BOUNDS: [[number, number], [number, number]] = [
+  [-180, -85.051129],
+  [180, 85.051129],
+];
 
 /** Zoom mínimo para mostrar nombres de spots (como Mapbox: labels solo cuando hay espacio). */
 const LABEL_MIN_ZOOM = 12;
@@ -148,8 +156,19 @@ export default function MapScreen() {
     lat: number;
     lng: number;
   } | null>(null);
+  /** B2-MS8: advertencia antes de crear si hay coincidencia débil (mismo nombre o spot cercano). */
+  const [showCreateSpotDuplicateWarning, setShowCreateSpotDuplicateWarning] = useState(false);
+  const [duplicateWarningSpotTitle, setDuplicateWarningSpotTitle] = useState<string | null>(null);
+  const pendingCreateFromSearchRef = useRef<{ resolvedPlace: ResolvedPlace | null } | null>(null);
+  const [activeMapControl, setActiveMapControl] = useState<
+    'world' | 'contextual' | 'location' | null
+  >(null);
+  /** B2-MS4: lugar resuelto por forward geocoding cuando no hay resultados; solo en Search, sin persistencia. */
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
+  const programmaticMoveRef = useRef(false);
   const mapRootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const resolvingQueryRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
   const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -196,6 +215,29 @@ export default function MapScreen() {
     return filteredSpots.filter((s) => s.title.toLowerCase().includes(q));
   }, [filteredSpots, searchQuery]);
 
+  /** B2-MS6: Orden por viewport primero, luego por distancia. Si no hay mapInstance, no reordenar (evitar saltos al cargar). */
+  const orderedSearchResults = useMemo(() => {
+    if (!mapInstance || searchResults.length === 0) return searchResults;
+    try {
+      const bounds = mapInstance.getBounds();
+      const center = mapInstance.getCenter();
+      if (!bounds) return searchResults;
+      const inView = (s: Spot) => bounds.contains([s.longitude, s.latitude]);
+      return [...searchResults].sort((a, b) => {
+        const aIn = inView(a);
+        const bIn = inView(b);
+        if (aIn && !bIn) return -1;
+        if (!aIn && bIn) return 1;
+        return (
+          distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
+          distanceKm(center.lat, center.lng, b.latitude, b.longitude)
+        );
+      });
+    } catch {
+      return searchResults;
+    }
+  }, [searchResults, mapInstance]);
+
   /** Predeterminado sin texto: 10 spots más cercanos al usuario (o al centro fallback del mapa). */
   const defaultSpots = useMemo(() => {
     const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
@@ -207,6 +249,26 @@ export default function MapScreen() {
       )
       .slice(0, 10);
   }, [filteredSpots, userCoords]);
+
+  /** B2-MS4: Resolución de lugar solo cuando no hay resultados y query no vacío. Sin retries, sin persistencia. */
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (searchResults.length > 0 || !q) {
+      resolvingQueryRef.current = null;
+      setResolvedPlace(null);
+      return;
+    }
+    resolvingQueryRef.current = q;
+    const t = setTimeout(async () => {
+      const place = await resolvePlace(q);
+      if (resolvingQueryRef.current !== q) return;
+      setResolvedPlace(place);
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      resolvingQueryRef.current = null;
+    };
+  }, [searchQuery, searchResults.length]);
 
   useEffect(() => {
     if (
@@ -259,6 +321,10 @@ export default function MapScreen() {
     }, [mapInstance])
   );
 
+  const FIT_BOUNDS_PADDING = 64;
+  const FIT_BOUNDS_DURATION_MS = 1200;
+  const SPOT_FOCUS_ZOOM = 15;
+
   useEffect(() => {
     const node = mapRootRef.current as unknown as HTMLElement | null;
     if (typeof document === 'undefined' || !node) return;
@@ -275,37 +341,58 @@ export default function MapScreen() {
       if (cancelled) return;
       const spot = (data as Spot[] | null)?.find((s) => s.id === createdId);
       if (spot) setSelectedSpot(spot);
-      router.replace('/(tabs)' as const);
+      if (mapInstance && spot) {
+        mapInstance.flyTo({
+          center: [spot.longitude, spot.latitude],
+          zoom: SPOT_FOCUS_ZOOM,
+          duration: FIT_BOUNDS_DURATION_MS,
+        });
+        router.replace('/(tabs)' as const);
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.created, refetchSpots, router]);
+  }, [params.created, refetchSpots, router, mapInstance]);
 
-  const onMapLoad = useCallback((e: MapEvent) => {
-    const map = e.target;
-    setMapInstance(map);
-    setZoom(map.getZoom());
-    applyGlobeAndAtmosphere(map);
-    hideNoiseLayers(map);
-    tryCenterOnUser(map, setUserCoords);
-  }, []);
+  /** Cuando volvemos con created y el mapa se monta después: encuadrar al spot creado y limpiar param. */
+  useEffect(() => {
+    const createdId = params.created;
+    if (!createdId || !mapInstance || !selectedSpot || selectedSpot.id !== createdId) return;
+    mapInstance.flyTo({
+      center: [selectedSpot.longitude, selectedSpot.latitude],
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+    });
+    router.replace('/(tabs)' as const);
+  }, [params.created, mapInstance, selectedSpot, router]);
 
-  /** Padding para fitBounds (px). Generoso para evitar pins pegados al borde. */
-  const FIT_BOUNDS_PADDING = 64;
-  const FIT_BOUNDS_DURATION_MS = 1200;
-  /** Zoom para foco en spot (reencuadre contextual y ubicación actual). */
-  const SPOT_FOCUS_ZOOM = 15;
+  const onMapLoad = useCallback(
+    (e: MapEvent) => {
+      const map = e.target;
+      setMapInstance(map);
+      setZoom(map.getZoom());
+      applyGlobeAndAtmosphere(map);
+      hideNoiseLayers(map);
+      if (!params.created) tryCenterOnUser(map, setUserCoords);
+    },
+    [params.created]
+  );
 
-  const geoOptions: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 300000,
-  };
+  const geoOptions = useMemo<PositionOptions>(
+    () => ({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000,
+    }),
+    []
+  );
 
   /** Ubicación actual: refresca coords y centra en el usuario. Si getCurrentPosition falla, usa userCoords existentes y no bloquea. */
   const handleLocate = useCallback(() => {
     if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('location');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const coords: UserCoords = {
@@ -315,7 +402,7 @@ export default function MapScreen() {
         setUserCoords(coords);
         mapInstance.flyTo({
           center: [coords.longitude, coords.latitude],
-          zoom: SPOT_FOCUS_ZOOM,
+          zoom: 15,
           duration: 1500,
         });
       },
@@ -323,32 +410,43 @@ export default function MapScreen() {
         if (userCoords) {
           mapInstance.flyTo({
             center: [userCoords.longitude, userCoords.latitude],
-            zoom: SPOT_FOCUS_ZOOM,
+            zoom: 15,
             duration: 1500,
           });
         }
       },
       geoOptions
     );
-  }, [mapInstance, userCoords]);
+  }, [mapInstance, userCoords, geoOptions]);
 
-  /**
-   * Encuadra el mapa mostrando: ubicación del usuario (si existe) + spots visibles según filtro.
-   * Refresca la ubicación antes; si getCurrentPosition falla, usa userCoords existentes y no bloquea el encuadre.
-   */
-  const handleViewAll = useCallback(() => {
-    if (!mapInstance || filteredSpots.length === 0) return;
-    const runFitBounds = (coords: UserCoords) => {
+  /** Encuadra solo el spot seleccionado (zoom fijo). Solo se usa con spot seleccionado. */
+  const handleReframeSpot = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('contextual');
+    mapInstance.flyTo({
+      center: [selectedSpot.longitude, selectedSpot.latitude],
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+    });
+  }, [mapInstance, selectedSpot]);
+
+  /** Encuadra spot seleccionado + ubicación del usuario. Solo se usa con spot seleccionado. */
+  const handleReframeSpotAndUser = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('contextual');
+    const runReframe = (coords: UserCoords) => {
       const pts: { longitude: number; latitude: number }[] = coords
         ? [
+            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
             { longitude: coords.longitude, latitude: coords.latitude },
-            ...filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude })),
           ]
-        : filteredSpots.map((s) => ({ longitude: s.longitude, latitude: s.latitude }));
+        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
       if (pts.length === 1) {
         mapInstance.flyTo({
           center: [pts[0].longitude, pts[0].latitude],
-          zoom: 14,
+          zoom: SPOT_FOCUS_ZOOM,
           duration: FIT_BOUNDS_DURATION_MS,
         });
       } else {
@@ -374,64 +472,6 @@ export default function MapScreen() {
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
-          const coords: UserCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setUserCoords(coords);
-          runFitBounds(coords);
-        },
-        () => runFitBounds(userCoords),
-        geoOptions
-      );
-    } else {
-      runFitBounds(userCoords);
-    }
-  }, [mapInstance, filteredSpots, userCoords]);
-
-  /** Centra el mapa en el spot seleccionado con zoom fijo (reencuadre solo spot). */
-  const handleReframeSpot = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    mapInstance.flyTo({
-      center: [selectedSpot.longitude, selectedSpot.latitude],
-      zoom: SPOT_FOCUS_ZOOM,
-      duration: FIT_BOUNDS_DURATION_MS,
-    });
-  }, [mapInstance, selectedSpot]);
-
-  /** Encuadra spot seleccionado + ubicación del usuario; refresca ubicación antes. */
-  const handleReframeSpotAndUser = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    const runReframe = (coords: UserCoords) => {
-      const pts: { longitude: number; latitude: number }[] = coords
-        ? [
-            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
-            { longitude: coords.longitude, latitude: coords.latitude },
-          ]
-        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
-      if (pts.length === 1) {
-        mapInstance.flyTo({
-          center: [pts[0].longitude, pts[0].latitude],
-          zoom: SPOT_FOCUS_ZOOM,
-          duration: FIT_BOUNDS_DURATION_MS,
-        });
-      } else {
-        let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-        for (const p of pts) {
-          minLng = Math.min(minLng, p.longitude);
-          minLat = Math.min(minLat, p.latitude);
-          maxLng = Math.max(maxLng, p.longitude);
-          maxLat = Math.max(maxLat, p.latitude);
-        }
-        mapInstance.fitBounds(
-          [[minLng, minLat], [maxLng, maxLat]],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
-        );
-      }
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
           const c: UserCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
           setUserCoords(c);
           runReframe(c);
@@ -442,12 +482,25 @@ export default function MapScreen() {
     } else {
       runReframe(userCoords);
     }
-  }, [mapInstance, selectedSpot, userCoords]);
+  }, [mapInstance, selectedSpot, userCoords, geoOptions]);
+
+  /** Vista global (control "Ver el mundo"): fitBounds(world). Estado activo se desactiva en moveend si fue interacción del usuario. */
+  const handleViewWorld = useCallback(() => {
+    if (!mapInstance) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('world');
+    mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
+  }, [mapInstance]);
 
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
     const onMoveEnd = () => {
+      if (programmaticMoveRef.current) {
+        programmaticMoveRef.current = false;
+      } else {
+        setActiveMapControl(null);
+      }
       setZoom(map.getZoom());
       if (selectedSpot) {
         try {
@@ -512,10 +565,6 @@ export default function MapScreen() {
   }, []);
 
   /** Cerrar solo la UI de búsqueda; no borra searchQuery ni searchResults (estado latente). */
-  const exitSearchMode = useCallback(() => {
-    setSearchActive(false);
-  }, []);
-
   /** Botón clear: vacía el input y mantiene modo búsqueda; la X es el único mecanismo para cancelar explícitamente. */
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
@@ -562,12 +611,68 @@ export default function MapScreen() {
     [mapInstance]
   );
 
-  const handleCreateSpotFromSearch = useCallback(() => {
-    setSelectedSpot(null);
-    setSearchActive(false);
-    blurActiveElement();
-    (router.push as (href: string) => void)('/create-spot?from=search');
-  }, [router]);
+  const navigateToCreateSpotFromSearch = useCallback(
+    (place: ResolvedPlace | null) => {
+      setSelectedSpot(null);
+      setSearchActive(false);
+      blurActiveElement();
+      if (place) {
+        const params = new URLSearchParams({
+          name: place.name,
+          lat: String(place.latitude),
+          lng: String(place.longitude),
+          source: 'search',
+        });
+        (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
+      } else {
+        (router.push as (href: string) => void)('/create-spot?source=search');
+      }
+    },
+    [router]
+  );
+
+  const handleCreateSpotFromSearch = useCallback(async () => {
+    const q = searchQuery.trim();
+    if (resolvedPlace) {
+      const dup = await checkDuplicateSpot(
+        resolvedPlace.name,
+        resolvedPlace.latitude,
+        resolvedPlace.longitude,
+        300
+      );
+      if (dup.duplicate) {
+        setDuplicateWarningSpotTitle(dup.existingTitle);
+        pendingCreateFromSearchRef.current = { resolvedPlace };
+        setShowCreateSpotDuplicateWarning(true);
+        return;
+      }
+    } else if (q) {
+      const weakMatch = filteredSpots.find(
+        (s) => normalizeSpotTitle(s.title) === normalizeSpotTitle(q)
+      );
+      if (weakMatch) {
+        setDuplicateWarningSpotTitle(weakMatch.title);
+        pendingCreateFromSearchRef.current = { resolvedPlace: null };
+        setShowCreateSpotDuplicateWarning(true);
+        return;
+      }
+    }
+    navigateToCreateSpotFromSearch(resolvedPlace);
+  }, [resolvedPlace, searchQuery, filteredSpots, navigateToCreateSpotFromSearch]);
+
+  const handleCreateSpotDuplicateWarningConfirm = useCallback(() => {
+    const pending = pendingCreateFromSearchRef.current;
+    pendingCreateFromSearchRef.current = null;
+    setShowCreateSpotDuplicateWarning(false);
+    setDuplicateWarningSpotTitle(null);
+    if (pending) navigateToCreateSpotFromSearch(pending.resolvedPlace);
+  }, [navigateToCreateSpotFromSearch]);
+
+  const handleCreateSpotDuplicateWarningCancel = useCallback(() => {
+    pendingCreateFromSearchRef.current = null;
+    setShowCreateSpotDuplicateWarning(false);
+    setDuplicateWarningSpotTitle(null);
+  }, []);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -634,8 +739,8 @@ export default function MapScreen() {
   }, []);
 
   const handleMapPointerDown = useCallback(
-    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
-      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapLayerMouseEvent).lngLat;
+    (e: MapMouseEvent | MapTouchEvent) => {
+      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapMouseEvent).lngLat;
       if (!lngLat) return;
       const point = 'point' in e && e.point ? e.point : undefined;
       const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
@@ -648,7 +753,7 @@ export default function MapScreen() {
   );
 
   const handleMapPointerMove = useCallback(
-    (e: MapLayerMouseEvent | MapLayerTouchEvent) => {
+    (e: MapMouseEvent | MapTouchEvent) => {
       if (longPressTimerRef.current === null || longPressPointerStartRef.current === null) return;
       const point = 'point' in e && e.point ? e.point : undefined;
       const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
@@ -728,7 +833,6 @@ export default function MapScreen() {
       ref={mapRootRef}
       style={styles.mapScreenRoot}
       {...(Platform.OS === 'web' && { className: 'map-screen-root-dvh' })}
-      dataSet={{ flowya: 'map-screen-root' }}
     >
       <Map
         key={mapStyle}
@@ -746,16 +850,6 @@ export default function MapScreen() {
         onTouchMove={handleMapPointerMove}
         onTouchEnd={handleMapPointerUp}
       >
-        {userCoords ? (
-          <Marker
-            latitude={userCoords.latitude}
-            longitude={userCoords.longitude}
-            anchor="center"
-            style={{ zIndex: 9999 }}
-          >
-            <MapPinLocation />
-          </Marker>
-        ) : null}
         {filteredSpots.map((spot) => (
           <Marker
             key={spot.id}
@@ -775,17 +869,25 @@ export default function MapScreen() {
             />
           </Marker>
         ))}
+        {userCoords ? (
+          <Marker
+            latitude={userCoords.latitude}
+            longitude={userCoords.longitude}
+            anchor="center"
+          >
+            <MapPinLocation />
+          </Marker>
+        ) : null}
       </Map>
       {selectedSpot && !searchActive ? (
         <>
           {selectedPinScreenPos ? (
             <Pressable
-              dataSet={{ flowya: 'map-selected-pin-hit-area' }}
               style={[
                 styles.selectedPinHitArea,
                 {
-                  left: selectedPinScreenPos.x - SELECTED_PIN_HIT_RADIUS,
-                  top: selectedPinScreenPos.y - SELECTED_PIN_HIT_RADIUS,
+                  left: Math.round(selectedPinScreenPos.x) - SELECTED_PIN_HIT_RADIUS,
+                  top: Math.round(selectedPinScreenPos.y) - SELECTED_PIN_HIT_RADIUS,
                 },
               ]}
               onPress={handleSelectedPinTap}
@@ -794,7 +896,6 @@ export default function MapScreen() {
             />
           ) : null}
           <View
-            dataSet={{ flowya: 'map-spot-card-overlay' }}
             style={[styles.cardOverlay, { pointerEvents: 'box-none' }]}
           >
             <SpotCard
@@ -814,7 +915,6 @@ export default function MapScreen() {
         </>
       ) : null}
       <Pressable
-        dataSet={{ flowya: 'map-flowya-label' }}
         style={[styles.flowyaLabelWrap, WebTouchManipulation]}
         onPress={() => setShowBetaModal(true)}
         accessibilityLabel="FLOWYA Beta"
@@ -831,7 +931,6 @@ export default function MapScreen() {
         )}
       </Pressable>
       <View
-        dataSet={{ flowya: 'map-pin-filter-overlay' }}
         style={[
           styles.filterOverlay,
           searchActive && styles.filterOverlaySearchActive,
@@ -841,10 +940,9 @@ export default function MapScreen() {
         <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
         {searchActive ? (
           <>
-            <View dataSet={{ flowya: 'map-search-input-wrap' }} style={styles.searchInputWrap}>
+            <View style={styles.searchInputWrap}>
               <TextInput
                 ref={searchInputRef}
-                dataSet={{ flowya: 'map-search-input' }}
                 style={[
                   styles.searchInput,
                   {
@@ -863,7 +961,6 @@ export default function MapScreen() {
               />
               {searchQuery.length > 0 ? (
                 <Pressable
-                  dataSet={{ flowya: 'map-search-clear' }}
                   style={[styles.searchClearButton, { backgroundColor: colors.backgroundElevated }]}
                   onPress={handleClearSearch}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -876,42 +973,52 @@ export default function MapScreen() {
               ) : null}
             </View>
             <View
-              dataSet={{ flowya: 'map-search-results-area' }}
               style={styles.searchResultsArea}
             >
               {searchQuery.trim() === '' ? (
-                <ScrollView
-                  dataSet={{ flowya: 'map-search-results' }}
-                  style={styles.searchResultsScroll}
-                  contentContainerStyle={styles.searchResultsContent}
-                  keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator
-                >
-                  {defaultSpots.map((spot) => (
-                    <View key={spot.id} style={styles.searchResultItemWrap}>
-                      <SearchResultCard
-                        spot={spot}
-                        savePinState={
-                          spot.pinStatus === 'to_visit'
-                            ? 'toVisit'
-                            : spot.pinStatus === 'visited'
-                              ? 'visited'
-                              : 'default'
-                        }
-                        onPress={() => handleSearchResultSelect(spot)}
-                      />
-                    </View>
-                  ))}
-                </ScrollView>
+                defaultSpots.length > 0 ? (
+                  <ScrollView
+                    style={styles.searchResultsScroll}
+                    contentContainerStyle={styles.searchResultsContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator
+                  >
+                    {defaultSpots.map((spot) => (
+                      <View key={spot.id} style={styles.searchResultItemWrap}>
+                        <SearchResultCard
+                          spot={spot}
+                          savePinState={
+                            spot.pinStatus === 'to_visit'
+                              ? 'toVisit'
+                              : spot.pinStatus === 'visited'
+                                ? 'visited'
+                                : 'default'
+                          }
+                          onPress={() => handleSearchResultSelect(spot)}
+                        />
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.searchNoResults}>
+                    <Text
+                      style={[
+                        styles.searchNoResultsText,
+                        { color: colors.textSecondary },
+                      ]}
+                    >
+                      No hay spots cercanos. Mantén pulsado el mapa para crear uno.
+                    </Text>
+                  </View>
+                )
               ) : searchResults.length > 0 ? (
                 <ScrollView
-                  dataSet={{ flowya: 'map-search-results' }}
                   style={styles.searchResultsScroll}
                   contentContainerStyle={styles.searchResultsContent}
                   keyboardShouldPersistTaps="handled"
                   showsVerticalScrollIndicator
                 >
-                  {searchResults.map((spot) => (
+                  {orderedSearchResults.map((spot) => (
                     <View key={spot.id} style={styles.searchResultItemWrap}>
                       <SearchResultCard
                         spot={spot}
@@ -926,17 +1033,9 @@ export default function MapScreen() {
                       />
                     </View>
                   ))}
-                  <ButtonPrimary
-                    dataSet={{ flowya: 'map-search-create-spot-end' }}
-                    onPress={handleCreateSpotFromSearch}
-                    accessibilityLabel="Crear nuevo spot"
-                  >
-                    Crear nuevo spot
-                  </ButtonPrimary>
                 </ScrollView>
               ) : (
                 <View
-                  dataSet={{ flowya: 'map-search-no-results' }}
                   style={styles.searchNoResults}
                 >
                   <Text
@@ -948,11 +1047,12 @@ export default function MapScreen() {
                     ¿No encontraste lo que buscas?
                   </Text>
                   <ButtonPrimary
-                    dataSet={{ flowya: 'map-search-create-spot' }}
                     onPress={handleCreateSpotFromSearch}
-                    accessibilityLabel="Crear nuevo spot"
+                    accessibilityLabel={
+                      resolvedPlace ? `Crear: ${resolvedPlace.name}` : `Crear spot: ${searchQuery.trim()}`
+                    }
                   >
-                    Crear nuevo spot
+                    {resolvedPlace ? `Crear: ${resolvedPlace.name}` : `Crear spot: ${searchQuery.trim()}`}
                   </ButtonPrimary>
                 </View>
               )}
@@ -962,7 +1062,6 @@ export default function MapScreen() {
       </View>
       {!searchActive ? (
         <View
-          dataSet={{ flowya: 'map-profile-button-overlay' }}
           style={[styles.profileButtonOverlay, { pointerEvents: 'box-none' }]}
         >
         <IconButton
@@ -979,7 +1078,6 @@ export default function MapScreen() {
         {showLogoutOption && isAuthUser ? (
           <View style={styles.logoutButtonWrap}>
             <Pressable
-              dataSet={{ flowya: 'map-logout-button' }}
               style={({ pressed }) => [
                 styles.logoutButtonFloating,
                 pressed && styles.logoutButtonFloatingPressed,
@@ -996,17 +1094,17 @@ export default function MapScreen() {
       ) : null}
       {!searchActive ? (
         <View
-          dataSet={{ flowya: 'map-controls-overlay' }}
           style={[styles.controlsOverlay, { pointerEvents: 'box-none' }]}
         >
           <MapControls
             map={mapInstance}
             onLocate={handleLocate}
-            onViewAll={handleViewAll}
-            hasVisibleSpots={filteredSpots.length > 0}
             selectedSpot={selectedSpot}
             onReframeSpot={handleReframeSpot}
             onReframeSpotAndUser={handleReframeSpotAndUser}
+            hasUserLocation={userCoords != null}
+            onViewWorld={handleViewWorld}
+            activeMapControl={activeMapControl}
           />
         </View>
       ) : null}
@@ -1026,23 +1124,32 @@ export default function MapScreen() {
           setShowLogoutConfirm(false);
           setShowLogoutOption(false);
         }}
-        dataSet={{ flowya: 'logout-confirm-modal' }}
       />
       <FlowyaBetaModal
         visible={showBetaModal}
         onClose={() => setShowBetaModal(false)}
-        dataSet={{ flowya: 'flowya-beta-modal' }}
       />
       <CreateSpotConfirmModal
         visible={showCreateSpotConfirmModal}
         onConfirm={handleCreateSpotConfirm}
         onCancel={handleCreateSpotConfirmCancel}
-        dataSet={{ flowya: 'create-spot-confirm-modal' }}
+      />
+      <ConfirmModal
+        visible={showCreateSpotDuplicateWarning}
+        title="Spot parecido"
+        message={
+          duplicateWarningSpotTitle
+            ? `Ya existe un spot parecido: "${duplicateWarningSpotTitle}". ¿Crear otro?`
+            : '¿Crear otro spot?'
+        }
+        confirmLabel="Crear otro"
+        cancelLabel="Cancelar"
+        onConfirm={handleCreateSpotDuplicateWarningConfirm}
+        onCancel={handleCreateSpotDuplicateWarningCancel}
       />
       <View style={styles.fabWrap}>
         {searchActive ? (
           <Pressable
-            dataSet={{ flowya: 'map-search-fab' }}
             style={({ pressed }) => [
               styles.fabSearchClose,
               pressed && styles.fabSearchClosePressed,
@@ -1055,7 +1162,6 @@ export default function MapScreen() {
           </Pressable>
         ) : (
           <IconButton
-            dataSet={{ flowya: 'map-search-fab' }}
             variant="default"
             onPress={handleToggleSearch}
             accessibilityLabel="Buscar"

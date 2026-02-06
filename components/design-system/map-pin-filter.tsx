@@ -59,14 +59,13 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
   };
 
   return (
-    <View dataSet={{ flowya: 'map-pin-filter' }} style={styles.wrapper}>
+    <View style={styles.wrapper}>
       {OPTIONS.map((opt) => {
         const selected = value === opt.value;
         const { bg, text } = getSelectedColors(opt.value);
         return (
           <Pressable
             key={opt.value}
-            dataSet={{ flowya: `map-pin-filter-${opt.value}` }}
             style={[styles.optionWrap, { backgroundColor: selected ? bg : 'transparent' }]}
             onPress={() => onChange(opt.value)}
             accessibilityRole="button"

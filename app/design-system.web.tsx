@@ -375,7 +375,6 @@ export default function DesignSystemScreen() {
               variant="destructive"
               onConfirm={() => setShowLogoutConfirm(false)}
               onCancel={() => setShowLogoutConfirm(false)}
-              dataSet={{ flowya: 'confirm-modal-logout-showcase' }}
             />
             <ConfirmModal
               visible={showDeleteSpotConfirm}
@@ -386,7 +385,6 @@ export default function DesignSystemScreen() {
               variant="destructive"
               onConfirm={() => setShowDeleteSpotConfirm(false)}
               onCancel={() => setShowDeleteSpotConfirm(false)}
-              dataSet={{ flowya: 'confirm-modal-delete-spot-showcase' }}
             />
           </View>
         </View>
@@ -423,7 +421,6 @@ export default function DesignSystemScreen() {
             <FlowyaBetaModal
               visible={showBetaModal}
               onClose={() => setShowBetaModal(false)}
-              dataSet={{ flowya: 'flowya-beta-modal-showcase' }}
             />
           </View>
         </View>

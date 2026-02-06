@@ -15,8 +15,6 @@ export type ButtonPrimaryProps = {
   onPress?: () => void;
   disabled?: boolean;
   accessibilityLabel?: string;
-  /** Web: dataSet para QA */
-  dataSet?: Record<string, string>;
 };
 
 export function ButtonPrimary({
@@ -24,12 +22,10 @@ export function ButtonPrimary({
   onPress,
   disabled = false,
   accessibilityLabel,
-  dataSet,
 }: ButtonPrimaryProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   return (
     <Pressable
-      dataSet={dataSet}
       style={({ pressed }) => [
         styles.primary,
         {
@@ -52,8 +48,6 @@ export type ButtonSecondaryProps = {
   onPress?: () => void;
   disabled?: boolean;
   accessibilityLabel?: string;
-  /** Web: dataSet para QA */
-  dataSet?: Record<string, string>;
 };
 
 export function ButtonSecondary({
@@ -61,12 +55,10 @@ export function ButtonSecondary({
   onPress,
   disabled = false,
   accessibilityLabel,
-  dataSet,
 }: ButtonSecondaryProps) {
   const colors = Colors[useColorScheme() ?? 'light'];
   return (
     <Pressable
-      dataSet={dataSet}
       style={({ pressed }) => [
         styles.secondary,
         {

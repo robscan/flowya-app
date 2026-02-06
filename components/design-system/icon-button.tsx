@@ -36,8 +36,6 @@ export type IconButtonProps = {
   size?: number;
   /** Estado selected (persistente): mismo aspecto que pressed — bg primary, icono blanco. */
   selected?: boolean;
-  /** Web: dataSet para QA. */
-  dataSet?: Record<string, string>;
   testID?: string;
 };
 
@@ -52,7 +50,6 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     savePinState = 'default',
     size = SIZE_DEFAULT,
     selected = false,
-    dataSet,
     testID,
   },
   ref
@@ -92,7 +89,6 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
   return (
     <Pressable
       ref={ref}
-      dataSet={dataSet}
       testID={testID}
       style={({ pressed }) => [
         {

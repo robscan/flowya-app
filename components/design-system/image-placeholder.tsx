@@ -76,7 +76,7 @@ export function ImagePlaceholder({
         ];
 
   return (
-    <View dataSet={{ flowya: 'image-placeholder' }} style={rootStyle}>
+    <View style={rootStyle}>
       <View style={[styles.iconWrapper, { width: iconSize, height: iconSize }]}>
         <ImagePlus
           size={iconSize}

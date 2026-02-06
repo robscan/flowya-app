@@ -12,7 +12,6 @@ import { Locate } from 'lucide-react-native';
 
 import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -20,24 +19,15 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { IconButton } from './icon-button';
 
-/** Mínimo necesario para mostrar controles de reencuadre contextual (solo spot o spot + usuario). */
-export type MapControlsSpot = { id: string; latitude: number; longitude: number };
-
 export type MapControlsProps = {
-  /** Map instance (Mapbox). When null, buttons are disabled (e.g. Design System showcase). */
   map: MapboxMap | null;
-  /** Callback when locate is pressed (caller can run geolocation and then map.flyTo). */
   onLocate?: () => void;
-  /** Callback when "ver todo" is pressed (caller runs fitBounds con spots visibles). */
+  /** Solo se muestra el botón de encuadre cuando hay spot seleccionado. */
+  selectedSpot?: { id: string } | null;
+  /** Callback encuadre (fitBounds spots + usuario). Solo relevante cuando selectedSpot != null. */
   onViewAll?: () => void;
-  /** Si false, el botón ViewAll está disabled (ej. sin spots visibles). */
+  /** Si false, el botón de encuadre está disabled (ej. sin spots visibles). */
   hasVisibleSpots?: boolean;
-  /** Spot actualmente seleccionado; si está definido se muestran botones de reencuadre contextual. */
-  selectedSpot?: MapControlsSpot | null;
-  /** Centrar mapa en el spot seleccionado (flyTo con zoom fijo). */
-  onReframeSpot?: () => void;
-  /** Encuadrar spot seleccionado + ubicación del usuario. */
-  onReframeSpotAndUser?: () => void;
 };
 
 const ICON_SIZE = 22;
@@ -45,42 +35,16 @@ const ICON_SIZE = 22;
 export function MapControls({
   map,
   onLocate,
+  selectedSpot = null,
   onViewAll,
   hasVisibleSpots = false,
-  selectedSpot = null,
-  onReframeSpot,
-  onReframeSpotAndUser,
 }: MapControlsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const enabled = map !== null;
   const iconColor = enabled ? colors.text : colors.textSecondary;
-  const canViewAll = enabled && hasVisibleSpots && typeof onViewAll === 'function';
-  const canReframe =
-    enabled &&
-    selectedSpot != null &&
-    typeof onReframeSpot === 'function' &&
-    typeof onReframeSpotAndUser === 'function';
-  const viewAllOrReframeEnabled = canViewAll || canReframe;
-  const refNextIsSpotOnly = useRef(true);
-
-  const handleViewAllOrReframe = () => {
-    if (!canReframe) {
-      onViewAll?.();
-      return;
-    }
-    if (refNextIsSpotOnly.current) {
-      onReframeSpot?.();
-      refNextIsSpotOnly.current = false;
-    } else {
-      onReframeSpotAndUser?.();
-      refNextIsSpotOnly.current = true;
-    }
-  };
-
-  useEffect(() => {
-    if (selectedSpot == null) refNextIsSpotOnly.current = true;
-  }, [selectedSpot]);
+  const showReframe = selectedSpot != null;
+  const viewAllEnabled = enabled && hasVisibleSpots && typeof onViewAll === 'function';
 
   const handleLocate = () => {
     if (onLocate) onLocate();
@@ -100,22 +64,22 @@ export function MapControls({
   };
 
   return (
-    <View dataSet={{ flowya: 'map-controls' }} style={styles.container}>
+    <View style={styles.container}>
+      {showReframe ? (
+        <IconButton
+          variant="default"
+          onPress={onViewAll}
+          disabled={!viewAllEnabled}
+          accessibilityLabel="Ver todos los spots"
+        >
+          <FrameWithDot
+            size={ICON_SIZE}
+            color={viewAllEnabled ? colors.text : colors.textSecondary}
+            strokeWidth={2}
+          />
+        </IconButton>
+      ) : null}
       <IconButton
-        dataSet={{ flowya: 'map-controls-view-all' }}
-        variant="default"
-        onPress={handleViewAllOrReframe}
-        disabled={!viewAllOrReframeEnabled}
-        accessibilityLabel="Ver todos los spots"
-      >
-        <FrameWithDot
-          size={ICON_SIZE}
-          color={viewAllOrReframeEnabled ? colors.text : colors.textSecondary}
-          strokeWidth={2}
-        />
-      </IconButton>
-      <IconButton
-        dataSet={{ flowya: 'map-controls-locate' }}
         variant="default"
         onPress={handleLocate}
         disabled={!enabled}

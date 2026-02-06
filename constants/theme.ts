@@ -131,28 +131,10 @@ export const Spacing = {
   xxxl: 64,
 } as const;
 
-/** Sombras muy sutiles para superficies elevadas. */
+/** Sombras: deshabilitadas (shadow* deprecado; no usar boxShadow por ahora). Mantener export para no romper spreads existentes. */
 export const Shadow = {
-  subtle: Platform.select({
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 1 },
-      shadowOpacity: 0.04,
-      shadowRadius: 8,
-    },
-    android: { elevation: 1 },
-    default: {},
-  }),
-  card: Platform.select({
-    ios: {
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-    },
-    android: { elevation: 2 },
-    default: {},
-  }),
+  subtle: {} as const,
+  card: {} as const,
 } as const;
 
 /**

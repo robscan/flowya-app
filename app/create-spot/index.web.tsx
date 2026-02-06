@@ -19,7 +19,7 @@ import { HeaderBackButton, type HeaderBackButtonProps } from '@react-navigation/
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -38,9 +38,11 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6;
 export default function CreateSpotScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{
+    name?: string;
     lat?: string;
     lng?: string;
     from?: string;
+    source?: string;
     mapLng?: string;
     mapLat?: string;
     mapZoom?: string;
@@ -50,58 +52,63 @@ export default function CreateSpotScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
-  const initialLatitude =
-    params.lat != null && params.lng != null
-      ? (() => {
-          const n = Number.parseFloat(params.lat!);
-          return Number.isFinite(n) ? n : undefined;
-        })()
-      : undefined;
-  const initialLongitude =
-    params.lat != null && params.lng != null
-      ? (() => {
-          const n = Number.parseFloat(params.lng!);
-          return Number.isFinite(n) ? n : undefined;
-        })()
-      : undefined;
+  /** B2-MS5a: Params leídos una sola vez al montar; después se ignoran. */
+  const initialParamsRef = useRef<{
+    name: string;
+    lat?: number;
+    lng?: number;
+    mapLng?: number;
+    mapLat?: number;
+    mapZoom?: number;
+    mapBearing?: number;
+    mapPitch?: number;
+  } | null>(null);
+  if (initialParamsRef.current === null) {
+    const lat =
+      params.lat != null && params.lng != null
+        ? (() => {
+            const n = Number.parseFloat(params.lat!);
+            return Number.isFinite(n) ? n : undefined;
+          })()
+        : undefined;
+    const lng =
+      params.lat != null && params.lng != null
+        ? (() => {
+            const n = Number.parseFloat(params.lng!);
+            return Number.isFinite(n) ? n : undefined;
+          })()
+        : undefined;
+    const hasMapView =
+      params.mapLng != null && params.mapLat != null && params.mapZoom != null;
+    const mapLng = hasMapView ? Number.parseFloat(params.mapLng!) : NaN;
+    const mapLat = hasMapView ? Number.parseFloat(params.mapLat!) : NaN;
+    const mapZoom = hasMapView ? Number.parseFloat(params.mapZoom!) : NaN;
+    initialParamsRef.current = {
+      name: params.name != null ? String(params.name) : '',
+      lat,
+      lng,
+      mapLng: hasMapView && Number.isFinite(mapLng) ? mapLng : undefined,
+      mapLat: hasMapView && Number.isFinite(mapLat) ? mapLat : undefined,
+      mapZoom: hasMapView && Number.isFinite(mapZoom) ? mapZoom : undefined,
+      mapBearing:
+        params.mapBearing != null && Number.isFinite(Number.parseFloat(params.mapBearing))
+          ? Number.parseFloat(params.mapBearing)
+          : undefined,
+      mapPitch:
+        params.mapPitch != null && Number.isFinite(Number.parseFloat(params.mapPitch))
+          ? Number.parseFloat(params.mapPitch)
+          : undefined,
+    };
+  }
+  const initial = initialParamsRef.current;
 
-  const hasMapViewParams =
-    params.mapLng != null &&
-    params.mapLat != null &&
-    params.mapZoom != null;
-  const initialViewLongitude = hasMapViewParams
-    ? (() => {
-        const n = Number.parseFloat(params.mapLng!);
-        return Number.isFinite(n) ? n : undefined;
-      })()
-    : undefined;
-  const initialViewLatitude = hasMapViewParams
-    ? (() => {
-        const n = Number.parseFloat(params.mapLat!);
-        return Number.isFinite(n) ? n : undefined;
-      })()
-    : undefined;
-  const initialViewZoom = hasMapViewParams
-    ? (() => {
-        const n = Number.parseFloat(params.mapZoom!);
-        return Number.isFinite(n) ? n : undefined;
-      })()
-    : undefined;
-  const initialViewBearing =
-    params.mapBearing != null
-      ? (() => {
-          const n = Number.parseFloat(params.mapBearing);
-          return Number.isFinite(n) ? n : undefined;
-        })()
-      : undefined;
-  const initialViewPitch =
-    params.mapPitch != null
-      ? (() => {
-          const n = Number.parseFloat(params.mapPitch);
-          return Number.isFinite(n) ? n : undefined;
-        })()
-      : undefined;
-
+  const initialLatitude = initial.lat;
+  const initialLongitude = initial.lng;
+  const initialViewLongitude = initial.mapLng;
+  const initialViewLatitude = initial.mapLat;
+  const initialViewZoom = initial.mapZoom;
+  const initialViewBearing = initial.mapBearing;
+  const initialViewPitch = initial.mapPitch;
   const preserveView =
     initialLatitude != null &&
     initialLongitude != null &&
@@ -111,7 +118,7 @@ export default function CreateSpotScreen() {
 
   const [step, setStep] = useState<Step>(1);
   const [location, setLocation] = useState<MapLocationPickerResult | null>(null);
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(initial.name);
   const [descriptionShort, setDescriptionShort] = useState('');
   const [descriptionLong, setDescriptionLong] = useState('');
   const [submitting, setSubmitting] = useState(false);

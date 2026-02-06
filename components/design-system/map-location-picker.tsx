@@ -8,7 +8,7 @@
 import '@/styles/mapbox-attribution-overrides.css';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useState } from 'react';
-import type { MapEvent, MapLayerMouseEvent } from 'react-map-gl/mapbox-legacy';
+import type { MapEvent, MapMouseEvent } from 'react-map-gl/mapbox-legacy';
 import Map, { Marker } from 'react-map-gl/mapbox-legacy';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -150,7 +150,7 @@ export function MapLocationPicker({
     [preserveView, hasInitialCoords, initialLatitude, initialLongitude]
   );
 
-  const onMapClick = useCallback((e: MapLayerMouseEvent) => {
+  const onMapClick = useCallback((e: MapMouseEvent) => {
     e.originalEvent?.stopPropagation?.();
     const { lng, lat } = e.lngLat;
     setLngLat({ lng, lat });
@@ -204,7 +204,7 @@ export function MapLocationPicker({
       : FALLBACK_VIEW;
 
   return (
-    <View style={styles.container} dataSet={{ flowya: 'map-location-picker' }}>
+    <View style={styles.container}>
       <Map
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
@@ -237,7 +237,6 @@ export function MapLocationPicker({
         ) : null}
       </Map>
       <View
-        dataSet={{ flowya: 'map-location-picker-controls' }}
         style={[styles.controlsOverlay, { zIndex: CONTROLS_Z_INDEX, pointerEvents: 'box-none' }]}
       >
         <MapControls map={mapInstance} />
