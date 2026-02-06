@@ -8,7 +8,7 @@ import { LogOut, Search, User, X } from 'lucide-react-native';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
-import Map, { Marker } from 'react-map-gl/mapbox-legacy';
+import { Map, Marker } from 'react-map-gl/mapbox-legacy';
 import {
     Platform,
     Pressable,
@@ -295,11 +295,14 @@ export default function MapScreen() {
   const FIT_BOUNDS_PADDING = 64;
   const FIT_BOUNDS_DURATION_MS = 1200;
 
-  const geoOptions: PositionOptions = {
-    enableHighAccuracy: true,
-    timeout: 10000,
-    maximumAge: 300000,
-  };
+  const geoOptions = useMemo<PositionOptions>(
+    () => ({
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 300000,
+    }),
+    []
+  );
 
   /** Ubicación actual: refresca coords y centra en el usuario. Si getCurrentPosition falla, usa userCoords existentes y no bloquea. */
   const handleLocate = useCallback(() => {
@@ -328,7 +331,7 @@ export default function MapScreen() {
       },
       geoOptions
     );
-  }, [mapInstance, userCoords]);
+  }, [mapInstance, userCoords, geoOptions]);
 
   /**
    * Encuadra el mapa mostrando: ubicación del usuario (si existe) + spots visibles según filtro.
@@ -385,7 +388,7 @@ export default function MapScreen() {
     } else {
       runFitBounds(userCoords);
     }
-  }, [mapInstance, filteredSpots, userCoords]);
+  }, [mapInstance, filteredSpots, userCoords, geoOptions]);
 
   useEffect(() => {
     const map = mapInstance;
@@ -455,10 +458,6 @@ export default function MapScreen() {
   }, []);
 
   /** Cerrar solo la UI de búsqueda; no borra searchQuery ni searchResults (estado latente). */
-  const exitSearchMode = useCallback(() => {
-    setSearchActive(false);
-  }, []);
-
   /** Botón clear: vacía el input y mantiene modo búsqueda; la X es el único mecanismo para cancelar explícitamente. */
   const handleClearSearch = useCallback(() => {
     setSearchQuery('');
