@@ -41,6 +41,7 @@ import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } from '@/lib/focus-management';
 import { distanceKm } from '@/lib/geo-utils';
+import { resolvePlace, type ResolvedPlace } from '@/lib/mapbox-geocoding';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { shareSpot } from '@/lib/share-spot';
 import { supabase } from '@/lib/supabase';
@@ -157,9 +158,12 @@ export default function MapScreen() {
   const [activeMapControl, setActiveMapControl] = useState<
     'world' | 'contextual' | 'location' | null
   >(null);
+  /** B2-MS4: lugar resuelto por forward geocoding cuando no hay resultados; solo en Search, sin persistencia. */
+  const [resolvedPlace, setResolvedPlace] = useState<ResolvedPlace | null>(null);
   const programmaticMoveRef = useRef(false);
   const mapRootRef = useRef<View>(null);
   const searchInputRef = useRef<TextInput>(null);
+  const resolvingQueryRef = useRef<string | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
   const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -217,6 +221,26 @@ export default function MapScreen() {
       )
       .slice(0, 10);
   }, [filteredSpots, userCoords]);
+
+  /** B2-MS4: Resolución de lugar solo cuando no hay resultados y query no vacío. Sin retries, sin persistencia. */
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (searchResults.length > 0 || !q) {
+      resolvingQueryRef.current = null;
+      setResolvedPlace(null);
+      return;
+    }
+    resolvingQueryRef.current = q;
+    const t = setTimeout(async () => {
+      const place = await resolvePlace(q);
+      if (resolvingQueryRef.current !== q) return;
+      setResolvedPlace(place);
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      resolvingQueryRef.current = null;
+    };
+  }, [searchQuery, searchResults.length]);
 
   useEffect(() => {
     if (
@@ -927,9 +951,11 @@ export default function MapScreen() {
                   </Text>
                   <ButtonPrimary
                     onPress={handleCreateSpotFromSearch}
-                    accessibilityLabel={`Crear spot: ${searchQuery.trim()}`}
+                    accessibilityLabel={
+                      resolvedPlace ? `Crear: ${resolvedPlace.name}` : `Crear spot: ${searchQuery.trim()}`
+                    }
                   >
-                    {`Crear spot: ${searchQuery.trim()}`}
+                    {resolvedPlace ? `Crear: ${resolvedPlace.name}` : `Crear spot: ${searchQuery.trim()}`}
                   </ButtonPrimary>
                 </View>
               )}
