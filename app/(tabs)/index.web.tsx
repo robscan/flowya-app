@@ -927,6 +927,7 @@ export default function MapScreen() {
           <MapControls
             map={mapInstance}
             onLocate={handleLocate}
+            selectedSpot={selectedSpot}
             onViewAll={handleViewAll}
             hasVisibleSpots={filteredSpots.length > 0}
           />

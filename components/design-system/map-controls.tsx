@@ -20,23 +20,30 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { IconButton } from './icon-button';
 
 export type MapControlsProps = {
-  /** Map instance (Mapbox). When null, buttons are disabled (e.g. Design System showcase). */
   map: MapboxMap | null;
-  /** Callback when locate is pressed (caller can run geolocation and then map.flyTo). */
   onLocate?: () => void;
-  /** Callback when "ver todo" is pressed (caller runs fitBounds con spots visibles). */
+  /** Solo se muestra el botón de encuadre cuando hay spot seleccionado. */
+  selectedSpot?: { id: string } | null;
+  /** Callback encuadre (fitBounds spots + usuario). Solo relevante cuando selectedSpot != null. */
   onViewAll?: () => void;
-  /** Si false, el botón ViewAll está disabled (ej. sin spots visibles). */
+  /** Si false, el botón de encuadre está disabled (ej. sin spots visibles). */
   hasVisibleSpots?: boolean;
 };
 
 const ICON_SIZE = 22;
 
-export function MapControls({ map, onLocate, onViewAll, hasVisibleSpots = false }: MapControlsProps) {
+export function MapControls({
+  map,
+  onLocate,
+  selectedSpot = null,
+  onViewAll,
+  hasVisibleSpots = false,
+}: MapControlsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const enabled = map !== null;
   const iconColor = enabled ? colors.text : colors.textSecondary;
+  const showReframe = selectedSpot != null;
   const viewAllEnabled = enabled && hasVisibleSpots && typeof onViewAll === 'function';
 
   const handleLocate = () => {
@@ -58,18 +65,20 @@ export function MapControls({ map, onLocate, onViewAll, hasVisibleSpots = false 
 
   return (
     <View style={styles.container}>
-      <IconButton
-        variant="default"
-        onPress={onViewAll}
-        disabled={!viewAllEnabled}
-        accessibilityLabel="Ver todos los spots"
-      >
-        <FrameWithDot
-          size={ICON_SIZE}
-          color={viewAllEnabled ? colors.text : colors.textSecondary}
-          strokeWidth={2}
-        />
-      </IconButton>
+      {showReframe ? (
+        <IconButton
+          variant="default"
+          onPress={onViewAll}
+          disabled={!viewAllEnabled}
+          accessibilityLabel="Ver todos los spots"
+        >
+          <FrameWithDot
+            size={ICON_SIZE}
+            color={viewAllEnabled ? colors.text : colors.textSecondary}
+            strokeWidth={2}
+          />
+        </IconButton>
+      ) : null}
       <IconButton
         variant="default"
         onPress={handleLocate}
