@@ -1,17 +1,14 @@
 /**
  * Design System: Map controls (canonical).
- * View all (fit bounds), zoom in/out, locate. Usa IconButton canónico (44×44 circular).
- *
- * MapControlButton / ViewAll:
- * - Propósito: encuadrar el mapa para mostrar ubicación del usuario + spots visibles según el filtro.
- * - Ícono: FrameWithDot (custom, marco + punto central).
- * - Estados: default, pressed, disabled (cuando no hay spots visibles).
+ * Controles canónicos del mapa: Ver el mundo, encuadre contextual, ubicación.
+ * Usa IconButton canónico (44×44 circular).
  */
 
-import { Locate } from 'lucide-react-native';
+import { Globe, Locate } from 'lucide-react-native';
 
 import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -19,15 +16,17 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { IconButton } from './icon-button';
 
+export type ActiveMapControl = 'world' | 'spot' | 'spot+user' | 'location' | null;
+
 export type MapControlsProps = {
   map: MapboxMap | null;
   onLocate?: () => void;
-  /** Solo se muestra el botón de encuadre cuando hay spot seleccionado. */
   selectedSpot?: { id: string } | null;
-  /** Callback encuadre (fitBounds spots + usuario). Solo relevante cuando selectedSpot != null. */
-  onViewAll?: () => void;
-  /** Si false, el botón de encuadre está disabled (ej. sin spots visibles). */
-  hasVisibleSpots?: boolean;
+  onViewWorld?: () => void;
+  onReframeSpot?: () => void;
+  onReframeSpotAndUser?: () => void;
+  hasUserLocation?: boolean;
+  activeMapControl?: ActiveMapControl;
 };
 
 const ICON_SIZE = 22;
@@ -36,15 +35,44 @@ export function MapControls({
   map,
   onLocate,
   selectedSpot = null,
-  onViewAll,
-  hasVisibleSpots = false,
+  onViewWorld,
+  onReframeSpot,
+  onReframeSpotAndUser,
+  hasUserLocation = false,
+  activeMapControl = null,
 }: MapControlsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const enabled = map !== null;
   const iconColor = enabled ? colors.text : colors.textSecondary;
-  const showReframe = selectedSpot != null;
-  const viewAllEnabled = enabled && hasVisibleSpots && typeof onViewAll === 'function';
+
+  const showWorld = selectedSpot == null && typeof onViewWorld === 'function';
+  const showReframe =
+    selectedSpot != null &&
+    typeof onReframeSpot === 'function' &&
+    typeof onReframeSpotAndUser === 'function';
+
+  const nextReframeModeRef = useRef<'spot' | 'spot+user'>('spot');
+
+  useEffect(() => {
+    if (selectedSpot == null) nextReframeModeRef.current = 'spot';
+  }, [selectedSpot]);
+
+  const handleReframePress = () => {
+    if (!showReframe) return;
+    if (!hasUserLocation) {
+      nextReframeModeRef.current = 'spot';
+      onReframeSpot?.();
+      return;
+    }
+    if (nextReframeModeRef.current === 'spot') {
+      onReframeSpot?.();
+      nextReframeModeRef.current = 'spot+user';
+    } else {
+      onReframeSpotAndUser?.();
+      nextReframeModeRef.current = 'spot';
+    }
+  };
 
   const handleLocate = () => {
     if (onLocate) onLocate();
@@ -65,24 +93,33 @@ export function MapControls({
 
   return (
     <View style={styles.container}>
+      {showWorld ? (
+        <IconButton
+          variant="default"
+          onPress={onViewWorld}
+          disabled={!enabled}
+          selected={activeMapControl === 'world'}
+          accessibilityLabel="Ver el mundo"
+        >
+          <Globe size={ICON_SIZE} color={enabled ? colors.text : colors.textSecondary} strokeWidth={2} />
+        </IconButton>
+      ) : null}
       {showReframe ? (
         <IconButton
           variant="default"
-          onPress={onViewAll}
-          disabled={!viewAllEnabled}
-          accessibilityLabel="Ver todos los spots"
+          onPress={handleReframePress}
+          disabled={!enabled}
+          selected={activeMapControl === 'spot' || activeMapControl === 'spot+user'}
+          accessibilityLabel="Encuadre contextual"
         >
-          <FrameWithDot
-            size={ICON_SIZE}
-            color={viewAllEnabled ? colors.text : colors.textSecondary}
-            strokeWidth={2}
-          />
+          <FrameWithDot size={ICON_SIZE} color={enabled ? colors.text : colors.textSecondary} strokeWidth={2} />
         </IconButton>
       ) : null}
       <IconButton
         variant="default"
         onPress={handleLocate}
         disabled={!enabled}
+        selected={activeMapControl === 'location'}
         accessibilityLabel="Center on my location"
       >
         <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
