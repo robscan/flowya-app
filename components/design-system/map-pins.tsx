@@ -2,20 +2,23 @@
  * Design System: map pins (canonical).
  * Unified pin visuals: user location (blue circle), spot dots (fill + outline).
  * Colors from theme; same shape for all spot states, color varies by status.
- * to_visit y visited: 2× más grandes, con ícono Pin (alfiler) dentro.
+ * Reposo: tamaño base, sin icono. Activo (seleccionado): grande, con icono si to_visit/visited.
  */
 
 import { Pin } from 'lucide-react-native';
+import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const LOCATION_PIN_SIZE = 14;
-const SPOT_PIN_SIZE = 12;
-const SPOT_PIN_SAVED_SIZE = 24; // 2× para to_visit y visited
+
+/** Jerarquía canónica: Nivel 1 = protagonista (spot seleccionado). Nivel 2 = presencia (reposo, tamaño uniforme). Nivel 3 = mapa base. */
+const SPOT_PIN_SIZE = 12; // Nivel 2 — reposo
+const SPOT_PIN_SELECTED_SIZE = 24; // Nivel 1 — protagonista (spot seleccionado)
 const SPOT_PIN_STROKE = 2;
-const SPOT_PIN_SAVED_STROKE = 2;
+const SPOT_PIN_SELECTED_STROKE = 2;
 const SPOT_PIN_ICON_SIZE = 14;
 const PIN_LABEL_FONT_SIZE = 11;
 const PIN_LABEL_GAP = 2;
@@ -82,7 +85,8 @@ function getSpotPinOutlineColor(colors: (typeof Colors)['light']): string {
 }
 
 /** Pin de spot: círculo sólido con borde + label opcional debajo. Pin y label se mueven juntos. */
-/** to_visit y visited: 2× más grandes, con ícono Pin dentro. Seleccionado: mismo tamaño, sin ícono. */
+/** Reposo (no seleccionado): tamaño base, sin icono. Activo (seleccionado): grande, con icono Pin si to_visit o visited. */
+/** Hover y press son solo feedback visual; selected tiene siempre prioridad. */
 export function MapPinSpot({
   status = 'default',
   label,
@@ -96,6 +100,8 @@ export function MapPinSpot({
   selected?: boolean;
   colorScheme?: 'light' | 'dark';
 } = {}) {
+  const [isHovered, setIsHovered] = useState(false);
+  const [isPressed, setIsPressed] = useState(false);
   const systemScheme = useColorScheme();
   const colorScheme = colorSchemeOverride ?? systemScheme ?? 'light';
   const colors = Colors[colorScheme];
@@ -106,14 +112,24 @@ export function MapPinSpot({
   const labelWeight = selected ? '600' : '500';
 
   const isSavedPin = status === 'to_visit' || status === 'visited';
-  const isLargePin = isSavedPin || selected;
-  const pinSize = isLargePin ? SPOT_PIN_SAVED_SIZE : SPOT_PIN_SIZE;
-  const stroke = isLargePin ? SPOT_PIN_SAVED_STROKE : SPOT_PIN_STROKE;
+  const isLargePin = selected;
+  const pinSize = isLargePin ? SPOT_PIN_SELECTED_SIZE : SPOT_PIN_SIZE;
+  const stroke = isLargePin ? SPOT_PIN_SELECTED_STROKE : SPOT_PIN_STROKE;
   const innerSize = pinSize - stroke * 2;
+
+  const showHover = !selected && isHovered;
+  const showPress = !selected && isPressed;
 
   return (
     <View
       style={[styles.spotPinWithLabel, { pointerEvents: 'box-none' }]}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setIsPressed(false);
+      }}
+      onMouseDown={() => setIsPressed(true)}
+      onMouseUp={() => setIsPressed(false)}
     >
       <View
         style={[
@@ -126,6 +142,7 @@ export function MapPinSpot({
             borderColor: outline,
             opacity: 1,
           },
+          showPress && { transform: [{ scale: 0.95 }] },
         ]}
       >
         <View
@@ -140,7 +157,7 @@ export function MapPinSpot({
             },
           ]}
         >
-          {isSavedPin ? (
+          {selected && isSavedPin ? (
             <Pin
               size={SPOT_PIN_ICON_SIZE}
               color="#ffffff"
@@ -303,7 +320,7 @@ export function MapPinExisting({
 export const MAP_PIN_SIZES = {
   location: LOCATION_PIN_SIZE,
   spot: SPOT_PIN_SIZE,
-  spotSaved: SPOT_PIN_SAVED_SIZE,
+  spotSelected: SPOT_PIN_SELECTED_SIZE,
   creating: CREATING_PIN_SIZE,
   existing: EXISTING_PIN_SIZE,
 } as const;
