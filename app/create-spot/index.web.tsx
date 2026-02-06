@@ -8,9 +8,13 @@ import {
     MapLocationPicker,
     type MapLocationPickerResult,
 } from '@/components/design-system/map-location-picker';
+import { SearchInputV2, SearchResultsListV2 } from '@/components/search';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
 import { blurActiveElement } from '@/lib/focus-management';
+import { createPlacesStrategy } from '@/lib/places/placesStrategy';
+import type { PlaceResult } from '@/lib/places/searchPlaces';
 import { checkDuplicateSpot } from '@/lib/spot-duplicate-check';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
 import { uploadSpotCover } from '@/lib/spot-image-upload';
@@ -19,7 +23,7 @@ import { HeaderBackButton, type HeaderBackButtonProps } from '@react-navigation/
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { X } from 'lucide-react-native';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     KeyboardAvoidingView,
@@ -134,6 +138,36 @@ export default function CreateSpotScreen() {
     existingTitle: string;
     existingSpotId: string;
   } | null>(null);
+
+  /** S4: lugar elegido desde búsqueda (paso 1). Inicializado por params si vienen name/lat/lng. */
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(() => {
+    if (initial.lat != null && initial.lng != null) {
+      return {
+        id: 'params',
+        name: initial.name || '',
+        lat: initial.lat,
+        lng: initial.lng,
+        source: 'mapbox',
+      };
+    }
+    return null;
+  });
+
+  /** S4: strategy y controller para búsqueda de lugares (solo paso 1). */
+  const placesStrategy = useMemo(
+    () => createPlacesStrategy({}),
+    []
+  );
+  const searchPlacesV2 = useSearchControllerV2<PlaceResult>({
+    mode: 'places',
+    defaultOpen: true,
+    isToggleable: false,
+    strategy: placesStrategy,
+  });
+
+  useEffect(() => {
+    searchPlacesV2.setOnSelect((place: PlaceResult) => setSelectedPlace(place));
+  }, [searchPlacesV2]);
 
   const insets = useSafeAreaInsets();
   /** En web: altura del teclado (Visual Viewport) para que la barra de botones quede siempre visible. */
@@ -395,11 +429,50 @@ export default function CreateSpotScreen() {
             ) : null}
             {step === 1 && (
               <View style={styles.stepFull}>
+                <View style={styles.step1SearchBar}>
+                  <SearchInputV2
+                    value={searchPlacesV2.query}
+                    onChangeText={searchPlacesV2.setQuery}
+                    onClear={searchPlacesV2.clear}
+                    placeholder="Buscar un lugar…"
+                    autoFocus={false}
+                  />
+                </View>
+                {searchPlacesV2.query.trim().length >= 3 && searchPlacesV2.results.length > 0 ? (
+                  <View style={styles.step1Results}>
+                    <SearchResultsListV2
+                      sections={[]}
+                      results={searchPlacesV2.results}
+                      renderItem={(place) => (
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.placeResultRow,
+                            { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                          ]}
+                          onPress={() => searchPlacesV2.onSelect(place)}
+                        >
+                          <Text style={[styles.placeResultName, { color: colors.text }]} numberOfLines={1}>
+                            {place.name}
+                          </Text>
+                          {place.fullName ? (
+                            <Text style={[styles.placeResultFull, { color: colors.textSecondary }]} numberOfLines={1}>
+                              {place.fullName}
+                            </Text>
+                          ) : null}
+                        </Pressable>
+                      )}
+                      hasMore={false}
+                    />
+                  </View>
+                ) : null}
                 <MapLocationPicker
                   onConfirm={handleLocationConfirm}
-                  spotTitle={title.trim() || undefined}
+                  spotTitle={title.trim() || selectedPlace?.name || undefined}
                   initialLatitude={initialLatitude}
                   initialLongitude={initialLongitude}
+                  externalCenter={
+                    selectedPlace ? { lat: selectedPlace.lat, lng: selectedPlace.lng } : undefined
+                  }
                   {...(preserveView
                     ? {
                         initialViewLongitude,
@@ -728,6 +801,30 @@ const styles = StyleSheet.create({
   },
   stepFull: {
     flex: 1,
+  },
+  step1SearchBar: {
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.xs,
+    backgroundColor: 'transparent',
+  },
+  step1Results: {
+    maxHeight: 200,
+    paddingHorizontal: Spacing.base,
+    marginBottom: Spacing.xs,
+  },
+  placeResultRow: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.sm,
+  },
+  placeResultName: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  placeResultFull: {
+    fontSize: 13,
+    marginTop: 2,
   },
   step6Wrap: {
     flex: 1,

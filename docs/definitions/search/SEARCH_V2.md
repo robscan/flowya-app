@@ -83,14 +83,20 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 - Tap sugerencia = una sola acción: `setQuery(suggestion)` → dispara búsqueda normal (viewport→expanded→global); reutiliza debounce/cancelación/caché; sin llamadas duplicadas.
 - Diccionario ES↔EN mínimo curado (`lib/search/suggestions.ts`); `normalizeQuery`; máximo 3 sugerencias.
 - UI: sección "Sugerencias" (lista tipo Google, filas tapables); CTA "Crear" se mantiene (no "Crear spot: …").
+- **Futuro:** Marcar términos genéricos (ej. centro↔Center) para no sugerirlos cuando la query sea de 1 sola palabra o muy corta; hoy no bloquea porque sugerencias solo aparecen tras global+0 resultados.
 
 ---
 
-## Create Spot (mode="places")
+## Create Spot (mode="places") — S4
 
-- Always-open debajo del header "Selecciona ubicación del spot".
-- No toggle, no filtros, no cierre por tap afuera.
-- Selección → centra mapa + `selectedPlace`. CTA principal requiere selectedPlace (recomendado).
+- **SearchInputV2** always-open debajo del header "Selecciona ubicación del spot". Sin toggle, sin filtros, sin cierre por tap afuera.
+- Motor: Mapbox forward geocoding (múltiples resultados, limit 10–15) vía `lib/places/searchPlaces.ts` y `createPlacesStrategy`.
+- **PlaceResult:** `{ id, name, fullName?, lat, lng, source: 'mapbox' }`.
+- Selección de resultado → centra mapa (`MapLocationPicker` prop `externalCenter`) + setea **selectedPlace**.
+- CTA "Confirmar ubicación" del paso 1 requiere pin (manual o desde búsqueda); con selectedPlace se pasa `externalCenter` y el pin se coloca ahí.
+- **Params desde search:** `/create-spot?name=...&lat=...&lng=...&source=search` → se inicializa **selectedPlace** con esos datos y el mapa centra (initialLatitude/initialLongitude); SearchInputV2 sigue visible always-open. No ocultar el buscador.
+- **Clear X:** limpia query y resultados; **selectedPlace se mantiene** (el pin no se quita; el usuario puede buscar otro lugar o confirmar el actual). Documentado en bitácora 031.
+- Create Spot V2 **no depende del flag** `SEARCH_V2_ENABLED`; el paso 1 con búsqueda de lugares es siempre así.
 
 ---
 

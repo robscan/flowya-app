@@ -40,6 +40,7 @@ const DICT: [string, string][] = [
   ['lake', 'Lago'],
   ['rio', 'River'],
   ['river', 'Río'],
+  // Términos genéricos (centro, etc.): a futuro no sugerir si query es 1 palabra o muy corta.
   ['centro', 'Center'],
   ['center', 'Centro'],
 ];

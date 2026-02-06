@@ -53,6 +53,8 @@ export type MapLocationPickerProps = {
   initialViewZoom?: number;
   initialViewBearing?: number;
   initialViewPitch?: number;
+  /** S4: centro externo (ej. lugar elegido desde búsqueda). Al cambiar, flyTo + pin en esa posición. */
+  externalCenter?: { lat: number; lng: number } | null;
 };
 
 function tryCenterOnUser(
@@ -86,6 +88,7 @@ export function MapLocationPicker({
   initialViewZoom,
   initialViewBearing,
   initialViewPitch,
+  externalCenter,
 }: MapLocationPickerProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -149,6 +152,19 @@ export function MapLocationPicker({
     },
     [preserveView, hasInitialCoords, initialLatitude, initialLongitude]
   );
+
+  /** S4: cuando externalCenter cambia (ej. lugar desde búsqueda), centrar mapa y colocar pin. */
+  useEffect(() => {
+    if (!externalCenter || !mapInstance) return;
+    const { lat, lng } = externalCenter;
+    mapInstance.flyTo({
+      center: [lng, lat],
+      zoom: 14,
+      duration: 600,
+    });
+    setLngLat({ lng, lat });
+    setState('selecting');
+  }, [externalCenter?.lat, externalCenter?.lng, mapInstance]);
 
   const onMapClick = useCallback((e: MapMouseEvent) => {
     e.originalEvent?.stopPropagation?.();
