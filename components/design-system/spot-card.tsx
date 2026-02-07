@@ -144,6 +144,8 @@ export function SpotCardMapSelection({
             >
               <Text
                 style={[styles.description, { color: colors.textSecondary }]}
+                numberOfLines={3}
+                ellipsizeMode="tail"
               >
                 {spot.description_short}
               </Text>
