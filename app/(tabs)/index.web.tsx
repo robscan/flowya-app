@@ -43,9 +43,9 @@ import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
 import { useSearchHistory } from '@/hooks/search/useSearchHistory';
 import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } from '@/lib/focus-management';
 import { distanceKm } from '@/lib/geo-utils';
+import { resolvePlaceForCreate } from '@/lib/mapbox-geocoding';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { createSpotsStrategy } from '@/lib/search/spotsStrategy';
-import { stableBBox } from '@/lib/search/bbox';
 import { shareSpot } from '@/lib/share-spot';
 import { addRecentViewedSpotId, getRecentViewedSpotIds } from '@/lib/storage/recentViewedSpots';
 import { supabase } from '@/lib/supabase';
@@ -233,15 +233,12 @@ export default function MapScreen() {
           try {
             const b = mapInstance.getBounds();
             if (!b) return null;
-            return stableBBox(
-              {
-                west: b.getWest(),
-                south: b.getSouth(),
-                east: b.getEast(),
-                north: b.getNorth(),
-              },
-              mapInstance.getZoom()
-            );
+            return {
+              west: b.getWest(),
+              south: b.getSouth(),
+              east: b.getEast(),
+              north: b.getNorth(),
+            };
           } catch {
             return null;
           }
@@ -597,7 +594,7 @@ export default function MapScreen() {
   }, [selectedSpot, router]);
 
   const navigateToCreateSpotFromSearch = useCallback(
-    (place: { name: string; latitude: number; longitude: number } | null) => {
+    (place: { name: string; latitude: number; longitude: number } | null, fallbackName?: string) => {
       setSelectedSpot(null);
       searchV2.setOpen(false);
       blurActiveElement();
@@ -610,11 +607,52 @@ export default function MapScreen() {
         });
         (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
       } else {
-        (router.push as (href: string) => void)('/create-spot?source=search');
+        const params = new URLSearchParams({ source: 'search' });
+        if (fallbackName?.trim()) params.set('name', fallbackName.trim());
+        (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
       }
     },
     [router, searchV2]
   );
+
+  /** CTA Crear: resuelve lugar con Mapbox forward (solo para coords de creación); luego navega con o sin coords. */
+  const handleCreateFromSearch = useCallback(async () => {
+    const q = searchV2.query.trim();
+    let place: { name: string; latitude: number; longitude: number } | null = null;
+    if (q.length >= 3) {
+      const proximity =
+        userCoords
+          ? { lat: userCoords.latitude, lng: userCoords.longitude }
+          : mapInstance
+            ? (() => {
+                try {
+                  const c = mapInstance.getCenter();
+                  return { lat: c.lat, lng: c.lng };
+                } catch {
+                  return undefined;
+                }
+              })()
+            : undefined;
+      const bbox = mapInstance
+        ? (() => {
+            try {
+              const b = mapInstance.getBounds();
+              if (!b) return undefined;
+              return {
+                west: b.getWest(),
+                south: b.getSouth(),
+                east: b.getEast(),
+                north: b.getNorth(),
+              };
+            } catch {
+              return undefined;
+            }
+          })()
+        : undefined;
+      place = await resolvePlaceForCreate(q, proximity ? { proximity } : bbox ? { bbox } : undefined);
+    }
+    navigateToCreateSpotFromSearch(place, place ? undefined : q || undefined);
+  }, [searchV2.query, userCoords, mapInstance, navigateToCreateSpotFromSearch]);
 
   /** Search V2: callbacks onSelect / onCreate. */
   useEffect(() => {
@@ -635,9 +673,9 @@ export default function MapScreen() {
 
   useEffect(() => {
     searchV2.setOnCreate(() => {
-      navigateToCreateSpotFromSearch(null);
+      handleCreateFromSearch();
     });
-  }, [searchV2, navigateToCreateSpotFromSearch]);
+  }, [searchV2, handleCreateFromSearch]);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -911,14 +949,25 @@ export default function MapScreen() {
           { pointerEvents: 'box-none' },
         ]}
       >
-        <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
+        <View style={styles.filterRowWrap} pointerEvents="box-none">
+          <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
+        </View>
         {searchOverlayVisible ? (
           <>
             <Pressable
-              style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.35)' }]}
+              style={[
+                StyleSheet.absoluteFill,
+                styles.searchBackdropLayer,
+                {
+                  backgroundColor:
+                    colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.72)',
+                },
+              ]}
               onPress={() => searchV2.setOpen(false)}
+              pointerEvents="auto"
             />
-            <View style={[styles.searchInputWrap, { zIndex: 1 }]}>
+            <View style={styles.searchPanelLayer} pointerEvents="box-none">
+            <View style={styles.searchInputWrap}>
               <SearchInputV2
                 value={searchV2.query}
                 onChangeText={searchV2.setQuery}
@@ -927,66 +976,25 @@ export default function MapScreen() {
                 autoFocus
               />
             </View>
-            <View style={[styles.searchResultsArea, { zIndex: 1 }]}>
-              {searchV2.query.trim().length < 3 ? (
-                <>
-                  {searchHistory.recentQueries.length > 0 ? (
-                    <View style={styles.searchResultItemWrap}>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                        Búsquedas recientes
-                      </Text>
-                      {searchHistory.recentQueries.map((q) => (
-                        <Pressable
-                          key={q}
-                          style={styles.historyItem}
-                          onPress={() => searchV2.setQuery(q)}
-                        >
-                          <Text style={{ color: colors.text }}>{q}</Text>
-                        </Pressable>
-                      ))}
-                    </View>
-                  ) : null}
-                  <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
-                  {defaultSpots.length > 0 ? (
+            <View style={styles.searchResultsArea}>
+              {(() => {
+                const q = searchV2.query.trim();
+                const len = q.length;
+                const isEmpty = len === 0;
+                const isPreSearch = len > 0 && len < 3;
+                const isSearch = len >= 3;
+
+                if (isEmpty) {
+                  return (
                     <ScrollView
                       style={styles.searchResultsScroll}
                       contentContainerStyle={styles.searchResultsContent}
                       keyboardShouldPersistTaps="handled"
                       showsVerticalScrollIndicator
                     >
-                      {defaultSpots.map((spot) => (
-                        <View key={spot.id} style={styles.searchResultItemWrap}>
-                          <SearchResultCard
-                            spot={spot}
-                            savePinState={
-                              spot.pinStatus === 'to_visit'
-                                ? 'toVisit'
-                                : spot.pinStatus === 'visited'
-                                  ? 'visited'
-                                  : 'default'
-                            }
-                            onPress={() => searchV2.onSelect(spot)}
-                          />
-                        </View>
-                      ))}
-                    </ScrollView>
-                  ) : (
-                    <Text style={[styles.searchNoResultsText, { color: colors.textSecondary }]}>
-                      No hay spots cercanos. Mantén pulsado el mapa para crear uno.
-                    </Text>
-                  )}
-                  {recentViewedSpots.length > 0 ? (
-                    <>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary, marginTop: Spacing.base }]}>
-                        Vistos recientemente
-                      </Text>
-                      <ScrollView
-                        style={styles.searchResultsScroll}
-                        contentContainerStyle={styles.searchResultsContent}
-                        keyboardShouldPersistTaps="handled"
-                        showsVerticalScrollIndicator
-                      >
-                        {recentViewedSpots.map((spot) => (
+                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
+                      {defaultSpots.length > 0 ? (
+                        defaultSpots.map((spot) => (
                           <View key={spot.id} style={styles.searchResultItemWrap}>
                             <SearchResultCard
                               spot={spot}
@@ -1000,65 +1008,139 @@ export default function MapScreen() {
                               onPress={() => searchV2.onSelect(spot)}
                             />
                           </View>
-                        ))}
-                      </ScrollView>
-                    </>
-                  ) : null}
-                </>
-              ) : searchV2.results.length > 0 ? (
-                <>
-                  <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{stageLabel}</Text>
-                  <SearchResultsListV2
-                    sections={[]}
-                    results={searchV2.results}
-                    renderItem={(spot) => (
-                      <SearchResultCard
-                        spot={spot}
-                        savePinState={
-                          spot.pinStatus === 'to_visit'
-                            ? 'toVisit'
-                            : spot.pinStatus === 'visited'
-                              ? 'visited'
-                              : 'default'
-                        }
-                        onPress={() => searchV2.onSelect(spot)}
+                        ))
+                      ) : (
+                        <Text style={[styles.searchNoResultsText, { color: colors.textSecondary }]}>
+                          No hay spots cercanos. Mantén pulsado el mapa para crear uno.
+                        </Text>
+                      )}
+                    </ScrollView>
+                  );
+                }
+
+                if (isPreSearch) {
+                  return (
+                    <ScrollView
+                      style={styles.searchResultsScroll}
+                      contentContainerStyle={styles.searchResultsContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator
+                    >
+                      <View style={styles.searchResultItemWrap}>
+                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          Búsquedas recientes
+                        </Text>
+                        {searchHistory.recentQueries.length > 0 ? (
+                          searchHistory.recentQueries.slice(0, 5).map((queryItem) => (
+                            <Pressable
+                              key={queryItem}
+                              style={styles.historyItem}
+                              onPress={() => searchV2.setQuery(queryItem)}
+                            >
+                              <Text style={{ color: colors.text }}>{queryItem}</Text>
+                            </Pressable>
+                          ))
+                        ) : (
+                          <Text style={[styles.searchNoResultsText, { color: colors.textSecondary }]}>
+                            No hay búsquedas recientes
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.searchResultItemWrap}>
+                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          Vistos recientemente
+                        </Text>
+                        {recentViewedSpots.length > 0 ? (
+                          recentViewedSpots.slice(0, 10).map((spot) => (
+                            <Pressable
+                              key={spot.id}
+                              style={({ pressed }) => [
+                                styles.historyItem,
+                                { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                              ]}
+                              onPress={() => searchV2.onSelect(spot)}
+                            >
+                              <Text style={{ color: colors.text }}>{spot.title}</Text>
+                            </Pressable>
+                          ))
+                        ) : (
+                          <Text style={[styles.searchNoResultsText, { color: colors.textSecondary }]}>
+                            No hay spots vistos recientemente
+                          </Text>
+                        )}
+                      </View>
+                    </ScrollView>
+                  );
+                }
+
+                if (isSearch && searchV2.results.length > 0) {
+                  return (
+                    <>
+                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{stageLabel}</Text>
+                      <SearchResultsListV2
+                        sections={[]}
+                        results={searchV2.results}
+                        renderItem={(spot) => (
+                          <SearchResultCard
+                            spot={spot}
+                            savePinState={
+                              spot.pinStatus === 'to_visit'
+                                ? 'toVisit'
+                                : spot.pinStatus === 'visited'
+                                  ? 'visited'
+                                  : 'default'
+                            }
+                            onPress={() => searchV2.onSelect(spot)}
+                          />
+                        )}
+                        onEndReached={searchV2.fetchMore}
+                        hasMore={searchV2.hasMore}
+                        isLoading={searchV2.isLoading}
                       />
-                    )}
-                    onEndReached={searchV2.fetchMore}
-                    hasMore={searchV2.hasMore}
-                    isLoading={searchV2.isLoading}
-                  />
-                </>
-              ) : (
-                <>
-                  {searchV2.suggestions.length > 0 ? (
-                    <View style={styles.suggestionsSection}>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                        Sugerencias
-                      </Text>
-                      {searchV2.suggestions.map((s) => (
-                        <Pressable
-                          key={s}
-                          style={({ pressed }) => [
-                            styles.suggestionRow,
-                            { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                          ]}
-                          onPress={() => searchV2.onSuggestionTap(s)}
-                          accessibilityLabel={`Buscar: ${s}`}
-                          accessibilityRole="button"
-                        >
-                          <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
-                        </Pressable>
-                      ))}
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    {searchV2.suggestions.length > 0 ? (
+                      <View style={styles.suggestionsSection}>
+                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          Sugerencias
+                        </Text>
+                        {searchV2.suggestions.map((s) => (
+                          <Pressable
+                            key={s}
+                            style={({ pressed }) => [
+                              styles.suggestionRow,
+                              { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                            ]}
+                            onPress={() => searchV2.onSuggestionTap(s)}
+                            accessibilityLabel={`Buscar: ${s}`}
+                            accessibilityRole="button"
+                          >
+                            <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    ) : null}
+                    <View style={styles.searchNoResults}>
+                      <ButtonPrimary
+                        onPress={() => searchV2.onCreate()}
+                        accessibilityLabel={
+                          searchV2.query.trim()
+                            ? `Crear "${searchV2.query.trim()}"`
+                            : 'Crear nuevo spot'
+                        }
+                      >
+                        {searchV2.query.trim()
+                          ? `Crear "${searchV2.query.trim()}"`
+                          : 'Crear nuevo spot'}
+                      </ButtonPrimary>
                     </View>
-                  ) : null}
-                  <View style={styles.searchNoResults}>
-                    <ButtonPrimary onPress={() => searchV2.onCreate()} accessibilityLabel="Crear">
-                      Crear
-                    </ButtonPrimary>
-                  </View>
-                </>
-              )}
+                  </>
+                );
+              })()}
+            </View>
             </View>
           </>
         ) : null}
@@ -1142,13 +1224,14 @@ export default function MapScreen() {
           <Pressable
             style={({ pressed }) => [
               styles.fabSearchClose,
+              { backgroundColor: colors.primary },
               pressed && styles.fabSearchClosePressed,
             ]}
             onPress={() => searchV2.setOpen(false)}
             accessibilityLabel="Cerrar búsqueda"
             accessibilityRole="button"
           >
-            <X size={24} color={colors.stateError} strokeWidth={2} />
+            <X size={24} color="#fff" strokeWidth={2} />
           </Pressable>
         ) : (
           <IconButton
@@ -1232,6 +1315,23 @@ const styles = StyleSheet.create({
     top: FILTER_OVERLAY_TOP,
     alignItems: 'center',
     zIndex: 10,
+  },
+  /** Filtros por encima del backdrop cuando search está abierto (zIndex 20, backdrop 10). */
+  filterRowWrap: {
+    position: 'relative',
+    zIndex: 20,
+    ...Platform.select({ android: { elevation: 4 } }),
+  },
+  /** Backdrop full-screen sobre el mapa; tap cierra search. Debajo de filtros y panel. */
+  searchBackdropLayer: {
+    zIndex: 10,
+  },
+  /** Input + lista + CTA; encima del backdrop, debajo de filtros para que filtros sean clicables. */
+  searchPanelLayer: {
+    position: 'relative',
+    zIndex: 15,
+    flex: 1,
+    minHeight: 0,
   },
   /** Modo búsqueda: overlay a pantalla completa para que el listado use 100% del alto disponible. */
   filterOverlaySearchActive: {
@@ -1328,7 +1428,6 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#000',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -54,6 +54,7 @@ function cacheKey(
   return `${mode}:${stage}:${f}:${b}:${normalizedQuery}:${cursor ?? ''}`;
 }
 
+
 type CacheEntry<T> = { data: SearchStrategyResult<T>; ts: number };
 
 function createCache<T>(ttlMs: number) {
@@ -151,10 +152,20 @@ export function useSearchControllerV2<T>({
       const nq = normalizeQuery(q);
       const key = cacheKey(mode, st, filters, bbox, nq, cur);
       const cached = cacheRef.current.get(key);
-      if (cached && !append) {
-        setResults((prev) => (append ? [...prev, ...cached.items] : cached.items));
-        setCursor(cached.nextCursor);
-        setHasMore(cached.hasMore);
+      const useCache =
+        cached &&
+        !append &&
+        !(
+          mode === 'spots' &&
+          st !== 'global' &&
+          cur === null &&
+          cached.items.length === 0
+        );
+
+      if (useCache) {
+        setResults((prev) => (append ? [...prev, ...cached!.items] : cached!.items));
+        setCursor(cached!.nextCursor);
+        setHasMore(cached!.hasMore);
         setStage(st);
         setIsLoading(false);
         return;
@@ -173,7 +184,8 @@ export function useSearchControllerV2<T>({
           filters,
           cursor: cur,
         });
-        if (requestIdRef.current !== rid) return;
+        const ignoredByRace = requestIdRef.current !== rid;
+        if (ignoredByRace) return;
         cacheRef.current.set(key, out);
         setResults((prev) => (append ? [...prev, ...out.items] : out.items));
         setCursor(out.nextCursor);
@@ -223,7 +235,6 @@ export function useSearchControllerV2<T>({
       debounceRef.current = setTimeout(() => {
         debounceRef.current = null;
         runSearch(trimmed, 'viewport', null, false);
-        setStage('viewport');
       }, SEARCH_DEBOUNCE_MS);
     },
     [runSearch]
