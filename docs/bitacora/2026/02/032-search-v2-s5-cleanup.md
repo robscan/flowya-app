@@ -2,7 +2,8 @@
 
 **Micro-scope:** S5 — Consolidar Search V2 como única implementación en el mapa; eliminar legacy.  
 **Rama:** `chore/search-v2-s5-cleanup`  
-**Objetivo:** El mapa usa solo useSearchControllerV2 (mode="spots"), SearchInputV2, SearchResultsListV2, spotsStrategy. Sin flag; legacy eliminado.
+**Objetivo:** El mapa usa solo useSearchControllerV2 (mode="spots"), SearchInputV2, SearchResultsListV2, spotsStrategy. Sin flag; legacy eliminado.  
+**Ejecución controlada:** ver [035 — S5 ejecución controlada](035-search-v2-s5-ejecucion-controlada.md).
 
 ---
 
@@ -54,3 +55,18 @@
 
 - Build OK.
 - Lint OK.
+
+---
+
+## Hotfix (post-S5) — Cache vacía bloqueaba chaining
+
+- **Bug:** Segunda búsqueda con el mismo query (p. ej. "Sagrada") no devolvía resultados: se hacía cache hit del resultado vacío de viewport (guardado en la primera búsqueda al encadenar viewport→expanded→global) y se salía sin seguir a expanded/global.
+- **Fix:** No usar cache cuando en modo `spots`, búsqueda inicial (`cur === null`, `!append`), el resultado cacheado está vacío **y** el stage no es final (`stage !== 'global'`). Así en viewport/expanded se re-ejecuta y se encadena; en global se acepta cache vacía y no se hace loop. Cambio en `hooks/search/useSearchControllerV2.ts` (condición `useCache`).
+
+### QA de cierre hotfix
+
+- [ ] **Sagrada 1ª:** Abrir search, escribir "Sagrada" → aparece el spot.
+- [ ] **Sagrada 2ª:** Sin cerrar search: borrar, volver a escribir "Sagrada" → mismo spot; sin regresión.
+- [ ] **Término inexistente:** Buscar "xyznonexistent123" → tras viewport→expanded→global queda vacío; no hay loop.
+- [ ] **fetchMore:** Término con muchos resultados, scroll al final → se cargan más ítems; sin regresión.
+- [ ] **Filtros:** Cambiar Todos / Por visitar / Visitados con búsqueda activa → resultados coherentes con el filtro.
