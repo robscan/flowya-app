@@ -8,6 +8,7 @@ import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import type { SearchStrategyParams, SearchStrategyResult } from '@/hooks/search/useSearchControllerV2';
 import { distanceKm } from '@/lib/geo-utils';
 import { expandBBox, stableBBox, type BBox } from './bbox';
+import { normalizeQuery } from './normalize';
 
 const LIMIT_PER_BATCH = 25;
 
@@ -43,36 +44,35 @@ export function createSpotsStrategy({
 ) => Promise<SearchStrategyResult<SpotForSearch>> {
   return async (params: SearchStrategyParams): Promise<SearchStrategyResult<SpotForSearch>> => {
     const { query, stage, bbox, cursor } = params;
+    if (bbox == null && stage !== 'global') {
+      return { items: [], nextCursor: null, hasMore: false };
+    }
     const zoom = getZoom();
-    let effectiveBbox: BBox | null = bbox ? stableBBox(bbox, zoom) : null;
-
-    if (stage === 'expanded' && effectiveBbox) {
-      effectiveBbox = stableBBox(expandBBox(effectiveBBox, 3), zoom);
+    let bboxFilter: BBox | null = bbox ? stableBBox(bbox, zoom) : null;
+    if (stage === 'expanded' && bboxFilter) {
+      bboxFilter = stableBBox(expandBBox(bboxFilter, 3), zoom);
     }
     if (stage === 'global') {
-      effectiveBbox = null;
+      bboxFilter = null;
     }
 
     let list = getFilteredSpots();
-
-    if (effectiveBbox) {
+    if (bboxFilter) {
       list = list.filter(
         (s) =>
-          s.latitude >= effectiveBbox!.south &&
-          s.latitude <= effectiveBbox!.north &&
-          s.longitude >= effectiveBbox!.west &&
-          s.longitude <= effectiveBbox!.east
+          s.latitude >= bboxFilter!.south &&
+          s.latitude <= bboxFilter!.north &&
+          s.longitude >= bboxFilter!.west &&
+          s.longitude <= bboxFilter!.east
       );
     }
 
-    const q = query.trim().toLowerCase();
+    const q = normalizeQuery(query);
     if (q) {
-      list = list.filter((s) => s.title.toLowerCase().includes(q));
+      list = list.filter((s) => normalizeQuery(s.title ?? '').includes(q));
     }
 
-    const center = effectiveBbox
-      ? centerOfBbox(effectiveBbox)
-      : { lat: 0, lng: 0 };
+    const center = bboxFilter ? centerOfBbox(bboxFilter) : { lat: 0, lng: 0 };
     const sorted = [...list].sort(
       (a, b) =>
         distanceKm(center.lat, center.lng, a.latitude, a.longitude) -

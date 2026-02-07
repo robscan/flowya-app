@@ -78,12 +78,20 @@ export type ResolvedPlace = {
   longitude: number;
 };
 
+export type ResolvePlaceForCreateOptions = {
+  proximity?: { lat: number; lng: number };
+  bbox?: { west: number; south: number; east: number; north: number };
+};
+
 /**
- * Resuelve un texto de búsqueda a un lugar (nombre canónico + coords) solo cuando hay alta certeza.
- * Condiciones: una sola llamada, limit=1. Si no hay exactamente un resultado con nombre y coords, devuelve null.
- * No retries, no cache. Usar solo cuando searchResults.length === 0 y query no vacío.
+ * Forward geocoding para el CTA "Crear" en Map Search (mode=spots).
+ * Solo para obtener coords antes de navegar a Create Spot; no es el motor de búsqueda de spots.
+ * limit=1; opcional proximity/bbox para priorizar cerca del viewport/usuario.
  */
-export async function resolvePlace(query: string): Promise<ResolvedPlace | null> {
+export async function resolvePlaceForCreate(
+  query: string,
+  opts?: ResolvePlaceForCreateOptions
+): Promise<ResolvedPlace | null> {
   const q = query.trim();
   if (!q || !MAPBOX_TOKEN) return null;
   const params = new URLSearchParams({
@@ -91,6 +99,13 @@ export async function resolvePlace(query: string): Promise<ResolvedPlace | null>
     limit: '1',
     access_token: MAPBOX_TOKEN,
   });
+  if (opts?.proximity) {
+    params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);
+  }
+  if (opts?.bbox) {
+    const { west, south, east, north } = opts.bbox;
+    params.set('bbox', `${west},${south},${east},${north}`);
+  }
   try {
     const res = await fetch(`${FORWARD_URL}?${params.toString()}`);
     if (!res.ok) return null;
