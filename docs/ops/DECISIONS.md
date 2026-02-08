@@ -48,6 +48,17 @@
 
 ---
 
+---
+
+## DEC-004 — Recordar-lite vive como metadata en Spot (por ahora)
+- **Fecha:** 2026-02-07
+- **Contexto:** Queremos capturar memoria (visited, fecha, nota corta) sin abrir un “diario” completo que rompa map-first o dispare scope creep.
+- **Opciones consideradas:** (A) Entidad separada `memories/entries` con timeline, (B) Metadata mínima dentro de `spots`, (C) Guardar todo como texto libre sin estructura.
+- **Decisión:** Implementar (cuando toque) **Recordar-lite** como **metadata dentro de Spot**: `visited`, `visited_at` y `note_short` (limitada). Recordar “completo” permanece cerrado hasta cumplir gates.
+- **Racional:** Minimiza fricción y complejidad; mantiene Explore como núcleo; permite señales de valor sin abrir un producto paralelo.
+- **Consecuencias / tradeoffs:** No hay timeline/álbum por ahora; si en el futuro se requiere entidad separada, se migrará con decisión nueva que la superseda.
+- **Evidencia (bitácora/PR):** OL-003 (gates Recordar) + PR `chore/gates-recordar`.
+
 ## Template para nuevas decisiones (copiar/pegar)
 ```md
 ## DEC-XXX — (título corto)
