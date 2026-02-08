@@ -28,14 +28,14 @@
 ## 0) Estado actual de ejecución (snapshot rápido)
 > Cursor debe actualizar esta sección **al final de cada sesión**.
 
-- **Branch activo:** main (PR abierto: `chore/search-v2-doc-alignment` para OL-004)
-- **Último commit/PR:** main al día; PR `chore/search-v2-doc-alignment` pendiente de merge (Search V2 doc alignment).
-- **Scope actual:** Sprint 1 / MS2 — OL-004 (SEARCH_V2.md alineado con código); memoria operativa actualizada en rama `chore/ops-update-after-searchv2-docs`.
+- **Branch activo:** main
+- **Último commit/PR:** main al día; OL-004 cerrado (PRs `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs` mergeados).
+- **Scope actual:** Ops — siguiente loop abierto (p. ej. OL-005 contratos/bitácora index, o OL-002/OL-003 gates Flow/Recordar).
 - **Target platform:** Web mobile (primero); prod Vercel desde main
 - **Riesgos activos:**
   - Commits parciales sin regla pueden volver a desalinear prod.
   - OPEN_LOOPS desactualizado hace que pendientes vivan solo en memoria.
-- **Próximo entregable (24h):** Merge PR `chore/search-v2-doc-alignment`; cerrar OL-004 con evidencia (link PR).
+- **Próximo entregable (24h):** Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutar con DoD; actualizar snapshot al cierre.
 
 ---
 
@@ -87,14 +87,14 @@
 ---
 
 ### Loop OL-004 — SEARCH_V2.md desalineado con código (cambios locales no commiteados)
-- **Estado:** READY (en PR `chore/search-v2-doc-alignment`)
+- **Estado:** DONE
 - **Prioridad:** P2
 - **Área:** Search / Data (docs)
 - **Síntoma / problema (1–2 líneas):** `docs/definitions/search/SEARCH_V2.md` tenía modificaciones locales no subidas a main. Riesgo de que la doc de referencia no reflejara el comportamiento actual.
-- **Contexto (link a bitácora/PR):** PR branch `chore/search-v2-doc-alignment` — alineación de SEARCH_V2.md + .cursor/ ignore. Evidencia: merge de ese PR a main cumple DoD.
-- **Impacto UX/negocio:** Quien lea SEARCH_V2 en repo puede tomar decisiones sobre datos incorrectos.
-- **Criterio de cierre (testable):** Doc en main alineada con comportamiento de Search V2 actual. Evidencia: PR `chore/search-v2-doc-alignment` mergeado; tras merge, marcar OL-004 como DONE en OPEN_LOOPS.
-- **Next action (Cursor):** Merge del PR; actualizar OL-004 a DONE con link al PR.
+- **Contexto (link a bitácora/PR):** PR `chore/search-v2-doc-alignment` y PR `chore/ops-update-after-searchv2-docs` mergeados en main. SEARCH_V2.md alineado con código; .cursor/ en .gitignore según corresponda.
+- **Impacto UX/negocio:** Quien lea SEARCH_V2 en repo puede tomar decisiones sobre datos correctos.
+- **Criterio de cierre (testable):** Doc en main alineada con comportamiento de Search V2 actual. **Evidencia:** PRs mergeados (branch `chore/search-v2-doc-alignment` + `chore/ops-update-after-searchv2-docs`).
+- **Next action (Cursor):** N/A (cerrado).
 - **Bloqueos / info faltante (Oscar):** Ninguno.
 - **Owner:** Cursor
 - **Fecha:** 2026-02-07
