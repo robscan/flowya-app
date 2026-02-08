@@ -28,21 +28,21 @@
 ## 0) Estado actual de ejecución (snapshot rápido)
 > Cursor debe actualizar esta sección **al final de cada sesión**.
 
-- **Branch activo:** main
-- **Último commit/PR:** 1057b84 (fix prod) → tras este cambio: chore(ops) restore source of truth
-- **Scope actual:** Ops — retomabilidad (CURRENT_STATE + OPEN_LOOPS completos, sin tocar código app)
+- **Branch activo:** main (PR abierto: `chore/search-v2-doc-alignment` para OL-004)
+- **Último commit/PR:** main al día; PR `chore/search-v2-doc-alignment` pendiente de merge (Search V2 doc alignment).
+- **Scope actual:** Sprint 1 / MS2 — OL-004 (SEARCH_V2.md alineado con código); memoria operativa actualizada en rama `chore/ops-update-after-searchv2-docs`.
 - **Target platform:** Web mobile (primero); prod Vercel desde main
 - **Riesgos activos:**
   - Commits parciales sin regla pueden volver a desalinear prod.
   - OPEN_LOOPS desactualizado hace que pendientes vivan solo en memoria.
-- **Próximo entregable (24h):** Retomar con 1 loop o 1 micro-scope elegido desde OPEN_LOOPS; ejecutar con DoD y actualizar estado.
+- **Próximo entregable (24h):** Merge PR `chore/search-v2-doc-alignment`; cerrar OL-004 con evidencia (link PR).
 
 ---
 
 ## 1) Loops activos (lista única)
 
 ### Loop OL-001 — Estado operativo vacío (proyecto no retomable sin memoria)
-- **Estado:** READY
+- **Estado:** DONE
 - **Prioridad:** P0
 - **Área:** Ops / Data (fuente de verdad)
 - **Síntoma / problema (1–2 líneas):** No hay un único lugar que describa “en qué estamos” y “qué está abierto” sin depender de memoria o historial de chat. CURRENT_STATE y OPEN_LOOPS tenían placeholders.
@@ -87,14 +87,14 @@
 ---
 
 ### Loop OL-004 — SEARCH_V2.md desalineado con código (cambios locales no commiteados)
-- **Estado:** OPEN
+- **Estado:** READY (en PR `chore/search-v2-doc-alignment`)
 - **Prioridad:** P2
 - **Área:** Search / Data (docs)
-- **Síntoma / problema (1–2 líneas):** `docs/definitions/search/SEARCH_V2.md` tiene modificaciones locales no subidas a main. Riesgo de que la doc de referencia no refleje el comportamiento actual.
-- **Contexto (link a bitácora/PR):** git status muestra `M docs/definitions/search/SEARCH_V2.md`.
+- **Síntoma / problema (1–2 líneas):** `docs/definitions/search/SEARCH_V2.md` tenía modificaciones locales no subidas a main. Riesgo de que la doc de referencia no reflejara el comportamiento actual.
+- **Contexto (link a bitácora/PR):** PR branch `chore/search-v2-doc-alignment` — alineación de SEARCH_V2.md + .cursor/ ignore. Evidencia: merge de ese PR a main cumple DoD.
 - **Impacto UX/negocio:** Quien lea SEARCH_V2 en repo puede tomar decisiones sobre datos incorrectos.
-- **Criterio de cierre (testable):** Revisar diff de SEARCH_V2.md; o commitear cambios si son correctos, o revertir en working copy si son obsoletos. Doc en main alineada con comportamiento de Search V2 actual.
-- **Next action (Cursor):** Revisar diff; proponer commit o descarte y actualizar OPEN_LOOPS.
+- **Criterio de cierre (testable):** Doc en main alineada con comportamiento de Search V2 actual. Evidencia: PR `chore/search-v2-doc-alignment` mergeado; tras merge, marcar OL-004 como DONE en OPEN_LOOPS.
+- **Next action (Cursor):** Merge del PR; actualizar OL-004 a DONE con link al PR.
 - **Bloqueos / info faltante (Oscar):** Ninguno.
 - **Owner:** Cursor
 - **Fecha:** 2026-02-07
