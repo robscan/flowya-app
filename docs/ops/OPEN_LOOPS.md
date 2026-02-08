@@ -102,14 +102,14 @@
 ---
 
 ### Loop OL-005 — Contratos y bitácoras ops sin track en PR/bitácora única
-- **Estado:** OPEN
+- **Estado:** DONE
 - **Prioridad:** P2
 - **Área:** Ops / Docs
 - **Síntoma / problema (1–2 líneas):** Se generaron DATA_MODEL_CURRENT y PROFILE_AUTH_CONTRACT_CURRENT y bitácora 041 (prevención commits parciales); pueden no estar referenciados en PR_INDEX o bitácora INDEX, lo que dificulta descubrirlos.
-- **Contexto (link a bitácora/PR):** docs/definitions/contracts/*, docs/bitacora/2026/02/041-*.
+- **Contexto (link a bitácora/PR):** `docs/definitions/contracts/INDEX.md` + `docs/bitacora/INDEX.md` (incluye 041).
 - **Impacto UX/negocio:** Contratos y lecciones aprendidas menos descubribles.
 - **Criterio de cierre (testable):** PR_INDEX o índice de bitácoras (si existe) incluye referencia a contratos y a 041; o se documenta en OPEN_LOOPS/DECISIONS que los contratos viven en definitions/contracts.
-- **Next action (Cursor):** Añadir entradas a PR_INDEX/bitácora INDEX si aplica; o cerrar loop con nota “documentado en X”.
+- **Next action (Cursor):** N/A (cerrado).
 - **Bloqueos / info faltante (Oscar):** Ninguno.
 - **Owner:** Cursor
 - **Fecha:** 2026-02-07
