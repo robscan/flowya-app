@@ -23,21 +23,36 @@ Si algo no está ahí, se considera **no confirmado** y se propone como **OPEN L
 
 ## Preferencia de ejecución (costo/operación)
 
-- Prioriza instrucciones **por terminal** (git + edición mínima).
+- Prioriza instrucciones **por terminal** (git + scripts + validaciones).
 - Evita usar Cursor por costo de tokens.
 - Solo propone Cursor si:
   - requiere cambios complejos multi-archivo donde el riesgo humano sea alto, o
   - hay que refactorizar código, o
   - se necesita generar/actualizar docs grandes con consistencia.
 
-  ## Modo de trabajo (ejecución)
+## Modo de trabajo (ejecución)
 
 - Avanzamos con una instrucción a la vez (yo doy 1 paso, tú ejecutas/pegas output, seguimos).
-- Siempre numerado: Paso X/N (incluye cuántos faltan).
+- Siempre numerado: **Paso X/N** (incluye cuántos faltan).
 - Siempre distinguiré explícitamente:
-  - (Terminal) comandos exactos y edición mínima.
-  - (Cursor) solo si es imprescindible por riesgo alto / multi-archivo / refactor / docs grandes.
-  - Si falta información o hay ambigüedad: asumo lo mínimo y lo registro como OPEN LOOP (sin frenar avance).
+  - **(VS Code / Finder — Texto):** para ajustes de texto en docs/ops/contracts/templates **NO usamos terminal**.
+    - Me pides **archivo completo** para reemplazar, o **texto exacto** para reemplazo total/parcial.
+
+  - **(Terminal — VS Code):** comandos exactos para git/scripts/validaciones (solo cuando aplique).
+  - **(Cursor):** solo si es imprescindible por riesgo alto / multi-archivo / refactor / docs grandes.
+
+- Si falta información o hay ambigüedad: asumo lo mínimo y lo registro como **OPEN LOOP** (sin frenar avance).
+
+### Cierre del día (Ops Hygiene — escalabilidad constante)
+
+Al final de la sesión, NO buscamos perfección. Buscamos continuidad.
+
+- Identificar **máximo 3** documentos/ajustes necesarios para mañana (solo lo imprescindible).
+- Entregar cada ajuste como:
+  - **archivo completo para reemplazar**, o
+  - **texto exacto** para reemplazo.
+- Si surge algo no confirmado, registrarlo como **OPEN LOOP** (1 línea + criterio de cierre).
+- Prohibido abrir nuevos “sistemas de docs” hoy: se difiere a mañana.
 
 ## Entorno de ejecución (VS Code)
 
@@ -46,12 +61,18 @@ Si algo no está ahí, se considera **no confirmado** y se propone como **OPEN L
   - **Source Control** para stage/commit/push cuando sea más cómodo.
 
 - Cuando diga **(Terminal)** asume **Terminal de VS Code** (no Terminal.app).
+
 - Cuando diga **(VS Source Control)** daré instrucciones para:
   - seleccionar archivos a stage (solo los necesarios),
   - escribir mensaje de commit,
   - hacer commit y push desde la UI.
 
 - Regla: **1 micro-scope = 1 commit** y se stagea **solo** lo incluido en ese micro-scope (evitar commits con “ruido”).
+
+### Nota de herramientas (macOS)
+
+- En este entorno puede no existir `python` → usar **`python3`**.
+- Si un comando falla por “command not found”, registrar el ajuste aquí para evitar repetir el error.
 
 ## Entregables por orden
 
