@@ -29,13 +29,13 @@
 > Cursor debe actualizar esta sección **al final de cada sesión**.
 
 - **Branch activo:** main
-- **Último commit/PR:** main al día; OL-004 cerrado (PRs `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs` mergeados).
-- **Scope actual:** Ops — siguiente loop abierto (p. ej. OL-005 contratos/bitácora index, o OL-002/OL-003 gates Flow/Recordar).
+- **Último commit/PR:** main al día; OL-002 (Flow gates) y OL-003 (Recordar gates) cerrados; merge de gates-flow (gates-recordar ya estaba en main).
+- **Scope actual:** Siguiente loop abierto (no hay OL OPEN; elegir nuevo o prep).
 - **Target platform:** Web mobile (primero); prod Vercel desde main
 - **Riesgos activos:**
   - Commits parciales sin regla pueden volver a desalinear prod.
   - OPEN_LOOPS desactualizado hace que pendientes vivan solo en memoria.
-- **Próximo entregable (24h):** Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutar con DoD; actualizar snapshot al cierre.
+- **Próximo entregable (24h):** Escoger 1 siguiente loop (si existe OL-XXX OPEN) y ejecutar micro-scope docs-only o prep.
 
 ---
 

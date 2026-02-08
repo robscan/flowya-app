@@ -5,13 +5,13 @@
 
 ## Ahora mismo
 
-- **Scope activo:** Ops — siguiente micro-scope (p. ej. OL-005 contratos/bitácora index, o OL-002/OL-003 gates Flow/Recordar). OL-004 cerrado.
+- **Scope activo:** Ops / cierre de loops antes de UX. OL-002 (Flow gates) y OL-003 (Recordar gates) cerrados con evidencia (GUARDRAILS + DEC-005 / DEC-004).
 - **Branch activa:** `main`.
-- **Commit / tag de referencia:** último en main (incl. merge de `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs`).
+- **Commit / tag de referencia:** último en main (incl. merge de gates Flow/Recordar cuando aplique).
 - **Entorno afectado:** web mobile (prod Vercel desde `main`).
-- **Sólido:** Prod estable. Regla commits-completos activa. Search V2 (S1–S5 + fixes 036–038, 040) en main. SEARCH_V2.md alineado con código (OL-004 DONE).
-- **Frágil:** Nada crítico; pendientes abiertos: OL-002, OL-003, OL-005.
-- **Next step (1 línea):** Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutarlo con DoD; actualizar CURRENT_STATE y OPEN_LOOPS al cierre.
+- **Sólido:** Prod estable. Regla commits-completos activa. Search V2 en main. OL-001, OL-002, OL-003, OL-004, OL-005 DONE.
+- **Frágil:** Nada crítico; no hay OL OPEN (siguiente: elegir nuevo loop o prep).
+- **Next step (1 línea):** Escoger 1 siguiente loop (si existe OL-XXX OPEN) y ejecutar micro-scope docs-only o prep; actualizar CURRENT_STATE y OPEN_LOOPS al cierre.
 
 ## Qué está *cerrado* hoy (DoD cumplido)
 
@@ -20,10 +20,11 @@
 - Regla de commits completos y bitácora 041 (prevención commits parciales) creadas y documentadas.
 - OL-001 (estado operativo vacío) cerrado con CURRENT_STATE + OPEN_LOOPS restaurados.
 - OL-004 (SEARCH_V2.md desalineado) cerrado; PRs `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs` mergeados en main.
+- OL-002 (Flow gates) y OL-003 (Recordar gates) cerrados; evidencia en GUARDRAILS + DEC-005 / DEC-004. OL-005 cerrado (contratos/bitácora index).
 
 ## Qué está *abierto* hoy (bloquea cierre)
 
-- OL-004 cerrado (PRs mergeados). Gates para Flow y para Recordar no documentados (OL-002, OL-003). OL-005: contratos/bitácora sin track en índice.
+- No hay OL OPEN; siguiente: elegir nuevo loop o prep (docs-only / UX cuando se defina).
 
 ## Riesgos / Alertas
 
@@ -32,9 +33,9 @@
 
 ## Próximo paso recomendado (1 solo)
 
-Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutarlo con criterio de cierre; actualizar OPEN_LOOPS y CURRENT_STATE al cierre.
+Escoger 1 siguiente loop (si existe OL-XXX OPEN) y ejecutar micro-scope docs-only o prep; actualizar OPEN_LOOPS y CURRENT_STATE al cierre.
 
 ## Cómo validar (QA mínimo)
 
 - CURRENT_STATE: sin placeholders en “Ahora mismo”; scope/branch/next step coherentes con el repo.
-- OPEN_LOOPS: snapshot sin “PR abierto” ni “merge pendiente”; OL-004 DONE con evidencia (PRs mergeados).
+- OPEN_LOOPS: snapshot actualizado; OL-002 y OL-003 DONE con evidencia (GUARDRAILS + DEC-005 / DEC-004).
