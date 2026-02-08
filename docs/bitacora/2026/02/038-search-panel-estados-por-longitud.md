@@ -43,3 +43,4 @@
 - 3+ chars: resultados o sugerencias + CTA.
 
 **Archivo:** `app/(tabs)/index.web.tsx` (área de resultados del overlay de búsqueda).
+w
