@@ -1,41 +1,78 @@
 # CURRENT_STATE — Flowya (operativo)
 
-> **Fuente de verdad para saber “en dónde estamos hoy”**.  
-> Se actualiza al cierre de cada sesión (Cursor).
+> **Fuente de verdad del estado actual del proyecto.**
+>
+> Este archivo es un **snapshot operativo + memoria resumida**.
+> No es planeación ni backlog.
+>
+> 🔒 **Regla:** ningún chat/sprint se considera cerrado si este archivo no se actualiza.
+
+---
 
 ## Ahora mismo
 
-- **Scope activo:** Ops / cierre de loops antes de UX. OL-002 (Flow gates) y OL-003 (Recordar gates) cerrados con evidencia (GUARDRAILS + DEC-005 / DEC-004).
+- **Scope activo:** Ops — cierre de loops de seguridad antes de nuevos UX scopes.
 - **Branch activa:** `main`.
-- **Commit / tag de referencia:** último en main (incl. merge de gates Flow/Recordar cuando aplique).
-- **Entorno afectado:** web mobile (prod Vercel desde `main`).
-- **Sólido:** Prod estable. Regla commits-completos activa. Search V2 en main. OL-001, OL-002, OL-003, OL-004, OL-005 DONE.
-- **Frágil:** Nada crítico; no hay OL OPEN (siguiente: elegir nuevo loop o prep).
-- **Next step (1 línea):** Escoger 1 siguiente loop (si existe OL-XXX OPEN) y ejecutar micro-scope docs-only o prep; actualizar CURRENT_STATE y OPEN_LOOPS al cierre.
+- **Commit / tag de referencia:** último commit en `main` (prod Vercel).
+- **Entorno afectado:** Web mobile (prod desde `main`).
 
-## Qué está *cerrado* hoy (DoD cumplido)
+### Sólido
 
-- Fix prod: `resolvePlaceForCreate` y `bboxFilter` en main; búsqueda "Sagrada" y CTA Crear operativos en prod.
-- Bitácoras 028–041 en main; contratos DATA_MODEL_CURRENT y PROFILE_AUTH_CONTRACT_CURRENT generados (prompts 4.4 y 4.5).
-- Regla de commits completos y bitácora 041 (prevención commits parciales) creadas y documentadas.
-- OL-001 (estado operativo vacío) cerrado con CURRENT_STATE + OPEN_LOOPS restaurados.
-- OL-004 (SEARCH_V2.md desalineado) cerrado; PRs `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs` mergeados en main.
-- OL-002 (Flow gates) y OL-003 (Recordar gates) cerrados; evidencia en GUARDRAILS + DEC-005 / DEC-004. OL-005 cerrado (contratos/bitácora index).
+- Explore (map-first) es el único producto abierto.
+- Search V2 y Create Spot Lite operativos en prod.
+- Guardrails activos: **NO abrir Flow ni Recordar completos**.
+- Arquitectura retomable sin depender de memoria de chat.
 
-## Qué está *abierto* hoy (bloquea cierre)
+### Frágil / Atención
 
-- No hay OL OPEN; siguiente: elegir nuevo loop o prep (docs-only / UX cuando se defina).
+- Existen **OPEN LOOPS activos de seguridad**:
+  - OL-007 (Supabase RLS permisivo).
+  - OL-008 (Auth: leaked password protection deshabilitado).
 
-## Riesgos / Alertas
+### Next step (1 línea)
 
-- Cualquier cambio multi-archivo que no siga la regla “commits completos” puede volver a dejar prod con imports rotos.
-- Si no se actualiza OPEN_LOOPS al cerrar sesión, los pendientes vuelven a vivir solo en la mente.
+Cerrar **OL-008** y después **OL-007** antes de abrir cualquier feature nuevo.
 
-## Próximo paso recomendado (1 solo)
+---
 
-Escoger 1 siguiente loop (si existe OL-XXX OPEN) y ejecutar micro-scope docs-only o prep; actualizar OPEN_LOOPS y CURRENT_STATE al cierre.
+## Historial relevante (memoria resumida)
 
-## Cómo validar (QA mínimo)
+- **OL-001 → OL-006 cerrados**
+  - Se restauró la retomabilidad del proyecto (CURRENT_STATE + OPEN_LOOPS).
+  - Se documentaron y fijaron **gates de Flow / Recordar** (modo _lite_).
+  - Se alinearon contratos CURRENT con el estado real del sistema.
+  - Se estabilizó Search V2 y Create Spot Lite en prod.
 
-- CURRENT_STATE: sin placeholders en “Ahora mismo”; scope/branch/next step coherentes con el repo.
-- OPEN_LOOPS: snapshot actualizado; OL-002 y OL-003 DONE con evidencia (GUARDRAILS + DEC-005 / DEC-004).
+> Este historial no es exhaustivo:  
+> la evidencia vive en git, bitácoras y PRs.
+
+---
+
+## Qué está bloqueado por regla (guardrails)
+
+Mientras exista **cualquier OPEN LOOP**:
+
+- ❌ No se amplía superficie de datos.
+- ❌ No se abren Flow ni Recordar completos.
+- ❌ No se agregan features no esenciales.
+- ✅ El foco es **estabilidad + seguridad por default**.
+
+---
+
+## Regla de cierre (NO NEGOCIABLE)
+
+Al final de **cada sesión** (con o sin Cursor):
+
+1. Este archivo debe reflejar el estado real (sin placeholders).
+2. `OPEN_LOOPS.md` debe estar alineado con lo aquí descrito.
+3. Si hay duda → el loop queda **OPEN**, nunca se asume cerrado.
+
+Si esto no se cumple, la sesión **no está cerrada**.
+
+## Regla del repositorio (infra)
+
+- El branch `main` está **protegido**.
+- No se permiten commits ni pushes directos.
+- Todo cambio (incluidos docs-only) requiere **rama + PR**.
+
+Esta regla es parte del sistema operativo del proyecto.
