@@ -136,7 +136,7 @@
 - **Impacto UX/negocio:** Sin contratos, el equipo no puede verificar supuestos; proyecto menos retomable.
 - **Criterio de cierre (testable):** Existen los 2 archivos `DATA_MODEL_CURRENT.md` y `PROFILE_AUTH_CONTRACT_CURRENT.md` en `docs/definitions/contracts/`.
 - **Next action:** (futuro) Completar contenido real desde Supabase/migraciones cuando toque.
-- **Evidencia:** PR = (por llenar)
+- **Evidencia:** PR = #15
 - **Owner:** Oscar
 - **Fecha:** 2026-02-08
 
