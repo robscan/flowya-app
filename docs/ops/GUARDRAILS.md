@@ -53,6 +53,26 @@ Abrimos Flow cuando:
 
 ---
 
+
+### Flow-lite (permitido ANTES de abrir Flow)
+Mientras Flow esté “cerrado”, se permite SOLO **Flow-lite** dentro de Explore:
+- Guardar una **lista simple** (ej. “Mi día”, “Barcelona 3 días”) como *draft local* o metadata mínima (sin IA).
+- Asociar spots existentes a esa lista (orden opcional), sin navegación nueva.
+✅ Todo sucede como overlays map-first; sin pantallas tipo “Flow app”.
+
+### Gates (criterios) para “abrir Flow” (testables)
+Flow se puede abrir cuando se cumpla TODO:
+1) Explore/Search/CreateSpot están estables (sin deuda de overlays/teclado; sin bugs P0/P1 abiertos).
+2) Ya existe **place/city** confiable en spot (place_snapshot o city) para agrupar.
+3) “Flow Draft” está definido como contenedor (no tour IA): contrato de datos y UX de creación/edición mínima.
+4) Existe **WOW mínimo** comprobable (ej. export/share map o ruta simple) sin disparar complejidad.
+
+### Prohibido antes de gates
+- Tour IA completo / itinerarios automáticos
+- Editor complejo tipo Notion
+- Motor de recomendaciones “planner” multi-paso
+- Entidad Flow con múltiples pantallas (browse/gestión) fuera de Explore
+
 ## 5) Señales para abrir Recordar (macro‑alcance)
 
 Abrimos Recordar cuando:

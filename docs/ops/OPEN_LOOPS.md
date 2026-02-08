@@ -57,15 +57,16 @@
 ---
 
 ### Loop OL-002 — Gates para abrir Flow (no documentados)
-- **Estado:** OPEN
+- **Estado:** DONE
 - **Prioridad:** P2
 - **Área:** Ops / Proceso
 - **Síntoma / problema (1–2 líneas):** No existen criterios documentados que indiquen cuándo está listo para abrir la herramienta/sesión “Flow”. Sin gates, se abre por inercia o no se abre.
 - **Contexto (link a bitácora/PR):** Criterio registrado como loop; no se abre Flow en este PR.
 - **Impacto UX/negocio:** Uso subóptimo de Flow (abrir cuando no toca o no abrir cuando sí).
-- **Criterio de cierre (testable):** Documento (en ops o process) con lista de gates para “abrir Flow”, revisado/aceptado por Oscar. No implica abrir Flow en esta sesión.
-- **Next action (Cursor):** N/A hasta que Arquitecto/Oscar definan gates. Oscar puede proponer borrador de gates.
-- **Bloqueos / info faltante (Oscar):** Definir qué condiciones deben cumplirse para abrir Flow.
+- **Criterio de cierre (testable):** `docs/ops/GUARDRAILS.md` incluye Flow-lite + gates testables; `docs/ops/DECISIONS.md` registra DEC-005. Loop marcado DONE con evidencia.
+- **Next action (Cursor):** N/A (cerrado).  
+- **Evidencia:** `docs/ops/GUARDRAILS.md` (Flow-lite + gates) + `docs/ops/DECISIONS.md` (DEC-005).
+- **Bloqueos / info faltante (Oscar):** Ninguno.
 - **Owner:** Arquitecto / Oscar (definición); Cursor (documentar cuando esté definido)
 - **Fecha:** 2026-02-07
 
