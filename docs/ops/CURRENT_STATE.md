@@ -5,13 +5,13 @@
 
 ## Ahora mismo
 
-- **Scope activo:** Sprint 1 / MS2 — Search V2 doc alignment (OL-004). Foco en alinear documentación con código.
-- **Branch activa:** `main`. PR abierto: `chore/search-v2-doc-alignment` (alineación de `docs/definitions/search/SEARCH_V2.md` + .cursor/ ignore).
-- **Commit / tag de referencia:** último en main (fix prod + chore ops). PR de docs en rama separada.
+- **Scope activo:** Ops — siguiente micro-scope (p. ej. OL-005 contratos/bitácora index, o OL-002/OL-003 gates Flow/Recordar). OL-004 cerrado.
+- **Branch activa:** `main`.
+- **Commit / tag de referencia:** último en main (incl. merge de `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs`).
 - **Entorno afectado:** web mobile (prod Vercel desde `main`).
-- **Sólido:** Prod estable. Regla commits-completos activa. Search V2 (S1–S5 + fixes 036–038, 040) en main.
-- **Frágil:** SEARCH_V2.md desalineado hasta que se mergee el PR de doc alignment.
-- **Next step (1 línea):** Merge del PR `chore/search-v2-doc-alignment` y cierre de OL-004 si el doc queda alineado con el comportamiento actual de Search V2.
+- **Sólido:** Prod estable. Regla commits-completos activa. Search V2 (S1–S5 + fixes 036–038, 040) en main. SEARCH_V2.md alineado con código (OL-004 DONE).
+- **Frágil:** Nada crítico; pendientes abiertos: OL-002, OL-003, OL-005.
+- **Next step (1 línea):** Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutarlo con DoD; actualizar CURRENT_STATE y OPEN_LOOPS al cierre.
 
 ## Qué está *cerrado* hoy (DoD cumplido)
 
@@ -19,11 +19,11 @@
 - Bitácoras 028–041 en main; contratos DATA_MODEL_CURRENT y PROFILE_AUTH_CONTRACT_CURRENT generados (prompts 4.4 y 4.5).
 - Regla de commits completos y bitácora 041 (prevención commits parciales) creadas y documentadas.
 - OL-001 (estado operativo vacío) cerrado con CURRENT_STATE + OPEN_LOOPS restaurados.
+- OL-004 (SEARCH_V2.md desalineado) cerrado; PRs `chore/search-v2-doc-alignment` y `chore/ops-update-after-searchv2-docs` mergeados en main.
 
 ## Qué está *abierto* hoy (bloquea cierre)
 
-- OL-004: SEARCH_V2.md desalineado — en PR `chore/search-v2-doc-alignment`; pendiente merge y cierre del loop.
-- Gates para Flow y para Recordar no documentados (OL-002, OL-003).
+- OL-004 cerrado (PRs mergeados). Gates para Flow y para Recordar no documentados (OL-002, OL-003). OL-005: contratos/bitácora sin track en índice.
 
 ## Riesgos / Alertas
 
@@ -32,9 +32,9 @@
 
 ## Próximo paso recomendado (1 solo)
 
-Hacer merge del PR `chore/search-v2-doc-alignment`; verificar que SEARCH_V2.md en main refleje el comportamiento actual; marcar OL-004 como DONE con evidencia (link al PR).
+Elegir 1 loop (OL-005, OL-002 u OL-003) y ejecutarlo con criterio de cierre; actualizar OPEN_LOOPS y CURRENT_STATE al cierre.
 
 ## Cómo validar (QA mínimo)
 
-- CURRENT_STATE: sin placeholders en “Ahora mismo”; scope/branch/PR/next step coherentes con el repo.
-- OPEN_LOOPS: snapshot con referencia al PR de OL-004; OL-004 con estado y evidencia actualizados.
+- CURRENT_STATE: sin placeholders en “Ahora mismo”; scope/branch/next step coherentes con el repo.
+- OPEN_LOOPS: snapshot sin “PR abierto” ni “merge pendiente”; OL-004 DONE con evidencia (PRs mergeados).
