@@ -1,0 +1,141 @@
+# OPEN_LOOPS — FLOWYA (source of truth)
+**Última actualización:** 2026-02-07  
+**Propósito:** Lista única de pendientes activos (bugs, decisiones abiertas, deuda técnica, faltantes de documentación) que bloquean o impactan UX/estabilidad.  
+**Regla:** Si algo “vive en la mente”, aquí no existe. Todo loop debe estar aquí o cerrado en DECISIONS.
+
+---
+
+## Cómo usar este documento
+- **Oscar (Negocio / Puente):** abre loops (problema + contexto + prioridad).  
+- **Arquitecto (ChatGPT):** define criterio, opción recomendada, y “next action” claro.  
+- **Cursor (Ejecución):** implementa y deja evidencia (PR/commit + notas), luego cambia el loop a **DONE**.
+
+### Estados
+- **OPEN** → identificado, falta decisión o ejecución
+- **READY** → definido, listo para que Cursor ejecute
+- **IN_PROGRESS** → Cursor ejecutando
+- **BLOCKED** → esperando info o dependencia
+- **DONE** → cerrado, referenciado en bitácora + (si aplica) DECISIONS
+
+### Prioridades
+- **P0** rompe core UX / bloquea release
+- **P1** fricción alta o deuda peligrosa
+- **P2** mejora, nice-to-have
+- **P3** ideas futuras (evitar meter IA aquí si no hay intención real)
+
+---
+
+## 0) Estado actual de ejecución (snapshot rápido)
+> Cursor debe actualizar esta sección **al final de cada sesión**.
+
+- **Branch activo:** main
+- **Último commit/PR:** 1057b84 (fix prod) → tras este cambio: chore(ops) restore source of truth
+- **Scope actual:** Ops — retomabilidad (CURRENT_STATE + OPEN_LOOPS completos, sin tocar código app)
+- **Target platform:** Web mobile (primero); prod Vercel desde main
+- **Riesgos activos:**
+  - Commits parciales sin regla pueden volver a desalinear prod.
+  - OPEN_LOOPS desactualizado hace que pendientes vivan solo en memoria.
+- **Próximo entregable (24h):** Retomar con 1 loop o 1 micro-scope elegido desde OPEN_LOOPS; ejecutar con DoD y actualizar estado.
+
+---
+
+## 1) Loops activos (lista única)
+
+### Loop OL-001 — Estado operativo vacío (proyecto no retomable sin memoria)
+- **Estado:** READY
+- **Prioridad:** P0
+- **Área:** Ops / Data (fuente de verdad)
+- **Síntoma / problema (1–2 líneas):** No hay un único lugar que describa “en qué estamos” y “qué está abierto” sin depender de memoria o historial de chat. CURRENT_STATE y OPEN_LOOPS tenían placeholders.
+- **Contexto (link a bitácora/PR):** docs/ops/CURRENT_STATE.md, docs/ops/OPEN_LOOPS.md; PR/sesión de restauración de retomabilidad.
+- **Impacto UX/negocio:** Cualquier retomo requiere redescubrir estado; riesgo de duplicar trabajo o omitir dependencias.
+- **Criterio de cierre (testable):** CURRENT_STATE.md “Ahora mismo” sin placeholders; OPEN_LOOPS.md con snapshot rápido lleno y ≥3 loops reales con prioridad + DoD + owner; ambos consistentes entre sí. Commit + push realizados.
+- **Next action (Cursor):** Completar CURRENT_STATE y OPEN_LOOPS (este PR); commit + push. Cerrar loop a DONE con evidencia en bitácora o nota de PR.
+- **Bloqueos / info faltante (Oscar):** Ninguno.
+- **Owner:** Cursor
+- **Fecha:** 2026-02-07
+
+---
+
+### Loop OL-002 — Gates para abrir Flow (no documentados)
+- **Estado:** OPEN
+- **Prioridad:** P2
+- **Área:** Ops / Proceso
+- **Síntoma / problema (1–2 líneas):** No existen criterios documentados que indiquen cuándo está listo para abrir la herramienta/sesión “Flow”. Sin gates, se abre por inercia o no se abre.
+- **Contexto (link a bitácora/PR):** Criterio registrado como loop; no se abre Flow en este PR.
+- **Impacto UX/negocio:** Uso subóptimo de Flow (abrir cuando no toca o no abrir cuando sí).
+- **Criterio de cierre (testable):** Documento (en ops o process) con lista de gates para “abrir Flow”, revisado/aceptado por Oscar. No implica abrir Flow en esta sesión.
+- **Next action (Cursor):** N/A hasta que Arquitecto/Oscar definan gates. Oscar puede proponer borrador de gates.
+- **Bloqueos / info faltante (Oscar):** Definir qué condiciones deben cumplirse para abrir Flow.
+- **Owner:** Arquitecto / Oscar (definición); Cursor (documentar cuando esté definido)
+- **Fecha:** 2026-02-07
+
+---
+
+### Loop OL-003 — Gates para abrir Recordar (no documentados)
+- **Estado:** OPEN
+- **Prioridad:** P2
+- **Área:** Ops / Proceso
+- **Síntoma / problema (1–2 líneas):** No existen criterios documentados que indiquen cuándo está listo para abrir la herramienta/sesión “Recordar”. Sin gates, igual que Flow.
+- **Contexto (link a bitácora/PR):** Criterio registrado como loop; no se abre Recordar en este PR.
+- **Impacto UX/negocio:** Uso subóptimo de Recordar.
+- **Criterio de cierre (testable):** Documento (en ops o process) con lista de gates para “abrir Recordar”, revisado/aceptado por Oscar.
+- **Next action (Cursor):** N/A hasta definición. Oscar puede proponer borrador.
+- **Bloqueos / info faltante (Oscar):** Definir condiciones para abrir Recordar.
+- **Owner:** Arquitecto / Oscar (definición); Cursor (documentar cuando esté definido)
+- **Fecha:** 2026-02-07
+
+---
+
+### Loop OL-004 — SEARCH_V2.md desalineado con código (cambios locales no commiteados)
+- **Estado:** OPEN
+- **Prioridad:** P2
+- **Área:** Search / Data (docs)
+- **Síntoma / problema (1–2 líneas):** `docs/definitions/search/SEARCH_V2.md` tiene modificaciones locales no subidas a main. Riesgo de que la doc de referencia no refleje el comportamiento actual.
+- **Contexto (link a bitácora/PR):** git status muestra `M docs/definitions/search/SEARCH_V2.md`.
+- **Impacto UX/negocio:** Quien lea SEARCH_V2 en repo puede tomar decisiones sobre datos incorrectos.
+- **Criterio de cierre (testable):** Revisar diff de SEARCH_V2.md; o commitear cambios si son correctos, o revertir en working copy si son obsoletos. Doc en main alineada con comportamiento de Search V2 actual.
+- **Next action (Cursor):** Revisar diff; proponer commit o descarte y actualizar OPEN_LOOPS.
+- **Bloqueos / info faltante (Oscar):** Ninguno.
+- **Owner:** Cursor
+- **Fecha:** 2026-02-07
+
+---
+
+### Loop OL-005 — Contratos y bitácoras ops sin track en PR/bitácora única
+- **Estado:** OPEN
+- **Prioridad:** P2
+- **Área:** Ops / Docs
+- **Síntoma / problema (1–2 líneas):** Se generaron DATA_MODEL_CURRENT y PROFILE_AUTH_CONTRACT_CURRENT y bitácora 041 (prevención commits parciales); pueden no estar referenciados en PR_INDEX o bitácora INDEX, lo que dificulta descubrirlos.
+- **Contexto (link a bitácora/PR):** docs/definitions/contracts/*, docs/bitacora/2026/02/041-*.
+- **Impacto UX/negocio:** Contratos y lecciones aprendidas menos descubribles.
+- **Criterio de cierre (testable):** PR_INDEX o índice de bitácoras (si existe) incluye referencia a contratos y a 041; o se documenta en OPEN_LOOPS/DECISIONS que los contratos viven en definitions/contracts.
+- **Next action (Cursor):** Añadir entradas a PR_INDEX/bitácora INDEX si aplica; o cerrar loop con nota “documentado en X”.
+- **Bloqueos / info faltante (Oscar):** Ninguno.
+- **Owner:** Cursor
+- **Fecha:** 2026-02-07
+
+---
+
+## 2) Template para agregar loops (copiar/pegar)
+```md
+### Loop OL-XXX — (título corto)
+- **Estado:** OPEN
+- **Prioridad:** P?
+- **Área:** 
+- **Síntoma / problema:**
+- **Contexto (bitácora/PR):**
+- **Impacto UX/negocio:**
+- **Criterio de cierre:**
+- **Next action (Cursor):**
+- **Bloqueos / info faltante (Oscar):**
+- **Owner:**
+- **Fecha:** 2026-02-07
+```
+
+---
+
+## 3) Reglas de higiene (para que esto funcione)
+1) **No hay “pendientes invisibles”.** Si se menciona en chat, se crea loop.
+2) **Criterio de cierre obligatorio.** Sin criterio = no se ejecuta.
+3) **Un loop = una cosa.** Si crece, se divide.
+4) **DONE requiere evidencia:** PR/commit + bitácora (o nota en PR) + si cambió criterio, registrar en DECISIONS.
