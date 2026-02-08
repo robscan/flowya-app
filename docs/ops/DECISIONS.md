@@ -59,6 +59,17 @@
 - **Consecuencias / tradeoffs:** No hay timeline/álbum por ahora; si en el futuro se requiere entidad separada, se migrará con decisión nueva que la superseda.
 - **Evidencia (bitácora/PR):** OL-003 (gates Recordar) + PR `chore/gates-recordar`.
 
+---
+
+## DEC-005 — Flow-lite antes de abrir Flow (Draft simple, no tour IA)
+- **Fecha:** 2026-02-07
+- **Contexto:** Queremos valor temprano de “organizar spots” sin abrir Flow completo (pantallas nuevas, planner multi-paso, IA).
+- **Opciones consideradas:** (A) Abrir Flow completo ya, (B) Flow-lite dentro de Explore (draft simple), (C) Posponer cualquier Flow hasta V2.
+- **Decisión:** Adoptar (B) **Flow-lite** como capacidad mínima dentro de Explore: listas/drafts simples que agrupan spots (orden opcional), sin IA y sin pantallas nuevas. Flow completo permanece cerrado hasta gates.
+- **Racional:** Mantiene map-first, reduce scope creep, permite probar valor real antes de invertir en un producto paralelo.
+- **Consecuencias / tradeoffs:** No hay itinerarios automáticos ni planner; si se abre Flow completo, se hará con decisión nueva que superseda.
+- **Evidencia (bitácora/PR):** OL-002 (gates Flow) + PR `chore/gates-flow`.
+
 ## Template para nuevas decisiones (copiar/pegar)
 ```md
 ## DEC-XXX — (título corto)
