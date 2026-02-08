@@ -46,3 +46,5 @@ app-example
 # docs / artifacts
 *.zip
 docs/analysis/
+
+.cursor/

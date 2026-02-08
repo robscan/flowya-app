@@ -27,7 +27,7 @@
 | spots    | Mapa       | Spots/DB por bbox  | Sí        | Sí      |
 | places   | Create Spot| Mapbox forward     | No        | No      |
 
-**Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag.
+**Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag. Overlay de búsqueda theme-aware (light: blanco translúcido, dark: negro translúcido). Sugerencias y resultados en panel tipo sheet (scroll, borderRadius, maxHeight ~55%).
 
 ---
 
@@ -40,6 +40,7 @@
 - **fetchMore por cursor:** Sin UI de paginación. Lista con infinite scroll; `onEndReached` → `fetchMore()`; `cursor` pasado a la strategy; bloquear si `isLoading` o `!hasMore`.
 - **Mapa:** Cap de pins (300–500) o clustering. Si se excede: hint "Hay demasiados resultados, acerca el zoom para verlos".
 - **Filtros:** Todos / Por visitar / Visitados **aplicados en la query** (Spots/DB o capa de datos). No post-filtro en cliente cuando crezca el dataset.
+- **Match texto (acentos):** Comparación accent-insensitive en cliente: `normalizeQuery(query)` vs `normalizeQuery(spot.title)` (lowercase + NFD sin diacríticos). **Futuro (escala):** migrar a búsqueda server-side con columna normalizada o `unaccent` + `ILIKE` con índice.
 
 ---
 
@@ -84,7 +85,8 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 - **No** mostrar sugerencias si ya hay resultados en cualquier stage.
 - Tap sugerencia = una sola acción: `setQuery(suggestion)` → dispara búsqueda normal (viewport→expanded→global); reutiliza debounce/cancelación/caché; sin llamadas duplicadas.
 - Diccionario ES↔EN mínimo curado (`lib/search/suggestions.ts`); `normalizeQuery`; máximo 3 sugerencias.
-- UI: sección "Sugerencias" (lista tipo Google, filas tapables); CTA "Crear" se mantiene (no "Crear spot: …").
+- UI: sección "Sugerencias" (lista tipo Google, filas tapables) dentro de panel con scroll; CTA con nombre (véase CTA Crear en mapa).
+- **CTA Crear en mapa (mode=spots):** Label `Crear "${query}"` cuando hay query; fallback `Crear nuevo spot` si query vacío. Al tocar: **resolvedPlaceForCreate** (Mapbox forward, limit=1, solo para obtener coords de creación; no es el motor de búsqueda de spots). Si `query.trim().length >= 3` se llama a `resolvePlaceForCreate(query, proximity/bbox)`; si devuelve coords → navegar a `/create-spot?name=...&lat=...&lng=...&source=search`; si no → `/create-spot?source=search&name=<query>`. Create Spot permite elegir ubicación manual cuando no hay lat/lng.
 - **Futuro:** Marcar términos genéricos (ej. centro↔Center) para no sugerirlos cuando la query sea de 1 sola palabra o muy corta; hoy no bloquea porque sugerencias solo aparecen tras global+0 resultados.
 
 ---
