@@ -63,6 +63,28 @@ Abrimos Recordar cuando:
 
 ---
 
+
+### Recordar-lite (permitido ANTES de abrir Recordar)
+Mientras Recordar esté “cerrado”, se permite SOLO **Recordar-lite** como metadata dentro de Spot:
+- `visited: boolean`
+- `visited_at: timestamp` (opcional)
+- `note_short: string` (opcional, máximo ~280 chars; sin editor pesado)
+
+✅ Esto vive dentro de Explore como acciones pequeñas (overlay existente), sin pantallas nuevas.
+
+### Gates (criterios) para “abrir Recordar” (testables)
+Recordar se puede abrir cuando se cumpla TODO:
+1) Existe un contrato claro de datos para Recordar-lite (campos anteriores) y no cambia por 2 PRs seguidos.
+2) UX: marcar visited / editar note_short no rompe map-first (sin overlays apilados, sin estados fantasma).
+3) Persistencia: se guarda y se lee de vuelta en al menos 2 sesiones (reload) sin inconsistencias.
+4) Costo: no introduce cargas pesadas por default (sin timeline/feed al abrir Explore).
+
+### Prohibido antes de gates
+- Timeline/feed/álbum completo
+- Editor largo (markdown/rich text)
+- “Recuerdos” como entidad separada con browse/gestión
+- Flujos de import/export o IA de diario
+
 ## 6) Reglas de consistencia de UX (Apple Maps vibe)
 
 - Un solo overlay activo a la vez (no apilar sheets).

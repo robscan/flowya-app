@@ -72,15 +72,16 @@
 ---
 
 ### Loop OL-003 — Gates para abrir Recordar (no documentados)
-- **Estado:** OPEN
+- **Estado:** DONE
 - **Prioridad:** P2
 - **Área:** Ops / Proceso
 - **Síntoma / problema (1–2 líneas):** No existen criterios documentados que indiquen cuándo está listo para abrir la herramienta/sesión “Recordar”. Sin gates, igual que Flow.
 - **Contexto (link a bitácora/PR):** Criterio registrado como loop; no se abre Recordar en este PR.
 - **Impacto UX/negocio:** Uso subóptimo de Recordar.
-- **Criterio de cierre (testable):** Documento (en ops o process) con lista de gates para “abrir Recordar”, revisado/aceptado por Oscar.
-- **Next action (Cursor):** N/A hasta definición. Oscar puede proponer borrador.
-- **Bloqueos / info faltante (Oscar):** Definir condiciones para abrir Recordar.
+- **Criterio de cierre (testable):** `docs/ops/GUARDRAILS.md` incluye sección “Recordar” con alcance permitido + gates (criterios) para abrir Recordar. `docs/ops/DECISIONS.md` registra decisión temporal “Recordar-lite = metadata en Spot”. Snapshot actualizado.
+- **Next action (Cursor):** N/A (cerrado).  
+- **Evidencia:** `docs/ops/GUARDRAILS.md` (Recordar-lite + gates) + `docs/ops/DECISIONS.md` (DEC-004).
+- **Bloqueos / info faltante (Oscar):** Ninguno (se define como docs-only gate; implementación queda fuera).
 - **Owner:** Arquitecto / Oscar (definición); Cursor (documentar cuando esté definido)
 - **Fecha:** 2026-02-07
 
