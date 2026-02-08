@@ -1,126 +1,121 @@
-# PROMPTING STANDARD — FLOWYA (Arquitecto ↔ Cursor)
+# PROMPTING_STANDARD.md
+**FLOWYA — Prompting Standard (Source of Truth)**
 
-Este documento define el **formato obligatorio** de prompts del Arquitecto para Cursor y las reglas de higiene del proyecto.
-Objetivo: que el proyecto sea **autocontenible** (memoria operativa) y que mañana podamos retomar solo con `docs/`.
+Este documento define el estándar mínimo para prompts dirigidos a Cursor en FLOWYA, enfocado en:
+- ejecución quirúrgica (1 PR = 1 micro-scope),
+- estabilidad (evitar regresiones),
+- y trazabilidad operativa (CURRENT_STATE + OPEN_LOOPS siempre actualizados).
+
+> **Regla de oro:** Si no está en `docs/ops/CURRENT_STATE.md` o `docs/ops/OPEN_LOOPS.md`, no existe.
+
 
 ---
 
-## 1) Regla de oro
+## 1) Principios (NO NEGOCIABLES)
 
-**Ningún prompt es válido si NO incluye:**
-- Objetivo
-- Restricciones
-- Pasos
-- Criterios de aceptación (DoD)
-- **CURSOR — CLOSEOUT (MANDATORY)** (footer)
-- **OPS DISCIPLINE (MANDATORY)** (disciplina de scope + actualización de ops)
+1) **1 PR = 1 micro-scope.**  
+   Lo que no quepa en el PR → se registra como **OPEN LOOP** con DoD, owner y prioridad.
 
-El footer oficial vive en: `docs/ops/templates/CURSOR_PROMPT_FOOTER.md`.
+2) **Map-first / Apple Maps vibe.**  
+   El mapa es el lienzo; overlays son herramientas. No se apilan (un overlay activo). No degradar performance.
+
+3) **No abrir Flow ni Recordar** salvo que `docs/ops/GUARDRAILS.md` lo permita.  
+   Si aparecen como “necesidad”: **registrar OPEN LOOP con gates**, no implementarlo.
+
+4) **Nada de reproches.**  
+   Comunicación motivadora, directa, recompensante.
+
+5) **Trazabilidad obligatoria.**  
+   Cada PR debe dejar el repo “retomable mañana”.
+
 
 ---
 
 ## 2) Formato obligatorio de prompt (plantilla)
 
-## OPS DISCIPLINE (MANDATORY)
-
-Este bloque es **obligatorio** en cada micro-scope / PR (lo ejecuta Cursor como parte del closeout):
-
-- Recuerda: **OL = pendiente detectado**, **MS = 1 PR que lo resuelve**.  
-  Si aparece un pendiente nuevo durante el trabajo: **NO lo metas a este PR** → crea/actualiza un **OPEN LOOP** con DoD, owner y prioridad.
-- Regla de scope: **1 PR = 1 micro-scope**. Lo que no quepa → OPEN LOOP.
-- Este PR debe actualizar SIEMPRE:
-  1) `docs/ops/CURRENT_STATE.md` (2–6 líneas: qué cambió, commit, next step)
-  2) `docs/ops/OPEN_LOOPS.md` (snapshot + mover loops tocados: OPEN/READY/DONE con evidencia)
-- **Flow** y **Recordar**: **no se abren** salvo que `docs/ops/GUARDRAILS.md` lo permita.  
-  Si aparecen como “necesidad”: registra OPEN LOOP con **criterio de apertura (gates)**, no implementes.
-
-
+Todo prompt a Cursor debe seguir el formato A–E.
 
 ### (A) Objective
-Una frase: qué cambia el usuario (no qué cambian los archivos).
+- 1–2 líneas: qué valor entrega al usuario final.
+- Si es infra/ops: qué valor entrega a la retomabilidad/estabilidad.
 
 ### (B) Constraints
-- No romper Explore (map-first).
-- No introducir dependencia de login para crear/guardar.
-- Evitar overlays apilados.
-- Evitar regresiones de rendimiento en mapa.
+- Reglas de scope: 1 PR = 1 micro-scope.
+- Guardrails relevantes (map-first, no Flow/Recordar, no degradar rendimiento, etc.).
+- Dependencias explícitas (si aplica).
 
 ### (C) Steps (quirúrgicos)
-Lista numerada. Máximo 7 pasos.
+- Lista corta de pasos.
+- Cada paso debe ser atómico y verificable.
+- No mezclar DB + UI + arquitectura en el mismo micro-scope salvo que sea estrictamente necesario.
 
 ### (D) Acceptance Criteria (DoD)
-Checklist verificable. Debe incluir al menos:
-- UX: comportamiento esperado en 2–3 casos.
-- Estado: no errores/Warnings nuevos.
-- Prueba manual mínima (web mobile).
+- Checklist testable.
+- Debe incluir: “sin nuevos warnings/errores” y criterios de UX cuando aplique.
 
 ### (E) Closeout (MANDATORY)
-Pegar el contenido de `docs/ops/templates/CURSOR_PROMPT_FOOTER.md` **tal cual**.
+**SIEMPRE** pegar el footer `docs/ops/templates/CURSOR_PROMPT_FOOTER.md` **verbatim** (sin editar).
+
 
 ---
 
-## 3) Micro‑scopes: reglas para velocidad sin caos
+## 3) OPS DISCIPLINE (MANDATORY)
 
-### 3.1 Tamaño máximo
-- Un micro‑scope debe poder cerrarse con 1 PR pequeño.
-- Si requiere cambiar DB + UI + lógica, dividir.
+**No dupliques reglas de disciplina en el prompt.**  
+La **fuente de verdad** de disciplina operativa (OL vs MS, 1 PR = 1 micro-scope, updates obligatorios de ops, y gates Flow/Recordar) vive **únicamente** en:
 
-### 3.2 Definición de Done (DoD) mínima
-- Caso feliz probado
-- 1 caso borde probado
-- No regresiones obvias (map gestures, teclado, navegación)
-- Estado operativo actualizado (CURRENT_STATE + OPEN_LOOPS + PR card si aplica)
+- `docs/ops/templates/CURSOR_PROMPT_FOOTER.md`
 
-### 3.3 Anti‑scope‑creep
-Si aparece “ya que estamos…”, se convierte en:
-- un nuevo OPEN LOOP con prioridad
-- o se difiere a otro micro‑scope
+El prompt debe terminar en (E) pegando ese footer tal cual.  
+Esto evita duplicación y deriva entre copias.
+
 
 ---
 
-## 4) Roles
+## 4) Estándar de commits y PR
 
-### Arquitecto (ChatGPT)
-- Define estrategia y contratos.
-- Protege UX (map-first) y estabilidad.
-- Evita inconsistencias entre Explore / Flow / Recordar.
+- Mensajes de commit: claros, con scope, y sin mezclar micro-scopes.
+  - Ejemplos:
+    - `chore(ops): ...`
+    - `feat(search): ...`
+    - `fix(map): ...`
 
-### Cursor (Ejecutor)
-- Implementa micro‑scopes.
-- Mantiene la memoria operativa actualizada (Closeout).
-- No decide cambios de producto sin decisión registrada.
+- Si el repo requiere PR para `main`, siempre:
+  - `git checkout -b <branch>`
+  - `git push -u origin <branch>`
+  - abrir PR → merge
 
-### Usuario (Negocio / puente)
-- Prioriza, valida UX, provee contexto (capturas, videos, decisiones).
-
----
-
-## 5) Reglas de documentación (fuente de verdad)
-
-### 5.1 `docs/ops/` manda
-- `CURRENT_STATE.md`: siempre actualizado al cierre.
-- `OPEN_LOOPS.md`: backlog único (no en chats).
-- `DECISIONS.md`: decisiones cerradas (ADR-lite).
-- `SYSTEM_MAP.md`: arquitectura viva y contratos.
-
-### 5.2 PR cards
-- Todo PR tiene su card en `docs/pr/YYYY/MM/`.
-- `PR_INDEX.md` debe poder leerse como timeline.
-
-### 5.3 Bitácora
-- Evidencia y narrativa de ejecución.
-- No sustituye OPEN_LOOPS ni DECISIONS.
 
 ---
 
-## 6) Señales de que debemos abrir “Flow” o “Recordar” (guardrail)
+## 5) Pruebas mínimas por micro-scope (baseline)
 
-No se abre nuevo macro‑alcance por entusiasmo.
-Se abre cuando se cumpla **al menos 2** de estas condiciones:
-1) Explore está estable: Search→Save→Spot abierto/cerrado sin fricción, con teclado sin empalmes.
-2) Data model + ownership están definidos (guest→claim listo o planificado sin deuda).
-3) Activity log básico (C3) ya está capturando señales mínimas.
-4) Hay 3+ OPEN LOOPS que piden explícitamente Flow/Recuerdo para resolverse.
-5) Hay demanda clara en JTBD: el usuario ya “terminó” Explore y pide siguiente misión.
+Según el tipo de cambio, incluir al menos:
 
-La decisión de abrir macro‑alcance debe registrarse en `docs/ops/DECISIONS.md`.
+- **web mobile**: viewport tipo iPhone, taps rápidos, scroll.
+- **teclado** (si hay input): focus/blur, teclado tapa UI, selección estable.
+- **regresión**: abrir/cerrar overlays 10 veces si tocaste navegación/overlays.
+
+Si aparece un edge case no contemplado → OPEN LOOP (no meterlo al mismo PR).
+
+
+---
+
+## 6) Ejemplo mínimo de prompt (estructura)
+
+### (A) Objective
+<una frase>
+
+### (B) Constraints
+<3–6 bullets>
+
+### (C) Steps (quirúrgicos)
+1) ...
+2) ...
+
+### (D) Acceptance Criteria (DoD)
+- ...
+- ...
+
+### (E) Closeout (MANDATORY)
+(Pegar aquí `docs/ops/templates/CURSOR_PROMPT_FOOTER.md` tal cual)
