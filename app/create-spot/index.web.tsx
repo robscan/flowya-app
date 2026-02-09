@@ -110,6 +110,7 @@ export default function CreateSpotScreen() {
 
   const initialLatitude = initial.lat;
   const initialLongitude = initial.lng;
+  /** OL-026: cámara del mapa desde query (mapLng/mapLat/mapZoom + opc. bearing/pitch). Si vienen, MapLocationPicker usa initialViewState con ellos. */
   const initialViewLongitude = initial.mapLng;
   const initialViewLatitude = initial.mapLat;
   const initialViewZoom = initial.mapZoom;
