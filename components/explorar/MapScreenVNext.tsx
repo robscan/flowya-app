@@ -9,17 +9,27 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { Search } from 'lucide-react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { MapCoreView } from '@/components/explorar/MapCoreView';
 import { MapControls } from '@/components/design-system/map-controls';
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
+import { SearchResultCard } from '@/components/design-system/search-result-card';
+import { IconButton } from '@/components/design-system/icon-button';
+import { SearchFloating } from '@/components/search';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMapCore } from '@/hooks/useMapCore';
+import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
+import { useSearchHistory } from '@/hooks/search/useSearchHistory';
 import { blurActiveElement, saveFocusBeforeNavigate } from '@/lib/focus-management';
+import { distanceKm } from '@/lib/geo-utils';
 import { FALLBACK_VIEW } from '@/lib/map-core/constants';
+import { createSpotsStrategy } from '@/lib/search/spotsStrategy';
 import { getPinsForSpots } from '@/lib/pins';
+import { addRecentViewedSpotId, getRecentViewedSpotIds } from '@/lib/storage/recentViewedSpots';
 import { supabase } from '@/lib/supabase';
 
 type Spot = {
@@ -37,6 +47,8 @@ const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
 const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
+const FAB_TOP = 16;
+const FAB_RIGHT = 16;
 const SHEET_PLACEHOLDER_HEIGHT = 80;
 
 export function MapScreenVNext() {
@@ -93,6 +105,102 @@ export function MapScreenVNext() {
     [spots]
   );
 
+  const defaultSpots = useMemo(() => {
+    const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
+    return [...spots]
+      .sort(
+        (a, b) =>
+          distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
+          distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude)
+      )
+      .slice(0, 10);
+  }, [spots, userCoords]);
+
+  const spotsStrategyV2 = useMemo(
+    () =>
+      createSpotsStrategy({
+        getFilteredSpots: () => spots,
+        getBbox: () => {
+          if (!mapInstance) return null;
+          try {
+            const b = mapInstance.getBounds();
+            if (!b) return null;
+            return {
+              west: b.getWest(),
+              south: b.getSouth(),
+              east: b.getEast(),
+              north: b.getNorth(),
+            };
+          } catch {
+            return null;
+          }
+        },
+        getZoom: () => zoom,
+      }),
+    [spots, mapInstance, zoom]
+  );
+
+  const searchV2 = useSearchControllerV2<Spot>({
+    mode: 'spots',
+    isToggleable: true,
+    defaultOpen: false,
+    strategy: spotsStrategyV2 as import('@/hooks/search/useSearchControllerV2').SearchStrategy<Spot>,
+    getBbox: () => {
+      if (!mapInstance) return null;
+      try {
+        const b = mapInstance.getBounds();
+        if (!b) return null;
+        return {
+          west: b.getWest(),
+          south: b.getSouth(),
+          east: b.getEast(),
+          north: b.getNorth(),
+        };
+      } catch {
+        return null;
+      }
+    },
+    getFilters: () => 'all',
+  });
+
+  const searchHistory = useSearchHistory();
+
+  const recentViewedSpots = useMemo(() => {
+    const ids = getRecentViewedSpotIds();
+    return ids
+      .map((id) => spots.find((s) => s.id === id))
+      .filter((s): s is Spot => s != null);
+  }, [spots]);
+
+  useEffect(() => {
+    searchV2.setOnSelect((spot: Spot) => {
+      searchV2.setOpen(false);
+      setSelectedSpot(spot);
+      addRecentViewedSpotId(spot.id);
+      searchHistory.addCompletedQuery(searchV2.query);
+      if (mapInstance) {
+        mapInstance.flyTo({
+          center: [spot.longitude, spot.latitude],
+          zoom: 15,
+          duration: 800,
+        });
+      }
+    });
+  }, [mapInstance, searchHistory, searchV2]);
+
+  useEffect(() => {
+    searchV2.setOnCreate(() => {
+      (router.push as (href: string) => void)('/create-spot');
+    });
+  }, [searchV2, router]);
+
+  const stageLabel =
+    searchV2.stage === 'viewport'
+      ? 'En esta zona'
+      : searchV2.stage === 'expanded'
+        ? 'Cerca de aquí'
+        : 'En todo el mapa';
+
   const handlePinClick = useCallback(
     (spot: Spot) => {
       if (selectedSpot?.id === spot.id) {
@@ -139,6 +247,8 @@ export function MapScreenVNext() {
 
   const mapStyle =
     colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+
+  const colors = Colors[colorScheme ?? 'light'];
 
   return (
     <View
@@ -187,6 +297,39 @@ export function MapScreenVNext() {
           activeMapControl={activeMapControl}
         />
       </View>
+      <SearchFloating<Spot>
+        controller={searchV2}
+        defaultItems={defaultSpots}
+        recentQueries={searchHistory.recentQueries}
+        recentViewedItems={recentViewedSpots}
+        renderItem={(spot) => (
+          <SearchResultCard
+            spot={spot}
+            savePinState={
+              spot.pinStatus === 'to_visit'
+                ? 'toVisit'
+                : spot.pinStatus === 'visited'
+                  ? 'visited'
+                  : 'default'
+            }
+            onPress={() => searchV2.onSelect(spot)}
+          />
+        )}
+        stageLabel={stageLabel}
+        scope="explorar"
+        getItemKey={(s) => s.id}
+      />
+      {!searchV2.isOpen ? (
+        <View style={styles.fabWrap}>
+          <IconButton
+            variant="default"
+            onPress={() => searchV2.setOpen(true)}
+            accessibilityLabel="Buscar"
+          >
+            <Search size={24} color={colors.text} strokeWidth={2} />
+          </IconButton>
+        </View>
+      ) : null}
       <View style={styles.sheetPlaceholder}>
         <Text style={styles.sheetPlaceholderText}>Explorar vNext — sheet placeholder</Text>
       </View>
@@ -222,6 +365,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: CONTROLS_OVERLAY_RIGHT,
     bottom: CONTROLS_OVERLAY_BOTTOM + SHEET_PLACEHOLDER_HEIGHT,
+    zIndex: 10,
+  },
+  fabWrap: {
+    position: 'absolute',
+    top: FAB_TOP,
+    right: FAB_RIGHT,
     zIndex: 10,
   },
   sheetPlaceholder: {
