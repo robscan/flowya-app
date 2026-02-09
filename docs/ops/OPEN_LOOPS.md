@@ -10,4 +10,4 @@
 
 ## Loops activos
 
-_(Ninguno. OL-009 cerrado 2026-02-09 tras gate en MapScreenVNext + guard en handleCreate; ver bitácora 048.)_
+_(Ninguno. OL-009 cerrado 2026-02-09; OL-019 cerrado 2026-02-09 tras contratos mínimos en docs/contracts/. Ver bitácoras 048, 049.)_
