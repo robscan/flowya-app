@@ -72,7 +72,14 @@ export function useMapCore(
   const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
   const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const onLongPressRef = useRef(onLongPress);
+  const mountedRef = useRef(true);
   onLongPressRef.current = onLongPress;
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const clearLongPressTimer = useCallback(() => {
     if (longPressTimerRef.current !== null) {
@@ -97,7 +104,11 @@ export function useMapCore(
       setZoom(map.getZoom());
       applyGlobeAndAtmosphere(map);
       hideNoiseLayers(map);
-      if (!skipCenterOnUser) tryCenterOnUser(map, setUserCoords);
+      if (!skipCenterOnUser) {
+        tryCenterOnUser(map, (coords) => {
+          if (mountedRef.current) setUserCoords(coords);
+        });
+      }
     },
     [skipCenterOnUser]
   );

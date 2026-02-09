@@ -128,6 +128,27 @@ export default function MapScreen() {
   );
   const showTooManyResultsHint = filteredSpots.length > MAP_PIN_CAP;
 
+  const mapCore = useMapCore(selectedSpot, {
+    onLongPress: (coords) => onLongPressRef.current?.(coords),
+    skipCenterOnUser: !!params.created,
+  });
+  const {
+    mapInstance,
+    userCoords,
+    zoom,
+    activeMapControl,
+    selectedPinScreenPos,
+    mapRootRef,
+    onMapLoad,
+    handleLocate,
+    handleReframeSpot,
+    handleReframeSpotAndUser,
+    handleViewWorld,
+    handleMapPointerDown,
+    handleMapPointerMove,
+    handleMapPointerUp,
+  } = mapCore;
+
   /** Predeterminado sin texto: 10 spots más cercanos al usuario (o al centro fallback del mapa). */
   const defaultSpots = useMemo(() => {
     const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
@@ -232,27 +253,6 @@ export default function MapScreen() {
       return () => {};
     }, [refetchSpots])
   );
-
-  const mapCore = useMapCore(selectedSpot, {
-    onLongPress: (coords) => onLongPressRef.current?.(coords),
-    skipCenterOnUser: !!params.created,
-  });
-  const {
-    mapInstance,
-    userCoords,
-    zoom,
-    activeMapControl,
-    selectedPinScreenPos,
-    mapRootRef,
-    onMapLoad,
-    handleLocate,
-    handleReframeSpot,
-    handleReframeSpotAndUser,
-    handleViewWorld,
-    handleMapPointerDown,
-    handleMapPointerMove,
-    handleMapPointerUp,
-  } = mapCore;
 
   /** Al volver a esta pestaña (p. ej. desde Editar Spot), forzar resize del mapa para que ocupe todo el alto. */
   useFocusEffect(
