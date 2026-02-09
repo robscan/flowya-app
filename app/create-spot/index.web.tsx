@@ -15,6 +15,7 @@ import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
 import { blurActiveElement } from '@/lib/focus-management';
 import { createPlacesStrategy } from '@/lib/places/placesStrategy';
 import type { PlaceResult } from '@/lib/places/searchPlaces';
+import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { checkDuplicateSpot } from '@/lib/spot-duplicate-check';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
 import { uploadSpotCover } from '@/lib/spot-image-upload';
@@ -41,6 +42,7 @@ type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 export default function CreateSpotScreen() {
   const router = useRouter();
+  const { openAuthModal } = useAuthModal();
   const params = useLocalSearchParams<{
     name?: string;
     lat?: string;
@@ -138,6 +140,46 @@ export default function CreateSpotScreen() {
     existingTitle: string;
     existingSpotId: string;
   } | null>(null);
+
+  /** OL-009: null = loading, true = auth OK, false = no auth (modal abierto). */
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+
+  /** OL-009: Comprobar auth al montar; si no hay usuario, abrir modal de login. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (cancelled) return;
+      if (user && !user.is_anonymous) {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+        openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [openAuthModal]);
+
+  /** OL-009: Al detectar login (ej. usuario completa magic link), permitir wizard. */
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN') {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user && !user.is_anonymous) {
+          setIsAuthenticated(true);
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   /** S4: lugar elegido desde búsqueda (paso 1). Inicializado por params si vienen name/lat/lng. */
   const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(() => {
@@ -244,6 +286,10 @@ export default function CreateSpotScreen() {
       return;
     }
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
     const { data, error: insertError } = await supabase
       .from('spots')
       .insert({
@@ -253,6 +299,7 @@ export default function CreateSpotScreen() {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
+        user_id: user?.id ?? null,
       })
       .select('id')
       .single();
@@ -389,6 +436,9 @@ export default function CreateSpotScreen() {
     setDuplicateAlert(null);
     (router.replace as (href: string) => void)(`/spot/${spotId}`);
   }, [duplicateAlert, router]);
+
+  /** OL-009: No renderizar wizard hasta que usuario esté autenticado. */
+  if (isAuthenticated !== true) return null;
 
   return (
     <>

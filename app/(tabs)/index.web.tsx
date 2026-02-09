@@ -594,7 +594,17 @@ export default function MapScreen() {
   }, [selectedSpot, router]);
 
   const navigateToCreateSpotFromSearch = useCallback(
-    (place: { name: string; latitude: number; longitude: number } | null, fallbackName?: string) => {
+    async (
+      place: { name: string; latitude: number; longitude: number } | null,
+      fallbackName?: string
+    ) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || user.is_anonymous) {
+        openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+        return;
+      }
       setSelectedSpot(null);
       searchV2.setOpen(false);
       blurActiveElement();
@@ -612,7 +622,7 @@ export default function MapScreen() {
         (router.push as (href: string) => void)(`/create-spot?${params.toString()}`);
       }
     },
-    [router, searchV2]
+    [router, searchV2, openAuthModal]
   );
 
   /** CTA Crear: resuelve lugar con Mapbox forward (solo para coords de creación); luego navega con o sin coords. */
@@ -689,7 +699,14 @@ export default function MapScreen() {
   const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
 
   const navigateToCreateSpot = useCallback(
-    (coords: { lat: number; lng: number }) => {
+    async (coords: { lat: number; lng: number }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || user.is_anonymous) {
+        openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+        return;
+      }
       let query = `lat=${coords.lat}&lng=${coords.lng}`;
       if (mapInstance) {
         const center = mapInstance.getCenter();
@@ -702,7 +719,7 @@ export default function MapScreen() {
       }
       (router.push as (href: string) => void)(`/create-spot?${query}`);
     },
-    [router, mapInstance]
+    [router, mapInstance, openAuthModal]
   );
 
   const handleMapLongPress = useCallback(() => {

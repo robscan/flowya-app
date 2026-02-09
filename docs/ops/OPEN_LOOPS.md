@@ -1,71 +1,60 @@
-# OPEN_LOOPS — Flowya (cola activa)
+# OPEN_LOOPS — Flowya (alcance activo)
 
-**Última actualización:** 2026-02-08
+**Fecha:** 2026-02-08
 
-> **Backlog único de pendientes reales.**
-> Aquí solo vive lo que está **abierto y bloquea o condiciona avance**.
->
-> 🔒 **Regla:** lo que no esté aquí o en DECISIONS, **no existe**.
-
----
-
-## Estados
-
-- **OPEN** → identificado, pendiente
-- **READY** → definido, listo para ejecutar
-- **IN_PROGRESS** → ejecutándose
-- **BLOCKED** → dependencia externa
-- **DONE** → se elimina de este archivo (vive en CURRENT_STATE + evidencia)
+> Este archivo define el alcance diario del chat.
+> El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
+> Los loops cerrados NO permanecen aquí.
 
 ---
 
-## Snapshot operativo (al cierre)
+## Loop activo
 
-- **Branch activo:** `main`
-- **Scope activo:** cierre de loops de seguridad
-- **Riesgos activos:** Data / Auth
-- **Próximo entregable:** cerrar OL-008
+### OL-009 — UX: Bloquear creación de spot sin autenticación
 
----
+**Problema**
 
-## Loops activos
+- Usuarios no autenticados pueden navegar todo el wizard de creación.
+- Al finalizar, reciben un error técnico de RLS:
+  `new row violates row-level security policy for table "spots"`.
 
-### Loop OL-007 — Supabase RLS demasiado permisivo
+**Objetivo UX**
 
-- **Estado:** OPEN
-- **Prioridad:** P1
-- **Área:** Data / Security
-- **Problema (1–2 líneas):** Policies con `USING (true)` / `WITH CHECK (true)` permiten escritura/borrado sin restricción.
-- **Impacto:** Riesgo de exposición o corrupción de datos en prod público.
-- **Criterio de cierre (testable):**
-  - Decisión explícita: qué tablas permiten SELECT público y cuáles requieren auth.
-  - Reemplazar policies permisivas por policies mínimas.
-  - Supabase linter sin warnings `always_true` en comandos de escritura.
-- **Next action:** Definir reglas de acceso (producto) antes de implementar.
-- **Owner:** Oscar
-- **Fecha:** 2026-02-08
+- Si el usuario NO está autenticado:
+  - NO debe avanzar al wizard.
+  - Debe mostrarse el **mismo modal de login** que se usa al tocar el botón de perfil.
+- Si el usuario está autenticado:
+  - El flujo de creación funciona exactamente igual que hoy.
 
----
+**Contexto técnico confirmado**
 
-### Loop OL-008 — Supabase Auth sin leaked password protection
+- RLS bloquea INSERT correctamente (seguridad OK).
+- `spots.user_id` existe.
+- El INSERT ya envía:
+  `user_id: user?.id ?? null`
+  (si no hay usuario, el insert falla por RLS; comportamiento esperado).
 
-- **Estado:** OPEN
-- **Prioridad:** P2
-- **Área:** Auth / Security
-- **Problema (1–2 líneas):** “Leaked password protection” deshabilitado en Supabase Auth.
-- **Impacto:** Hardening pendiente innecesario.
-- **Criterio de cierre (testable):**
-  - Setting habilitado en Supabase.
-  - Verificación login/signup.
-  - Nota en DECISIONS si cambia UX de password.
-- **Next action:** Habilitar setting y validar flujo.
-- **Owner:** Oscar
-- **Fecha:** 2026-02-08
+**Fuera de alcance**
 
----
+- No crear modales nuevos.
+- No cambiar RLS, SQL ni Supabase.
+- No refactorizar arquitectura.
+- No implementar paneles de admin o moderación.
 
-## Regla de higiene
+**Criterio de cierre (DoD)**
 
-- Un loop = una cosa.
-- Todo loop debe tener **criterio de cierre testable**.
-- DONE **no vive aquí**: se elimina y se refleja en `CURRENT_STATE.md` + evidencia.
+- Usuario NO autenticado:
+  - Al intentar crear spot → se abre modal de login.
+  - El wizard NO se renderiza.
+  - No aparece error técnico de RLS.
+- Usuario autenticado:
+  - Puede crear spot normalmente.
+  - El spot se guarda con `user_id = auth.uid()`.
+
+**Owner**
+
+- Producto / UX
+
+**Prioridad**
+
+- Alta (impacta experiencia core).
