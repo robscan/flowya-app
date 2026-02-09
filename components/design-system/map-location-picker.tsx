@@ -129,12 +129,12 @@ export function MapLocationPicker({
     };
   }, [lngLat?.lat, lngLat?.lng]);
 
-  /** OL-028: cuando no hay preserveView ni initialCoords, no recentrar (cero jump). */
   const onMapLoad = useCallback(
     (e: MapEvent) => {
       const map = e.target;
       setMapInstance(map);
       if (preserveView) {
+        // Vista preservada desde mapa (long-press): no flyTo ni centrado.
         return;
       }
       if (hasInitialCoords && initialLatitude != null && initialLongitude != null) {
@@ -143,8 +143,12 @@ export function MapLocationPicker({
           zoom: 14,
           duration: 0,
         });
+      } else {
+        tryCenterOnUser(map, (lng, lat) => {
+          setLngLat({ lng, lat });
+          setState('selecting');
+        });
       }
-      // Sin params de cámara ni coords: no flyTo ni tryCenterOnUser para evitar jump.
     },
     [preserveView, hasInitialCoords, initialLatitude, initialLongitude]
   );
