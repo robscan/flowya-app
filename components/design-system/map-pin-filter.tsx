@@ -1,8 +1,8 @@
 /**
  * Design System: filtro visual de pins en el mapa.
- * Tres opciones: Todos | Por visitar | Visitados.
+ * Tres opciones: Todos | Guardados | Visitados.
  * Solo afecta visibilidad de pins; no modifica datos ni estado.
- * Opcional: counts para mostrar número junto a Por visitar y Visitados.
+ * Opcional: counts para mostrar número junto a Guardados y Visitados.
  */
 
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -10,16 +10,16 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-export type MapPinFilterValue = 'all' | 'to_visit' | 'visited';
+export type MapPinFilterValue = 'all' | 'saved' | 'visited';
 
 const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'all', label: 'Todos' },
-  { value: 'to_visit', label: 'Por visitar' },
+  { value: 'saved', label: 'Guardados' },
   { value: 'visited', label: 'Visitados' },
 ];
 
 export type MapPinFilterCounts = {
-  to_visit: number;
+  saved: number;
   visited: number;
 };
 
@@ -37,7 +37,7 @@ function getLabelWithCount(
 ): string {
   if (optValue === 'all') return label;
   if (!counts) return label;
-  const n = optValue === 'to_visit' ? counts.to_visit : counts.visited;
+  const n = optValue === 'saved' ? counts.saved : counts.visited;
   return `${label} ${n}`;
 }
 
@@ -51,7 +51,7 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
     switch (optValue) {
       case 'all':
         return { bg: colors.text, text: colors.background };
-      case 'to_visit':
+      case 'saved':
         return { bg: colors.stateToVisit, text: '#ffffff' };
       case 'visited':
         return { bg: colors.stateSuccess, text: '#ffffff' };

@@ -3,6 +3,7 @@
  * Unified pin visuals: user location (blue circle), spot dots (fill + outline).
  * Colors from theme; same shape for all spot states, color varies by status.
  * Reposo: tamaño base, sin icono. Activo (seleccionado): grande, con icono si to_visit/visited.
+ * Status visual: puede derivarse de saved/visited (visited > to_visit > default).
  */
 
 import { Pin } from 'lucide-react-native';

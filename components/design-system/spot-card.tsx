@@ -156,8 +156,7 @@ export function SpotCardMapSelection({
 
       {/* Botones flotando fuera de la card: izquierda guardar/compartir; derecha cerrar (si onClose) */}
       <View
-        style={styles.floatingRow}
-        pointerEvents="box-none"
+        style={[styles.floatingRow, { pointerEvents: 'box-none' }]}
       >
         {!hideActions && (onSavePin || onShare) ? (
           <View style={styles.floatingActions}>

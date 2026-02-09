@@ -21,6 +21,7 @@ export default function RootLayout() {
         <AuthModalProvider>
         <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="mapaV0" options={{ headerShown: false }} />
         <Stack.Screen name="create-spot/index" options={{ title: 'Crear spot' }} />
         <Stack.Screen name="design-system" options={{ title: 'Design System' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />

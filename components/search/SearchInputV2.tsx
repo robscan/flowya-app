@@ -5,7 +5,7 @@
 
 import { X } from 'lucide-react-native';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -18,6 +18,8 @@ export type SearchInputV2Props = {
   autoFocus?: boolean;
   editable?: boolean;
   accessibilityLabel?: string;
+  /** Cuando true, el input no tiene borde ni fondo (para usar dentro de un pill). */
+  embedded?: boolean;
 };
 
 export function SearchInputV2({
@@ -28,22 +30,24 @@ export function SearchInputV2({
   autoFocus = false,
   editable = true,
   accessibilityLabel = 'Buscar',
+  embedded = false,
 }: SearchInputV2Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const clearVisible = value.length > 0;
 
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, embedded && styles.wrapEmbedded]}>
       <TextInput
         style={[
           styles.input,
           {
-            backgroundColor: colors.backgroundElevated,
-            borderColor: colors.borderSubtle,
+            backgroundColor: embedded ? 'transparent' : colors.backgroundElevated,
+            borderColor: embedded ? 'transparent' : colors.borderSubtle,
             color: colors.text,
             paddingRight: clearVisible ? 44 : Spacing.base,
           },
+          embedded && styles.inputEmbedded,
           WebTouchManipulation,
         ]}
         placeholder={placeholder}
@@ -54,6 +58,7 @@ export function SearchInputV2({
         editable={editable}
         accessibilityLabel={accessibilityLabel}
         clearButtonMode="never"
+        selectionColor="transparent"
       />
       {clearVisible ? (
         <Pressable
@@ -75,12 +80,22 @@ const styles = StyleSheet.create({
   wrap: {
     position: 'relative',
   },
+  wrapEmbedded: {
+    flex: 1,
+    minWidth: 0,
+  },
   input: {
     height: 44,
     borderRadius: Radius.md,
     borderWidth: 1,
     paddingHorizontal: Spacing.base,
+    paddingVertical: 0,
     fontSize: 16,
+  },
+  inputEmbedded: {
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingLeft: 0,
   },
   /** Clear integrado: sin caja ni backgroundColor propio; solo ícono sobre el input. */
   clearButton: {
