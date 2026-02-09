@@ -5,10 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { LogOut, Search, User, X } from 'lucide-react-native';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
-import { Map, Marker } from 'react-map-gl/mapbox-legacy';
 import {
     Platform,
     Pressable,
@@ -19,6 +16,7 @@ import {
 } from 'react-native';
 
 import { ButtonPrimary } from '@/components/design-system/buttons';
+import { MapCoreView } from '@/components/explorar/MapCoreView';
 import { IconButton } from '@/components/design-system/icon-button';
 import { ImageFullscreenModal } from '@/components/design-system/image-fullscreen-modal';
 import { MapControls } from '@/components/design-system/map-controls';
@@ -27,7 +25,6 @@ import {
     type MapPinFilterValue,
 } from '@/components/design-system/map-pin-filter';
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
-import { MapPinLocation, MapPinSpot } from '@/components/design-system/map-pins';
 import { SearchResultCard } from '@/components/design-system/search-result-card';
 import { SpotCard } from '@/components/design-system/spot-card';
 import { TypographyStyles } from '@/components/design-system/typography';
@@ -39,10 +36,16 @@ import { useToast } from '@/components/ui/toast';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useMapCore } from '@/hooks/useMapCore';
 import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
 import { useSearchHistory } from '@/hooks/search/useSearchHistory';
 import { blurActiveElement, getAndClearSavedFocus, saveFocusBeforeNavigate } from '@/lib/focus-management';
 import { distanceKm } from '@/lib/geo-utils';
+import {
+  FALLBACK_VIEW,
+  FIT_BOUNDS_DURATION_MS,
+  SPOT_FOCUS_ZOOM,
+} from '@/lib/map-core/constants';
 import { resolvePlaceForCreate } from '@/lib/mapbox-geocoding';
 import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { createSpotsStrategy } from '@/lib/search/spotsStrategy';
@@ -63,78 +66,8 @@ type Spot = {
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 
-// Fallback when geolocation is denied/unavailable: Riviera Maya
-const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
-
-/** Bounds globales para el control "Ver el mundo" (límites Web Mercator). */
-const WORLD_BOUNDS: [[number, number], [number, number]] = [
-  [-180, -85.051129],
-  [180, 85.051129],
-];
-
-/** Zoom mínimo para mostrar nombres de spots (como Mapbox: labels solo cuando hay espacio). */
-const LABEL_MIN_ZOOM = 12;
-
 /** Cap de pins en mapa (guardrail S2: evitar miles de markers). */
 const MAP_PIN_CAP = 500;
-
-// Layer ids to hide (commercial POIs, shops, restaurants, business labels)
-const HIDE_LAYER_IDS = ['poi-label'];
-
-function hideNoiseLayers(map: MapboxMap) {
-  try {
-    const style = map.getStyle();
-    if (!style?.layers) return;
-    for (const layer of style.layers) {
-      if (HIDE_LAYER_IDS.includes(layer.id)) {
-        map.setLayoutProperty(layer.id, 'visibility', 'none');
-      }
-    }
-  } catch {
-    // ignore if style/layers not ready
-  }
-}
-
-function applyGlobeAndAtmosphere(map: MapboxMap) {
-  try {
-    map.setProjection('globe');
-    map.setFog({
-      range: [0.5, 10],
-      color: 'rgb(186, 210, 235)',
-      'high-color': 'rgb(36, 92, 223)',
-      'horizon-blend': 0.02,
-      'space-color': 'rgb(11, 11, 25)',
-      'star-intensity': 0.35,
-    });
-  } catch {
-    // ignore if style not ready
-  }
-}
-
-type UserCoords = { latitude: number; longitude: number } | null;
-
-function tryCenterOnUser(
-  map: MapboxMap,
-  onCoords: (coords: UserCoords) => void
-) {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const coords = {
-        latitude: pos.coords.latitude,
-        longitude: pos.coords.longitude,
-      };
-      onCoords(coords);
-      map.flyTo({
-        center: [coords.longitude, coords.latitude],
-        zoom: 14,
-        duration: 1500,
-      });
-    },
-    () => {},
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-  );
-}
 
 export default function MapScreen() {
   const router = useRouter();
@@ -144,34 +77,18 @@ export default function MapScreen() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
-  const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
-  const [userCoords, setUserCoords] = useState<UserCoords>(null);
   const [pinFilter, setPinFilter] = useState<MapPinFilterValue>('all');
-  const [zoom, setZoom] = useState(FALLBACK_VIEW.zoom);
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
-  const [selectedPinScreenPos, setSelectedPinScreenPos] = useState<{ x: number; y: number } | null>(
-    null
-  );
   const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] = useState(false);
   const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
-  const [activeMapControl, setActiveMapControl] = useState<
-    import('@/components/design-system/map-controls').ActiveMapControl
-  >(null);
-  const programmaticMoveRef = useRef(false);
-  const mapRootRef = useRef<View>(null);
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
-  const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const isFocused = useIsFocused();
-
-  const LONG_PRESS_MS = 3000;
-  const LONG_PRESS_DRAG_THRESHOLD_PX = 10;
+  const onLongPressRef = useRef<(coords: { lat: number; lng: number }) => void>(() => {});
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -316,6 +233,27 @@ export default function MapScreen() {
     }, [refetchSpots])
   );
 
+  const mapCore = useMapCore(selectedSpot, {
+    onLongPress: (coords) => onLongPressRef.current?.(coords),
+    skipCenterOnUser: !!params.created,
+  });
+  const {
+    mapInstance,
+    userCoords,
+    zoom,
+    activeMapControl,
+    selectedPinScreenPos,
+    mapRootRef,
+    onMapLoad,
+    handleLocate,
+    handleReframeSpot,
+    handleReframeSpotAndUser,
+    handleViewWorld,
+    handleMapPointerDown,
+    handleMapPointerMove,
+    handleMapPointerUp,
+  } = mapCore;
+
   /** Al volver a esta pestaña (p. ej. desde Editar Spot), forzar resize del mapa para que ocupe todo el alto. */
   useFocusEffect(
     useCallback(() => {
@@ -333,16 +271,12 @@ export default function MapScreen() {
     }, [mapInstance])
   );
 
-  const FIT_BOUNDS_PADDING = 64;
-  const FIT_BOUNDS_DURATION_MS = 1200;
-  const SPOT_FOCUS_ZOOM = 15;
-
   useEffect(() => {
     const node = mapRootRef.current as unknown as HTMLElement | null;
     if (typeof document === 'undefined' || !node) return;
     if (isFocused) node.removeAttribute('inert');
     else node.setAttribute('inert', '');
-  }, [isFocused]);
+  }, [isFocused, mapRootRef]);
 
   useEffect(() => {
     const createdId = params.created;
@@ -378,170 +312,6 @@ export default function MapScreen() {
     });
     router.replace('/(tabs)' as const);
   }, [params.created, mapInstance, selectedSpot, router]);
-
-  const onMapLoad = useCallback(
-    (e: MapEvent) => {
-      const map = e.target;
-      setMapInstance(map);
-      setZoom(map.getZoom());
-      applyGlobeAndAtmosphere(map);
-      hideNoiseLayers(map);
-      if (!params.created) tryCenterOnUser(map, setUserCoords);
-    },
-    [params.created]
-  );
-
-  const geoOptions = useMemo<PositionOptions>(
-    () => ({
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 300000,
-    }),
-    []
-  );
-
-  /** Ubicación actual: refresca coords y centra en el usuario. Si getCurrentPosition falla, usa userCoords existentes y no bloquea. */
-  const handleLocate = useCallback(() => {
-    if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('location');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: UserCoords = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        };
-        setUserCoords(coords);
-        mapInstance.flyTo({
-          center: [coords.longitude, coords.latitude],
-          zoom: 15,
-          duration: 1500,
-        });
-      },
-      () => {
-        if (userCoords) {
-          mapInstance.flyTo({
-            center: [userCoords.longitude, userCoords.latitude],
-            zoom: 15,
-            duration: 1500,
-          });
-        }
-      },
-      geoOptions
-    );
-  }, [mapInstance, userCoords, geoOptions]);
-
-  /** Encuadra solo el spot seleccionado (zoom fijo). Solo se usa con spot seleccionado. */
-  const handleReframeSpot = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('spot');
-    mapInstance.flyTo({
-      center: [selectedSpot.longitude, selectedSpot.latitude],
-      zoom: SPOT_FOCUS_ZOOM,
-      duration: FIT_BOUNDS_DURATION_MS,
-    });
-  }, [mapInstance, selectedSpot]);
-
-  /** Encuadra spot seleccionado + ubicación del usuario. Solo se usa con spot seleccionado. */
-  const handleReframeSpotAndUser = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('spot+user');
-    const runReframe = (coords: UserCoords) => {
-      const pts: { longitude: number; latitude: number }[] = coords
-        ? [
-            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
-            { longitude: coords.longitude, latitude: coords.latitude },
-          ]
-        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
-      if (pts.length === 1) {
-        mapInstance.flyTo({
-          center: [pts[0].longitude, pts[0].latitude],
-          zoom: SPOT_FOCUS_ZOOM,
-          duration: FIT_BOUNDS_DURATION_MS,
-        });
-      } else {
-        let minLng = Infinity;
-        let minLat = Infinity;
-        let maxLng = -Infinity;
-        let maxLat = -Infinity;
-        for (const p of pts) {
-          minLng = Math.min(minLng, p.longitude);
-          minLat = Math.min(minLat, p.latitude);
-          maxLng = Math.max(maxLng, p.longitude);
-          maxLat = Math.max(maxLat, p.latitude);
-        }
-        mapInstance.fitBounds(
-          [
-            [minLng, minLat],
-            [maxLng, maxLat],
-          ],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
-        );
-      }
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const c: UserCoords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
-          setUserCoords(c);
-          runReframe(c);
-        },
-        () => runReframe(userCoords),
-        geoOptions
-      );
-    } else {
-      runReframe(userCoords);
-    }
-  }, [mapInstance, selectedSpot, userCoords, geoOptions]);
-
-  /** Vista global (control "Ver el mundo"): fitBounds(world). Estado activo se desactiva en moveend si fue interacción del usuario. */
-  const handleViewWorld = useCallback(() => {
-    if (!mapInstance) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('world');
-    mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
-  }, [mapInstance]);
-
-  useEffect(() => {
-    const map = mapInstance;
-    if (!map) return;
-    const onMoveEnd = () => {
-      if (programmaticMoveRef.current) {
-        programmaticMoveRef.current = false;
-      } else {
-        setActiveMapControl(null);
-      }
-      setZoom(map.getZoom());
-      if (selectedSpot) {
-        try {
-          const pt = map.project([selectedSpot.longitude, selectedSpot.latitude]);
-          setSelectedPinScreenPos({ x: pt.x, y: pt.y });
-        } catch {
-          setSelectedPinScreenPos(null);
-        }
-      }
-    };
-    map.on('moveend', onMoveEnd);
-    return () => {
-      map.off('moveend', onMoveEnd);
-    };
-  }, [mapInstance, selectedSpot]);
-
-  /** Posición en pantalla del pin seleccionado (para hit area que navega a detail). */
-  useEffect(() => {
-    if (!mapInstance || !selectedSpot) {
-      setSelectedPinScreenPos(null);
-      return;
-    }
-    try {
-      const pt = mapInstance.project([selectedSpot.longitude, selectedSpot.latitude]);
-      setSelectedPinScreenPos({ x: pt.x, y: pt.y });
-    } catch {
-      setSelectedPinScreenPos(null);
-    }
-  }, [mapInstance, selectedSpot]);
 
   const toast = useToast();
   const { openAuthModal } = useAuthModal();
@@ -688,15 +458,6 @@ export default function MapScreen() {
     });
   }, [searchV2, handleCreateFromSearch]);
 
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current !== null) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    longPressLngLatRef.current = null;
-    longPressPointerStartRef.current = null;
-  }, []);
-
   const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
 
   const navigateToCreateSpot = useCallback(
@@ -723,23 +484,27 @@ export default function MapScreen() {
     [router, mapInstance, openAuthModal]
   );
 
-  const handleMapLongPress = useCallback(() => {
-    const coords = longPressLngLatRef.current;
-    longPressLngLatRef.current = null;
-    if (!coords) return;
-    setSelectedSpot(null);
-    searchV2.setOpen(false);
-    blurActiveElement();
-    const skipConfirm =
-      typeof localStorage !== 'undefined' &&
-      localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
-    if (skipConfirm) {
-      navigateToCreateSpot(coords);
-    } else {
-      setPendingCreateSpotCoords(coords);
-      setShowCreateSpotConfirmModal(true);
-    }
-  }, [navigateToCreateSpot, searchV2]);
+  const handleMapLongPress = useCallback(
+    (coords: { lat: number; lng: number }) => {
+      setSelectedSpot(null);
+      searchV2.setOpen(false);
+      blurActiveElement();
+      const skipConfirm =
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
+      if (skipConfirm) {
+        navigateToCreateSpot(coords);
+      } else {
+        setPendingCreateSpotCoords(coords);
+        setShowCreateSpotConfirmModal(true);
+      }
+    },
+    [navigateToCreateSpot, searchV2]
+  );
+
+  useEffect(() => {
+    onLongPressRef.current = handleMapLongPress;
+  }, [handleMapLongPress]);
 
   const handleCreateSpotConfirm = useCallback(
     (dontShowAgain: boolean) => {
@@ -757,45 +522,6 @@ export default function MapScreen() {
   const handleCreateSpotConfirmCancel = useCallback(() => {
     setPendingCreateSpotCoords(null);
     setShowCreateSpotConfirmModal(false);
-  }, []);
-
-  const handleMapPointerDown = useCallback(
-    (e: MapMouseEvent | MapTouchEvent) => {
-      const lngLat = 'lngLat' in e ? e.lngLat : (e as MapMouseEvent).lngLat;
-      if (!lngLat) return;
-      const point = 'point' in e && e.point ? e.point : undefined;
-      const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
-      const y = point?.y ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientY?: number }).clientY ?? 0 : 0);
-      longPressLngLatRef.current = { lat: lngLat.lat, lng: lngLat.lng };
-      longPressPointerStartRef.current = { x, y };
-      longPressTimerRef.current = setTimeout(handleMapLongPress, LONG_PRESS_MS);
-    },
-    [handleMapLongPress]
-  );
-
-  const handleMapPointerMove = useCallback(
-    (e: MapMouseEvent | MapTouchEvent) => {
-      if (longPressTimerRef.current === null || longPressPointerStartRef.current === null) return;
-      const point = 'point' in e && e.point ? e.point : undefined;
-      const x = point?.x ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientX?: number }).clientX ?? 0 : 0);
-      const y = point?.y ?? ('originalEvent' in e && e.originalEvent ? (e.originalEvent as { clientY?: number }).clientY ?? 0 : 0);
-      const start = longPressPointerStartRef.current;
-      const dist = Math.hypot(x - start.x, y - start.y);
-      if (dist > LONG_PRESS_DRAG_THRESHOLD_PX) clearLongPressTimer();
-    },
-    [clearLongPressTimer]
-  );
-
-  const handleMapPointerUp = useCallback(() => {
-    clearLongPressTimer();
-  }, [clearLongPressTimer]);
-
-  useEffect(() => {
-    return () => {
-      if (longPressTimerRef.current !== null) {
-        clearTimeout(longPressTimerRef.current);
-      }
-    };
   }, []);
 
   const handleSavePin = useCallback(
@@ -864,51 +590,21 @@ export default function MapScreen() {
       style={styles.mapScreenRoot}
       {...(Platform.OS === 'web' && { className: 'map-screen-root-dvh' })}
     >
-      <Map
-        key={mapStyle}
+      <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
-        projection="globe"
         initialViewState={FALLBACK_VIEW}
-        style={styles.map}
         onLoad={onMapLoad}
-        onMouseDown={handleMapPointerDown}
-        onMouseMove={handleMapPointerMove}
-        onMouseUp={handleMapPointerUp}
-        onMouseLeave={handleMapPointerUp}
-        onTouchStart={handleMapPointerDown}
-        onTouchMove={handleMapPointerMove}
-        onTouchEnd={handleMapPointerUp}
-      >
-        {displayedSpots.map((spot) => (
-          <Marker
-            key={spot.id}
-            latitude={spot.latitude}
-            longitude={spot.longitude}
-            anchor="center"
-            onClick={() => handlePinClick(spot)}
-          >
-            <MapPinSpot
-              status={spot.pinStatus ?? 'default'}
-              label={
-                zoom >= LABEL_MIN_ZOOM || selectedSpot?.id === spot.id
-                  ? spot.title
-                  : undefined
-              }
-              selected={selectedSpot?.id === spot.id}
-            />
-          </Marker>
-        ))}
-        {userCoords ? (
-          <Marker
-            latitude={userCoords.latitude}
-            longitude={userCoords.longitude}
-            anchor="center"
-          >
-            <MapPinLocation />
-          </Marker>
-        ) : null}
-      </Map>
+        onPointerDown={handleMapPointerDown}
+        onPointerMove={handleMapPointerMove}
+        onPointerUp={handleMapPointerUp}
+        spots={displayedSpots}
+        selectedSpotId={selectedSpot?.id ?? null}
+        userCoords={userCoords}
+        zoom={zoom}
+        onPinClick={handlePinClick}
+        styleMap={styles.map}
+      />
       {selectedSpot && !searchOverlayVisible ? (
         <>
           {selectedPinScreenPos ? (
