@@ -130,7 +130,7 @@ export default function DesignSystemScreen() {
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.xs }}>
               Botón compartir (Scope E): mismo icono (Share2). Al presionar: si está disponible Web Share API
               se usa navigator.share(); si no, se copia el link /spot/:id al clipboard. Feedback mínimo:
-              toast "Link copiado" cuando se copia. No se comparten pins ni estado.
+              toast &quot;Link copiado&quot; cuando se copia. No se comparten pins ni estado.
             </Text>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.xs }}>
               Botón de perfil (Scope I): icono User. Ubicación: extremo superior izquierdo de la app.
@@ -191,7 +191,7 @@ export default function DesignSystemScreen() {
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
               Para prevención de duplicados (Create Spot): mensaje claro y humano, no técnico.
               Opciones: Cancelar, Cambiar nombre, Mover ubicación. Sin modales invasivos ni errores
-              rojos. Ejemplo de copy: título "Spot muy parecido", mensaje que explique que ya existe
+              rojos. Ejemplo de copy: título &quot;Spot muy parecido&quot;, mensaje que explique que ya existe
               un lugar con ese nombre cerca y ofrezca corregir nombre o ubicación.
             </Text>
           </View>
@@ -535,13 +535,13 @@ export default function DesignSystemScreen() {
             }}
           >
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Filtro visual de pins en el mapa. Tres opciones: Todos | Por visitar | Visitados.
+              Filtro visual de pins en el mapa. Tres opciones: Todos | Guardados | Visitados.
               Solo afecta qué pins se muestran; no modifica datos ni estado. Estilo consistente con
               MapControls (compacto, no invasivo). Estados: selected (tint) / idle (backgroundElevated).
             </Text>
             <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginTop: Spacing.base }}>
               <MapPinFilter value="all" onChange={() => {}} />
-              <MapPinFilter value="to_visit" onChange={() => {}} />
+              <MapPinFilter value="saved" onChange={() => {}} />
               <MapPinFilter value="visited" onChange={() => {}} />
             </View>
           </View>

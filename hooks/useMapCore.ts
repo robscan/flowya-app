@@ -26,6 +26,8 @@ export type UseMapCoreOptions = {
   onLongPress: (coords: { lat: number; lng: number }) => void;
   /** Si true, no se llama tryCenterOnUser en onMapLoad (ej. cuando params.created). */
   skipCenterOnUser?: boolean;
+  /** Llamado cuando el usuario inicia pan/zoom (no programático). */
+  onUserMapGestureStart?: () => void;
 };
 
 const GEO_OPTIONS: PositionOptions = {
@@ -55,7 +57,7 @@ export function useMapCore(
   selectedSpot: MapCoreSelectedSpot,
   options: UseMapCoreOptions
 ) {
-  const { onLongPress, skipCenterOnUser = false } = options;
+  const { onLongPress, skipCenterOnUser = false, onUserMapGestureStart } = options;
 
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [userCoords, setUserCoords] = useState<UserCoords>(null);
@@ -219,6 +221,9 @@ export function useMapCore(
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
+    const onMoveStart = () => {
+      if (!programmaticMoveRef.current && onUserMapGestureStart) onUserMapGestureStart();
+    };
     const onMoveEnd = () => {
       if (programmaticMoveRef.current) {
         programmaticMoveRef.current = false;
@@ -235,9 +240,13 @@ export function useMapCore(
         }
       }
     };
+    map.on('movestart', onMoveStart);
     map.on('moveend', onMoveEnd);
-    return () => map.off('moveend', onMoveEnd);
-  }, [mapInstance, selectedSpot]);
+    return () => {
+      map.off('movestart', onMoveStart);
+      map.off('moveend', onMoveEnd);
+    };
+  }, [mapInstance, selectedSpot, onUserMapGestureStart]);
 
   useEffect(() => {
     if (!mapInstance || !selectedSpot) {

@@ -1,8 +1,8 @@
-# SYSTEM_MAP — Flowya (map-first)
+# SYSTEM_MAP — FLOWYA (map-first)
 
 ## Pantallas / Shells
 
-- **ExploreShell (Map-first)**  
+- **ExplorarShell (Map-first)**
   - MapCanvas (Mapbox)
   - FloatingControls
   - OverlayPanel (search / placePreview / createSpot / spotCard / pickLocation)
@@ -14,7 +14,7 @@
   - UI (input, list)
   - Events: `onSelectPlace`, `onSelectSpot`, `onCreateQuery`
 
-- **Create Spot (Explore)**
+- **Create Spot (Explorar)**
   - Overlay: CreateSpotOverlay (lite → optional expand)
   - Uses: Mapbox place snapshot, pins status
 
@@ -24,13 +24,13 @@
 
 ## Datos
 
-- `spots` (public RLS true)  
-- `pins` (user-owned, RLS by uid)  
+- `spots` (public RLS true)
+- `pins` (user-owned, RLS by uid)
 - `feedback`
 
 ## Observabilidad / IA (C3)
 
-- `activity_log` (planned): eventos mínimos para flows/recuerdos
+- `activity_log` (planned): eventos mínimos para **Fluir** / **Recordar**
 
 ## Convenciones de archivos (operativas)
 

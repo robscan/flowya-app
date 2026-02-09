@@ -13,38 +13,22 @@
  * - emptyMessage / onCreateLabel: mensajes y CTA crear
  */
 
-import type { UseSearchControllerV2Return } from '@/hooks/search/useSearchControllerV2';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
-import { SearchInputV2, SearchResultsListV2 } from '@/components/search';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-
-export type SearchFloatingProps<T> = {
-  /** Controller de Search V2 (useSearchControllerV2); el padre configura setOnSelect/setOnCreate. */
-  controller: UseSearchControllerV2Return<T>;
-  /** Items a mostrar cuando la query está vacía (ej. "Cercanos"). */
-  defaultItems: T[];
-  /** Queries recientes para estado pre-búsqueda. */
-  recentQueries: string[];
-  /** Items vistos recientemente (por id). */
-  recentViewedItems: T[];
-  /** Render de cada item en listados. */
-  renderItem: (item: T) => React.ReactNode;
-  /** Etiqueta de etapa cuando hay resultados (ej. "En esta zona"). */
-  stageLabel: string;
-  /** Mensaje cuando no hay items cercanos (query vacía). */
-  emptyMessage?: string;
-  /** Texto del CTA crear cuando no hay resultados (query >= 3). */
-  onCreateLabel?: string;
-  /** Contexto de sección para futuro ranking; por ahora no se usa. */
-  scope?: string;
-  /** Key estable para items en listas (ej. item => item.id). */
-  getItemKey?: (item: T) => string;
-};
+import { Search, X } from 'lucide-react-native';
+import { SearchInputV2 } from './SearchInputV2';
+import { SearchResultsListV2 } from './SearchResultsListV2';
+import type { SearchFloatingProps } from './types';
 
 const SEARCH_PANEL_PADDING = 16;
+const SHEET_TOP_INSET = 24;
+const SHEET_BORDER_RADIUS = 24;
+const HEADER_PILL_RADIUS = 22;
+const HEADER_ROW_HEIGHT = 44;
+const HEADER_TOP_PADDING = 16;
 
 export function SearchFloating<T>({
   controller,
@@ -57,10 +41,13 @@ export function SearchFloating<T>({
   onCreateLabel = 'Crear nuevo spot',
   scope: _scope,
   getItemKey,
+  insets: insetsProp,
 }: SearchFloatingProps<T>) {
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const topInset = insetsProp?.top ?? 0;
+  const sheetTop = topInset + SHEET_TOP_INSET;
 
   const q = controller.query.trim();
   const len = q.length;
@@ -79,20 +66,53 @@ export function SearchFloating<T>({
           {
             backgroundColor:
               colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.72)',
+            pointerEvents: 'auto',
           },
         ]}
         onPress={() => controller.setOpen(false)}
-        pointerEvents="auto"
       />
-      <View style={styles.panel} pointerEvents="box-none">
-        <View style={styles.inputWrap}>
-          <SearchInputV2
-            value={controller.query}
-            onChangeText={controller.setQuery}
-            onClear={controller.clear}
-            placeholder="Buscar lugares…"
-            autoFocus
-          />
+      <View
+        style={[
+          styles.sheet,
+          {
+            top: sheetTop,
+            backgroundColor: colors.backgroundElevated,
+            borderColor: colors.borderSubtle,
+            pointerEvents: 'box-none',
+          },
+        ]}
+      >
+        <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
+          <View
+            style={[
+              styles.searchPill,
+              {
+                backgroundColor: colors.background,
+                borderColor: colors.borderSubtle,
+              },
+            ]}
+          >
+            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+            <SearchInputV2
+              value={controller.query}
+              onChangeText={controller.setQuery}
+              onClear={controller.clear}
+              placeholder="Buscar lugares…"
+              autoFocus
+              embedded
+            />
+          </View>
+          <Pressable
+            style={({ pressed }) => [
+              styles.closeButton,
+              { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+            ]}
+            onPress={() => controller.setOpen(false)}
+            accessibilityLabel="Cerrar búsqueda"
+            accessibilityRole="button"
+          >
+            <X size={24} color={colors.text} strokeWidth={2} />
+          </Pressable>
         </View>
         <View style={styles.resultsArea}>
           {isEmpty && (
@@ -216,18 +236,43 @@ const styles = StyleSheet.create({
   backdrop: {
     zIndex: 10,
   },
-  panel: {
+  sheet: {
     position: 'absolute',
-    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: 16,
+    borderTopLeftRadius: SHEET_BORDER_RADIUS,
+    borderTopRightRadius: SHEET_BORDER_RADIUS,
+    borderWidth: 1,
+    borderBottomWidth: 0,
     paddingHorizontal: SEARCH_PANEL_PADDING,
+    paddingBottom: SEARCH_PANEL_PADDING,
     zIndex: 15,
   },
-  inputWrap: {
-    marginTop: Spacing.sm,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  searchPill: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: HEADER_ROW_HEIGHT,
+    paddingLeft: Spacing.base,
+    paddingRight: Spacing.sm,
+    gap: Spacing.sm,
+    borderRadius: HEADER_PILL_RADIUS,
+    borderWidth: 1,
+    minWidth: 0,
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   resultsArea: {
     flex: 1,

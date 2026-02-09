@@ -1,14 +1,26 @@
 /**
  * Scope D: persistencia de pins por usuario.
- * Un pin por (user_id, spot_id). Estados: to_visit | visited.
- * Requiere sesión (auth anónimo o autenticado).
+ * Fuente de verdad: saved + visited (independientes).
+ * TODO(LEGACY): PinStatus/getPin/setPinStatus/removePin se eliminarán cuando SpotDetail legacy y MapScreenV0 se retiren.
  */
 
 import { supabase } from '@/lib/supabase';
 
+/** Estado de pin por spot: dos flags independientes. */
+export type PinState = {
+  saved: boolean;
+  visited: boolean;
+};
+
+/** @deprecated Usar PinState. Enum exclusivo legacy. */
 export type PinStatus = 'to_visit' | 'visited';
 
-/** Obtiene el user_id actual (anon o autenticado). Devuelve null si no hay sesión. */
+/** Deriva PinStatus legacy desde PinState (visited tiene prioridad). Para UI legacy únicamente. */
+export function deriveLegacyPinStatus(state: PinState | null | undefined): PinStatus | null {
+  if (!state || (!state.saved && !state.visited)) return null;
+  return state.visited ? 'visited' : 'to_visit';
+}
+
 export async function getCurrentUserId(): Promise<string | null> {
   const {
     data: { user },
@@ -16,66 +28,120 @@ export async function getCurrentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
-/** Obtiene el pin del usuario para un spot. null si no existe. */
-export async function getPin(spotId: string): Promise<PinStatus | null> {
+/** Estado del pin del usuario para un spot. null si no hay fila (ni saved ni visited). */
+export async function getPinState(spotId: string): Promise<PinState | null> {
   const userId = await getCurrentUserId();
   if (!userId) return null;
   const { data, error } = await supabase
     .from('pins')
-    .select('status')
+    .select('saved, visited')
     .eq('spot_id', spotId)
     .eq('user_id', userId)
     .maybeSingle();
   if (error || !data) return null;
-  return data.status as PinStatus;
+  return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
 }
 
-/** Carga el estado de pin para varios spots. Devuelve Map<spotId, status>. */
-export async function getPinsForSpots(
-  spotIds: string[]
-): Promise<Map<string, PinStatus>> {
+/** Carga saved/visited para varios spots. Map<spotId, PinState>. */
+export async function getPinsForSpots(spotIds: string[]): Promise<Map<string, PinState>> {
   const userId = await getCurrentUserId();
-  const map = new Map<string, PinStatus>();
+  const map = new Map<string, PinState>();
   if (!userId || spotIds.length === 0) return map;
   const { data, error } = await supabase
     .from('pins')
-    .select('spot_id, status')
+    .select('spot_id, saved, visited')
     .eq('user_id', userId)
     .in('spot_id', spotIds);
   if (error || !data) return map;
   for (const row of data) {
-    map.set(row.spot_id, row.status as PinStatus);
+    map.set(row.spot_id, {
+      saved: Boolean(row.saved),
+      visited: Boolean(row.visited),
+    });
   }
   return map;
 }
 
-/**
- * Crea o actualiza el pin del usuario para el spot.
- * Un solo pin por (user_id, spot_id): upsert por status.
- * Devuelve el nuevo status o null si falló (no rompe UI, mantener estado previo).
- */
-export async function setPinStatus(
-  spotId: string,
-  status: PinStatus
-): Promise<PinStatus | null> {
-  const userId = await getCurrentUserId();
-  if (!userId) return null;
-  const { data, error } = await supabase
-    .from('pins')
-    .upsert(
-      { spot_id: spotId, user_id: userId, status },
-      { onConflict: ['user_id', 'spot_id'] }
-    )
-    .select('status')
-    .single();
-  if (error || !data) return null;
-  return data.status as PinStatus;
+/** @deprecated Para v0/legacy. Devuelve Map<spotId, PinStatus> derivado de getPinsForSpots. */
+export async function getPinsForSpotsLegacy(
+  spotIds: string[]
+): Promise<Map<string, PinStatus>> {
+  const stateMap = await getPinsForSpots(spotIds);
+  const out = new Map<string, PinStatus>();
+  for (const [id, state] of stateMap) {
+    const leg = deriveLegacyPinStatus(state);
+    if (leg !== null) out.set(id, leg);
+  }
+  return out;
 }
 
 /**
- * Elimina el pin del usuario para el spot (desactivar).
- * Devuelve true si se eliminó correctamente.
+ * Activa o desactiva "Guardado" para el spot.
+ * Devuelve el nuevo PinState o null si falló.
  */
+export async function setSaved(spotId: string, value: boolean): Promise<PinState | null> {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  const current = await getPinState(spotId);
+  const nextSaved = value;
+  const nextVisited = current?.visited ?? false;
+  if (!nextSaved && !nextVisited) {
+    const ok = await removePin(spotId);
+    return ok ? null : null; // null = "no pin" = success
+  }
+  const statusLegacy = nextVisited ? 'visited' : 'to_visit';
+  const { data, error } = await supabase
+    .from('pins')
+    .upsert(
+      {
+        spot_id: spotId,
+        user_id: userId,
+        saved: nextSaved,
+        visited: nextVisited,
+        status: statusLegacy,
+      },
+      { onConflict: ['user_id', 'spot_id'] }
+    )
+    .select('saved, visited')
+    .single();
+  if (error || !data) return null;
+  return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
+}
+
+/**
+ * Activa o desactiva "Visitado" para el spot.
+ * Devuelve el nuevo PinState o null si falló.
+ */
+export async function setVisited(spotId: string, value: boolean): Promise<PinState | null> {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  const current = await getPinState(spotId);
+  const nextSaved = current?.saved ?? false;
+  const nextVisited = value;
+  if (!nextSaved && !nextVisited) {
+    const ok = await removePin(spotId);
+    return ok ? null : null;
+  }
+  const statusLegacy = nextVisited ? 'visited' : 'to_visit';
+  const { data, error } = await supabase
+    .from('pins')
+    .upsert(
+      {
+        spot_id: spotId,
+        user_id: userId,
+        saved: nextSaved,
+        visited: nextVisited,
+        status: statusLegacy,
+      },
+      { onConflict: ['user_id', 'spot_id'] }
+    )
+    .select('saved, visited')
+    .single();
+  if (error || !data) return null;
+  return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
+}
+
+/** Elimina el pin del usuario para el spot. Devuelve true si se eliminó. */
 export async function removePin(spotId: string): Promise<boolean> {
   const userId = await getCurrentUserId();
   if (!userId) return false;
@@ -87,11 +153,42 @@ export async function removePin(spotId: string): Promise<boolean> {
   return !error;
 }
 
-/**
- * Calcula el siguiente estado al pulsar "Guardar pin" (cuando no se desactiva):
- * sin pin → to_visit; to_visit → visited.
- * Si current === 'visited', la pantalla llama removePin y no usa este valor.
- */
+// --- Legacy (v0 / SpotDetail): mantener hasta retirar esas pantallas ---
+
+/** @deprecated Usar getPinState. Devuelve status legacy derivado. */
+export async function getPin(spotId: string): Promise<PinStatus | null> {
+  const state = await getPinState(spotId);
+  return deriveLegacyPinStatus(state);
+}
+
+/** @deprecated Usar setSaved/setVisited. Fuerza estado exclusivo (un solo flag activo). */
+export async function setPinStatus(
+  spotId: string,
+  status: PinStatus
+): Promise<PinStatus | null> {
+  const saved = status === 'to_visit';
+  const visited = status === 'visited';
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('pins')
+    .upsert(
+      {
+        spot_id: spotId,
+        user_id: userId,
+        saved,
+        visited,
+        status,
+      },
+      { onConflict: ['user_id', 'spot_id'] }
+    )
+    .select('saved, visited')
+    .single();
+  if (error || !data) return null;
+  return data.visited ? 'visited' : data.saved ? 'to_visit' : null;
+}
+
+/** @deprecated Calcula siguiente status legacy (exclusivo). */
 export function nextPinStatus(current: PinStatus | null): PinStatus {
   if (!current) return 'to_visit';
   return 'visited';

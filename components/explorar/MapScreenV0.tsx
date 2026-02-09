@@ -47,7 +47,7 @@ import {
   SPOT_FOCUS_ZOOM,
 } from '@/lib/map-core/constants';
 import { resolvePlaceForCreate } from '@/lib/mapbox-geocoding';
-import { getCurrentUserId, getPinsForSpots, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
+import { getCurrentUserId, getPinsForSpotsLegacy, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
 import { createSpotsStrategy } from '@/lib/search/spotsStrategy';
 import { shareSpot } from '@/lib/share-spot';
 import { addRecentViewedSpotId, getRecentViewedSpotIds } from '@/lib/storage/recentViewedSpots';
@@ -108,14 +108,14 @@ export function MapScreenV0() {
 
   const filteredSpots = useMemo(() => {
     if (pinFilter === 'all') return spots;
-    if (pinFilter === 'to_visit') return spots.filter((s) => s.pinStatus === 'to_visit');
+    if (pinFilter === 'saved') return spots.filter((s) => s.pinStatus === 'to_visit');
     return spots.filter((s) => s.pinStatus === 'visited');
   }, [spots, pinFilter]);
 
   /** Conteos derivados de spots (sin queries extra). */
   const pinCounts = useMemo(
     () => ({
-      to_visit: spots.filter((s) => s.pinStatus === 'to_visit').length,
+      saved: spots.filter((s) => s.pinStatus === 'to_visit').length,
       visited: spots.filter((s) => s.pinStatus === 'visited').length,
     }),
     [spots]
@@ -234,7 +234,7 @@ export function MapScreenV0() {
       .select('id, title, description_short, cover_image_url, latitude, longitude')
       .eq('is_hidden', false);
     const list = (data ?? []) as Spot[];
-    const pinMap = await getPinsForSpots(list.map((s) => s.id));
+    const pinMap = await getPinsForSpotsLegacy(list.map((s) => s.id));
     const withPins = list.map((s) => ({
       ...s,
       pinStatus: pinMap.get(s.id),
@@ -663,7 +663,7 @@ export function MapScreenV0() {
           { pointerEvents: 'box-none' },
         ]}
       >
-        <View style={styles.filterRowWrap} pointerEvents="box-none">
+        <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
           <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
         </View>
         {searchOverlayVisible ? (
@@ -675,12 +675,12 @@ export function MapScreenV0() {
                 {
                   backgroundColor:
                     colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.72)',
+                  pointerEvents: 'auto',
                 },
               ]}
               onPress={() => searchV2.setOpen(false)}
-              pointerEvents="auto"
             />
-            <View style={styles.searchPanelLayer} pointerEvents="box-none">
+            <View style={[styles.searchPanelLayer, { pointerEvents: 'box-none' }]}>
             <View style={styles.searchInputWrap}>
               <SearchInputV2
                 value={searchV2.query}

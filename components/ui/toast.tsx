@@ -46,7 +46,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <View style={styles.wrapper}>
         {children}
         {toast ? (
-          <View style={styles.containerWrap} pointerEvents="none">
+          <View style={[styles.containerWrap, { pointerEvents: 'none' }]}>
             <View
               style={[
                 styles.container,
