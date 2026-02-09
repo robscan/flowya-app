@@ -87,6 +87,8 @@
 - **OL-026 — Create spot map camera from query (DONE, 2026-02-09)**
   - Cuando vienen mapLng/mapLat/mapZoom (y opc. mapBearing/mapPitch), el mapa del paso 1 usa esa cámara vía preserveView + initialViewState en MapLocationPicker. Sin params, flujo igual. Ver bitácora 054.
 
+- **OL-028 — No reload / no camera jump (DEFERRED)** — Intento revertido; creación será inline sheet; no prioritario.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.

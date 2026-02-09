@@ -25,6 +25,12 @@ _(OL-024 cerrado 2026-02-09: modal confirmación long-press + "No volver a mostr
 _(OL-025 cerrado 2026-02-09: create-spot prefill coords desde query lat/lng; ver bitácora 053.)_
 _(OL-026 cerrado 2026-02-09: create-spot respeta cámara mapLng/mapLat/mapZoom desde query; ver bitácora 054.)_
 
+### OL-028 — No reload + no camera jump (DEFERRED)
+
+**Estado:** Revertido. No prioritario; creación será inline sheet + control por capas; no se retomará esta ruta por ahora.
+
+- Intento: router.push con params object (SPA) + quitar tryCenterOnUser cuando sin params. Pruebas V1/V2/V3 fallaron.
+
 ### OL-023 — Categorías internas (taxonomy) alimentadas por maki (opcional)
 
 **Estado:** Pendiente. maki documentado como suggested_category e input futuro en docs/contracts/MAPBOX_PLACE_ENRICHMENT.md.
