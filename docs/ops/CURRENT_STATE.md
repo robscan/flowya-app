@@ -87,9 +87,6 @@
 - **OL-026 — Create spot map camera from query (DONE, 2026-02-09)**
   - Cuando vienen mapLng/mapLat/mapZoom (y opc. mapBearing/mapPitch), el mapa del paso 1 usa esa cámara vía preserveView + initialViewState en MapLocationPicker. Sin params, flujo igual. Ver bitácora 054.
 
-- **OL-028 — Create spot: no reload + no camera jump (DONE, 2026-02-09)**
-  - Long-press → create-spot vía router.push({ pathname, params }) para navegación SPA (sin full reload). MapLocationPicker: sin preserveView ni initialCoords no se llama tryCenterOnUser (cero jump). Ver bitácora 055.
-
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
