@@ -50,6 +50,8 @@
 - Ownership **no enforceado** en DB (decisión consciente).
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
+- Falta `docs/contracts/*` como fuente de verdad (guardrails lo referencian).
+- Soft delete "Eliminar spot" pendiente de verificación en UI (posible caché/query/filtros).
 
 ---
 
@@ -90,6 +92,7 @@
 
 ## Next step sugerido (no obligatorio)
 
+- Crear contratos mínimos en `docs/contracts` (ExploreSheet, Search, DS).
 - UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.
