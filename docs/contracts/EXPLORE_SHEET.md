@@ -1,45 +1,226 @@
-# EXPLORE_SHEET — Contrato mínimo (Explore vNext)
+# EXPLORE_SHEET — Contract (Single Sheet, Multi-Mode)
 
-**Fuentes de verdad:** `docs/ops/EXPLORAR_VNEXT_UI.md`, `docs/definitions/contracts/EXPLORE_SHEET.MD`, `docs/ops/CURRENT_STATE.md`.
+**Última actualización:** 2026-02-09
+**Owner:** Explore vNext (`/`)
+**Status:** ACTIVE (source of truth)
 
----
-
-## 1) Estados del sheet (3)
-
-- **`collapsed`** — Barra plegada. En `mode="spot"`: solo header (share + título + cerrar). En `mode="search"`: top bar (input + close en una línea).
-- **`medium`** — Altura ajustable; contenido visible + scroll donde aplique.
-- **`expanded`** — Altura ajustable mayor; scroll sin doble scroll ni contenido encimado.
-
-Un solo contenedor: **ExploreSheet**.
+> Objetivo: Unificar Search y Spot en **un solo Sheet** (3 estados) para evitar overlays frágiles, glitches de scroll/drag y problemas con teclado.
+> Este contrato define: estados, modos, layout, eventos, z-index y comportamiento esperado (web + mobile).
 
 ---
 
-## 2) Modos
+## 1) Principios (no negociables)
 
-- **`mode="search"`** — Contenido de búsqueda (top bar + lista).
-- **`mode="spot"`** — Contenido de spot (header + resumen/acciones en medium, más completo en expanded).
-
----
-
-## 3) Reglas de interacción (solo las definidas en ops/definitions)
-
-- **Pan/zoom del mapa:** con `mode="spot"`, el sheet colapsa a header (sin cambiar el spot seleccionado). _Fuente: EXPLORAR_VNEXT_UI, definitions/EXPLORE_SHEET._
-- **Animaciones/drag:** "safe by default"; si hay riesgo de regresión, se prioriza estabilidad. _Fuente: EXPLORAR_VNEXT_UI._
-- **Search NO como overlay:** si el overlay rompe scroll/drag o crea espacio blanco, Search no se implementa como overlay. _Fuente: EXPLORAR_VNEXT_UI; alineado con decisión Search dentro del sheet._
-- **Keyboard-safe:** con teclado abierto, lista visible y no tapada (safe-area + keyboard). _Fuente: definitions/EXPLORE_SHEET._
-
-> **OPEN LOOP (no inventar):** Reglas detalladas de drag (p.ej. umbrales por estado) no están escritas en ops como contrato; cualquier extensión debe documentarse en ops primero.
+1. **Un solo contenedor**: `ExploreSheet`.
+2. `ExploreSheet` tiene **3 estados**: `collapsed | medium | expanded`.
+3. `ExploreSheet` tiene **modes**: `search | spot`.
+4. **Search NO se implementa como overlay** si rompe scroll/drag o crea espacio blanco.
+5. Con teclado abierto: UI debe ser **keyboard-safe** (lista visible, sin tapar contenido).
+6. Animaciones/drag: **safe-by-default** (si hay riesgo de regresión, se desactiva animación/drag antes de romper interacción).
 
 ---
 
-## 4) Componentes que poseen el estado
+## 2) Modelo mental
 
-- **ExploreSheet** — Contenedor único con `state` y `mode`.
-- **MapScreenVNext** — Pantalla Explore vNext (ruta `/`); compone MapCore, filtros, SpotSheet, BottomDock, SearchFloating. _Fuente: CURRENT_STATE, bitácora 047._
-- **SearchV2** — Controller y UI de búsqueda (useSearchControllerV2, SearchFloating); integrado en el flujo del sheet, no como overlay independiente.
+- `ExploreSheet` es el “contenedor de contexto” que se acopla al mapa.
+- El mapa siempre existe al fondo.
+- El contenido cambia por `mode`:
+  - `mode="search"`: top bar estilo Apple Maps + lista
+  - `mode="spot"`: header (share + título + cerrar) + contenido spot
 
 ---
 
-## 5) Principio "no overlay"
+## 3) Estados (state machine)
 
-Search vive dentro del sheet como `mode="search"`; no hay overlay de búsqueda que genere glitches de scroll/drag ni espacio blanco en swipes. _Fuente: EXPLORAR_VNEXT_UI, definitions/EXPLORE_SHEET._
+### Estados permitidos
+
+- `collapsed`
+- `medium`
+- `expanded`
+
+### Reglas por estado
+
+#### `collapsed`
+
+- **Se ve flotando**, ancho completo, como “barra plegada” (similar a search plegado).
+- En `mode="spot"` muestra **solo header**:
+  - share
+  - título (1 línea ideal, 2 líneas máx)
+  - close
+
+- En `mode="search"`:
+  - muestra la **top bar** (input + close en una línea)
+  - opcionalmente puede mostrar 0–1 fila de “recientes” (solo si cabe sin romper).
+
+#### `medium`
+
+- Altura ajustable dentro de un rango (ver sección “layout”).
+- Contenido visible + scroll donde aplique.
+- En `mode="search"`: lista principal de resultados/recentes/vistos.
+- En `mode="spot"`: resumen + acciones principales (p. ej. guardar/visited/share) + preview de contenido.
+
+#### `expanded`
+
+- Altura ajustable dentro de un rango mayor.
+- Debe permitir scroll sin que haya “doble scroll” o contenido encimado.
+
+---
+
+## 4) Modes
+
+### `mode="search"`
+
+**Top bar (obligatorio):**
+
+- Search input + botón cerrar en **una sola línea**.
+- Clear “x” **dentro del input** cuando hay texto.
+- Focus state: **fondo del contenedor** (no línea azul visible).
+  - Si la línea/ring no se puede eliminar: mismo color del fondo (invisible).
+
+- Perfil al lado del buscador (no en chips). _(Se define en contract de TopBar; aquí se soporta su slot.)_
+
+**Contenido:**
+
+- Con query vacía:
+  - mostrar “Cercanos” (defaultItems) y/o sugerencias por zona.
+
+- Con `< 3 chars`:
+  - mostrar “Búsquedas recientes” + “Vistos recientemente”.
+
+- Con `>= 3 chars`:
+  - resultados o “sin resultados” + CTA crear (si aplica según reglas del producto).
+
+**Keyboard-safe:**
+
+- Lista se desplaza/ajusta con teclado (safe-area + keyboard).
+- Nunca queda tapada por el teclado.
+
+### `mode="spot"`
+
+**Header (obligatorio, siempre visible en collapsed/medium/expanded):**
+
+- share
+- título
+- close
+
+**Contenido:**
+
+- summary en medium
+- full (o más completo) en expanded
+
+**Regla clave:**
+
+- Al **pan/zoom** del mapa: sheet colapsa a `collapsed` (sin cambiar el spot seleccionado).
+
+---
+
+## 5) Entradas (props) del componente
+
+> Nota: esto es contrato conceptual; el nombre real de props puede variar, pero el comportamiento NO.
+
+### Props mínimas
+
+- `mode: 'search' | 'spot'`
+- `state: 'collapsed' | 'medium' | 'expanded'`
+- `onRequestStateChange(nextState)`
+- `onClose()`
+  - En `mode="spot"`: limpia selección (selectedSpot = null).
+  - En `mode="search"`: cierra búsqueda (isOpen=false) o vuelve a `mode="spot"` si hay spot seleccionado (definir por pantalla).
+
+- `onDragStateChange?(...)` (opcional)
+- `topInset`, `bottomInset` (safe area)
+- `keyboardInset` (si aplica)
+
+### Datos por mode
+
+#### Search mode data
+
+- `query`, `onChangeQuery`
+- `recentQueries`
+- `recentViewedItems`
+- `defaultItems`
+- `results`
+- `renderItem`, `getItemKey`
+- `emptyState` (mensajes)
+- `ctaCreate` (label + handler si aplica)
+
+#### Spot mode data
+
+- `spot: { id, title, ... }`
+- `onShare()`
+- `onToggleSaved()` (mantener comportamiento actual)
+- `onToggleVisited()` (mantener comportamiento actual)
+
+---
+
+## 6) Salidas (events) obligatorias
+
+- `onClose` (close icon)
+- `onRequestStateChange` (drag o taps según diseño)
+- `onPanZoomMap` (evento del mapa hacia la pantalla) → colapsa a `collapsed` si `mode="spot"`
+- `onFocusSearch` / `onBlurSearch` (si aplica)
+
+---
+
+## 7) Layout & medidas (reglas)
+
+- `collapsedHeight`: fija o casi fija (solo header/topbar).
+- `mediumHeight`: rango (min–max) controlado.
+- `expandedHeight`: rango (min–max) controlado.
+
+**Reglas de scroll**
+
+- No usar scroll global “porque sí”.
+- `medium/expanded` pueden tener scroll **en contenido**, no en contenedor completo si eso causa doble scroll.
+- Evitar gaps raros y contenido encimado:
+  - spacing por tokens
+  - safe-area consistente
+  - no “magic numbers” sin documentar.
+
+---
+
+## 8) Z-index & capas
+
+Orden recomendado (top → bottom):
+
+1. `ExploreSheet` (interactivo)
+2. Top bar / Perfil / Chips (si están dentro o por encima del sheet según composición final)
+3. Controles de mapa (si aplican) — nunca deben quedar tapados por el teclado
+4. Mapa
+
+---
+
+## 9) Compatibilidad web/mobile (obligatorio)
+
+- Web:
+  - evitar “overscroll blank space” (no overlay frágil)
+  - focus ring: no visible (o invisible con mismo color del fondo)
+
+- Mobile:
+  - keyboard-safe
+  - drag gesture no debe romper tap targets
+  - safe-area correcto
+
+---
+
+## 10) Anti-regresión (tests manuales mínimos)
+
+1. Abrir search → no hay espacio blanco al drag desde extremos.
+2. Teclado abierto → lista visible (no tapada).
+3. Focus input → sin línea azul visible (o invisible).
+4. Seleccionar spot → sheet modo spot.
+5. Pan/zoom mapa con spot seleccionado → sheet colapsa a header.
+6. Segundo tap pin/hit-area → navegación a `/spot/[id]` (no se rompe).
+7. Fallback `/mapaV0` intacto.
+
+---
+
+## 11) Notas de implementación (hygiene)
+
+- No crear versiones duplicadas del sheet.
+- Si se necesita extraer piezas:
+  - `ExploreTopBar`
+  - `ExploreSpotHeader`
+  - `ExploreSearchList`
+  - `ExploreSpotContent`
+    Todas deben vivir en design system o en carpeta Explore con decisión explícita y plan de migración.
