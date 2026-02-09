@@ -156,7 +156,7 @@ export default function CreateSpotScreen() {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
-        openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+        openAuthModal({ message: AUTH_MODAL_MESSAGES.createSpot });
       }
     })();
     return () => {
@@ -267,6 +267,13 @@ export default function CreateSpotScreen() {
 
   const handleCreate = useCallback(async () => {
     if (!location) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.is_anonymous) {
+      openAuthModal({ message: AUTH_MODAL_MESSAGES.createSpot });
+      return;
+    }
     setSubmitting(true);
     setError(null);
 
@@ -286,10 +293,6 @@ export default function CreateSpotScreen() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
     const { data, error: insertError } = await supabase
       .from('spots')
       .insert({
@@ -299,7 +302,7 @@ export default function CreateSpotScreen() {
         latitude: location.latitude,
         longitude: location.longitude,
         address: location.address,
-        user_id: user?.id ?? null,
+        user_id: user.id,
       })
       .select('id')
       .single();
@@ -337,7 +340,7 @@ export default function CreateSpotScreen() {
     }
     setSubmitting(false);
     router.replace(`/(tabs)?created=${newId}`);
-  }, [location, title, descriptionShort, descriptionLong, selectedCoverUri, router]);
+  }, [location, title, descriptionShort, descriptionLong, selectedCoverUri, router, openAuthModal]);
 
   const handlePickCover = useCallback(async () => {
     blurActiveElement();

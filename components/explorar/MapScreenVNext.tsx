@@ -265,11 +265,27 @@ export function MapScreenVNext() {
     });
   }, [mapInstance, searchHistory, searchV2]);
 
+  /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
+  const requireAuthOrModal = useCallback(
+    async (message: string): Promise<boolean> => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || user.is_anonymous) {
+        openAuthModal({ message });
+        return false;
+      }
+      return true;
+    },
+    [openAuthModal]
+  );
+
   useEffect(() => {
-    searchV2.setOnCreate(() => {
+    searchV2.setOnCreate(async () => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       (router.push as (href: string) => void)('/create-spot');
     });
-  }, [searchV2, router]);
+  }, [searchV2, router, requireAuthOrModal]);
 
   const stageLabel =
     searchV2.stage === 'viewport'
@@ -307,15 +323,9 @@ export function MapScreenVNext() {
   }, [selectedSpot, router]);
 
   const handleProfilePress = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || user.is_anonymous) {
-      openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
-    } else {
-      setShowLogoutOption((prev) => !prev);
-    }
-  }, [openAuthModal]);
+    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
+    setShowLogoutOption((prev) => !prev);
+  }, [requireAuthOrModal]);
 
   const handleLogoutPress = useCallback(() => {
     setShowLogoutConfirm(true);
