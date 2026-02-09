@@ -24,6 +24,7 @@ _(OL-022 cerrado 2026-02-09: long-press create spot restaurado en vNext map; ver
 _(OL-024 cerrado 2026-02-09: modal confirmación long-press + "No volver a mostrar"; ver bitácora 052.)_
 _(OL-025 cerrado 2026-02-09: create-spot prefill coords desde query lat/lng; ver bitácora 053.)_
 _(OL-026 cerrado 2026-02-09: create-spot respeta cámara mapLng/mapLat/mapZoom desde query; ver bitácora 054.)_
+_(OL-028 cerrado 2026-02-09: navegación create-spot sin reload + sin camera jump sin params; ver bitácora 055.)_
 
 ### OL-023 — Categorías internas (taxonomy) alimentadas por maki (opcional)
 
