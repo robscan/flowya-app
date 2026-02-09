@@ -52,7 +52,10 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
  * Sin esto, links compartidos (/spot/xxx) dan 404 en acceso directo.
  */
 export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const { data } = await supabase.from('spots').select('id');
+  const { data } = await supabase
+    .from('spots')
+    .select('id')
+    .eq('is_hidden', false);
   return (data ?? []).map((row) => ({ id: row.id }));
 }
 
@@ -325,6 +328,35 @@ function SpotDetailScreenContent({
   /** Draft de ubicación al editar (solo local hasta Guardar). */
   const [locationDraft, setLocationDraft] = useState<MapLocationPickerResult | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  /** Alineación RLS: mutaciones solo con auth; ocultar Editar / Eliminar / Pin si no auth. */
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (cancelled) return;
+      setIsAuthenticated(!!user && !user.is_anonymous);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'SIGNED_IN') {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        setIsAuthenticated(!!user && !user.is_anonymous);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   /** Ubicación del usuario: una sola vez al cargar el spot. No watchPosition. */
   useEffect(() => {
@@ -359,6 +391,7 @@ function SpotDetailScreenContent({
         .from('spots')
         .select('id, title, description_short, description_long, cover_image_url, latitude, longitude, address')
         .eq('id', id)
+        .eq('is_hidden', false)
         .single();
       if (cancelled) return;
       if (error || !data) {
@@ -380,6 +413,9 @@ function SpotDetailScreenContent({
     router.back();
   }, [router]);
 
+  const toast = useToast();
+  const { openAuthModal } = useAuthModal();
+
   const handleSaveEdit = useCallback(
     async (payload: {
       title: string;
@@ -387,6 +423,13 @@ function SpotDetailScreenContent({
       description_long: string | null;
     }) => {
       if (!spot?.id) return;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user || user.is_anonymous) {
+        toast.show('Inicia sesión para editar', { type: 'error' });
+        return;
+      }
       const updates: Record<string, unknown> = {
         title: payload.title,
         description_short: payload.description_short,
@@ -402,39 +445,55 @@ function SpotDetailScreenContent({
         .from('spots')
         .update(updates)
         .eq('id', spot.id);
-      if (!error) {
-        setSpot((prev) =>
-          prev
-            ? {
-                ...prev,
-                title: payload.title,
-                description_short: payload.description_short,
-                description_long: payload.description_long,
-                ...(locationDraft
-                  ? {
-                      latitude: locationDraft.latitude,
-                      longitude: locationDraft.longitude,
-                      address: locationDraft.address,
-                    }
-                  : {}),
-              }
-            : null
-        );
-        setLocationDraft(null);
-        setIsEditing(false);
+      if (error) {
+        toast.show(error.message ?? 'No se pudo guardar', { type: 'error' });
+        return;
       }
+      setSpot((prev) =>
+        prev
+          ? {
+              ...prev,
+              title: payload.title,
+              description_short: payload.description_short,
+              description_long: payload.description_long,
+              ...(locationDraft
+                ? {
+                    latitude: locationDraft.latitude,
+                    longitude: locationDraft.longitude,
+                    address: locationDraft.address,
+                  }
+                : {}),
+            }
+          : null
+      );
+      setLocationDraft(null);
+      setIsEditing(false);
     },
-    [spot?.id, locationDraft]
+    [spot?.id, locationDraft, toast]
   );
 
+  /** Soft delete: ÚNICA mutación es UPDATE is_hidden. Asegurar sesión reciente para que RLS reciba JWT. */
   const handleDeleteSpot = useCallback(async () => {
     if (!spot?.id) return;
-    const { error } = await supabase.from('spots').delete().eq('id', spot.id);
-    if (!error) router.back();
-  }, [spot?.id, router]);
-
-  const toast = useToast();
-  const { openAuthModal } = useAuthModal();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.is_anonymous) {
+      openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+      return;
+    }
+    await supabase.auth.getSession();
+    const { error } = await supabase
+      .from('spots')
+      .update({ is_hidden: true, updated_at: new Date().toISOString() })
+      .eq('id', spot.id);
+    if (!error) {
+      toast.show('Spot eliminado', { type: 'success' });
+      router.back();
+    } else {
+      toast.show(error.message ?? 'No se pudo eliminar', { type: 'error' });
+    }
+  }, [spot?.id, router, toast, openAuthModal]);
   const handleShare = useCallback(async () => {
     if (!spot?.id) return;
     const result = await shareSpot(spot.id, spot.title);
@@ -499,13 +558,13 @@ function SpotDetailScreenContent({
         onBack={handleBack}
         onSavePin={handleSavePin}
         onShare={handleShare}
-        onEdit={() => setIsEditing(true)}
+        onEdit={isAuthenticated ? () => setIsEditing(true) : undefined}
         onCancelEdit={() => {
           setLocationDraft(null);
           setIsEditing(false);
         }}
         onSaveEdit={handleSaveEdit}
-        onDeleteSpot={handleDeleteSpot}
+        onDeleteSpot={isAuthenticated ? handleDeleteSpot : undefined}
         onImagePress={setFullscreenImageUri}
         onCoverImageChange={(url) =>
           setSpot((prev) => (prev ? { ...prev, cover_image_url: url } : null))

@@ -52,7 +52,8 @@ export type SpotDetailProps = {
   onBack: () => void;
   onSavePin?: () => void;
   onShare?: () => void;
-  onEdit: () => void;
+  /** Si no se pasa, no se muestra el botón Editar (alineación RLS: mutaciones solo con auth). */
+  onEdit?: () => void;
   /** Salir del modo edición sin guardar (solo cuando isEditing). */
   onCancelEdit?: () => void;
   onSaveEdit: (payload: {
@@ -260,17 +261,19 @@ export function SpotDetail({
                   <Share2 size={ICON_SIZE} color={colors.text} strokeWidth={2} />
                 </IconButton>
               ) : null}
-              <IconButton
-                variant={isEditing ? 'primary' : 'default'}
-                onPress={isEditing ? onCancelEdit : onEdit}
-                accessibilityLabel={isEditing ? 'Salir de edición' : 'Editar'}
-              >
-                <Pencil
-                  size={ICON_SIZE}
-                  color={isEditing ? ICON_ON_STATE : colors.text}
-                  strokeWidth={2}
-                />
-              </IconButton>
+              {(onEdit != null || isEditing) ? (
+                <IconButton
+                  variant={isEditing ? 'primary' : 'default'}
+                  onPress={isEditing ? onCancelEdit : onEdit}
+                  accessibilityLabel={isEditing ? 'Salir de edición' : 'Editar'}
+                >
+                  <Pencil
+                    size={ICON_SIZE}
+                    color={isEditing ? ICON_ON_STATE : colors.text}
+                    strokeWidth={2}
+                  />
+                </IconButton>
+              ) : null}
             </View>
           </View>
         </View>
