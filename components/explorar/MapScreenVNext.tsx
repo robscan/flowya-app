@@ -9,7 +9,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -128,8 +128,9 @@ export function MapScreenVNext() {
     }, [refetchSpots])
   );
 
+  const onLongPressHandlerRef = useRef<(coords: { lat: number; lng: number }) => void>(() => {});
   const mapCore = useMapCore(selectedSpot, {
-    onLongPress: () => {},
+    onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     skipCenterOnUser: false,
     onUserMapGestureStart: () => setSheetState('peek'),
   });
@@ -286,6 +287,34 @@ export function MapScreenVNext() {
       (router.push as (href: string) => void)('/create-spot');
     });
   }, [searchV2, router, requireAuthOrModal]);
+
+  const handleMapLongPress = useCallback(
+    async (coords: { lat: number; lng: number }) => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      setSelectedSpot(null);
+      searchV2.setOpen(false);
+      blurActiveElement();
+      let query = `lat=${coords.lat}&lng=${coords.lng}`;
+      if (mapInstance) {
+        try {
+          const center = mapInstance.getCenter();
+          const mapZoom = mapInstance.getZoom();
+          query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${mapZoom}`;
+          const bearing = mapInstance.getBearing();
+          const pitch = mapInstance.getPitch();
+          if (bearing !== 0) query += `&mapBearing=${bearing}`;
+          if (pitch !== 0) query += `&mapPitch=${pitch}`;
+        } catch {
+          // ignore
+        }
+      }
+      (router.push as (href: string) => void)(`/create-spot?${query}`);
+    },
+    [requireAuthOrModal, router, mapInstance, searchV2]
+  );
+  useEffect(() => {
+    onLongPressHandlerRef.current = handleMapLongPress;
+  }, [handleMapLongPress]);
 
   const stageLabel =
     searchV2.stage === 'viewport'
