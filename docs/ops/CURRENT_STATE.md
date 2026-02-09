@@ -1,78 +1,84 @@
 # CURRENT_STATE — Flowya (operativo)
 
-> **Fuente de verdad del estado actual del proyecto.**
+> Fuente de verdad del estado actual del proyecto.
+> Snapshot operativo + memoria resumida.
+> No es backlog ni planeación.
 >
-> Este archivo es un **snapshot operativo + memoria resumida**.
-> No es planeación ni backlog.
->
-> 🔒 **Regla:** ningún chat/sprint se considera cerrado si este archivo no se actualiza.
+> 🔒 Regla: ningún chat/sprint se considera cerrado si este archivo no se actualiza.
 
 ---
 
 ## Ahora mismo
 
-- **Scope activo:** Ops — cierre de loops de seguridad antes de nuevos UX scopes.
+- **Scope activo:** ninguno (baseline estable).
 - **Branch activa:** `main`.
-- **Commit / tag de referencia:** último commit en `main` (prod Vercel).
-- **Entorno afectado:** Web mobile (prod desde `main`).
+- **Estado del repo:** `main` protegido, limpio y sincronizado.
+- **Entorno:** Web mobile (Explore público).
 
-### Sólido
+---
 
-- Explore (map-first) es el único producto abierto.
-- Search V2 y Create Spot Lite operativos en prod.
-- Guardrails activos: **NO abrir Flow ni Recordar completos**.
-- Arquitectura retomable sin depender de memoria de chat.
+## Sólido
 
-### Frágil / Atención
+- Explore (map-first) es público y estable.
+- RLS activo en `spots`.
+- Policies vigentes:
+  - **SELECT:** público (`is_hidden = false`)
+  - **INSERT:** solo usuarios autenticados
+  - **UPDATE:** solo usuarios autenticados
+  - **DELETE físico:** deshabilitado
+- Soft delete activo vía `is_hidden`.
+- Trazabilidad de creación:
+  - `spots.user_id` existe
+  - Los INSERTs envían `user_id = auth.uid()` desde la app
+- UX de creación protegida:
+  - Usuarios no autenticados **no acceden** al wizard
+  - Se reutiliza el modal de login existente
+  - No aparecen errores técnicos de RLS en UI
+- Sistema retomable sin memoria de chat.
+- Reglas de cierre y ejecución formalizadas.
+- Supabase Database Advisor muestra WARN por RLS permisivas; evaluadas y aceptadas como decisiones deliberadas de producto (ver DECISIONS.md). No representan riesgo inmediato.
 
-- Existen **OPEN LOOPS activos de seguridad**:
-  - OL-007 (Supabase RLS permisivo).
-  - OL-008 (Auth: leaked password protection deshabilitado).
+---
 
-### Next step (1 línea)
+## Frágil / Atención
 
-Cerrar **OL-008** y después **OL-007** antes de abrir cualquier feature nuevo.
+- Ownership **no enforceado** en DB (decisión consciente).
+- Soft delete **solo reversible desde Supabase** (no desde UI).
+- No hay panel de moderación (fuera de alcance actual).
 
 ---
 
 ## Historial relevante (memoria resumida)
 
-- **OL-001 → OL-006 cerrados**
-  - Se restauró la retomabilidad del proyecto (CURRENT_STATE + OPEN_LOOPS).
-  - Se documentaron y fijaron **gates de Flow / Recordar** (modo _lite_).
-  - Se alinearon contratos CURRENT con el estado real del sistema.
-  - Se estabilizó Search V2 y Create Spot Lite en prod.
+- **OL-007 — RLS en `spots` (DONE)**
+  - Eliminada escritura anónima.
+  - SELECT público mantiene Explore.
+  - DELETE físico deshabilitado.
 
-> Este historial no es exhaustivo:  
-> la evidencia vive en git, bitácoras y PRs.
+- **Trazabilidad de spots (DONE)**
+  - `user_id` agregado y poblado.
+  - INSERTs envían `user_id` desde la app.
 
----
-
-## Qué está bloqueado por regla (guardrails)
-
-Mientras exista **cualquier OPEN LOOP**:
-
-- ❌ No se amplía superficie de datos.
-- ❌ No se abren Flow ni Recordar completos.
-- ❌ No se agregan features no esenciales.
-- ✅ El foco es **estabilidad + seguridad por default**.
+- **OL-009 — UX Auth Gate en creación de spots (DONE)**
+  - Bloqueo en entry points (search, mapa).
+  - Bloqueo al montar `/create-spot`.
+  - Reutilización del modal de login existente.
+  - Eliminado error técnico de RLS en UX.
 
 ---
 
-## Regla de cierre (NO NEGOCIABLE)
+## Guardrails activos
 
-Al final de **cada sesión** (con o sin Cursor):
+- `main` protegido: NO direct commit / NO direct push.
+- Todo cambio va por **rama + PR** (incluido docs-only).
+- `OPEN_LOOPS.md` solo se entrega cuando define alcance diario.
+- No abrir Flow ni Recordar completos sin decisión explícita.
+- Seguridad primero; UX después, sin romper Explore.
 
-1. Este archivo debe reflejar el estado real (sin placeholders).
-2. `OPEN_LOOPS.md` debe estar alineado con lo aquí descrito.
-3. Si hay duda → el loop queda **OPEN**, nunca se asume cerrado.
+---
 
-Si esto no se cumple, la sesión **no está cerrada**.
+## Next step sugerido (no obligatorio)
 
-## Regla del repositorio (infra)
-
-- El branch `main` está **protegido**.
-- No se permiten commits ni pushes directos.
-- Todo cambio (incluidos docs-only) requiere **rama + PR**.
-
-Esta regla es parte del sistema operativo del proyecto.
+- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
+- Definir heurísticas simples de spam (volumen por `user_id`).
+- Continuar con flows / producto.
