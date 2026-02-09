@@ -42,7 +42,7 @@ Usa **SOLO** como fuente de verdad:
 ### Definiciones estratégicas
 
 - `docs/definitions/`
-- contratos en `docs/definitions/contracts/`
+- contratos en `docs/contracts/` `docs/definitions/contracts`
 
 ### Memoria histórica
 

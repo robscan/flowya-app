@@ -48,3 +48,6 @@ app-example
 docs/analysis/
 
 .cursor/
+
+# local scratch (do not commit)
+.local/
