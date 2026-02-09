@@ -50,7 +50,6 @@
 - Ownership **no enforceado** en DB (decisión consciente).
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
-- Falta `docs/contracts/*` como fuente de verdad (guardrails lo referencian).
 - Soft delete "Eliminar spot" pendiente de verificación en UI (posible caché/query/filtros).
 
 ---
@@ -72,6 +71,10 @@
   - Reutilización del modal de login existente.
   - Eliminado error técnico de RLS en UX.
 
+- **OL-019 — Contracts Explore vNext (DONE, 2026-02-09)**
+  - Creada carpeta canónica `docs/contracts/` con EXPLORE_SHEET.md, SEARCH_V2.md, DESIGN_SYSTEM_USAGE.md.
+  - Contratos describen lo ya definido en ops/definitions; OPEN LOOP explícito donde no hay definición (inventario DS, reglas detalladas de drag). Ver bitácora 049.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
@@ -92,7 +95,6 @@
 
 ## Next step sugerido (no obligatorio)
 
-- Crear contratos mínimos en `docs/contracts` (ExploreSheet, Search, DS).
-- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
+ UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.
