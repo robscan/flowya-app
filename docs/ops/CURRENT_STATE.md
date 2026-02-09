@@ -51,7 +51,6 @@
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
 - Soft delete "Eliminar spot" pendiente de verificación en UI (posible caché/query/filtros).
-- **Long-press create spot no funciona en vNext map** (OL-022); solo Create desde Search CTA.
 
 ---
 
@@ -76,6 +75,9 @@
   - Creada carpeta canónica `docs/contracts/` con EXPLORE_SHEET.md, SEARCH_V2.md, DESIGN_SYSTEM_USAGE.md.
   - Contratos describen lo ya definido en ops/definitions; OPEN LOOP explícito donde no hay definición (inventario DS, reglas detalladas de drag). Ver bitácora 049.
 
+- **OL-022 — Long-press create spot en vNext map (DONE, 2026-02-09)**
+  - Causa: onLongPress en MapScreenVNext era no-op `() => {}`. Fix: handler con requireAuthOrModal + navegación a /create-spot con lat/lng y params de mapa. Ver bitácora 051.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
@@ -96,7 +98,7 @@
 
 ## Next step sugerido (no obligatorio)
 
-- Implementar fix OL-022 (long-press create spot en vNext map); luego OL-021 (UI spot edit mini-sheets).
+- Implementar OL-021 (UI spot edit mini-sheets).
 - UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.

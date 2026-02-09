@@ -20,14 +20,7 @@
 
 ---
 
-### OL-022 — Long press create spot no dispara en vNext map
-
-**Estado:** Bug registrado. Pendiente diagnóstico y fix.
-
-- En Explore vNext (MapScreenVNext), long press en el mapa no abre flujo de crear spot (sí funciona desde Search CTA).
-- Requiere reproducción y corrección para paridad con v0.
-
----
+_(OL-022 cerrado 2026-02-09: long-press create spot restaurado en vNext map; ver bitácora 051.)_
 
 ### OL-023 — Categorías internas (taxonomy) alimentadas por maki (opcional)
 
