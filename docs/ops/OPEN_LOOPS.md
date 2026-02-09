@@ -21,6 +21,7 @@
 ---
 
 _(OL-022 cerrado 2026-02-09: long-press create spot restaurado en vNext map; ver bitácora 051.)_
+_(OL-024 cerrado 2026-02-09: modal confirmación long-press + "No volver a mostrar"; ver bitácora 052.)_
 
 ### OL-023 — Categorías internas (taxonomy) alimentadas por maki (opcional)
 

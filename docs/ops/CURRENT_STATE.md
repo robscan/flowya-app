@@ -78,6 +78,9 @@
 - **OL-022 — Long-press create spot en vNext map (DONE, 2026-02-09)**
   - Causa: onLongPress en MapScreenVNext era no-op `() => {}`. Fix: handler con requireAuthOrModal + navegación a /create-spot con lat/lng y params de mapa. Ver bitácora 051.
 
+- **OL-024 — Confirmación long-press create spot (DONE, 2026-02-09)**
+  - Paridad con v0: modal "¿Crear spot aquí?" con checkbox "No volver a mostrar". Key localStorage: `flowya_create_spot_skip_confirm` (misma que v0). Ver bitácora 052.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
