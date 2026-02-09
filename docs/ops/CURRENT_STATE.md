@@ -81,6 +81,9 @@
 - **OL-024 — Confirmación long-press create spot (DONE, 2026-02-09)**
   - Paridad con v0: modal "¿Crear spot aquí?" con checkbox "No volver a mostrar". Key localStorage: `flowya_create_spot_skip_confirm` (misma que v0). Ver bitácora 052.
 
+- **OL-025 — Create spot prefill coords from query (DONE, 2026-02-09)**
+  - Al abrir /create-spot?lat=...&lng=... el wizard inicializa `location` con esas coords (address null; sin reverse aquí). Ver bitácora 053.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
