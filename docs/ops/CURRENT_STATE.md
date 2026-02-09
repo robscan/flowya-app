@@ -51,6 +51,7 @@
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
 - Soft delete "Eliminar spot" pendiente de verificación en UI (posible caché/query/filtros).
+- **Long-press create spot no funciona en vNext map** (OL-022); solo Create desde Search CTA.
 
 ---
 
@@ -95,6 +96,7 @@
 
 ## Next step sugerido (no obligatorio)
 
- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
+- Implementar fix OL-022 (long-press create spot en vNext map); luego OL-021 (UI spot edit mini-sheets).
+- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.
