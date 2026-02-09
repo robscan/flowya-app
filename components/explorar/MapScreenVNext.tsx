@@ -25,6 +25,7 @@ import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { SearchResultCard } from '@/components/design-system/search-result-card';
 import { SearchFloating } from '@/components/search';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { CreateSpotConfirmModal } from '@/components/ui/create-spot-confirm-modal';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMapCore } from '@/hooks/useMapCore';
@@ -81,6 +82,11 @@ export function MapScreenVNext() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [sheetState, setSheetState] = useState<'peek' | 'medium' | 'expanded'>('peek');
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
+  const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] = useState(false);
+  const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -288,12 +294,10 @@ export function MapScreenVNext() {
     });
   }, [searchV2, router, requireAuthOrModal]);
 
-  const handleMapLongPress = useCallback(
-    async (coords: { lat: number; lng: number }) => {
-      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-      setSelectedSpot(null);
-      searchV2.setOpen(false);
-      blurActiveElement();
+  const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
+
+  const navigateToCreateSpotWithCoords = useCallback(
+    (coords: { lat: number; lng: number }) => {
       let query = `lat=${coords.lat}&lng=${coords.lng}`;
       if (mapInstance) {
         try {
@@ -310,11 +314,48 @@ export function MapScreenVNext() {
       }
       (router.push as (href: string) => void)(`/create-spot?${query}`);
     },
-    [requireAuthOrModal, router, mapInstance, searchV2]
+    [router, mapInstance]
+  );
+
+  const handleMapLongPress = useCallback(
+    async (coords: { lat: number; lng: number }) => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      setSelectedSpot(null);
+      searchV2.setOpen(false);
+      blurActiveElement();
+      const skipConfirm =
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
+      if (skipConfirm) {
+        navigateToCreateSpotWithCoords(coords);
+      } else {
+        setPendingCreateSpotCoords(coords);
+        setShowCreateSpotConfirmModal(true);
+      }
+    },
+    [requireAuthOrModal, searchV2, navigateToCreateSpotWithCoords]
   );
   useEffect(() => {
     onLongPressHandlerRef.current = handleMapLongPress;
   }, [handleMapLongPress]);
+
+  const handleCreateSpotConfirm = useCallback(
+    (dontShowAgain: boolean) => {
+      if (pendingCreateSpotCoords === null) return;
+      if (dontShowAgain && typeof localStorage !== 'undefined') {
+        localStorage.setItem(SKIP_CREATE_SPOT_CONFIRM_KEY, 'true');
+      }
+      navigateToCreateSpotWithCoords(pendingCreateSpotCoords);
+      setPendingCreateSpotCoords(null);
+      setShowCreateSpotConfirmModal(false);
+    },
+    [pendingCreateSpotCoords, navigateToCreateSpotWithCoords]
+  );
+
+  const handleCreateSpotConfirmCancel = useCallback(() => {
+    setPendingCreateSpotCoords(null);
+    setShowCreateSpotConfirmModal(false);
+  }, []);
 
   const stageLabel =
     searchV2.stage === 'viewport'
@@ -611,6 +652,11 @@ export function MapScreenVNext() {
           setShowLogoutConfirm(false);
           setShowLogoutOption(false);
         }}
+      />
+      <CreateSpotConfirmModal
+        visible={showCreateSpotConfirmModal}
+        onConfirm={handleCreateSpotConfirm}
+        onCancel={handleCreateSpotConfirmCancel}
       />
     </View>
   );
