@@ -20,6 +20,7 @@ import { ButtonSecondary } from '@/components/design-system/buttons';
 import { TypographyStyles } from '@/components/design-system/typography';
 import { useToast } from '@/components/ui/toast';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
+import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { sendFeedback } from '@/lib/send-feedback';
 import { supabase } from '@/lib/supabase';
@@ -36,21 +37,26 @@ export function FlowyaBetaModal({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const toast = useToast();
+  const { openAuthModal } = useAuthModal();
   const [feedback, setFeedback] = useState('');
   const [sending, setSending] = useState(false);
 
   const handleSubmit = useCallback(async () => {
     const trimmed = feedback.trim();
     if (!trimmed) return;
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user || user.is_anonymous) {
+      openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
+      return;
+    }
     setSending(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
       const result = await sendFeedback({
         message: trimmed,
-        user_id: user?.id,
-        user_email: user?.email ?? undefined,
+        user_id: user.id,
+        user_email: user.email ?? undefined,
       });
       if (result.ok) {
         setFeedback('');
@@ -64,7 +70,7 @@ export function FlowyaBetaModal({
     } finally {
       setSending(false);
     }
-  }, [feedback, onClose, toast]);
+  }, [feedback, onClose, toast, openAuthModal]);
 
   if (!visible) return null;
 

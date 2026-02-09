@@ -78,6 +78,23 @@
 - **Consecuencias / tradeoffs:** No hay itinerarios automáticos ni planner; si se abre Flow completo, se hará con decisión nueva que superseda.
 - **Evidencia (bitácora/PR):** OL-002 (gates Flow) + PR `chore/gates-flow`.
 
+---
+
+## DEC-006 — Mutaciones requieren auth; soft delete; lectura pública
+
+- **Fecha:** 2026-02-08
+- **Contexto:** La app debe alinear UI y lógica con el contrato RLS ya definido en Supabase. Ningún usuario no autenticado puede ejecutar acciones mutantes.
+- **Opciones consideradas:** (A) Parches puntuales en handlers, (B) Alinear por completo: ocultar acciones mutantes sin auth + comprobaciones defensivas + documentar.
+- **Decisión:**
+  - **Regla global:** Las mutaciones (crear/editar/eliminar spots, pins, enviar feedback) requieren usuario autenticado. La UI no muestra ni ejecuta estas acciones sin auth; los handlers comprueban auth de forma defensiva y muestran error real (no éxito falso) si RLS falla.
+  - **Soft delete:** La única forma válida de “eliminar” un spot es soft delete: `update({ is_hidden: true })`. No se usa `DELETE` real sobre la tabla `spots`.
+  - **Lectura pública:** Es intencional para explore/sharing: SELECT público en spots (is_hidden = false), pins y storage. No implica mutaciones abiertas.
+- **Racional:** Coherencia con RLS; evitar éxitos falsos y confusión; documentar para que futuros cambios no “limpien” políticas por error.
+- **Consecuencias:** La UI refleja el estado de auth; sin auth no se ven Editar, Eliminar spot, Guardar pin ni Enviar feedback.
+- **Evidencia:** bitácora `2026/02/042-ui-rls-alignment.md`.
+
+---
+
 ## Template para nuevas decisiones (copiar/pegar)
 
 ```md
@@ -102,6 +119,9 @@ Supabase Database Advisor genera advertencias (WARN) sobre políticas RLS que pe
 - SELECT público
 - INSERT permisivo en tablas no críticas
 - Acceso anónimo en ciertas operaciones
+
+**Precisión semántica (evitar “limpiezas” por error)**  
+Supabase Database Advisor puede marcar como `auth_allow_anonymous_sign_ins` (o equivalente) los SELECT públicos. En FLOWYA esto es una **decisión de producto** (explore / sharing) y **no implica mutaciones abiertas**. Las mutaciones (INSERT/UPDATE/DELETE en spots, pins, feedback, storage) están restringidas a usuarios autenticados. No modificar estas políticas para “corregir” warnings sin una decisión explícita.
 
 **Evaluación arquitectónica**
 

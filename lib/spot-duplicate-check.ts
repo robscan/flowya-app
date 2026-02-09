@@ -80,6 +80,7 @@ export async function checkDuplicateSpot(
   const { data, error } = await supabase
     .from('spots')
     .select('id, title, latitude, longitude')
+    .eq('is_hidden', false)
     .gte('latitude', latMin)
     .lte('latitude', latMax)
     .gte('longitude', lonMin)
@@ -128,6 +129,7 @@ export async function getSpotsNearby(
   const { data, error } = await supabase
     .from('spots')
     .select('id, title, latitude, longitude')
+    .eq('is_hidden', false)
     .gte('latitude', latMin)
     .lte('latitude', latMax)
     .gte('longitude', lonMin)

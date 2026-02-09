@@ -293,7 +293,8 @@ export default function MapScreen() {
   const refetchSpots = useCallback(async () => {
     const { data } = await supabase
       .from('spots')
-      .select('id, title, description_short, cover_image_url, latitude, longitude');
+      .select('id, title, description_short, cover_image_url, latitude, longitude')
+      .eq('is_hidden', false);
     const list = (data ?? []) as Spot[];
     const pinMap = await getPinsForSpots(list.map((s) => s.id));
     const withPins = list.map((s) => ({
