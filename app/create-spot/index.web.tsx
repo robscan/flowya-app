@@ -123,7 +123,13 @@ export default function CreateSpotScreen() {
     initialViewZoom != null;
 
   const [step, setStep] = useState<Step>(1);
-  const [location, setLocation] = useState<MapLocationPickerResult | null>(null);
+  /** OL-025: prefill location from query params (lat/lng) when present so long-press intent is preserved. */
+  const [location, setLocation] = useState<MapLocationPickerResult | null>(() => {
+    if (initial.lat != null && initial.lng != null) {
+      return { latitude: initial.lat, longitude: initial.lng, address: null };
+    }
+    return null;
+  });
   const [title, setTitle] = useState(initial.name);
   const [descriptionShort, setDescriptionShort] = useState('');
   const [descriptionLong, setDescriptionLong] = useState('');
