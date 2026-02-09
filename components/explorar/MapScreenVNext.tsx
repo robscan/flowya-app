@@ -296,29 +296,23 @@ export function MapScreenVNext() {
 
   const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
 
-  /** OL-028: navegación por objeto para evitar full reload (SPA). */
   const navigateToCreateSpotWithCoords = useCallback(
     (coords: { lat: number; lng: number }) => {
-      const params: Record<string, string> = {
-        lat: String(coords.lat),
-        lng: String(coords.lng),
-      };
+      let query = `lat=${coords.lat}&lng=${coords.lng}`;
       if (mapInstance) {
         try {
           const center = mapInstance.getCenter();
           const mapZoom = mapInstance.getZoom();
-          params.mapLng = String(center.lng);
-          params.mapLat = String(center.lat);
-          params.mapZoom = String(mapZoom);
+          query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${mapZoom}`;
           const bearing = mapInstance.getBearing();
           const pitch = mapInstance.getPitch();
-          if (bearing !== 0) params.mapBearing = String(bearing);
-          if (pitch !== 0) params.mapPitch = String(pitch);
+          if (bearing !== 0) query += `&mapBearing=${bearing}`;
+          if (pitch !== 0) query += `&mapPitch=${pitch}`;
         } catch {
           // ignore
         }
       }
-      router.push({ pathname: '/create-spot', params });
+      (router.push as (href: string) => void)(`/create-spot?${query}`);
     },
     [router, mapInstance]
   );
