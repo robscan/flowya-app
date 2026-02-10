@@ -323,11 +323,15 @@ export function SpotSheet({
   onSheetHeightChange,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
+  const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [mediumBodyContentHeight, setMediumBodyContentHeight] = useState(0);
   const [fullBodyContentHeight, setFullBodyContentHeight] = useState(0);
 
   const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     setHeaderHeight(e.nativeEvent.layout.height);
+  }, []);
+  const onDragAreaLayout = useCallback((e: LayoutChangeEvent) => {
+    setDragAreaHeight(e.nativeEvent.layout.height);
   }, []);
   const onMediumBodyLayout = useCallback((e: LayoutChangeEvent) => {
     setMediumBodyContentHeight(e.nativeEvent.layout.height);
@@ -339,7 +343,10 @@ export function SpotSheet({
   const colorScheme = useColorScheme();
   const prefersReducedMotion = usePrefersReducedMotion();
   const vh = Dimensions.get('window').height;
-  const collapsedAnchor = ANCHOR_COLLAPSED_PX;
+  const collapsedAnchor =
+    dragAreaHeight > 0
+      ? HEADER_PADDING_V + dragAreaHeight
+      : ANCHOR_COLLAPSED_PX;
   const mediumAnchor = Math.round(vh * ANCHOR_MEDIUM_RATIO);
   const expandedAnchor = Math.round(vh * ANCHOR_EXPANDED_RATIO);
 
@@ -537,7 +544,7 @@ export function SpotSheet({
       ]}
     >
       <GestureDetector gesture={panGesture}>
-        <View style={styles.dragArea}>
+        <View style={styles.dragArea} onLayout={onDragAreaLayout}>
           <View style={styles.handleRow}>
             <SheetHandle onPress={handleHeaderTap} />
           </View>
