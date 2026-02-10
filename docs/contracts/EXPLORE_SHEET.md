@@ -17,6 +17,7 @@
 4. **Search NO se implementa como overlay** si rompe scroll/drag o crea espacio blanco.
 5. Con teclado abierto: UI debe ser **keyboard-safe** (lista visible, sin tapar contenido).
 6. Animaciones/drag: **safe-by-default** (si hay riesgo de regresión, se desactiva animación/drag antes de romper interacción).
+7. **Motion:** duraciones, easing y snap se definen en el spec canónico **MOTION_SHEET.md** (mismo directorio).
 
 ---
 
