@@ -32,6 +32,7 @@ _(OL-031 cerrado 2026-02-09: open loops hygiene + current state alignment; ver b
 _(OL-037 cerrado 2026-02-09: motion spec para ExploreSheet en docs/contracts/MOTION_SHEET.md; ver bitácora 062.)_
 _(OL-044 cerrado 2026-02-09: drag handle affordance en ExploreSheet/SpotSheet/SearchFloating; DS SheetHandle; ver bitácora 063.)_
 _(OL-036 cerrado 2026-02-09: drag + snap 3 estados (collapsed/medium/expanded) SpotSheet según MOTION_SHEET; ver bitácora 064.)_
+_(OL-046 cerrado 2026-02-09: collapsed anchor content-aware (medida dragArea); ver bitácora 065.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 
