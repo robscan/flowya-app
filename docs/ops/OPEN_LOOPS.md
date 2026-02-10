@@ -20,6 +20,46 @@
 
 ---
 
+### OL-050 — SpotSheet medium open “shrink/glitch”
+
+**Estado:** Abierto. Objetivo: al abrir en medium no debe verse animación ilógica (aparece grande y encoge) por recálculo de anchors.
+
+- Entrar desde abajo sin re-layout visible: freeze anchors until measured / gate (no cambiar anchors en caliente cuando el sheet ya está visible).
+
+---
+
+### OL-051 — SearchSheet: pill enter animation
+
+**Estado:** Abierto. El pill plegado (closed) debe animar al cargar y al cerrar search (open → closed), sin pop.
+
+- Opacity 0→1 y translateY +8→0 (o +12), duración 200–240 ms, easing MOTION_SHEET.
+
+---
+
+### OL-052 — SearchSheet: keyboard-safe (mobile)
+
+**Estado:** Abierto. Con teclado abierto en mobile: input + lista visibles, sin empalme.
+
+- Fullscreen real, minHeight:0 en contenedor del listado, sin hacks de height. KeyboardAvoidingView / insets según plataforma.
+
+---
+
+### OL-053 — SearchSheet: drag-to-dismiss robustness vs scroll
+
+**Estado:** Abierto. Drag solo desde handle/header; el scroll de la lista no debe disparar dismiss.
+
+- Threshold/velocity según docs/contracts/MOTION_SHEET.md (§8 SearchSheet 2-state). Evitar que gestos en el body activen cierre.
+
+---
+
+### OL-054 — Layering contract (Search vs Spot)
+
+**Estado:** Abierto. Cuando Search está abierto no debe haber capas que bloqueen taps.
+
+- SpotSheet debe unmount o pointerEvents none cuando search isOpen (ya aplicado: no renderizar SpotSheet si search abierto). Documentar y verificar que no queden overlays fantasma.
+
+---
+
 ### Cerrados hoy (2026-02-09)
 
 _(OL-022 cerrado 2026-02-09: long-press create spot restaurado en vNext map; ver bitácora 051.)_
@@ -35,6 +75,11 @@ _(OL-036 cerrado 2026-02-09: drag + snap 3 estados (collapsed/medium/expanded) S
 _(OL-046 cerrado 2026-02-09: collapsed anchor content-aware (medida dragArea); ver bitácora 065.)_
 _(OL-039 cerrado 2026-02-09: Search tap-block; no renderizar SpotSheet cuando search abierto; ver bitácora 066.)_
 _(OL-047 cerrado 2026-02-09: Search sheet drag + entry/exit animation (root+panel translateY); ver bitácora 067.)_
+_(OL-048 cerrado 2026-02-09: SearchFloating 2-state closed/open_full (no drag), full-height, keyboard-safe; ver bitácora 069.)_
+_(OL-049 cerrado 2026-02-09: SearchSheet drag-to-dismiss desde handle/header; ver bitácora 070.)_
+_(OL-050b cerrado 2026-02-09: eliminar sheet duplicado detrás de Search (root transparente); ver bitácora 071.)_
+_(OL-050d cerrado 2026-02-09: SpotSheet medium sin shrink al montar (freeze anchors until measured); ver bitácora 072.)_
+_(OL-050e cerrado 2026-02-09: Sheet gestures unified + guardrails drag areas (Spot + Search); ver bitácora 073.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 

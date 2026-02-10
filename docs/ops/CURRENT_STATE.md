@@ -109,7 +109,9 @@
 
 ## Next step sugerido (no obligatorio)
 
-- **Top 1:** Implementar OL-021 (UI spot edit mini-sheets; contrato en docs/contracts/SPOT_EDIT_MINI_SHEETS.md).
+- **Top 1:** Implementar OL-021 (UI spot edit mini-sheets; contrato en docs/contracts/SPOT_EDIT_MINI_SHEETS.md). Hoy no se ejecutó.
+- OL-023 (categorías internas / maki): pendiente; hoy no se ejecutó.
+- Explore quality hardening (docs-only hoy): OL-050..054 formados; no implementados.
 - Create spot inline sheet: contrato listo (docs/contracts/CREATE_SPOT_INLINE_SHEET.md); implementación pendiente.
 - UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
