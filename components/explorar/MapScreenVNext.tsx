@@ -620,7 +620,7 @@ export function MapScreenVNext() {
         scope="explorar"
         getItemKey={(s) => s.id}
       />
-      {selectedSpot != null ? (
+      {selectedSpot != null && !searchV2.isOpen ? (
         <SpotSheet
           spot={selectedSpot}
           onClose={() => {
