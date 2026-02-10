@@ -9,7 +9,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,6 +25,7 @@ import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { SearchResultCard } from '@/components/design-system/search-result-card';
 import { SearchFloating } from '@/components/search';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { CreateSpotConfirmModal } from '@/components/ui/create-spot-confirm-modal';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useMapCore } from '@/hooks/useMapCore';
@@ -81,6 +82,11 @@ export function MapScreenVNext() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [sheetState, setSheetState] = useState<'peek' | 'medium' | 'expanded'>('peek');
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
+  const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] = useState(false);
+  const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -128,8 +134,9 @@ export function MapScreenVNext() {
     }, [refetchSpots])
   );
 
+  const onLongPressHandlerRef = useRef<(coords: { lat: number; lng: number }) => void>(() => {});
   const mapCore = useMapCore(selectedSpot, {
-    onLongPress: () => {},
+    onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     skipCenterOnUser: false,
     onUserMapGestureStart: () => setSheetState('peek'),
   });
@@ -286,6 +293,69 @@ export function MapScreenVNext() {
       (router.push as (href: string) => void)('/create-spot');
     });
   }, [searchV2, router, requireAuthOrModal]);
+
+  const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
+
+  const navigateToCreateSpotWithCoords = useCallback(
+    (coords: { lat: number; lng: number }) => {
+      let query = `lat=${coords.lat}&lng=${coords.lng}`;
+      if (mapInstance) {
+        try {
+          const center = mapInstance.getCenter();
+          const mapZoom = mapInstance.getZoom();
+          query += `&mapLng=${center.lng}&mapLat=${center.lat}&mapZoom=${mapZoom}`;
+          const bearing = mapInstance.getBearing();
+          const pitch = mapInstance.getPitch();
+          if (bearing !== 0) query += `&mapBearing=${bearing}`;
+          if (pitch !== 0) query += `&mapPitch=${pitch}`;
+        } catch {
+          // ignore
+        }
+      }
+      (router.push as (href: string) => void)(`/create-spot?${query}`);
+    },
+    [router, mapInstance]
+  );
+
+  const handleMapLongPress = useCallback(
+    async (coords: { lat: number; lng: number }) => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      setSelectedSpot(null);
+      searchV2.setOpen(false);
+      blurActiveElement();
+      const skipConfirm =
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
+      if (skipConfirm) {
+        navigateToCreateSpotWithCoords(coords);
+      } else {
+        setPendingCreateSpotCoords(coords);
+        setShowCreateSpotConfirmModal(true);
+      }
+    },
+    [requireAuthOrModal, searchV2, navigateToCreateSpotWithCoords]
+  );
+  useEffect(() => {
+    onLongPressHandlerRef.current = handleMapLongPress;
+  }, [handleMapLongPress]);
+
+  const handleCreateSpotConfirm = useCallback(
+    (dontShowAgain: boolean) => {
+      if (pendingCreateSpotCoords === null) return;
+      if (dontShowAgain && typeof localStorage !== 'undefined') {
+        localStorage.setItem(SKIP_CREATE_SPOT_CONFIRM_KEY, 'true');
+      }
+      navigateToCreateSpotWithCoords(pendingCreateSpotCoords);
+      setPendingCreateSpotCoords(null);
+      setShowCreateSpotConfirmModal(false);
+    },
+    [pendingCreateSpotCoords, navigateToCreateSpotWithCoords]
+  );
+
+  const handleCreateSpotConfirmCancel = useCallback(() => {
+    setPendingCreateSpotCoords(null);
+    setShowCreateSpotConfirmModal(false);
+  }, []);
 
   const stageLabel =
     searchV2.stage === 'viewport'
@@ -550,7 +620,7 @@ export function MapScreenVNext() {
         scope="explorar"
         getItemKey={(s) => s.id}
       />
-      {selectedSpot != null ? (
+      {selectedSpot != null && !searchV2.isOpen ? (
         <SpotSheet
           spot={selectedSpot}
           onClose={() => {
@@ -582,6 +652,11 @@ export function MapScreenVNext() {
           setShowLogoutConfirm(false);
           setShowLogoutOption(false);
         }}
+      />
+      <CreateSpotConfirmModal
+        visible={showCreateSpotConfirmModal}
+        onConfirm={handleCreateSpotConfirm}
+        onCancel={handleCreateSpotConfirmCancel}
       />
     </View>
   );

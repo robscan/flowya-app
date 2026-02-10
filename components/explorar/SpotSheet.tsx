@@ -1,17 +1,18 @@
 /**
  * SpotSheet — Sheet inferior estilo Apple Maps (Explorar vNext).
  * 3 estados: PEEK (solo header), MEDIUM (header + resumen), EXPANDED (header + resumen con más espacio).
- * La lógica de estado vive en MapScreenVNext; SpotSheet solo renderiza según state.
+ * Drag + snap según docs/contracts/MOTION_SHEET.md (translateY, anchors, 25% + velocity).
  */
 
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { IconButton } from '@/components/design-system/icon-button';
+import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { SpotImage } from '@/components/design-system/spot-image';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from '@/lib/geo-utils';
 import { CheckCircle, MapPin, Pencil, Pin, Share2, X } from 'lucide-react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   type LayoutChangeEvent,
@@ -23,8 +24,29 @@ import {
   View,
 } from 'react-native';
 
-/** Altura del sheet en PEEK (solo header). */
-export const SHEET_PEEK_HEIGHT = 76;
+function usePrefersReducedMotion(): boolean {
+  const [prefers, setPrefers] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const m = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setPrefers(m.matches);
+    const listener = () => setPrefers(m.matches);
+    m.addEventListener('change', listener);
+    return () => m.removeEventListener('change', listener);
+  }, []);
+  return prefers;
+}
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
+
+/** Altura del sheet en PEEK (handle + header). */
+export const SHEET_PEEK_HEIGHT = 96;
 /** Altura máxima del body en MEDIUM antes de scroll (también acotada por viewport). */
 export const SHEET_MEDIUM_MAX_BODY = 280;
 /** Altura máxima del body en EXPANDED antes de scroll (también acotada por viewport). */
@@ -48,6 +70,19 @@ const ACTION_PILL_HEIGHT = 46;
 const ACTION_PILL_GAP = 12;
 const ACTION_ICON_SIZE = 20;
 const BODY_ROW_GAP = 14;
+
+/** Anchors para drag/snap (MOTION_SHEET): collapsed px, medium/expanded % viewport. */
+const ANCHOR_COLLAPSED_PX = SHEET_PEEK_HEIGHT;
+const ANCHOR_MEDIUM_RATIO = 0.6;
+const ANCHOR_EXPANDED_RATIO = 0.9;
+/** Duraciones (ms): collapsed↔medium 280, medium↔expanded 320, programático 300. */
+const DURATION_COLLAPSED_MEDIUM = 280;
+const DURATION_MEDIUM_EXPANDED = 320;
+const DURATION_PROGRAMMATIC = 300;
+const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
+/** Umbral velocity (px/s) para snap por gesto: si |velocityY| > este valor, snap en esa dirección. */
+const VELOCITY_SNAP_THRESHOLD = 400;
+const SNAP_POSITION_THRESHOLD = 0.25;
 
 export type SpotSheetSpot = {
   id: string;
@@ -288,11 +323,16 @@ export function SpotSheet({
   onSheetHeightChange,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
+  const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [mediumBodyContentHeight, setMediumBodyContentHeight] = useState(0);
   const [fullBodyContentHeight, setFullBodyContentHeight] = useState(0);
 
   const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     setHeaderHeight(e.nativeEvent.layout.height);
+  }, []);
+  const onDragAreaLayout = useCallback((e: LayoutChangeEvent) => {
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setDragAreaHeight(h);
   }, []);
   const onMediumBodyLayout = useCallback((e: LayoutChangeEvent) => {
     setMediumBodyContentHeight(e.nativeEvent.layout.height);
@@ -301,13 +341,223 @@ export function SpotSheet({
     setFullBodyContentHeight(e.nativeEvent.layout.height);
   }, []);
 
-  const handleHeaderTap = useCallback(() => {
-    if (state === 'peek') onStateChange('medium');
-    else if (state === 'medium') onStateChange('expanded');
-    else onStateChange('medium');
-  }, [state, onStateChange]);
-
   const colorScheme = useColorScheme();
+  const prefersReducedMotion = usePrefersReducedMotion();
+  const vh = Dimensions.get('window').height;
+  /** Altura estimada del handle (handleRow: SheetHandle padding+bar + marginBottom). */
+  const HANDLE_ROW_ESTIMATE = 20;
+  const collapsedFromMeasure =
+    dragAreaHeight > 0
+      ? HEADER_PADDING_V + dragAreaHeight
+      : headerHeight > 0 && headerHeight < 90
+        ? HEADER_PADDING_V + HANDLE_ROW_ESTIMATE + headerHeight
+        : 0;
+  const collapsedAnchor = collapsedFromMeasure > 0 ? collapsedFromMeasure : ANCHOR_COLLAPSED_PX;
+  const mediumAnchor = Math.round(vh * ANCHOR_MEDIUM_RATIO);
+  const expandedAnchor = Math.round(vh * ANCHOR_EXPANDED_RATIO);
+
+  /** Altura total del contenido (header + body + padding) para no dejar espacio vacío bajo el sheet. */
+  const mediumContentTotal =
+    collapsedAnchor +
+    mediumBodyContentHeight +
+    CONTAINER_PADDING_BOTTOM;
+  const expandedContentTotal =
+    collapsedAnchor +
+    (fullBodyContentHeight || mediumBodyContentHeight) +
+    CONTAINER_PADDING_BOTTOM;
+  const mediumVisible =
+    mediumBodyContentHeight > 0
+      ? Math.min(mediumAnchor, mediumContentTotal)
+      : mediumAnchor;
+  const expandedVisible =
+    (fullBodyContentHeight || mediumBodyContentHeight) > 0
+      ? Math.min(expandedAnchor, expandedContentTotal)
+      : expandedAnchor;
+
+  const translateYToAnchor = useCallback(
+    (s: SheetState) => {
+      if (s === 'expanded') return expandedAnchor - expandedVisible;
+      if (s === 'medium') return expandedAnchor - mediumVisible;
+      return expandedAnchor - collapsedAnchor;
+    },
+    [expandedAnchor, mediumVisible, expandedVisible, collapsedAnchor]
+  );
+
+  /** No mostrar ni animar hasta tener anchors estables (evita "shrink" al montar). */
+  const isMeasured =
+    dragAreaHeight > 0 &&
+    (state === 'peek' ||
+      (state === 'medium' && mediumBodyContentHeight > 0) ||
+      (state === 'expanded' && (fullBodyContentHeight > 0 || mediumBodyContentHeight > 0)));
+
+  const translateYShared = useSharedValue(vh);
+  const opacityShared = useSharedValue(0);
+  const reducedMotionShared = useSharedValue(prefersReducedMotion ? 1 : 0);
+  const expandedAnchorSV = useSharedValue(expandedAnchor);
+  const mediumVisibleSV = useSharedValue(mediumVisible);
+  const expandedVisibleSV = useSharedValue(expandedVisible);
+  const collapsedAnchorSV = useSharedValue(collapsedAnchor);
+  const dragStartTranslateYSV = useSharedValue(0);
+  const isDraggingRef = useRef(false);
+  const hasAnimatedEntranceRef = useRef(false);
+  const lastSpotIdRef = useRef<string | null>(null);
+
+  /** Al cambiar de spot, resetear entrada para que el nuevo sheet entre desde abajo. */
+  useEffect(() => {
+    const id = spot?.id ?? null;
+    if (id !== lastSpotIdRef.current) {
+      lastSpotIdRef.current = id;
+      hasAnimatedEntranceRef.current = false;
+      translateYShared.value = vh;
+      opacityShared.value = 0;
+    }
+  }, [spot?.id, translateYShared, opacityShared]);
+
+  useEffect(() => {
+    reducedMotionShared.value = prefersReducedMotion ? 1 : 0;
+  }, [prefersReducedMotion, reducedMotionShared]);
+  useEffect(() => {
+    expandedAnchorSV.value = expandedAnchor;
+    mediumVisibleSV.value = mediumVisible;
+    expandedVisibleSV.value = expandedVisible;
+    collapsedAnchorSV.value = collapsedAnchor;
+  }, [expandedAnchor, mediumVisible, expandedVisible, collapsedAnchor, expandedAnchorSV, mediumVisibleSV, expandedVisibleSV, collapsedAnchorSV]);
+
+  /** Entrada: solo cuando hay medida; animar desde abajo (offscreen) al anchor del estado. */
+  useEffect(() => {
+    if (!isMeasured || hasAnimatedEntranceRef.current) return;
+    hasAnimatedEntranceRef.current = true;
+    const targetTy = translateYToAnchor(state);
+    const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
+    translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET });
+    opacityShared.value = withTiming(1, { duration, easing: EASING_SHEET });
+  }, [
+    isMeasured,
+    state,
+    translateYToAnchor,
+    translateYShared,
+    opacityShared,
+    prefersReducedMotion,
+  ]);
+
+  /** Sincronizar estado → translateY solo después de la primera entrada. */
+  useEffect(() => {
+    if (!isMeasured || !hasAnimatedEntranceRef.current || isDraggingRef.current) return;
+    const targetTy = translateYToAnchor(state);
+    const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
+    translateYShared.value = withTiming(targetTy, {
+      duration,
+      easing: EASING_SHEET,
+    });
+  }, [isMeasured, state, translateYToAnchor, translateYShared, prefersReducedMotion]);
+
+  useEffect(() => {
+    const h =
+      state === 'peek' ? collapsedAnchor : state === 'medium' ? mediumVisible : expandedVisible;
+    onSheetHeightChange?.(h);
+  }, [state, onSheetHeightChange, collapsedAnchor, mediumVisible, expandedVisible]);
+
+  const handleHeaderTap = useCallback(() => {
+    const next: SheetState =
+      state === 'peek' ? 'medium' : state === 'medium' ? 'expanded' : 'medium';
+    const targetTy = translateYToAnchor(next);
+    const duration = prefersReducedMotion
+      ? 0
+      : (state === 'peek' && next === 'medium') || (state === 'medium' && next === 'expanded')
+        ? DURATION_COLLAPSED_MEDIUM
+        : state === 'expanded' && next === 'medium'
+          ? DURATION_MEDIUM_EXPANDED
+          : DURATION_PROGRAMMATIC;
+    translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET });
+    onStateChange(next);
+    const nextH =
+      next === 'peek' ? collapsedAnchor : next === 'medium' ? mediumVisible : expandedVisible;
+    onSheetHeightChange?.(nextH);
+  }, [
+    state,
+    onStateChange,
+    onSheetHeightChange,
+    translateYToAnchor,
+    collapsedAnchor,
+    mediumVisible,
+    expandedVisible,
+    translateYShared,
+    prefersReducedMotion,
+  ]);
+
+  const setDraggingTrue = useCallback(() => {
+    isDraggingRef.current = true;
+  }, []);
+  const onSnapEnd = useCallback(
+    (nextState: SheetState) => {
+      isDraggingRef.current = false;
+      onStateChange(nextState);
+      const h =
+        nextState === 'peek'
+          ? collapsedAnchor
+          : nextState === 'medium'
+            ? mediumVisible
+            : expandedVisible;
+      onSheetHeightChange?.(h);
+    },
+    [onStateChange, onSheetHeightChange, collapsedAnchor, mediumVisible, expandedVisible]
+  );
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      'worklet';
+      dragStartTranslateYSV.value = translateYShared.value;
+      runOnJS(setDraggingTrue)();
+    })
+    .onUpdate((e) => {
+      'worklet';
+      const maxTy = expandedAnchorSV.value - collapsedAnchorSV.value;
+      const next = dragStartTranslateYSV.value + e.translationY;
+      translateYShared.value = Math.max(0, Math.min(maxTy, next));
+    })
+    .onEnd((e) => {
+      'worklet';
+      const exp = expandedAnchorSV.value;
+      const medVis = mediumVisibleSV.value;
+      const expVis = expandedVisibleSV.value;
+      const col = collapsedAnchorSV.value;
+      const currentTy = translateYShared.value;
+      const visible = exp - currentTy;
+      const velocityY = e.velocityY;
+
+      let nextState: SheetState;
+      const midCollapsedMedium = col + (medVis - col) * 0.5;
+      if (visible <= midCollapsedMedium) {
+        const band = medVis - col;
+        const towardMedium = band > 0 ? (visible - col) / band : 0;
+        if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = 'medium';
+        else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = 'peek';
+        else nextState = towardMedium >= SNAP_POSITION_THRESHOLD ? 'medium' : 'peek';
+      } else {
+        const band = expVis - medVis;
+        const towardExpanded = band > 0 ? (visible - medVis) / band : 0;
+        if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = 'expanded';
+        else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = 'medium';
+        else nextState = towardExpanded >= SNAP_POSITION_THRESHOLD ? 'expanded' : 'medium';
+      }
+
+      const targetTy =
+        nextState === 'expanded'
+          ? exp - expVis
+          : nextState === 'medium'
+            ? exp - medVis
+            : exp - col;
+      const duration = reducedMotionShared.value ? 0 : DURATION_PROGRAMMATIC;
+      translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET }, (finished) => {
+        if (finished) runOnJS(onSnapEnd)(nextState);
+      });
+    });
+
+  const animatedContainerStyle = useAnimatedStyle(() => ({
+    opacity: opacityShared.value,
+    transform: [{ translateY: translateYShared.value }],
+  }));
+
   const isMedium = state === 'medium';
   const isExpanded = state === 'expanded';
   const bodyContentHeight = isMedium
@@ -325,17 +575,6 @@ export function SpotSheet({
     : Math.min(SHEET_MEDIUM_MAX_BODY, maxBodyFromViewport);
   const effectiveBodyHeight = Math.min(bodyContentHeight || 0, maxBodyHeight);
   const bodyNeedsScroll = bodyContentHeight > maxBodyHeight;
-  const totalSheetHeight =
-    spot == null
-      ? 0
-      : state === 'peek'
-        ? SHEET_PEEK_HEIGHT
-        : 12 + headerHeight + effectiveBodyHeight + CONTAINER_PADDING_BOTTOM;
-
-  useEffect(() => {
-    onSheetHeightChange?.(totalSheetHeight);
-  }, [totalSheetHeight, onSheetHeightChange]);
-
   if (spot == null) return null;
 
   const colors = Colors[colorScheme ?? 'light'];
@@ -373,47 +612,54 @@ export function SpotSheet({
   };
 
   return (
-    <View
+    <Animated.View
       style={[
         styles.container,
         {
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
-          height: totalSheetHeight,
+          height: expandedAnchor,
         },
+        animatedContainerStyle,
       ]}
     >
-      {/* Header: siempre visible cuando spot != null */}
-      <View style={styles.headerRow} onLayout={onHeaderLayout}>
-        <IconButton
-          variant="default"
-          size={HEADER_BUTTON_SIZE}
-          onPress={handleShare}
-          accessibilityLabel="Compartir"
-        >
-          <Share2 size={20} color={colors.text} strokeWidth={2} />
-        </IconButton>
-        <Pressable
-          style={styles.titleWrap}
-          onPress={handleHeaderTap}
-          accessibilityLabel={
-            state === 'peek' ? 'Expandir' : state === 'medium' ? 'Expandir más' : 'Reducir'
-          }
-          accessibilityRole="button"
-        >
-          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-            {spot.title}
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.closeButton, { backgroundColor: colors.borderSubtle }]}
-          onPress={onClose}
-          accessibilityLabel="Cerrar"
-          accessibilityRole="button"
-        >
-          <X size={20} color={colors.text} strokeWidth={2} />
-        </Pressable>
-      </View>
+      <GestureDetector gesture={panGesture}>
+        <View style={styles.dragArea} onLayout={onDragAreaLayout}>
+          <View style={styles.handleRow}>
+            <SheetHandle onPress={handleHeaderTap} />
+          </View>
+          <View style={styles.headerRow} onLayout={onHeaderLayout}>
+            <IconButton
+              variant="default"
+              size={HEADER_BUTTON_SIZE}
+              onPress={handleShare}
+              accessibilityLabel="Compartir"
+            >
+              <Share2 size={20} color={colors.text} strokeWidth={2} />
+            </IconButton>
+            <Pressable
+              style={styles.titleWrap}
+              onPress={handleHeaderTap}
+              accessibilityLabel={
+                state === 'peek' ? 'Expandir' : state === 'medium' ? 'Expandir más' : 'Reducir'
+              }
+              accessibilityRole="button"
+            >
+              <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
+                {spot.title}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.closeButton, { backgroundColor: colors.borderSubtle }]}
+              onPress={onClose}
+              accessibilityLabel="Cerrar"
+              accessibilityRole="button"
+            >
+              <X size={20} color={colors.text} strokeWidth={2} />
+            </Pressable>
+          </View>
+        </View>
+      </GestureDetector>
 
       {/* Body MEDIUM: solo descripción + imagen + Guardar/Visitado; altura al contenido; scroll solo si supera max */}
       {isMedium ? (
@@ -516,7 +762,7 @@ export function SpotSheet({
           </View>
         )
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -539,6 +785,12 @@ const styles = StyleSheet.create({
     paddingTop: HEADER_PADDING_V,
     paddingBottom: 16,
     zIndex: 8,
+  },
+  dragArea: {
+    flexShrink: 0,
+  },
+  handleRow: {
+    marginBottom: 4,
   },
   headerRow: {
     flexDirection: 'row',
