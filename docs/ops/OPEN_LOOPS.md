@@ -30,6 +30,7 @@ _(OL-029 cerrado 2026-02-09: contrato Create Spot Inline Sheet en docs/contracts
 _(OL-030 cerrado 2026-02-09: índice canónico de contratos en docs/contracts/INDEX.md; ver bitácora 057.)_
 _(OL-031 cerrado 2026-02-09: open loops hygiene + current state alignment; ver bitácora 058.)_
 _(OL-037 cerrado 2026-02-09: motion spec para ExploreSheet en docs/contracts/MOTION_SHEET.md; ver bitácora 062.)_
+_(OL-044 cerrado 2026-02-09: drag handle affordance en ExploreSheet/SpotSheet/SearchFloating; DS SheetHandle; ver bitácora 063.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 
