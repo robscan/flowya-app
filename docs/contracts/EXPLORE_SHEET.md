@@ -17,6 +17,14 @@
 4. **Search NO se implementa como overlay** si rompe scroll/drag o crea espacio blanco.
 5. Con teclado abierto: UI debe ser **keyboard-safe** (lista visible, sin tapar contenido).
 6. Animaciones/drag: **safe-by-default** (si hay riesgo de regresión, se desactiva animación/drag antes de romper interacción).
+7. **Motion:** duraciones, easing y snap se definen en el spec canónico **MOTION_SHEET.md** (mismo directorio).
+
+### 1.1) Sheet gestures unified (implementación actual)
+
+- **SpotSheet** = 3 estados (collapsed | medium | expanded) + drag/snap según MOTION_SHEET. Anchors: collapsed content-aware, medium/expanded % viewport.
+- **SearchSheet (SearchFloating)** = 2 estados: **closed** (pill en dock) y **open_full** (sheet fullscreen). Entrada/salida programática (translateY) + **drag-to-dismiss** desde handle/header.
+- **Drag solo en handle/header:** nunca en el body/lista. El body tiene scroll propio; el gesto de arrastre del sheet se limita al área de handle + header para evitar conflicto con scroll.
+- **Cuando Search está abierto:** SpotSheet no se renderiza (condición `selectedSpot != null && !searchV2.isOpen` en MapScreenVNext). No se usa pointer-events en un sheet oculto; se evita montar SpotSheet para que no intercepte taps.
 
 ---
 
@@ -164,9 +172,10 @@
 
 ## 7) Layout & medidas (reglas)
 
-- `collapsedHeight`: fija o casi fija (solo header/topbar).
-- `mediumHeight`: rango (min–max) controlado.
-- `expandedHeight`: rango (min–max) controlado.
+- `collapsedHeight`: fija o casi fija (solo header/topbar). Implementación SpotSheet: 96 px.
+- `mediumHeight`: rango (min–max) controlado. Implementación: ~60% del viewport (anchor snap).
+- `expandedHeight`: rango (min–max) controlado. Implementación: ~90% del viewport (anchor snap).
+- Anchors para drag/snap: ver MOTION_SHEET.md; SpotSheet usa translateY + 3 anchors (collapsed px, medium/expanded %).
 
 **Reglas de scroll**
 

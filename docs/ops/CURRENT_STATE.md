@@ -75,6 +75,20 @@
   - Creada carpeta canónica `docs/contracts/` con EXPLORE_SHEET.md, SEARCH_V2.md, DESIGN_SYSTEM_USAGE.md.
   - Contratos describen lo ya definido en ops/definitions; OPEN LOOP explícito donde no hay definición (inventario DS, reglas detalladas de drag). Ver bitácora 049.
 
+- **OL-022 — Long-press create spot en vNext map (DONE, 2026-02-09)**
+  - Causa: onLongPress en MapScreenVNext era no-op `() => {}`. Fix: handler con requireAuthOrModal + navegación a /create-spot con lat/lng y params de mapa. Ver bitácora 051.
+
+- **OL-024 — Confirmación long-press create spot (DONE, 2026-02-09)**
+  - Paridad con v0: modal "¿Crear spot aquí?" con checkbox "No volver a mostrar". Key localStorage: `flowya_create_spot_skip_confirm` (misma que v0). Ver bitácora 052.
+
+- **OL-025 — Create spot prefill coords from query (DONE, 2026-02-09)**
+  - Al abrir /create-spot?lat=...&lng=... el wizard inicializa `location` con esas coords (address null; sin reverse aquí). Ver bitácora 053.
+
+- **OL-026 — Create spot map camera from query (DONE, 2026-02-09)**
+  - Cuando vienen mapLng/mapLat/mapZoom (y opc. mapBearing/mapPitch), el mapa del paso 1 usa esa cámara vía preserveView + initialViewState en MapLocationPicker. Sin params, flujo igual. Ver bitácora 054.
+
+- **OL-028 — No reload / no camera jump (DEFERRED)** — Intento revertido; creación será inline sheet; no prioritario.
+
 - **Alineación UI ↔ RLS (DONE, 2026-02-08)**
   - Editar / Eliminar spot ocultos sin auth; Feedback solo con auth. Guardar pin visible siempre (CTA; sin auth → modal login).
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
@@ -95,6 +109,10 @@
 
 ## Next step sugerido (no obligatorio)
 
- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
+- **Top 1:** Implementar OL-021 (UI spot edit mini-sheets; contrato en docs/contracts/SPOT_EDIT_MINI_SHEETS.md). Hoy no se ejecutó.
+- OL-023 (categorías internas / maki): pendiente; hoy no se ejecutó.
+- Explore quality hardening (docs-only hoy): OL-050..054 formados; no implementados.
+- Create spot inline sheet: contrato listo (docs/contracts/CREATE_SPOT_INLINE_SHEET.md); implementación pendiente.
+- UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.

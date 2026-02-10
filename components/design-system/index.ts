@@ -32,6 +32,8 @@ export type { SpotPinStatus } from './map-pins';
 export { MapUIShowcase } from './map-ui';
 export { SearchResultCard, SearchResultsShowcase } from './search-result-card';
 export type { SearchResultCardProps } from './search-result-card';
+export { SheetHandle } from './sheet-handle';
+export type { SheetHandleProps } from './sheet-handle';
 export { SpotCard, SpotCardMapSelection } from './spot-card';
 export type { SpotCardSpot } from './spot-card';
 export { SpotDetail, SpotDetailShowcase } from './spot-detail';

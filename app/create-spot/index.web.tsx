@@ -110,6 +110,7 @@ export default function CreateSpotScreen() {
 
   const initialLatitude = initial.lat;
   const initialLongitude = initial.lng;
+  /** OL-026: cámara del mapa desde query (mapLng/mapLat/mapZoom + opc. bearing/pitch). Si vienen, MapLocationPicker usa initialViewState con ellos. */
   const initialViewLongitude = initial.mapLng;
   const initialViewLatitude = initial.mapLat;
   const initialViewZoom = initial.mapZoom;
@@ -123,7 +124,13 @@ export default function CreateSpotScreen() {
     initialViewZoom != null;
 
   const [step, setStep] = useState<Step>(1);
-  const [location, setLocation] = useState<MapLocationPickerResult | null>(null);
+  /** OL-025: prefill location from query params (lat/lng) when present so long-press intent is preserved. */
+  const [location, setLocation] = useState<MapLocationPickerResult | null>(() => {
+    if (initial.lat != null && initial.lng != null) {
+      return { latitude: initial.lat, longitude: initial.lng, address: null };
+    }
+    return null;
+  });
   const [title, setTitle] = useState(initial.name);
   const [descriptionShort, setDescriptionShort] = useState('');
   const [descriptionLong, setDescriptionLong] = useState('');
