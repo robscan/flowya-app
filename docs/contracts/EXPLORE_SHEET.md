@@ -165,9 +165,10 @@
 
 ## 7) Layout & medidas (reglas)
 
-- `collapsedHeight`: fija o casi fija (solo header/topbar).
-- `mediumHeight`: rango (min–max) controlado.
-- `expandedHeight`: rango (min–max) controlado.
+- `collapsedHeight`: fija o casi fija (solo header/topbar). Implementación SpotSheet: 96 px.
+- `mediumHeight`: rango (min–max) controlado. Implementación: ~60% del viewport (anchor snap).
+- `expandedHeight`: rango (min–max) controlado. Implementación: ~90% del viewport (anchor snap).
+- Anchors para drag/snap: ver MOTION_SHEET.md; SpotSheet usa translateY + 3 anchors (collapsed px, medium/expanded %).
 
 **Reglas de scroll**
 
