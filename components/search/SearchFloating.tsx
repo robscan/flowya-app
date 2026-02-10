@@ -16,6 +16,7 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
+import { SheetHandle } from '@/components/design-system/sheet-handle';
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Search, X } from 'lucide-react-native';
@@ -82,6 +83,9 @@ export function SearchFloating<T>({
           },
         ]}
       >
+        <View style={styles.handleRow}>
+          <SheetHandle />
+        </View>
         <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
           <View
             style={[
@@ -248,6 +252,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SEARCH_PANEL_PADDING,
     paddingBottom: SEARCH_PANEL_PADDING,
     zIndex: 15,
+  },
+  handleRow: {
+    paddingTop: 8,
+    marginBottom: 4,
   },
   headerRow: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@
 
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { IconButton } from '@/components/design-system/icon-button';
+import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { SpotImage } from '@/components/design-system/spot-image';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -23,8 +24,8 @@ import {
   View,
 } from 'react-native';
 
-/** Altura del sheet en PEEK (solo header). */
-export const SHEET_PEEK_HEIGHT = 76;
+/** Altura del sheet en PEEK (handle + header). */
+export const SHEET_PEEK_HEIGHT = 96;
 /** Altura máxima del body en MEDIUM antes de scroll (también acotada por viewport). */
 export const SHEET_MEDIUM_MAX_BODY = 280;
 /** Altura máxima del body en EXPANDED antes de scroll (también acotada por viewport). */
@@ -383,7 +384,10 @@ export function SpotSheet({
         },
       ]}
     >
-      {/* Header: siempre visible cuando spot != null */}
+      {/* Drag affordance (handle) + header */}
+      <View style={styles.handleRow}>
+        <SheetHandle onPress={handleHeaderTap} />
+      </View>
       <View style={styles.headerRow} onLayout={onHeaderLayout}>
         <IconButton
           variant="default"
@@ -539,6 +543,9 @@ const styles = StyleSheet.create({
     paddingTop: HEADER_PADDING_V,
     paddingBottom: 16,
     zIndex: 8,
+  },
+  handleRow: {
+    marginBottom: 4,
   },
   headerRow: {
     flexDirection: 'row',
