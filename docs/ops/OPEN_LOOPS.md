@@ -34,6 +34,7 @@ _(OL-044 cerrado 2026-02-09: drag handle affordance en ExploreSheet/SpotSheet/Se
 _(OL-036 cerrado 2026-02-09: drag + snap 3 estados (collapsed/medium/expanded) SpotSheet según MOTION_SHEET; ver bitácora 064.)_
 _(OL-046 cerrado 2026-02-09: collapsed anchor content-aware (medida dragArea); ver bitácora 065.)_
 _(OL-039 cerrado 2026-02-09: Search tap-block; no renderizar SpotSheet cuando search abierto; ver bitácora 066.)_
+_(OL-047 cerrado 2026-02-09: Search sheet drag + entry/exit animation (root+panel translateY); ver bitácora 067.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 
