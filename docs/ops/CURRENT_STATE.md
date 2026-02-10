@@ -109,7 +109,8 @@
 
 ## Next step sugerido (no obligatorio)
 
-- Implementar OL-021 (UI spot edit mini-sheets).
+- **Top 1:** Implementar OL-021 (UI spot edit mini-sheets; contrato en docs/contracts/SPOT_EDIT_MINI_SHEETS.md).
+- Create spot inline sheet: contrato listo (docs/contracts/CREATE_SPOT_INLINE_SHEET.md); implementación pendiente.
 - UX copy: mensaje humano previo al login (“Inicia sesión para crear spots”).
 - Definir heurísticas simples de spam (volumen por `user_id`).
 - Continuar con flows / producto.

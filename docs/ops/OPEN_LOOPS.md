@@ -20,12 +20,15 @@
 
 ---
 
+### Cerrados hoy (2026-02-09)
+
 _(OL-022 cerrado 2026-02-09: long-press create spot restaurado en vNext map; ver bitácora 051.)_
 _(OL-024 cerrado 2026-02-09: modal confirmación long-press + "No volver a mostrar"; ver bitácora 052.)_
 _(OL-025 cerrado 2026-02-09: create-spot prefill coords desde query lat/lng; ver bitácora 053.)_
 _(OL-026 cerrado 2026-02-09: create-spot respeta cámara mapLng/mapLat/mapZoom desde query; ver bitácora 054.)_
 _(OL-029 cerrado 2026-02-09: contrato Create Spot Inline Sheet en docs/contracts/CREATE_SPOT_INLINE_SHEET.md; ver bitácora 056.)_
 _(OL-030 cerrado 2026-02-09: índice canónico de contratos en docs/contracts/INDEX.md; ver bitácora 057.)_
+_(OL-031 cerrado 2026-02-09: open loops hygiene + current state alignment; ver bitácora 058.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 
