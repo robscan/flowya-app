@@ -1,35 +1,39 @@
 /**
- * SearchFloating — Buscador flotante transversal (sin sheet).
- * Encapsula SearchInputV2 + SearchResultsListV2 + backdrop.
- * El padre inyecta el controller (useSearchControllerV2) y los datos de contexto.
- *
- * Contrato (pensando en futuro search_core):
- * - controller: retorno de useSearchControllerV2<T> (query, results, setOpen, onSelect, etc.)
- * - defaultItems: items a mostrar cuando query está vacío (ej. "Cercanos")
- * - recentQueries / recentViewedItems: para estado pre-búsqueda (< 3 chars)
- * - renderItem: (item: T) => ReactNode
- * - scope: contexto de sección (ej. "explorar"); por ahora no cambia ranking
- * - stageLabel: etiqueta de etapa (ej. "En esta zona")
- * - emptyMessage / onCreateLabel: mensajes y CTA crear
+ * SearchFloating — Sheet de búsqueda (Explore vNext).
+ * Patrón canónico: root fijo bottom + panel con translateY (MOTION_SHEET).
+ * Entry/exit animado; drag en handle/header (collapsed ↔ expanded); sin viewport drag.
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect } from 'react';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  Easing,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { SearchResultsListV2 } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
 
 const SEARCH_PANEL_PADDING = 16;
-const SHEET_TOP_INSET = 24;
 const SHEET_BORDER_RADIUS = 24;
 const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
 const HEADER_TOP_PADDING = 16;
+const SEARCH_COLLAPSED_ANCHOR = 120;
+const SEARCH_EXPANDED_RATIO = 0.85;
+const SEARCH_DURATION_MS = 300;
+const SEARCH_EASING = Easing.bezier(0.4, 0, 0.2, 1);
+const VELOCITY_SNAP = 400;
+const SNAP_THRESHOLD = 0.25;
 
 export function SearchFloating<T>({
   controller,
@@ -47,8 +51,78 @@ export function SearchFloating<T>({
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const topInset = insetsProp?.top ?? 0;
-  const sheetTop = topInset + SHEET_TOP_INSET;
+  const vh = Dimensions.get('window').height;
+  const expandedAnchor = Math.round(vh * SEARCH_EXPANDED_RATIO);
+  const collapsedAnchor = SEARCH_COLLAPSED_ANCHOR;
+  const maxTranslateY = expandedAnchor - collapsedAnchor;
+
+  const translateYShared = useSharedValue(expandedAnchor);
+  const dragStartY = useSharedValue(0);
+  const expandedAnchorSV = useSharedValue(expandedAnchor);
+  const collapsedAnchorSV = useSharedValue(collapsedAnchor);
+
+  useEffect(() => {
+    expandedAnchorSV.value = expandedAnchor;
+    collapsedAnchorSV.value = collapsedAnchor;
+  }, [expandedAnchor, collapsedAnchor, expandedAnchorSV, collapsedAnchorSV]);
+
+  useEffect(() => {
+    if (!controller.isOpen) return;
+    translateYShared.value = withTiming(0, {
+      duration: SEARCH_DURATION_MS,
+      easing: SEARCH_EASING,
+    });
+  }, [controller.isOpen, translateYShared]);
+
+  const doClose = useCallback(() => controller.setOpen(false), [controller]);
+  const requestClose = useCallback(() => {
+    translateYShared.value = withTiming(
+      expandedAnchor,
+      { duration: SEARCH_DURATION_MS, easing: SEARCH_EASING },
+      (finished) => {
+        if (finished) runOnJS(doClose)();
+      }
+    );
+  }, [doClose, expandedAnchor, translateYShared]);
+
+  const panGesture = Gesture.Pan()
+    .onStart(() => {
+      'worklet';
+      dragStartY.value = translateYShared.value;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      const next = dragStartY.value + e.translationY;
+      translateYShared.value = Math.max(0, Math.min(maxTranslateY, next));
+    })
+    .onEnd((e) => {
+      'worklet';
+      const exp = expandedAnchorSV.value;
+      const col = collapsedAnchorSV.value;
+      const currentTy = translateYShared.value;
+      const visible = exp - currentTy;
+      const velocityY = e.velocityY;
+      if (visible < col * 0.5 && velocityY > VELOCITY_SNAP) {
+        translateYShared.value = withTiming(
+          exp,
+          { duration: SEARCH_DURATION_MS, easing: SEARCH_EASING },
+          (finished) => {
+            if (finished) runOnJS(doClose)();
+          }
+        );
+        return;
+      }
+      const towardExpanded = visible >= col + (exp - col) * SNAP_THRESHOLD;
+      const targetTy = towardExpanded ? 0 : exp - col;
+      translateYShared.value = withTiming(targetTy, {
+        duration: SEARCH_DURATION_MS,
+        easing: SEARCH_EASING,
+      });
+    });
+
+  const panelAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateYShared.value }],
+  }));
 
   const q = controller.query.trim();
   const len = q.length;
@@ -70,55 +144,69 @@ export function SearchFloating<T>({
             pointerEvents: 'auto',
           },
         ]}
-        onPress={() => controller.setOpen(false)}
+        onPress={requestClose}
       />
       <View
         style={[
-          styles.sheet,
+          styles.sheetRoot,
           {
-            top: sheetTop,
+            height: expandedAnchor,
             backgroundColor: colors.backgroundElevated,
             borderColor: colors.borderSubtle,
-            pointerEvents: 'box-none',
           },
         ]}
       >
-        <View style={styles.handleRow}>
-          <SheetHandle />
-        </View>
-        <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
-          <View
-            style={[
-              styles.searchPill,
-              {
-                backgroundColor: colors.background,
-                borderColor: colors.borderSubtle,
-              },
-            ]}
-          >
-            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-            <SearchInputV2
-              value={controller.query}
-              onChangeText={controller.setQuery}
-              onClear={controller.clear}
-              placeholder="Buscar lugares…"
-              autoFocus
-              embedded
-            />
-          </View>
-          <Pressable
-            style={({ pressed }) => [
-              styles.closeButton,
-              { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-            ]}
-            onPress={() => controller.setOpen(false)}
-            accessibilityLabel="Cerrar búsqueda"
-            accessibilityRole="button"
-          >
-            <X size={24} color={colors.text} strokeWidth={2} />
-          </Pressable>
-        </View>
-        <View style={styles.resultsArea}>
+        <Animated.View
+          style={[
+            styles.sheetPanel,
+            {
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              height: expandedAnchor,
+            },
+            panelAnimatedStyle,
+          ]}
+        >
+          <GestureDetector gesture={panGesture}>
+            <View style={styles.dragArea}>
+              <View style={styles.handleRow}>
+                <SheetHandle />
+              </View>
+              <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
+                <View
+                  style={[
+                    styles.searchPill,
+                    {
+                      backgroundColor: colors.background,
+                      borderColor: colors.borderSubtle,
+                    },
+                  ]}
+                >
+                  <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+                  <SearchInputV2
+                    value={controller.query}
+                    onChangeText={controller.setQuery}
+                    onClear={controller.clear}
+                    placeholder="Buscar lugares…"
+                    autoFocus
+                    embedded
+                  />
+                </View>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.closeButton,
+                    { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                  ]}
+                  onPress={requestClose}
+                  accessibilityLabel="Cerrar búsqueda"
+                  accessibilityRole="button"
+                >
+                  <X size={24} color={colors.text} strokeWidth={2} />
+                </Pressable>
+              </View>
+            </View>
+          </GestureDetector>
+          <View style={styles.resultsArea}>
           {isEmpty && (
             <ScrollView
               style={styles.resultsScroll}
@@ -230,7 +318,8 @@ export function SearchFloating<T>({
               </View>
             </>
           )}
-        </View>
+          </View>
+        </Animated.View>
       </View>
     </>
   );
@@ -240,18 +329,32 @@ const styles = StyleSheet.create({
   backdrop: {
     zIndex: 10,
   },
-  sheet: {
+  sheetRoot: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
+    overflow: 'hidden',
+    borderTopLeftRadius: SHEET_BORDER_RADIUS,
+    borderTopRightRadius: SHEET_BORDER_RADIUS,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    zIndex: 15,
+  },
+  sheetPanel: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
     borderTopLeftRadius: SHEET_BORDER_RADIUS,
     borderTopRightRadius: SHEET_BORDER_RADIUS,
     borderWidth: 1,
     borderBottomWidth: 0,
     paddingHorizontal: SEARCH_PANEL_PADDING,
     paddingBottom: SEARCH_PANEL_PADDING,
-    zIndex: 15,
+  },
+  dragArea: {
+    flexShrink: 0,
   },
   handleRow: {
     paddingTop: 8,
