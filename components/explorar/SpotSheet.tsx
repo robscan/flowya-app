@@ -331,7 +331,8 @@ export function SpotSheet({
     setHeaderHeight(e.nativeEvent.layout.height);
   }, []);
   const onDragAreaLayout = useCallback((e: LayoutChangeEvent) => {
-    setDragAreaHeight(e.nativeEvent.layout.height);
+    const h = e.nativeEvent.layout.height;
+    if (h > 0) setDragAreaHeight(h);
   }, []);
   const onMediumBodyLayout = useCallback((e: LayoutChangeEvent) => {
     setMediumBodyContentHeight(e.nativeEvent.layout.height);
@@ -343,53 +344,118 @@ export function SpotSheet({
   const colorScheme = useColorScheme();
   const prefersReducedMotion = usePrefersReducedMotion();
   const vh = Dimensions.get('window').height;
-  const collapsedAnchor =
+  /** Altura estimada del handle (handleRow: SheetHandle padding+bar + marginBottom). */
+  const HANDLE_ROW_ESTIMATE = 20;
+  const collapsedFromMeasure =
     dragAreaHeight > 0
       ? HEADER_PADDING_V + dragAreaHeight
-      : ANCHOR_COLLAPSED_PX;
+      : headerHeight > 0 && headerHeight < 90
+        ? HEADER_PADDING_V + HANDLE_ROW_ESTIMATE + headerHeight
+        : 0;
+  const collapsedAnchor = collapsedFromMeasure > 0 ? collapsedFromMeasure : ANCHOR_COLLAPSED_PX;
   const mediumAnchor = Math.round(vh * ANCHOR_MEDIUM_RATIO);
   const expandedAnchor = Math.round(vh * ANCHOR_EXPANDED_RATIO);
 
+  /** Altura total del contenido (header + body + padding) para no dejar espacio vacío bajo el sheet. */
+  const mediumContentTotal =
+    collapsedAnchor +
+    mediumBodyContentHeight +
+    CONTAINER_PADDING_BOTTOM;
+  const expandedContentTotal =
+    collapsedAnchor +
+    (fullBodyContentHeight || mediumBodyContentHeight) +
+    CONTAINER_PADDING_BOTTOM;
+  const mediumVisible =
+    mediumBodyContentHeight > 0
+      ? Math.min(mediumAnchor, mediumContentTotal)
+      : mediumAnchor;
+  const expandedVisible =
+    (fullBodyContentHeight || mediumBodyContentHeight) > 0
+      ? Math.min(expandedAnchor, expandedContentTotal)
+      : expandedAnchor;
+
   const translateYToAnchor = useCallback(
     (s: SheetState) => {
-      if (s === 'expanded') return 0;
-      if (s === 'medium') return expandedAnchor - mediumAnchor;
+      if (s === 'expanded') return expandedAnchor - expandedVisible;
+      if (s === 'medium') return expandedAnchor - mediumVisible;
       return expandedAnchor - collapsedAnchor;
     },
-    [expandedAnchor, mediumAnchor, collapsedAnchor]
+    [expandedAnchor, mediumVisible, expandedVisible, collapsedAnchor]
   );
 
-  const translateYShared = useSharedValue(translateYToAnchor(state));
+  /** No mostrar ni animar hasta tener anchors estables (evita "shrink" al montar). */
+  const isMeasured =
+    dragAreaHeight > 0 &&
+    (state === 'peek' ||
+      (state === 'medium' && mediumBodyContentHeight > 0) ||
+      (state === 'expanded' && (fullBodyContentHeight > 0 || mediumBodyContentHeight > 0)));
+
+  const translateYShared = useSharedValue(vh);
+  const opacityShared = useSharedValue(0);
   const reducedMotionShared = useSharedValue(prefersReducedMotion ? 1 : 0);
   const expandedAnchorSV = useSharedValue(expandedAnchor);
-  const mediumAnchorSV = useSharedValue(mediumAnchor);
+  const mediumVisibleSV = useSharedValue(mediumVisible);
+  const expandedVisibleSV = useSharedValue(expandedVisible);
   const collapsedAnchorSV = useSharedValue(collapsedAnchor);
   const dragStartTranslateYSV = useSharedValue(0);
   const isDraggingRef = useRef(false);
+  const hasAnimatedEntranceRef = useRef(false);
+  const lastSpotIdRef = useRef<string | null>(null);
+
+  /** Al cambiar de spot, resetear entrada para que el nuevo sheet entre desde abajo. */
+  useEffect(() => {
+    const id = spot?.id ?? null;
+    if (id !== lastSpotIdRef.current) {
+      lastSpotIdRef.current = id;
+      hasAnimatedEntranceRef.current = false;
+      translateYShared.value = vh;
+      opacityShared.value = 0;
+    }
+  }, [spot?.id, translateYShared, opacityShared]);
+
   useEffect(() => {
     reducedMotionShared.value = prefersReducedMotion ? 1 : 0;
   }, [prefersReducedMotion, reducedMotionShared]);
   useEffect(() => {
     expandedAnchorSV.value = expandedAnchor;
-    mediumAnchorSV.value = mediumAnchor;
+    mediumVisibleSV.value = mediumVisible;
+    expandedVisibleSV.value = expandedVisible;
     collapsedAnchorSV.value = collapsedAnchor;
-  }, [expandedAnchor, mediumAnchor, collapsedAnchor, expandedAnchorSV, mediumAnchorSV, collapsedAnchorSV]);
+  }, [expandedAnchor, mediumVisible, expandedVisible, collapsedAnchor, expandedAnchorSV, mediumVisibleSV, expandedVisibleSV, collapsedAnchorSV]);
 
+  /** Entrada: solo cuando hay medida; animar desde abajo (offscreen) al anchor del estado. */
   useEffect(() => {
-    if (isDraggingRef.current) return;
+    if (!isMeasured || hasAnimatedEntranceRef.current) return;
+    hasAnimatedEntranceRef.current = true;
+    const targetTy = translateYToAnchor(state);
+    const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
+    translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET });
+    opacityShared.value = withTiming(1, { duration, easing: EASING_SHEET });
+  }, [
+    isMeasured,
+    state,
+    translateYToAnchor,
+    translateYShared,
+    opacityShared,
+    prefersReducedMotion,
+  ]);
+
+  /** Sincronizar estado → translateY solo después de la primera entrada. */
+  useEffect(() => {
+    if (!isMeasured || !hasAnimatedEntranceRef.current || isDraggingRef.current) return;
     const targetTy = translateYToAnchor(state);
     const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
     translateYShared.value = withTiming(targetTy, {
       duration,
       easing: EASING_SHEET,
     });
-  }, [state, translateYToAnchor, expandedAnchor, mediumAnchor, collapsedAnchor, translateYShared, prefersReducedMotion]);
+  }, [isMeasured, state, translateYToAnchor, translateYShared, prefersReducedMotion]);
 
   useEffect(() => {
     const h =
-      state === 'peek' ? collapsedAnchor : state === 'medium' ? mediumAnchor : expandedAnchor;
+      state === 'peek' ? collapsedAnchor : state === 'medium' ? mediumVisible : expandedVisible;
     onSheetHeightChange?.(h);
-  }, [state, onSheetHeightChange, collapsedAnchor, mediumAnchor, expandedAnchor]);
+  }, [state, onSheetHeightChange, collapsedAnchor, mediumVisible, expandedVisible]);
 
   const handleHeaderTap = useCallback(() => {
     const next: SheetState =
@@ -404,7 +470,8 @@ export function SpotSheet({
           : DURATION_PROGRAMMATIC;
     translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET });
     onStateChange(next);
-    const nextH = next === 'peek' ? collapsedAnchor : next === 'medium' ? mediumAnchor : expandedAnchor;
+    const nextH =
+      next === 'peek' ? collapsedAnchor : next === 'medium' ? mediumVisible : expandedVisible;
     onSheetHeightChange?.(nextH);
   }, [
     state,
@@ -412,8 +479,8 @@ export function SpotSheet({
     onSheetHeightChange,
     translateYToAnchor,
     collapsedAnchor,
-    mediumAnchor,
-    expandedAnchor,
+    mediumVisible,
+    expandedVisible,
     translateYShared,
     prefersReducedMotion,
   ]);
@@ -426,10 +493,14 @@ export function SpotSheet({
       isDraggingRef.current = false;
       onStateChange(nextState);
       const h =
-        nextState === 'peek' ? collapsedAnchor : nextState === 'medium' ? mediumAnchor : expandedAnchor;
+        nextState === 'peek'
+          ? collapsedAnchor
+          : nextState === 'medium'
+            ? mediumVisible
+            : expandedVisible;
       onSheetHeightChange?.(h);
     },
-    [onStateChange, onSheetHeightChange, collapsedAnchor, mediumAnchor, expandedAnchor]
+    [onStateChange, onSheetHeightChange, collapsedAnchor, mediumVisible, expandedVisible]
   );
 
   const panGesture = Gesture.Pan()
@@ -447,27 +518,35 @@ export function SpotSheet({
     .onEnd((e) => {
       'worklet';
       const exp = expandedAnchorSV.value;
-      const med = mediumAnchorSV.value;
+      const medVis = mediumVisibleSV.value;
+      const expVis = expandedVisibleSV.value;
       const col = collapsedAnchorSV.value;
       const currentTy = translateYShared.value;
       const visible = exp - currentTy;
       const velocityY = e.velocityY;
 
       let nextState: SheetState;
-      if (visible <= col + (med - col) * 0.5) {
-        const towardMedium = (visible - col) / (med - col);
+      const midCollapsedMedium = col + (medVis - col) * 0.5;
+      if (visible <= midCollapsedMedium) {
+        const band = medVis - col;
+        const towardMedium = band > 0 ? (visible - col) / band : 0;
         if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = 'medium';
         else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = 'peek';
         else nextState = towardMedium >= SNAP_POSITION_THRESHOLD ? 'medium' : 'peek';
       } else {
-        const towardExpanded = (visible - med) / (exp - med);
+        const band = expVis - medVis;
+        const towardExpanded = band > 0 ? (visible - medVis) / band : 0;
         if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = 'expanded';
         else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = 'medium';
         else nextState = towardExpanded >= SNAP_POSITION_THRESHOLD ? 'expanded' : 'medium';
       }
 
       const targetTy =
-        nextState === 'expanded' ? 0 : nextState === 'medium' ? exp - med : exp - col;
+        nextState === 'expanded'
+          ? exp - expVis
+          : nextState === 'medium'
+            ? exp - medVis
+            : exp - col;
       const duration = reducedMotionShared.value ? 0 : DURATION_PROGRAMMATIC;
       translateYShared.value = withTiming(targetTy, { duration, easing: EASING_SHEET }, (finished) => {
         if (finished) runOnJS(onSnapEnd)(nextState);
@@ -475,6 +554,7 @@ export function SpotSheet({
     });
 
   const animatedContainerStyle = useAnimatedStyle(() => ({
+    opacity: opacityShared.value,
     transform: [{ translateY: translateYShared.value }],
   }));
 

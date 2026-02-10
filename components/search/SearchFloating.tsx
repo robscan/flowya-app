@@ -1,7 +1,7 @@
 /**
  * SearchFloating — Sheet de búsqueda (Explore vNext).
- * Patrón canónico: root fijo bottom + panel con translateY (MOTION_SHEET).
- * Entry/exit animado; drag en handle/header (collapsed ↔ expanded); sin viewport drag.
+ * Dos estados: closed (pill) | open_full (sheet full-height).
+ * Animación programática + drag-to-dismiss desde handle/header. Keyboard-safe.
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -9,7 +9,16 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import React, { useCallback, useEffect } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -28,12 +37,12 @@ const SHEET_BORDER_RADIUS = 24;
 const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
 const HEADER_TOP_PADDING = 16;
-const SEARCH_COLLAPSED_ANCHOR = 120;
-const SEARCH_EXPANDED_RATIO = 0.85;
 const SEARCH_DURATION_MS = 300;
 const SEARCH_EASING = Easing.bezier(0.4, 0, 0.2, 1);
-const VELOCITY_SNAP = 400;
-const SNAP_THRESHOLD = 0.25;
+const DRAG_CLOSE_THRESHOLD = 0.25;
+const VELOCITY_CLOSE = 800;
+const SEARCH_DISMISS_MS = 280;
+const SEARCH_SNAP_BACK_MS = 220;
 
 export function SearchFloating<T>({
   controller,
@@ -51,20 +60,16 @@ export function SearchFloating<T>({
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const vh = Dimensions.get('window').height;
-  const expandedAnchor = Math.round(vh * SEARCH_EXPANDED_RATIO);
-  const collapsedAnchor = SEARCH_COLLAPSED_ANCHOR;
-  const maxTranslateY = expandedAnchor - collapsedAnchor;
+  const screenHeight = Dimensions.get('window').height;
 
-  const translateYShared = useSharedValue(expandedAnchor);
+  const translateYShared = useSharedValue(screenHeight);
   const dragStartY = useSharedValue(0);
-  const expandedAnchorSV = useSharedValue(expandedAnchor);
-  const collapsedAnchorSV = useSharedValue(collapsedAnchor);
 
-  useEffect(() => {
-    expandedAnchorSV.value = expandedAnchor;
-    collapsedAnchorSV.value = collapsedAnchor;
-  }, [expandedAnchor, collapsedAnchor, expandedAnchorSV, collapsedAnchorSV]);
+  const blurActiveElement = useCallback(() => {
+    if (typeof document !== 'undefined' && document.activeElement?.blur) {
+      (document.activeElement as HTMLElement).blur();
+    }
+  }, []);
 
   useEffect(() => {
     if (!controller.isOpen) return;
@@ -74,55 +79,62 @@ export function SearchFloating<T>({
     });
   }, [controller.isOpen, translateYShared]);
 
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (controller.isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = '';
+      };
+    }
+  }, [controller.isOpen]);
+
   const doClose = useCallback(() => controller.setOpen(false), [controller]);
   const requestClose = useCallback(() => {
     translateYShared.value = withTiming(
-      expandedAnchor,
+      screenHeight,
       { duration: SEARCH_DURATION_MS, easing: SEARCH_EASING },
       (finished) => {
         if (finished) runOnJS(doClose)();
       }
     );
-  }, [doClose, expandedAnchor, translateYShared]);
+  }, [doClose, screenHeight, translateYShared]);
+
+  const panelAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: translateYShared.value }],
+  }));
 
   const panGesture = Gesture.Pan()
     .onStart(() => {
       'worklet';
       dragStartY.value = translateYShared.value;
+      runOnJS(blurActiveElement)();
     })
     .onUpdate((e) => {
       'worklet';
       const next = dragStartY.value + e.translationY;
-      translateYShared.value = Math.max(0, Math.min(maxTranslateY, next));
+      translateYShared.value = Math.max(0, Math.min(screenHeight, next));
     })
     .onEnd((e) => {
       'worklet';
-      const exp = expandedAnchorSV.value;
-      const col = collapsedAnchorSV.value;
-      const currentTy = translateYShared.value;
-      const visible = exp - currentTy;
-      const velocityY = e.velocityY;
-      if (visible < col * 0.5 && velocityY > VELOCITY_SNAP) {
+      const current = translateYShared.value;
+      const shouldClose =
+        current > screenHeight * DRAG_CLOSE_THRESHOLD || e.velocityY > VELOCITY_CLOSE;
+      if (shouldClose) {
         translateYShared.value = withTiming(
-          exp,
-          { duration: SEARCH_DURATION_MS, easing: SEARCH_EASING },
+          screenHeight,
+          { duration: SEARCH_DISMISS_MS, easing: SEARCH_EASING },
           (finished) => {
             if (finished) runOnJS(doClose)();
           }
         );
-        return;
+      } else {
+        translateYShared.value = withTiming(0, {
+          duration: SEARCH_SNAP_BACK_MS,
+          easing: SEARCH_EASING,
+        });
       }
-      const towardExpanded = visible >= col + (exp - col) * SNAP_THRESHOLD;
-      const targetTy = towardExpanded ? 0 : exp - col;
-      translateYShared.value = withTiming(targetTy, {
-        duration: SEARCH_DURATION_MS,
-        easing: SEARCH_EASING,
-      });
     });
-
-  const panelAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateYShared.value }],
-  }));
 
   const q = controller.query.trim();
   const len = q.length;
@@ -134,45 +146,28 @@ export function SearchFloating<T>({
 
   return (
     <>
-      <Pressable
-        style={[
-          StyleSheet.absoluteFill,
-          styles.backdrop,
-          {
-            backgroundColor:
-              colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.72)',
-            pointerEvents: 'auto',
-          },
-        ]}
-        onPress={requestClose}
-      />
       <View
-        style={[
-          styles.sheetRoot,
-          {
-            height: expandedAnchor,
-            backgroundColor: colors.backgroundElevated,
-            borderColor: colors.borderSubtle,
-          },
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.sheetPanel,
-            {
-              backgroundColor: colors.backgroundElevated,
-              borderColor: colors.borderSubtle,
-              height: expandedAnchor,
-            },
-            panelAnimatedStyle,
-          ]}
-        >
-          <GestureDetector gesture={panGesture}>
-            <View style={styles.dragArea}>
-              <View style={styles.handleRow}>
-                <SheetHandle />
-              </View>
-              <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
+        style={[StyleSheet.absoluteFill, styles.scrim]}
+        pointerEvents="none"
+      />
+      <View style={styles.sheetWrapper} pointerEvents="box-none">
+        <View style={styles.sheetRoot}>
+          <Animated.View
+            style={[
+              styles.sheetPanel,
+              {
+                backgroundColor: colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+              },
+              panelAnimatedStyle,
+            ]}
+          >
+            <GestureDetector gesture={panGesture}>
+              <View style={styles.dragArea} collapsable={false}>
+                <View style={styles.handleRow}>
+                  <SheetHandle />
+                </View>
+                <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
                 <View
                   style={[
                     styles.searchPill,
@@ -205,8 +200,12 @@ export function SearchFloating<T>({
                 </Pressable>
               </View>
             </View>
-          </GestureDetector>
-          <View style={styles.resultsArea}>
+            </GestureDetector>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoid}
+          >
+            <View style={styles.resultsArea}>
           {isEmpty && (
             <ScrollView
               style={styles.resultsScroll}
@@ -319,33 +318,45 @@ export function SearchFloating<T>({
             </>
           )}
           </View>
-        </Animated.View>
+          </KeyboardAvoidingView>
+          </Animated.View>
+        </View>
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  scrim: {
+    backgroundColor: 'transparent',
+    opacity: 0,
     zIndex: 10,
+  },
+  sheetWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
+    zIndex: 15,
   },
   sheetRoot: {
     position: 'absolute',
     left: 0,
     right: 0,
+    top: 0,
     bottom: 0,
     overflow: 'hidden',
-    borderTopLeftRadius: SHEET_BORDER_RADIUS,
-    borderTopRightRadius: SHEET_BORDER_RADIUS,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    zIndex: 15,
+    backgroundColor: 'transparent',
   },
   sheetPanel: {
     position: 'absolute',
     left: 0,
     right: 0,
     top: 0,
+    bottom: 0,
     borderTopLeftRadius: SHEET_BORDER_RADIUS,
     borderTopRightRadius: SHEET_BORDER_RADIUS,
     borderWidth: 1,
@@ -384,6 +395,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  keyboardAvoid: {
+    flex: 1,
+    minHeight: 0,
   },
   resultsArea: {
     flex: 1,

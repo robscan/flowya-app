@@ -3,12 +3,17 @@
  * Threshold 3 chars se aplica en el controller; este componente solo muestra valor y clear.
  */
 
-import { X } from 'lucide-react-native';
-import React from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { X } from "lucide-react-native";
+import React from "react";
+import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
-import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+    Colors,
+    Radius,
+    Spacing,
+    WebTouchManipulation,
+} from "@/constants/theme";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export type SearchInputV2Props = {
   value: string;
@@ -26,14 +31,14 @@ export function SearchInputV2({
   value,
   onChangeText,
   onClear,
-  placeholder = 'Buscar lugares…',
+  placeholder = "Buscar lugares…",
   autoFocus = false,
   editable = true,
-  accessibilityLabel = 'Buscar',
+  accessibilityLabel = "Buscar",
   embedded = false,
 }: SearchInputV2Props) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const clearVisible = value.length > 0;
 
   return (
@@ -42,8 +47,10 @@ export function SearchInputV2({
         style={[
           styles.input,
           {
-            backgroundColor: embedded ? 'transparent' : colors.backgroundElevated,
-            borderColor: embedded ? 'transparent' : colors.borderSubtle,
+            backgroundColor: embedded
+              ? "transparent"
+              : colors.backgroundElevated,
+            borderColor: embedded ? "transparent" : colors.borderSubtle,
             color: colors.text,
             paddingRight: clearVisible ? 44 : Spacing.base,
           },
@@ -78,7 +85,7 @@ export function SearchInputV2({
 
 const styles = StyleSheet.create({
   wrap: {
-    position: 'relative',
+    position: "relative",
   },
   wrapEmbedded: {
     flex: 1,
@@ -99,13 +106,13 @@ const styles = StyleSheet.create({
   },
   /** Clear integrado: sin caja ni backgroundColor propio; solo ícono sobre el input. */
   clearButton: {
-    position: 'absolute',
+    position: "absolute",
     right: Spacing.sm,
     top: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     width: 36,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
 });

@@ -78,3 +78,23 @@
 - Snap: ≥25% recorrido o velocity clara → siguiente estado; si no, estado actual.
 - Reduced motion: duración 0 o ≤100 ms.
 - Guardrails: translateY preferido; keyboard-safe; un solo driver por transición.
+
+---
+
+## 8) SearchSheet (2-state)
+
+SearchSheet (SearchFloating) tiene solo **closed** y **open_full**. No hay estados intermedios (collapsed/medium).
+
+### Duraciones open/close
+
+- **Abrir:** translateY de `screenHeight` → `0`: **300 ms**, easing canónico (cubic-bezier 0.4, 0, 0.2, 1).
+- **Cerrar (programático o drag-to-dismiss):** translateY de `0` → `screenHeight`: **300 ms** (programático) o **280 ms** (al soltar tras drag), mismo easing.
+
+### Threshold drag-to-dismiss
+
+- **Por posición:** si el usuario suelta habiendo arrastrado **≥ 25%** del alto de pantalla hacia abajo → cerrar; si no → snap back a abierto (translateY = 0).
+- **Por velocity:** si **velocityY > 800** (px/s) hacia abajo al soltar → cerrar aunque la posición no llegue al 25%.
+
+### Reduced motion
+
+- Si `prefers-reduced-motion`: duración 0 o mínima (misma regla que §5).
