@@ -8,8 +8,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { IconButton } from '@/components/design-system/icon-button';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
@@ -21,8 +20,6 @@ const PANEL_PADDING_TOP = 16;
 const PANEL_PADDING_BOTTOM = 0;
 const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
-const ENTRANCE_DURATION_MS = 300;
-const ENTRANCE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 export function SearchOverlayWeb<T>({
   controller,
@@ -63,27 +60,11 @@ export function SearchOverlayWeb<T>({
   }, []);
 
   const [viewportRect, setViewportRect] = useState(() => getViewportRect());
-  const translateY = useSharedValue(viewportRect.height || Dimensions.get('window').height);
-
-  useEffect(() => {
-    if (!controller.isOpen) return;
-    const rect = getViewportRect();
-    translateY.value = rect.height;
-    translateY.value = withTiming(0, {
-      duration: ENTRANCE_DURATION_MS,
-      easing: ENTRANCE_EASING,
-    });
-  }, [controller.isOpen, getViewportRect, translateY]);
-
-  const panelAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
     const update = () => setViewportRect(getViewportRect());
-    update();
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
     return () => {
@@ -91,6 +72,11 @@ export function SearchOverlayWeb<T>({
       vv.removeEventListener('scroll', update);
     };
   }, [getViewportRect]);
+
+  useEffect(() => {
+    if (!controller.isOpen) return;
+    setViewportRect(getViewportRect());
+  }, [controller.isOpen, getViewportRect]);
 
   useEffect(() => {
     if (!controller.isOpen) return;
@@ -161,7 +147,7 @@ export function SearchOverlayWeb<T>({
       pointerEvents="auto"
     >
       <Pressable style={styles.backdrop} onPress={onBackdropPress} />
-      <Animated.View
+      <View
         style={[
           styles.panel,
           {
@@ -171,7 +157,6 @@ export function SearchOverlayWeb<T>({
             paddingLeft: PANEL_PADDING_H,
             paddingRight: PANEL_PADDING_H,
           },
-          panelAnimatedStyle,
         ]}
         pointerEvents="box-none"
       >
@@ -297,7 +282,7 @@ export function SearchOverlayWeb<T>({
             </>
           )}
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
