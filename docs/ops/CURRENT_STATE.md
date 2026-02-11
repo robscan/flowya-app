@@ -47,6 +47,7 @@
 
 ## Frágil / Atención
 
+- SearchSheet en iOS web (Safari/Chrome) aún presenta estados intermedios al abrir teclado y no permite cierre por drag. Reabierto como **OL-052c**.
 - Ownership **no enforceado** en DB (decisión consciente).
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
@@ -94,6 +95,9 @@
   - Comprobaciones defensivas en runtime (getUser antes de mutar); sin usuario → openAuthModal. Toast de error ante fallo RLS; nunca éxito falso.
   - Soft delete como única vía de eliminación de spots; handleDeleteSpot abre modal si no auth.
   - Bitácoras: `042-ui-rls-alignment.md`, `043-pin-cta-publico.md`, `043-soft-delete-auth-alignment.md`.
+
+- **OL-052 — SearchSheet keyboard-safe (DONE)**
+  - Con teclado abierto en mobile/web: input + lista visibles sin empalme. SearchFloating usa visualViewport en web (paddingBottom) + KeyboardAvoidingView en iOS. PR #28 merge 851e690. Ver bitácora 075.
 
 ---
 

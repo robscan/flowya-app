@@ -38,9 +38,38 @@
 
 ### OL-052 — SearchSheet: keyboard-safe (mobile)
 
-**Estado:** Abierto. Con teclado abierto en mobile: input + lista visibles, sin empalme.
+**Estado:** Cerrado (parcial). PR #28 (merge 851e690). Mejora keyboard-safe (visualViewport web + KeyboardAvoidingView iOS). PR #29 (merge e1cb968) intentó modo estable con teclado abierto; **en iOS web aún hay UX rota** → ver OL-052c.
 
-- Fullscreen real, minHeight:0 en contenedor del listado, sin hacks de height. KeyboardAvoidingView / insets según plataforma.
+---
+
+### OL-052c — iOS Web: SearchSheet focus/keyboard + cierre por drag
+
+**Estado:** Abierto. En iPhone (Safari y Chrome), al tocar el input:
+- a veces aparece **solo el teclado** (sheet queda demasiado abajo/colapsado),
+- al hacer drag hacia arriba se ven resultados **cortados**,
+- luego se ve la lista completa **pero sin header/input**,
+- y solo al arrastrar más se ve el header con el input.
+Además, con teclado abierto **no se puede cerrar con drag** (solo con X), y el teclado se oculta de forma poco intuitiva (se requiere perder foco del texto).
+
+**Esperado (contrato UX):**
+- Al enfocar el input: el sheet entra **expandido** inmediatamente (header + lista visibles por encima del teclado).
+- La lista nunca debe quedar “cortada” por el teclado.
+- El usuario puede **cerrar** el sheet con drag desde el handle cuando el teclado esté cerrado.
+- Con teclado abierto: gesto de drag-down desde el handle **primero cierra el teclado** (blur) y luego permite cerrar el sheet, o bien el botón X debe cerrar sheet + teclado en un tap.
+
+**Hipótesis de causa:**
+- En iOS web, `visualViewport` no siempre reporta el resize/keyboardHeight a tiempo. El “modo keyboardOpen” llega tarde, por eso el sheet inicia en estado incorrecto.
+
+**Fix mínimo sugerido:**
+- Usar **focus del input** como señal primaria de `keyboardOpen` también en web (no solo `visualViewport`).
+- Al `onFocus`: forzar estado `expanded` (sin animación o con animación corta) y desactivar drag/pan del body.
+- Al cerrar (X) o al iniciar drag-down desde el handle: ejecutar `inputRef.blur()` para ocultar teclado de forma determinística.
+
+**AC (hecho cuando):**
+- iPhone Safari y Chrome: al tocar el input se ve header + input + primeros resultados sin necesidad de drag.
+- No hay estado intermedio “lista sin header” ni resultados cortados.
+- X cierra el sheet y oculta teclado.
+- Drag-down desde handle: si el teclado está abierto → lo cierra; si ya está cerrado → cierra el sheet.
 
 ---
 

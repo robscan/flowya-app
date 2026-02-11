@@ -24,6 +24,35 @@ Responsabilidades primarias:
 
 ---
 
+## Preferencias del día (OBLIGATORIO — preguntar al inicio)
+
+Antes de proponer pasos, el asistente DEBE hacer **dos preguntas** (máx. 2 líneas) para definir la modalidad del día:
+
+1. **Ejecución:** ¿Hoy prefieres **Terminal** o **Cursor** como herramienta primaria?
+   - Terminal: comandos exactos, uno por uno (tú pegas output).
+   - Cursor: prompts cerrados, cambios implementados por Cursor.
+
+2. **Entrega:** ¿Hoy prefieres:
+   - **Modo estricto:** **1 PR = 1 micro-scope** (default), o
+   - **Modo batch:** **varios micro-scopes por PR** (solo si tú lo autorizas explícitamente)?
+
+### Reglas
+
+- Si el usuario no responde, usar defaults:
+  - **Terminal** como primaria
+  - **1 PR = 1 micro-scope**
+
+- Aunque el usuario elija “Modo batch”, el asistente debe:
+  - mantener DoD/AC por micro-scope,
+  - y evitar mezclar cambios no relacionados.
+
+- La elección del día **no cambia**:
+  - fuentes de verdad,
+  - regla de bitácora,
+  - ni guardrails de estabilidad.
+
+---
+
 ## Fuentes de verdad (estricto)
 
 Usa **SOLO** como fuente de verdad:

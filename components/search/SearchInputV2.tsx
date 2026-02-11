@@ -4,7 +4,7 @@
  */
 
 import { X } from "lucide-react-native";
-import React from "react";
+import React, { forwardRef } from "react";
 import { Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import {
@@ -29,18 +29,21 @@ export type SearchInputV2Props = {
   onBlur?: () => void;
 };
 
-export function SearchInputV2({
-  value,
-  onChangeText,
-  onClear,
-  placeholder = "Buscar lugares…",
-  autoFocus = false,
-  editable = true,
-  accessibilityLabel = "Buscar",
-  embedded = false,
-  onFocus,
-  onBlur,
-}: SearchInputV2Props) {
+export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function SearchInputV2(
+  {
+    value,
+    onChangeText,
+    onClear,
+    placeholder = "Buscar lugares…",
+    autoFocus = false,
+    editable = true,
+    accessibilityLabel = "Buscar",
+    embedded = false,
+    onFocus,
+    onBlur,
+  },
+  ref
+) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const clearVisible = value.length > 0;
@@ -48,6 +51,7 @@ export function SearchInputV2({
   return (
     <View style={[styles.wrap, embedded && styles.wrapEmbedded]}>
       <TextInput
+        ref={ref}
         style={[
           styles.input,
           {
@@ -87,7 +91,7 @@ export function SearchInputV2({
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   wrap: {
