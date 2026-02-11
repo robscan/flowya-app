@@ -97,3 +97,9 @@
 - **Typecheck:** `npx tsc --noEmit` → errores en `SearchInputV2.tsx` (outlineStyle / overload) y en app-example; no en SearchFloating / SearchOverlayWeb / SearchFloatingNative.
 - **Scroll-lock:** En `SearchOverlayWeb`, el `useEffect` que depende de `controller.isOpen` guarda `document.body.style.overflow` antes de asignar `'hidden'` y en el cleanup restaura con `savedOverflowRef.current ?? ''`. Restauración siempre al desmontar o al cerrar.
 - **Código muerto:** No queda import de `useViewportMetrics`. SearchFloating importa solo SearchOverlayWeb y SearchFloatingNative; ambos usados según plataforma.
+
+---
+
+## Actualización (post-fix móvil)
+
+- En móvil la primera apertura funcionaba; la segunda y el scroll con teclado fallaban. Ver **bitácora 078**: overlay anclado al visual viewport, scroll-lock con `body` position fixed, animación de entrada eliminada, refresh de viewport al abrir. OL-052d validado.

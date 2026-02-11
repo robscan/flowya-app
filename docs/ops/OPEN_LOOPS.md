@@ -44,11 +44,7 @@
 
 ### OL-052d — Search web rebuilt as overlay (no sheet)
 
-**Estado:** IN_REVIEW. Rama `fix/search-web-rebuild-overlay`. Web: Search es overlay fijo (no sheet); native mantiene sheet con drag.
-
-- **AC:** En web: overlay full-screen, fondo transparente (overlayScrim), header + lista visibles; teclado no recorta contenido; X cierra aunque el teclado esté abierto; body con scroll lock mientras Search abierto y restaurado al cerrar. En native: sin cambios (sheet + drag).
-- **Prueba rápida:** iOS Safari + iOS Chrome: abrir Search → tap input → ver lista completa; X cierra con teclado abierto. Desktop: abrir/cerrar, scroll lista.
-- **Rollback:** Revertir rama o commit que introduce SearchOverlayWeb + SearchFloatingNative + router en SearchFloating; restaurar `hooks/useViewportMetrics.ts` y sheet único si existía.
+**Estado:** DONE. Rama `fix/search-web-rebuild-overlay`. Validado en móvil (iOS Safari/Chrome): overlay anclado al visual viewport, scroll-lock con body position fixed, sin animación de entrada (fix 2ª apertura). Ver bitácoras 077 (inicial) y 078 (fix móvil).
 
 ---
 
@@ -119,6 +115,7 @@ _(OL-049 cerrado 2026-02-09: SearchSheet drag-to-dismiss desde handle/header; ve
 _(OL-050b cerrado 2026-02-09: eliminar sheet duplicado detrás de Search (root transparente); ver bitácora 071.)_
 _(OL-050d cerrado 2026-02-09: SpotSheet medium sin shrink al montar (freeze anchors until measured); ver bitácora 072.)_
 _(OL-050e cerrado 2026-02-09: Sheet gestures unified + guardrails drag areas (Spot + Search); ver bitácora 073.)_
+_(OL-052d cerrado 2026-02-10: Search web overlay; fix móvil viewport + scroll-lock + sin animación; ver bitácoras 077 y 078.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 

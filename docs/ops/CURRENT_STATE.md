@@ -47,8 +47,7 @@
 
 ## Frágil / Atención
 
-- **Search web overlay (OL-052d):** Rebuild como overlay en rama `fix/search-web-rebuild-overlay`. Si no se valida en iOS Safari/Chrome, riesgo de regresión al mergear. Ver bitácora 077.
-- SearchSheet en iOS web (OL-052c): mitigado en web por overlay; native mantiene sheet.
+- SearchSheet en iOS web (OL-052c): mitigado en web por overlay (OL-052d, bitácoras 077–078); native mantiene sheet.
 - Ownership **no enforceado** en DB (decisión consciente).
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
@@ -102,6 +101,8 @@
 
 - **Search web overlay rebuild (2026-02-10, rama fix/search-web-rebuild-overlay)**
   - Web: Search pasa a overlay fijo (no sheet); transparencia overlayScrim, scroll-lock body, X cierra con teclado abierto. Native: sheet sin cambios. Ver bitácora 077 y OL-052d.
+- **Search web overlay fix móvil (2026-02-10, misma rama)**
+  - Overlay anclado al visual viewport; scroll-lock con body position fixed + restauración scrollY; animación de entrada eliminada (estabilidad 2ª apertura); refresh de viewport al abrir. Ver bitácora 078.
 
 ---
 
