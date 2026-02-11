@@ -25,6 +25,8 @@ export type SearchInputV2Props = {
   accessibilityLabel?: string;
   /** Cuando true, el input no tiene borde ni fondo (para usar dentro de un pill). */
   embedded?: boolean;
+  onFocus?: () => void;
+  onBlur?: () => void;
 };
 
 export function SearchInputV2({
@@ -36,6 +38,8 @@ export function SearchInputV2({
   editable = true,
   accessibilityLabel = "Buscar",
   embedded = false,
+  onFocus,
+  onBlur,
 }: SearchInputV2Props) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -66,6 +70,8 @@ export function SearchInputV2({
         accessibilityLabel={accessibilityLabel}
         clearButtonMode="never"
         selectionColor="transparent"
+        onFocus={onFocus}
+        onBlur={onBlur}
       />
       {clearVisible ? (
         <Pressable
