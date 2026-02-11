@@ -20,6 +20,7 @@ const stateSuccessLight = '#34c759';
 const stateErrorLight = '#ff3b30';
 const stateToVisitLight = '#e6862b';
 const surfaceOnMapLight = '#ffffff';
+const overlayScrimLight = 'rgba(255, 255, 255, 0.32)';
 
 // — Pines en mapa (visibles sobre mapa claro en light y dark)
 const pinDefaultLight = '#1d1d1f';
@@ -42,6 +43,7 @@ const stateSuccessDark = '#30d158';
 const stateErrorDark = '#ff453a';
 const stateToVisitDark = '#ff9f0a';
 const surfaceOnMapDark = 'rgba(255, 255, 255, 0.9)';
+const overlayScrimDark = 'rgba(0, 0, 0, 0.32)';
 
 // — Pines en mapa (dark mode: mismos valores que light para contraste sobre mapa claro)
 const pinDefaultDark = '#1d1d1f';
@@ -65,6 +67,7 @@ export const Colors = {
     stateError: stateErrorLight,
     stateToVisit: stateToVisitLight,
     surfaceOnMap: surfaceOnMapLight,
+    overlayScrim: overlayScrimLight,
     tint: primaryLight,
     icon: textSecondaryLight,
     tabIconDefault: textSecondaryLight,
@@ -98,6 +101,7 @@ export const Colors = {
     stateError: stateErrorDark,
     stateToVisit: stateToVisitDark,
     surfaceOnMap: surfaceOnMapDark,
+    overlayScrim: overlayScrimDark,
     tint: primaryDark,
     icon: textSecondaryDark,
     tabIconDefault: textSecondaryDark,

@@ -5,7 +5,7 @@
 
 import { X } from "lucide-react-native";
 import React, { forwardRef } from "react";
-import { Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
 
 import {
     Colors,
@@ -64,6 +64,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
           },
           embedded && styles.inputEmbedded,
           WebTouchManipulation,
+          Platform.OS === 'web' && styles.inputFocusHidden,
         ]}
         placeholder={placeholder}
         placeholderTextColor={colors.textSecondary}
@@ -113,6 +114,11 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderRadius: 0,
     paddingLeft: 0,
+  },
+  /** Web: ocultar outline/border de focus (evita el borde naranja). */
+  inputFocusHidden: {
+    outlineStyle: 'none',
+    outlineWidth: 0,
   },
   /** Clear integrado: sin caja ni backgroundColor propio; solo ícono sobre el input. */
   clearButton: {
