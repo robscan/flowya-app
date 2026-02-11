@@ -83,6 +83,12 @@ export function SearchFloating<T>({
     };
   }, []);
 
+  /** Native (iOS/Android): keyboard open inferred from input focus for stable mode + pan disable. */
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  const keyboardOpen =
+    (Platform.OS === 'web' && keyboardHeightWeb > 0) ||
+    (Platform.OS !== 'web' && isInputFocused);
+
   const blurActiveElement = useCallback(() => {
     if (typeof document !== 'undefined' && document.activeElement?.blur) {
       (document.activeElement as HTMLElement).blur();
@@ -96,6 +102,17 @@ export function SearchFloating<T>({
       easing: SEARCH_EASING,
     });
   }, [controller.isOpen, translateYShared]);
+
+  /** When keyboard opens: force sheet to expanded (translateY 0) so it stays stable; no drag. */
+  useEffect(() => {
+    if (!controller.isOpen) return;
+    if (keyboardOpen) {
+      translateYShared.value = withTiming(0, {
+        duration: 180,
+        easing: SEARCH_EASING,
+      });
+    }
+  }, [controller.isOpen, keyboardOpen, translateYShared]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -123,6 +140,7 @@ export function SearchFloating<T>({
   }));
 
   const panGesture = Gesture.Pan()
+    .enabled(!keyboardOpen)
     .onStart(() => {
       'worklet';
       dragStartY.value = translateYShared.value;
@@ -203,6 +221,8 @@ export function SearchFloating<T>({
                     placeholder="Buscar lugares…"
                     autoFocus
                     embedded
+                    onFocus={() => setIsInputFocused(true)}
+                    onBlur={() => setIsInputFocused(false)}
                   />
                 </View>
                 <Pressable
