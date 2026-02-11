@@ -42,9 +42,19 @@
 
 ---
 
+### OL-052d — Search web rebuilt as overlay (no sheet)
+
+**Estado:** IN_REVIEW. Rama `fix/search-web-rebuild-overlay`. Web: Search es overlay fijo (no sheet); native mantiene sheet con drag.
+
+- **AC:** En web: overlay full-screen, fondo transparente (overlayScrim), header + lista visibles; teclado no recorta contenido; X cierra aunque el teclado esté abierto; body con scroll lock mientras Search abierto y restaurado al cerrar. En native: sin cambios (sheet + drag).
+- **Prueba rápida:** iOS Safari + iOS Chrome: abrir Search → tap input → ver lista completa; X cierra con teclado abierto. Desktop: abrir/cerrar, scroll lista.
+- **Rollback:** Revertir rama o commit que introduce SearchOverlayWeb + SearchFloatingNative + router en SearchFloating; restaurar `hooks/useViewportMetrics.ts` y sheet único si existía.
+
+---
+
 ### OL-052c — iOS Web: SearchSheet focus/keyboard + cierre por drag
 
-**Estado:** Abierto. En iPhone (Safari y Chrome), al tocar el input:
+**Estado:** Abierto (mitigado por OL-052d en web). En iPhone (Safari y Chrome), al tocar el input:
 - a veces aparece **solo el teclado** (sheet queda demasiado abajo/colapsado),
 - al hacer drag hacia arriba se ven resultados **cortados**,
 - luego se ve la lista completa **pero sin header/input**,
