@@ -42,9 +42,15 @@
 
 ---
 
+### OL-052d — Search web rebuilt as overlay (no sheet)
+
+**Estado:** DONE. Rama `fix/search-web-rebuild-overlay`. Validado en móvil (iOS Safari/Chrome): overlay anclado al visual viewport, scroll-lock con body position fixed, sin animación de entrada (fix 2ª apertura). Ver bitácoras 077 (inicial) y 078 (fix móvil).
+
+---
+
 ### OL-052c — iOS Web: SearchSheet focus/keyboard + cierre por drag
 
-**Estado:** Abierto. En iPhone (Safari y Chrome), al tocar el input:
+**Estado:** Abierto (mitigado por OL-052d en web). En iPhone (Safari y Chrome), al tocar el input:
 - a veces aparece **solo el teclado** (sheet queda demasiado abajo/colapsado),
 - al hacer drag hacia arriba se ven resultados **cortados**,
 - luego se ve la lista completa **pero sin header/input**,
@@ -109,6 +115,7 @@ _(OL-049 cerrado 2026-02-09: SearchSheet drag-to-dismiss desde handle/header; ve
 _(OL-050b cerrado 2026-02-09: eliminar sheet duplicado detrás de Search (root transparente); ver bitácora 071.)_
 _(OL-050d cerrado 2026-02-09: SpotSheet medium sin shrink al montar (freeze anchors until measured); ver bitácora 072.)_
 _(OL-050e cerrado 2026-02-09: Sheet gestures unified + guardrails drag areas (Spot + Search); ver bitácora 073.)_
+_(OL-052d cerrado 2026-02-10: Search web overlay; fix móvil viewport + scroll-lock + sin animación; ver bitácoras 077 y 078.)_
 
 ### OL-028 — No reload + no camera jump (DEFERRED)
 

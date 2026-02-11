@@ -8,8 +8,7 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { IconButton } from '@/components/design-system/icon-button';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
@@ -21,9 +20,6 @@ const PANEL_PADDING_TOP = 16;
 const PANEL_PADDING_BOTTOM = 0;
 const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
-const KEYBOARD_EXTRA_PADDING = 24;
-const ENTRANCE_DURATION_MS = 300;
-const ENTRANCE_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 export function SearchOverlayWeb<T>({
   controller,
@@ -41,47 +37,67 @@ export function SearchOverlayWeb<T>({
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
   const [isInputFocused, setIsInputFocused] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const savedOverflowRef = useRef<string | null>(null);
-  const screenHeight = Dimensions.get('window').height;
-  const translateY = useSharedValue(screenHeight);
+  const savedScrollYRef = useRef(0);
 
-  useEffect(() => {
-    if (!controller.isOpen) return;
-    translateY.value = screenHeight;
-    translateY.value = withTiming(0, {
-      duration: ENTRANCE_DURATION_MS,
-      easing: ENTRANCE_EASING,
-    });
-  }, [controller.isOpen, screenHeight, translateY]);
+  const getViewportRect = useCallback(() => {
+    if (typeof window === 'undefined')
+      return { top: 0, left: 0, width: 0, height: 0 };
+    const vv = window.visualViewport;
+    if (vv)
+      return {
+        top: vv.offsetTop,
+        left: vv.offsetLeft,
+        width: vv.width,
+        height: vv.height,
+      };
+    return {
+      top: 0,
+      left: 0,
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  }, []);
 
-  const panelAnimatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
-  }));
+  const [viewportRect, setViewportRect] = useState(() => getViewportRect());
 
   useEffect(() => {
     if (typeof window === 'undefined' || !window.visualViewport) return;
     const vv = window.visualViewport;
-    const update = () =>
-      setKeyboardHeight(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    const update = () => setViewportRect(getViewportRect());
     vv.addEventListener('resize', update);
     vv.addEventListener('scroll', update);
-    window.addEventListener('resize', update);
-    update();
     return () => {
       vv.removeEventListener('resize', update);
       vv.removeEventListener('scroll', update);
-      window.removeEventListener('resize', update);
     };
-  }, []);
+  }, [getViewportRect]);
 
   useEffect(() => {
     if (!controller.isOpen) return;
+    setViewportRect(getViewportRect());
+  }, [controller.isOpen, getViewportRect]);
+
+  useEffect(() => {
+    if (!controller.isOpen) return;
+    const scrollY = window.scrollY ?? document.documentElement.scrollTop ?? 0;
+    savedScrollYRef.current = scrollY;
     savedOverflowRef.current = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    (document.body.style as Record<string, string>).position = 'fixed';
+    (document.body.style as Record<string, string>).top = `-${scrollY}px`;
+    (document.body.style as Record<string, string>).left = '0';
+    (document.body.style as Record<string, string>).right = '0';
+    (document.body.style as Record<string, string>).overscrollBehavior = 'none';
     return () => {
+      (document.body.style as Record<string, string>).position = '';
+      (document.body.style as Record<string, string>).top = '';
+      (document.body.style as Record<string, string>).left = '';
+      (document.body.style as Record<string, string>).right = '';
+      (document.body.style as Record<string, string>).overscrollBehavior = '';
       document.body.style.overflow = savedOverflowRef.current ?? '';
       savedOverflowRef.current = null;
+      window.scrollTo(0, savedScrollYRef.current);
     };
   }, [controller.isOpen]);
 
@@ -114,10 +130,24 @@ export function SearchOverlayWeb<T>({
 
   if (!controller.isOpen) return null;
 
+  const overlaySizeStyle = {
+    top: viewportRect.top,
+    left: viewportRect.left,
+    width: viewportRect.width,
+    height: viewportRect.height,
+  };
+
   return (
-    <View style={styles.overlay} pointerEvents="auto">
+    <View
+      style={[
+        styles.overlayBase,
+        overlaySizeStyle,
+        Platform.OS === 'web' && styles.overlayWebLock,
+      ]}
+      pointerEvents="auto"
+    >
       <Pressable style={styles.backdrop} onPress={onBackdropPress} />
-      <Animated.View
+      <View
         style={[
           styles.panel,
           {
@@ -127,7 +157,6 @@ export function SearchOverlayWeb<T>({
             paddingLeft: PANEL_PADDING_H,
             paddingRight: PANEL_PADDING_H,
           },
-          panelAnimatedStyle,
         ]}
         pointerEvents="box-none"
       >
@@ -153,12 +182,7 @@ export function SearchOverlayWeb<T>({
             <X size={24} color={colors.text} strokeWidth={2} />
           </IconButton>
         </View>
-        <View
-          style={[
-            styles.resultsArea,
-            keyboardHeight > 0 ? { paddingBottom: keyboardHeight + KEYBOARD_EXTRA_PADDING } : null,
-          ]}
-        >
+        <View style={styles.resultsArea}>
           {isEmpty && (
             <ScrollView
               style={styles.resultsScroll}
@@ -258,21 +282,21 @@ export function SearchOverlayWeb<T>({
             </>
           )}
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
+  overlayBase: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
     backgroundColor: 'transparent',
     zIndex: 15,
   },
+  overlayWebLock:
+    Platform.OS === 'web'
+      ? { touchAction: 'none' as const }
+      : {},
   backdrop: {
     position: 'absolute',
     left: 0,
