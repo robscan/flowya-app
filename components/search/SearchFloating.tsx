@@ -5,10 +5,11 @@
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useViewportMetrics } from '@/hooks/useViewportMetrics';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -19,6 +20,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import type { TextInput } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   Easing,
@@ -61,47 +63,49 @@ export function SearchFloating<T>({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const screenHeight = Dimensions.get('window').height;
+  const viewportMetrics = useViewportMetrics();
+  const availableHeight = viewportMetrics?.viewportHeight ?? screenHeight;
 
-  const translateYShared = useSharedValue(screenHeight);
+  const translateYShared = useSharedValue(availableHeight);
   const dragStartY = useSharedValue(0);
-
-  /** Web: keyboard height from visualViewport so results area gets paddingBottom (OL-052). */
-  const [keyboardHeightWeb, setKeyboardHeightWeb] = useState(0);
+  const availableHeightShared = useSharedValue(availableHeight);
+  const inputRef = useRef<TextInput>(null);
   useEffect(() => {
-    if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.visualViewport) return;
-    const vv = window.visualViewport;
-    const update = () =>
-      setKeyboardHeightWeb(
-        Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      );
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
-    update();
-    return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
-    };
-  }, []);
+    availableHeightShared.value = availableHeight;
+  }, [availableHeight, availableHeightShared]);
 
+  const keyboardHeight = viewportMetrics?.keyboardHeight ?? 0;
   /** Native (iOS/Android): keyboard open inferred from input focus for stable mode + pan disable. */
   const [isInputFocused, setIsInputFocused] = useState(false);
   const keyboardOpen =
-    (Platform.OS === 'web' && keyboardHeightWeb > 0) ||
+    (Platform.OS === 'web' && keyboardHeight > 0) ||
     (Platform.OS !== 'web' && isInputFocused);
+  const isWeb = Platform.OS === 'web';
 
   const blurActiveElement = useCallback(() => {
-    if (typeof document !== 'undefined' && document.activeElement?.blur) {
-      (document.activeElement as HTMLElement).blur();
-    }
+    const el = typeof document !== 'undefined' ? (document.activeElement as HTMLElement | null) : null;
+    if (el?.blur) el.blur();
   }, []);
 
   useEffect(() => {
     if (!controller.isOpen) return;
+    const startY = viewportMetrics?.viewportHeight ?? screenHeight;
+    translateYShared.value = startY;
     translateYShared.value = withTiming(0, {
       duration: SEARCH_DURATION_MS,
       easing: SEARCH_EASING,
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only run on isOpen; avoid re-animate when viewport loads
   }, [controller.isOpen, translateYShared]);
+
+  /** Deferred focus on web (iOS Safari): wait one frame so sheet is laid out before focus. */
+  useEffect(() => {
+    if (!controller.isOpen || !isWeb) return;
+    const id = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [controller.isOpen, isWeb]);
 
   /** When keyboard opens: force sheet to expanded (translateY 0) so it stays stable; no drag. */
   useEffect(() => {
@@ -126,14 +130,15 @@ export function SearchFloating<T>({
 
   const doClose = useCallback(() => controller.setOpen(false), [controller]);
   const requestClose = useCallback(() => {
+    blurActiveElement();
     translateYShared.value = withTiming(
-      screenHeight,
+      availableHeight,
       { duration: SEARCH_DURATION_MS, easing: SEARCH_EASING },
       (finished) => {
         if (finished) runOnJS(doClose)();
       }
     );
-  }, [doClose, screenHeight, translateYShared]);
+  }, [blurActiveElement, doClose, availableHeight, translateYShared]);
 
   const panelAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ translateY: translateYShared.value }],
@@ -149,16 +154,18 @@ export function SearchFloating<T>({
     .onUpdate((e) => {
       'worklet';
       const next = dragStartY.value + e.translationY;
-      translateYShared.value = Math.max(0, Math.min(screenHeight, next));
+      const maxY = availableHeightShared.value;
+      translateYShared.value = Math.max(0, Math.min(maxY, next));
     })
     .onEnd((e) => {
       'worklet';
+      const maxY = availableHeightShared.value;
       const current = translateYShared.value;
       const shouldClose =
-        current > screenHeight * DRAG_CLOSE_THRESHOLD || e.velocityY > VELOCITY_CLOSE;
+        current > maxY * DRAG_CLOSE_THRESHOLD || e.velocityY > VELOCITY_CLOSE;
       if (shouldClose) {
         translateYShared.value = withTiming(
-          screenHeight,
+          maxY,
           { duration: SEARCH_DISMISS_MS, easing: SEARCH_EASING },
           (finished) => {
             if (finished) runOnJS(doClose)();
@@ -180,13 +187,18 @@ export function SearchFloating<T>({
 
   if (!controller.isOpen) return null;
 
+  const sheetWrapperStyle = viewportMetrics
+    ? [styles.sheetWrapper, { top: viewportMetrics.offsetTop, height: viewportMetrics.viewportHeight, bottom: undefined }]
+    : styles.sheetWrapper;
+
   return (
     <>
-      <View
+      <Pressable
         style={[StyleSheet.absoluteFill, styles.scrim]}
-        pointerEvents="none"
+        pointerEvents={keyboardOpen ? 'auto' : 'none'}
+        onPress={keyboardOpen ? blurActiveElement : undefined}
       />
-      <View style={styles.sheetWrapper} pointerEvents="box-none">
+      <View style={sheetWrapperStyle} pointerEvents="box-none">
         <View style={styles.sheetRoot}>
           <Animated.View
             style={[
@@ -202,6 +214,12 @@ export function SearchFloating<T>({
               <View style={styles.dragArea} collapsable={false}>
                 <View style={styles.handleRow}>
                   <SheetHandle />
+                  {keyboardOpen ? (
+                    <Pressable
+                      style={StyleSheet.absoluteFill}
+                      onPress={blurActiveElement}
+                    />
+                  ) : null}
                 </View>
                 <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
                 <View
@@ -215,11 +233,12 @@ export function SearchFloating<T>({
                 >
                   <Search size={20} color={colors.textSecondary} strokeWidth={2} />
                   <SearchInputV2
+                    ref={inputRef}
                     value={controller.query}
                     onChangeText={controller.setQuery}
                     onClear={controller.clear}
                     placeholder="Buscar lugares…"
-                    autoFocus
+                    autoFocus={!isWeb}
                     embedded
                     onFocus={() => setIsInputFocused(true)}
                     onBlur={() => setIsInputFocused(false)}
@@ -246,9 +265,7 @@ export function SearchFloating<T>({
             <View
               style={[
                 styles.resultsArea,
-                Platform.OS === 'web' && keyboardHeightWeb
-                  ? { paddingBottom: keyboardHeightWeb }
-                  : null,
+                isWeb && keyboardHeight > 0 ? { paddingBottom: keyboardHeight } : null,
               ]}
             >
           {isEmpty && (
