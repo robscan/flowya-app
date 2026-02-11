@@ -8,7 +8,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { ButtonPrimary } from '@/components/design-system/buttons';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -64,6 +64,24 @@ export function SearchFloating<T>({
 
   const translateYShared = useSharedValue(screenHeight);
   const dragStartY = useSharedValue(0);
+
+  /** Web: keyboard height from visualViewport so results area gets paddingBottom (OL-052). */
+  const [keyboardHeightWeb, setKeyboardHeightWeb] = useState(0);
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () =>
+      setKeyboardHeightWeb(
+        Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
+      );
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, []);
 
   const blurActiveElement = useCallback(() => {
     if (typeof document !== 'undefined' && document.activeElement?.blur) {
@@ -205,7 +223,14 @@ export function SearchFloating<T>({
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             style={styles.keyboardAvoid}
           >
-            <View style={styles.resultsArea}>
+            <View
+              style={[
+                styles.resultsArea,
+                Platform.OS === 'web' && keyboardHeightWeb
+                  ? { paddingBottom: keyboardHeightWeb }
+                  : null,
+              ]}
+            >
           {isEmpty && (
             <ScrollView
               style={styles.resultsScroll}
@@ -407,6 +432,7 @@ const styles = StyleSheet.create({
   },
   resultsScroll: {
     flex: 1,
+    minHeight: 0,
   },
   resultsContent: {
     paddingBottom: Spacing.sm,
