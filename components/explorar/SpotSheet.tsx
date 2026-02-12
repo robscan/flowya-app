@@ -23,6 +23,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function usePrefersReducedMotion(): boolean {
   const [prefers, setPrefers] = useState(false);
@@ -343,6 +344,7 @@ export function SpotSheet({
 
   const colorScheme = useColorScheme();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const insets = useSafeAreaInsets();
   const vh = Dimensions.get('window').height;
   /** Altura estimada del handle (handleRow: SheetHandle padding+bar + marginBottom). */
   const HANDLE_ROW_ESTIMATE = 20;
@@ -402,16 +404,19 @@ export function SpotSheet({
   const hasAnimatedEntranceRef = useRef(false);
   const lastSpotIdRef = useRef<string | null>(null);
 
-  /** Al cambiar de spot, resetear entrada para que el nuevo sheet entre desde abajo. */
+  /** Reset de entrada solo en transición sin spot → con spot. Spot A → spot B: no resetear, solo actualizar ref; sheet permanece visible en MEDIUM. */
   useEffect(() => {
     const id = spot?.id ?? null;
     if (id !== lastSpotIdRef.current) {
+      const wasNull = lastSpotIdRef.current === null;
       lastSpotIdRef.current = id;
-      hasAnimatedEntranceRef.current = false;
-      translateYShared.value = vh;
-      opacityShared.value = 0;
+      if (wasNull && id !== null) {
+        hasAnimatedEntranceRef.current = false;
+        translateYShared.value = vh;
+        opacityShared.value = 0;
+      }
     }
-  }, [spot?.id, translateYShared, opacityShared]);
+  }, [spot?.id, translateYShared, opacityShared, vh]);
 
   useEffect(() => {
     reducedMotionShared.value = prefersReducedMotion ? 1 : 0;
@@ -611,6 +616,9 @@ export function SpotSheet({
     if (onEdit) onEdit(spot.id);
   };
 
+  /** Offset del borde inferior para que el sheet colapsado no quede pegado al viewport (OL-058). */
+  const bottomOffset = Math.max(Spacing.md, insets.bottom);
+
   return (
     <Animated.View
       style={[
@@ -619,6 +627,8 @@ export function SpotSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
+          bottom: bottomOffset,
+          paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
         animatedContainerStyle,
       ]}
@@ -852,7 +862,7 @@ const styles = StyleSheet.create({
   actionPill: {
     flex: 1,
     height: ACTION_PILL_HEIGHT,
-    borderRadius: ACTION_PILL_HEIGHT / 2,
+    borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -885,7 +895,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     marginTop: 4,
   },
   detailButtonText: {

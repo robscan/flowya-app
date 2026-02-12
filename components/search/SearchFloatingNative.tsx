@@ -192,7 +192,7 @@ export function SearchFloatingNative<T>({
               style={styles.keyboardAvoid}
             >
               <View style={styles.resultsArea}>
-                {isEmpty && (
+                {isEmpty && defaultItems.length > 0 && (
                   <ScrollView
                     style={styles.resultsScroll}
                     contentContainerStyle={styles.resultsContent}
@@ -200,58 +200,48 @@ export function SearchFloatingNative<T>({
                     showsVerticalScrollIndicator
                   >
                     <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
-                    {defaultItems.length > 0
-                      ? defaultItems.map((item, idx) => (
-                          <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
-                            {renderItem(item)}
-                          </View>
-                        ))
-                      : (
-                          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyMessage}</Text>
-                        )}
+                    {defaultItems.map((item, idx) => (
+                      <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
+                        {renderItem(item)}
+                      </View>
+                    ))}
                   </ScrollView>
                 )}
-                {isPreSearch && (
+                {isPreSearch && (recentQueries.length > 0 || recentViewedItems.length > 0) && (
                   <ScrollView
                     style={styles.resultsScroll}
                     contentContainerStyle={styles.resultsContent}
                     keyboardShouldPersistTaps="handled"
                     showsVerticalScrollIndicator
                   >
-                    <View style={styles.resultItemWrap}>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                        Búsquedas recientes
-                      </Text>
-                      {recentQueries.length > 0
-                        ? recentQueries.slice(0, 5).map((queryItem) => (
-                            <Pressable
-                              key={queryItem}
-                              style={styles.historyItem}
-                              onPress={() => controller.setQuery(queryItem)}
-                            >
-                              <Text style={{ color: colors.text }}>{queryItem}</Text>
-                            </Pressable>
-                          ))
-                        : (
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                              No hay búsquedas recientes
-                            </Text>
-                          )}
-                    </View>
-                    <View style={styles.resultItemWrap}>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                        Vistos recientemente
-                      </Text>
-                      {recentViewedItems.length > 0
-                        ? recentViewedItems.slice(0, 10).map((item, idx) => (
+                    {recentQueries.length > 0 && (
+                      <View style={styles.resultItemWrap}>
+                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          Búsquedas recientes
+                        </Text>
+                        {recentQueries.slice(0, 5).map((queryItem) => (
+                          <Pressable
+                            key={queryItem}
+                            style={styles.historyItem}
+                            onPress={() => controller.setQuery(queryItem)}
+                          >
+                            <Text style={{ color: colors.text }}>{queryItem}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                    {recentViewedItems.length > 0 && (
+                      <View style={styles.resultItemWrap}>
+                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          Vistos recientemente
+                        </Text>
+                        <View style={styles.recentListWrap}>
+                          {recentViewedItems.slice(0, 10).map((item, idx) => (
                             <View key={keyFor(item, idx)}>{renderItem(item)}</View>
-                          ))
-                        : (
-                            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                              No hay spots vistos recientemente
-                            </Text>
-                          )}
-                    </View>
+                          ))}
+                        </View>
+                      </View>
+                    )}
                   </ScrollView>
                 )}
                 {isSearch && controller.results.length > 0 && (
@@ -375,6 +365,7 @@ const styles = StyleSheet.create({
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },
   resultItemWrap: { width: '100%' },
+  recentListWrap: { gap: Spacing.sm, width: '100%' },
   sectionHeader: {
     fontSize: 13,
     fontWeight: '600',

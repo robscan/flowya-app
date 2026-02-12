@@ -10,10 +10,10 @@
 
 ## Ahora mismo
 
-- **Scope activo:** ninguno (baseline estable).
-- **Branch activa:** `main`.
-- **Estado del repo:** `main` protegido, limpio y sincronizado.
-- **Entorno:** Web mobile (Explore público).
+- **Scope activo:** PR listo (rama `fix/ol-056-to-ol-061-spot-sheet-search`): OL-056..061 cerrados (spot→sheet state machine, search→MEDIUM, padding collapsed, gap recientes, empty states, contrato). Pendiente merge a main.
+- **Branch activa:** `fix/ol-056-to-ol-061-spot-sheet-search` (PR preparado, no abierto).
+- **Estado del repo:** `main` protegido; cambios en rama de fix.
+- **Entorno:** Web mobile (Explore público) + Search web overlay activo.
 
 ---
 
@@ -48,6 +48,7 @@
 ## Frágil / Atención
 
 - SearchSheet en iOS web (OL-052c): mitigado en web por overlay (OL-052d, bitácoras 077–078); native mantiene sheet.
+- Deploy (OL-055): Vercel marca “ready” pero el alias/traffic no queda “current” (riesgo de creer que main está live).
 - Ownership **no enforceado** en DB (decisión consciente).
 - Soft delete **solo reversible desde Supabase** (no desde UI).
 - No hay panel de moderación (fuera de alcance actual).
@@ -103,6 +104,9 @@
   - Web: Search pasa a overlay fijo (no sheet); transparencia overlayScrim, scroll-lock body, X cierra con teclado abierto. Native: sheet sin cambios. Ver bitácora 077 y OL-052d.
 - **Search web overlay fix móvil (2026-02-10, misma rama)**
   - Overlay anclado al visual viewport; scroll-lock con body position fixed + restauración scrollY; animación de entrada eliminada (estabilidad 2ª apertura); refresh de viewport al abrir. Ver bitácora 078.
+
+- **OL-056..061 — Spot sheet + Search UX (DONE, 2026-02-11)**
+  - OL-056: State machine spot→sheet (1º tap MEDIUM, 2º tap mismo EXPANDED; fix 3er spot invisible). OL-057: SearchResultCard → MEDIUM. OL-058: SpotSheet padding/safe-area collapsed. OL-059: Gap recientes. OL-060: Sin empty cuando no hay recientes/resultados. OL-061: Contrato SPOT_SELECTION_SHEET_SIZING.md. Ver bitácora 080.
 
 ---
 

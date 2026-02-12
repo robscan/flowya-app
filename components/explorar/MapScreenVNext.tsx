@@ -87,6 +87,7 @@ export function MapScreenVNext() {
     lat: number;
     lng: number;
   } | null>(null);
+  const openFromSearchRef = useRef(false);
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -257,9 +258,10 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     searchV2.setOnSelect((spot: Spot) => {
+      openFromSearchRef.current = true;
       searchV2.setOpen(false);
       setSelectedSpot(spot);
-      setSheetState('medium');
+      setSheetState('medium'); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
       if (mapInstance) {
@@ -271,6 +273,14 @@ export function MapScreenVNext() {
       }
     });
   }, [mapInstance, searchHistory, searchV2]);
+
+  /** OL-057: Force sheet MEDIUM when spot was selected from search (avoids collapsed on first paint). */
+  useEffect(() => {
+    if (selectedSpot && openFromSearchRef.current) {
+      openFromSearchRef.current = false;
+      setSheetState('medium');
+    }
+  }, [selectedSpot]);
 
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(
@@ -367,23 +377,19 @@ export function MapScreenVNext() {
   const handlePinClick = useCallback(
     (spot: Spot) => {
       if (selectedSpot?.id === spot.id) {
-        saveFocusBeforeNavigate();
-        blurActiveElement();
-        (router.push as (href: string) => void)(`/spot/${spot.id}`);
+        setSheetState('expanded');
       } else {
         setSelectedSpot(spot);
         setSheetState('medium');
       }
     },
-    [selectedSpot?.id, router, setSheetState]
+    [selectedSpot?.id, setSheetState]
   );
 
   const handleSelectedPinTap = useCallback(() => {
     if (!selectedSpot) return;
-    saveFocusBeforeNavigate();
-    blurActiveElement();
-    (router.push as (href: string) => void)(`/spot/${selectedSpot.id}`);
-  }, [selectedSpot, router]);
+    setSheetState('expanded');
+  }, [selectedSpot, setSheetState]);
 
   const handleSheetOpenDetail = useCallback(() => {
     if (!selectedSpot) return;
@@ -544,7 +550,7 @@ export function MapScreenVNext() {
             },
           ]}
           onPress={handleSelectedPinTap}
-          accessibilityLabel={`Ir al detalle de ${selectedSpot.title}`}
+          accessibilityLabel={`Expandir ficha de ${selectedSpot.title}`}
           accessibilityRole="button"
         />
       ) : null}

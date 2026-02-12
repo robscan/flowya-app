@@ -95,7 +95,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   optionWrap: {
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
   },
