@@ -243,9 +243,13 @@ export function SearchFloatingNative<T>({
                         Vistos recientemente
                       </Text>
                       {recentViewedItems.length > 0
-                        ? recentViewedItems.slice(0, 10).map((item, idx) => (
-                            <View key={keyFor(item, idx)}>{renderItem(item)}</View>
-                          ))
+                        ? (
+                            <View style={styles.recentListWrap}>
+                              {recentViewedItems.slice(0, 10).map((item, idx) => (
+                                <View key={keyFor(item, idx)}>{renderItem(item)}</View>
+                              ))}
+                            </View>
+                          )
                         : (
                             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
                               No hay spots vistos recientemente
@@ -375,6 +379,7 @@ const styles = StyleSheet.create({
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },
   resultItemWrap: { width: '100%' },
+  recentListWrap: { gap: Spacing.sm, width: '100%' },
   sectionHeader: {
     fontSize: 13,
     fontWeight: '600',
