@@ -402,16 +402,19 @@ export function SpotSheet({
   const hasAnimatedEntranceRef = useRef(false);
   const lastSpotIdRef = useRef<string | null>(null);
 
-  /** Al cambiar de spot, resetear entrada para que el nuevo sheet entre desde abajo. */
+  /** Reset de entrada solo en transición sin spot → con spot. Spot A → spot B: no resetear, solo actualizar ref; sheet permanece visible en MEDIUM. */
   useEffect(() => {
     const id = spot?.id ?? null;
     if (id !== lastSpotIdRef.current) {
+      const wasNull = lastSpotIdRef.current === null;
       lastSpotIdRef.current = id;
-      hasAnimatedEntranceRef.current = false;
-      translateYShared.value = vh;
-      opacityShared.value = 0;
+      if (wasNull && id !== null) {
+        hasAnimatedEntranceRef.current = false;
+        translateYShared.value = vh;
+        opacityShared.value = 0;
+      }
     }
-  }, [spot?.id, translateYShared, opacityShared]);
+  }, [spot?.id, translateYShared, opacityShared, vh]);
 
   useEffect(() => {
     reducedMotionShared.value = prefersReducedMotion ? 1 : 0;

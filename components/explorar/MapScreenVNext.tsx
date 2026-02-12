@@ -367,23 +367,19 @@ export function MapScreenVNext() {
   const handlePinClick = useCallback(
     (spot: Spot) => {
       if (selectedSpot?.id === spot.id) {
-        saveFocusBeforeNavigate();
-        blurActiveElement();
-        (router.push as (href: string) => void)(`/spot/${spot.id}`);
+        setSheetState('expanded');
       } else {
         setSelectedSpot(spot);
         setSheetState('medium');
       }
     },
-    [selectedSpot?.id, router, setSheetState]
+    [selectedSpot?.id, setSheetState]
   );
 
   const handleSelectedPinTap = useCallback(() => {
     if (!selectedSpot) return;
-    saveFocusBeforeNavigate();
-    blurActiveElement();
-    (router.push as (href: string) => void)(`/spot/${selectedSpot.id}`);
-  }, [selectedSpot, router]);
+    setSheetState('expanded');
+  }, [selectedSpot, setSheetState]);
 
   const handleSheetOpenDetail = useCallback(() => {
     if (!selectedSpot) return;
@@ -544,7 +540,7 @@ export function MapScreenVNext() {
             },
           ]}
           onPress={handleSelectedPinTap}
-          accessibilityLabel={`Ir al detalle de ${selectedSpot.title}`}
+          accessibilityLabel={`Expandir ficha de ${selectedSpot.title}`}
           accessibilityRole="button"
         />
       ) : null}
