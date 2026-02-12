@@ -71,6 +71,8 @@ export type SpotDetailProps = {
   onImagePress?: (uri: string) => void;
   /** Tras cambiar o quitar la foto de portada (Edit Spot). */
   onCoverImageChange?: (url: string | null) => void;
+  /** Si true, no se muestra el hero con imagen (ej. pantalla Edit Spot). */
+  hideHero?: boolean;
 };
 
 const HERO_HEIGHT = 240;
@@ -95,6 +97,7 @@ export function SpotDetail({
   distanceText,
   onImagePress,
   onCoverImageChange,
+  hideHero = false,
 }: SpotDetailProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -212,25 +215,75 @@ export function SpotDetail({
         contentContainerStyle={[styles.scrollContent, styles.scrollContentGrow]}
         showsVerticalScrollIndicator
       >
-        {/* Hero */}
-        <View
-          style={[styles.hero, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
-        >
-          <SpotImage
-            uri={spot.cover_image_url}
-            height={HERO_HEIGHT}
-            borderRadius={0}
-            colorScheme={colorScheme ?? undefined}
-            onPress={
-              spot.cover_image_url && onImagePress
-                ? () => onImagePress(spot.cover_image_url!)
-                : undefined
-            }
-          />
-          {/* Overlay de acciones */}
+        {/* Hero (oculto en Edit Spot cuando hideHero) */}
+        {!hideHero ? (
           <View
-            style={[styles.heroActions, { pointerEvents: 'box-none' }]}
+            style={[styles.hero, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
           >
+            <SpotImage
+              uri={spot.cover_image_url}
+              height={HERO_HEIGHT}
+              borderRadius={0}
+              colorScheme={colorScheme ?? undefined}
+              onPress={
+                spot.cover_image_url && onImagePress
+                  ? () => onImagePress(spot.cover_image_url!)
+                  : undefined
+              }
+            />
+            {/* Overlay de acciones */}
+            <View
+              style={[styles.heroActions, { pointerEvents: 'box-none' }]}
+            >
+              <View style={styles.heroActionsLeft}>
+                <IconButton
+                  ref={backButtonRef}
+                  variant="default"
+                  onPress={onBack}
+                  accessibilityLabel="Volver"
+                >
+                  <ArrowLeft size={ICON_SIZE} color={colors.text} strokeWidth={2} />
+                </IconButton>
+              </View>
+              <View style={styles.heroActionsRight}>
+                {onSavePin ? (
+                  <IconButton
+                    variant="savePin"
+                    savePinState={savePinState}
+                    onPress={onSavePin}
+                    accessibilityLabel="Guardar pin"
+                  >
+                    <Pin size={ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
+                  </IconButton>
+                ) : null}
+                {onShare ? (
+                  <IconButton
+                    variant="default"
+                    onPress={onShare}
+                    accessibilityLabel="Compartir"
+                  >
+                    <Share2 size={ICON_SIZE} color={colors.text} strokeWidth={2} />
+                  </IconButton>
+                ) : null}
+                {(onEdit != null || isEditing) ? (
+                  <IconButton
+                    variant={isEditing ? 'primary' : 'default'}
+                    onPress={isEditing ? onCancelEdit : onEdit}
+                    accessibilityLabel={isEditing ? 'Salir de edición' : 'Editar detalles'}
+                  >
+                    <Pencil
+                      size={ICON_SIZE}
+                      color={isEditing ? ICON_ON_STATE : colors.text}
+                      strokeWidth={2}
+                    />
+                  </IconButton>
+                ) : null}
+              </View>
+            </View>
+          </View>
+        ) : (
+          /* Header mínimo con Atrás cuando hero oculto (Edit Spot) */
+          <View style={[styles.heroActions, styles.heroActionsMinimal, { backgroundColor: colors.backgroundElevated, borderBottomColor: colors.borderSubtle }]}>
             <View style={styles.heroActionsLeft}>
               <IconButton
                 ref={backButtonRef}
@@ -241,42 +294,8 @@ export function SpotDetail({
                 <ArrowLeft size={ICON_SIZE} color={colors.text} strokeWidth={2} />
               </IconButton>
             </View>
-            <View style={styles.heroActionsRight}>
-              {onSavePin ? (
-                <IconButton
-                  variant="savePin"
-                  savePinState={savePinState}
-                  onPress={onSavePin}
-                  accessibilityLabel="Guardar pin"
-                >
-                  <Pin size={ICON_SIZE} color={savePinIconColor} strokeWidth={2} />
-                </IconButton>
-              ) : null}
-              {onShare ? (
-                <IconButton
-                  variant="default"
-                  onPress={onShare}
-                  accessibilityLabel="Compartir"
-                >
-                  <Share2 size={ICON_SIZE} color={colors.text} strokeWidth={2} />
-                </IconButton>
-              ) : null}
-              {(onEdit != null || isEditing) ? (
-                <IconButton
-                  variant={isEditing ? 'primary' : 'default'}
-                  onPress={isEditing ? onCancelEdit : onEdit}
-                  accessibilityLabel={isEditing ? 'Salir de edición' : 'Editar'}
-                >
-                  <Pencil
-                    size={ICON_SIZE}
-                    color={isEditing ? ICON_ON_STATE : colors.text}
-                    strokeWidth={2}
-                  />
-                </IconButton>
-              ) : null}
-            </View>
           </View>
-        </View>
+        )}
 
         {/* Contenido */}
         <View
@@ -500,6 +519,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingTop: Spacing.lg,
     paddingHorizontal: Spacing.base,
+  },
+  heroActionsMinimal: {
+    position: 'relative',
+    left: undefined,
+    right: undefined,
+    top: undefined,
+    bottom: undefined,
+    width: undefined,
+    height: undefined,
+    paddingVertical: Spacing.sm,
+    borderBottomWidth: 1,
   },
   heroActionsLeft: {
     flexDirection: 'row',

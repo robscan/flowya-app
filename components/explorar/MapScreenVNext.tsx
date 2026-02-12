@@ -3,48 +3,63 @@
  * Sin Search, SpotCard ni CreateSpot en este PR.
  */
 
-import '@/styles/mapbox-attribution-overrides.css';
-import '@/styles/viewport-dvh.css';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import "@/styles/mapbox-attribution-overrides.css";
+import "@/styles/viewport-dvh.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 
-import { useFocusEffect } from '@react-navigation/native';
-import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    Linking,
+    Platform,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { BottomDock, DOCK_HEIGHT } from '@/components/explorar/BottomDock';
-import { MapCoreView } from '@/components/explorar/MapCoreView';
-import { SHEET_PEEK_HEIGHT, SpotSheet } from '@/components/explorar/SpotSheet';
-import { MapControls } from '@/components/design-system/map-controls';
+import { MapControls } from "@/components/design-system/map-controls";
 import {
-  MapPinFilter,
-  type MapPinFilterValue,
-} from '@/components/design-system/map-pin-filter';
-import type { SpotPinStatus } from '@/components/design-system/map-pins';
-import { SearchResultCard } from '@/components/design-system/search-result-card';
-import { SearchFloating } from '@/components/search';
-import { ConfirmModal } from '@/components/ui/confirm-modal';
-import { CreateSpotConfirmModal } from '@/components/ui/create-spot-confirm-modal';
-import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { useMapCore } from '@/hooks/useMapCore';
-import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
-import { useSearchHistory } from '@/hooks/search/useSearchHistory';
-import { blurActiveElement, saveFocusBeforeNavigate } from '@/lib/focus-management';
-import { distanceKm, getMapsDirectionsUrl } from '@/lib/geo-utils';
-import { FALLBACK_VIEW } from '@/lib/map-core/constants';
-import { createSpotsStrategy } from '@/lib/search/spotsStrategy';
+    MapPinFilter,
+    type MapPinFilterValue,
+} from "@/components/design-system/map-pin-filter";
+import type { SpotPinStatus } from "@/components/design-system/map-pins";
+import { SearchResultCard } from "@/components/design-system/search-result-card";
+import { BottomDock, DOCK_HEIGHT } from "@/components/explorar/BottomDock";
+import { MapCoreView } from "@/components/explorar/MapCoreView";
+import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
+import { SearchFloating } from "@/components/search";
+import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
+import { useToast } from "@/components/ui/toast";
+import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
+import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
+import { useSearchHistory } from "@/hooks/search/useSearchHistory";
+import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useMapCore } from "@/hooks/useMapCore";
 import {
-  getCurrentUserId,
-  getPinsForSpots,
-  setSaved,
-  setVisited,
-} from '@/lib/pins';
-import { shareSpot } from '@/lib/share-spot';
-import { addRecentViewedSpotId, getRecentViewedSpotIds } from '@/lib/storage/recentViewedSpots';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/ui/toast';
+    blurActiveElement,
+    saveFocusBeforeNavigate,
+} from "@/lib/focus-management";
+import { distanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
+import { FALLBACK_VIEW } from "@/lib/map-core/constants";
+import {
+    getCurrentUserId,
+    getPinsForSpots,
+    setSaved,
+    setVisited,
+} from "@/lib/pins";
+import { createSpotsStrategy } from "@/lib/search/spotsStrategy";
+import { shareSpot } from "@/lib/share-spot";
+import { optimizeSpotImage } from "@/lib/spot-image-optimize";
+import { uploadSpotCover } from "@/lib/spot-image-upload";
+import {
+    addRecentViewedSpotId,
+    getRecentViewedSpotIds,
+} from "@/lib/storage/recentViewedSpots";
+import { supabase } from "@/lib/supabase";
 
 type Spot = {
   id: string;
@@ -61,7 +76,7 @@ type Spot = {
   pinStatus?: SpotPinStatus;
 };
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
 const CONTROLS_OVERLAY_BOTTOM = 16;
@@ -76,17 +91,22 @@ export function MapScreenVNext() {
   const toast = useToast();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [pinFilter, setPinFilter] = useState<MapPinFilterValue>('all');
+  const [pinFilter, setPinFilter] = useState<MapPinFilterValue>("all");
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [sheetState, setSheetState] = useState<'peek' | 'medium' | 'expanded'>('peek');
+  const [sheetState, setSheetState] = useState<"peek" | "medium" | "expanded">(
+    "peek",
+  );
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
-  const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] = useState(false);
+  const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] =
+    useState(false);
   const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
     lat: number;
     lng: number;
   } | null>(null);
+  const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
+  const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const openFromSearchRef = useRef(false);
 
   useEffect(() => {
@@ -107,10 +127,15 @@ export function MapScreenVNext() {
 
   const refetchSpots = useCallback(async () => {
     const { data } = await supabase
-      .from('spots')
-      .select('id, title, description_short, description_long, cover_image_url, address, latitude, longitude')
-      .eq('is_hidden', false);
-    const list = (data ?? []) as Omit<Spot, 'saved' | 'visited' | 'pinStatus'>[];
+      .from("spots")
+      .select(
+        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude",
+      )
+      .eq("is_hidden", false);
+    const list = (data ?? []) as Omit<
+      Spot,
+      "saved" | "visited" | "pinStatus"
+    >[];
     const pinMap = await getPinsForSpots(list.map((s) => s.id));
     const withPins: Spot[] = list.map((s) => {
       const state = pinMap.get(s.id);
@@ -120,8 +145,11 @@ export function MapScreenVNext() {
         ...s,
         saved,
         visited,
-        pinStatus:
-          visited ? 'visited' : saved ? 'to_visit' : ('default' as SpotPinStatus),
+        pinStatus: visited
+          ? "visited"
+          : saved
+            ? "to_visit"
+            : ("default" as SpotPinStatus),
       };
     });
     setSpots(withPins);
@@ -132,14 +160,16 @@ export function MapScreenVNext() {
     useCallback(() => {
       refetchSpots();
       return () => {};
-    }, [refetchSpots])
+    }, [refetchSpots]),
   );
 
-  const onLongPressHandlerRef = useRef<(coords: { lat: number; lng: number }) => void>(() => {});
+  const onLongPressHandlerRef = useRef<
+    (coords: { lat: number; lng: number }) => void
+  >(() => {});
   const mapCore = useMapCore(selectedSpot, {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     skipCenterOnUser: false,
-    onUserMapGestureStart: () => setSheetState('peek'),
+    onUserMapGestureStart: () => setSheetState("peek"),
   });
   const {
     mapInstance,
@@ -159,8 +189,8 @@ export function MapScreenVNext() {
   } = mapCore;
 
   const filteredSpots = useMemo(() => {
-    if (pinFilter === 'all') return spots;
-    if (pinFilter === 'saved') return spots.filter((s) => s.saved);
+    if (pinFilter === "all") return spots;
+    if (pinFilter === "saved") return spots.filter((s) => s.saved);
     return spots.filter((s) => s.visited);
   }, [spots, pinFilter]);
 
@@ -169,33 +199,38 @@ export function MapScreenVNext() {
       saved: spots.filter((s) => s.saved).length,
       visited: spots.filter((s) => s.visited).length,
     }),
-    [spots]
+    [spots],
   );
 
-  const displayedSpots = useMemo(
-    () =>
-      filteredSpots.length > MAP_PIN_CAP ? filteredSpots.slice(0, MAP_PIN_CAP) : filteredSpots,
-    [filteredSpots]
-  );
+  const displayedSpots = useMemo(() => {
+    const base =
+      filteredSpots.length > MAP_PIN_CAP
+        ? filteredSpots.slice(0, MAP_PIN_CAP)
+        : filteredSpots;
+    if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
+    return base;
+  }, [filteredSpots, selectedSpot]);
 
   const defaultSpots = useMemo(() => {
-    const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
+    const ref = userCoords ?? {
+      latitude: FALLBACK_VIEW.latitude,
+      longitude: FALLBACK_VIEW.longitude,
+    };
     return [...filteredSpots]
       .sort(
         (a, b) =>
           distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
-          distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude)
+          distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
       )
       .slice(0, 10);
   }, [filteredSpots, userCoords]);
 
   useEffect(() => {
-    if (
-      selectedSpot &&
-      !filteredSpots.some((s) => s.id === selectedSpot.id)
-    ) {
+    if (!selectedSpot) return;
+    if (selectedSpot.id.startsWith("draft_")) return;
+    if (!filteredSpots.some((s) => s.id === selectedSpot.id)) {
       setSelectedSpot(null);
-      setSheetState('peek');
+      setSheetState("peek");
       setSheetHeight(SHEET_PEEK_HEIGHT);
     }
   }, [pinFilter, filteredSpots, selectedSpot]);
@@ -221,14 +256,15 @@ export function MapScreenVNext() {
         },
         getZoom: () => zoom,
       }),
-    [filteredSpots, mapInstance, zoom]
+    [filteredSpots, mapInstance, zoom],
   );
 
   const searchV2 = useSearchControllerV2<Spot>({
-    mode: 'spots',
+    mode: "spots",
     isToggleable: true,
     defaultOpen: false,
-    strategy: spotsStrategyV2 as import('@/hooks/search/useSearchControllerV2').SearchStrategy<Spot>,
+    strategy:
+      spotsStrategyV2 as import("@/hooks/search/useSearchControllerV2").SearchStrategy<Spot>,
     getBbox: () => {
       if (!mapInstance) return null;
       try {
@@ -261,7 +297,7 @@ export function MapScreenVNext() {
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
       setSelectedSpot(spot);
-      setSheetState('medium'); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
+      setSheetState("medium"); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
       if (mapInstance) {
@@ -278,7 +314,7 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (selectedSpot && openFromSearchRef.current) {
       openFromSearchRef.current = false;
-      setSheetState('medium');
+      setSheetState("medium");
     }
   }, [selectedSpot]);
 
@@ -294,17 +330,131 @@ export function MapScreenVNext() {
       }
       return true;
     },
-    [openAuthModal]
+    [openAuthModal],
+  );
+
+  /** Micro-scope 2: "Crear spot nuevo aquí" → draft local (solo si autenticado). Contrato SEARCH_NO_RESULTS_CREATE_CHOOSER. */
+  const handleCreateFromNoResults = useCallback(async () => {
+    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    let lat: number;
+    let lng: number;
+    if (mapInstance) {
+      try {
+        const c = mapInstance.getCenter();
+        lng = c.lng;
+        lat = c.lat;
+      } catch {
+        lat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+        lng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+      }
+    } else {
+      lat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+      lng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+    }
+    const draft: Spot = {
+      id: `draft_${Date.now()}`,
+      title: searchV2.query.trim() || "Nuevo spot",
+      description_short: null,
+      description_long: null,
+      cover_image_url: null,
+      address: null,
+      latitude: lat,
+      longitude: lng,
+      saved: false,
+      visited: false,
+      pinStatus: "default",
+    };
+    searchV2.setOpen(false);
+    setSelectedSpot(draft);
+    setSheetState("medium");
+    setIsPlacingDraftSpot(true);
+  }, [mapInstance, userCoords, searchV2, requireAuthOrModal]);
+
+  /** Micro-scope 3 (tap-to-move): tap en mapa en modo "Ajustar ubicación" mueve el pin al punto tocado. */
+  const handleMapClick = useCallback(
+    (e: { lngLat: { lat: number; lng: number } }) => {
+      if (!isPlacingDraftSpot) return;
+      setSelectedSpot((prev) => {
+        if (!prev || !prev.id.startsWith("draft_")) return prev;
+        const { lngLat } = e;
+        if (!lngLat) return prev;
+        return { ...prev, latitude: lngLat.lat, longitude: lngLat.lng };
+      });
+    },
+    [isPlacingDraftSpot],
   );
 
   useEffect(() => {
-    searchV2.setOnCreate(async () => {
-      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-      (router.push as (href: string) => void)('/create-spot');
-    });
-  }, [searchV2, router, requireAuthOrModal]);
+    searchV2.setOnCreate(handleCreateFromNoResults);
+  }, [searchV2, handleCreateFromNoResults]);
 
-  const SKIP_CREATE_SPOT_CONFIRM_KEY = 'flowya_create_spot_skip_confirm';
+  /** Crear spot mínimo desde BORRADOR: insert + cover si hay imagen; luego abrir sheet EXTENDED con el spot creado. */
+  const handleCreateSpotFromDraft = useCallback(async () => {
+    const draft = selectedSpot;
+    if (!draft || !draft.id.startsWith("draft_")) return;
+    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    const insertPayload = {
+      title: draft.title?.trim() || "Nuevo spot",
+      description_short: null,
+      description_long: null,
+      latitude: draft.latitude,
+      longitude: draft.longitude,
+      address: null,
+    };
+    const { data: inserted, error: insertError } = await supabase
+      .from("spots")
+      .insert(insertPayload)
+      .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
+      .single();
+    if (insertError) {
+      toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
+      return;
+    }
+    const newId = inserted?.id;
+    if (!newId) return;
+    let coverUrl: string | null = null;
+    if (draftCoverUri) {
+      try {
+        const res = await fetch(draftCoverUri);
+        if (res.ok) {
+          const blob = await res.blob();
+          const optimized = await optimizeSpotImage(blob);
+          const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+          if (toUpload) {
+            coverUrl = await uploadSpotCover(newId, toUpload);
+            if (coverUrl) {
+              await supabase.from("spots").update({ cover_image_url: coverUrl }).eq("id", newId);
+            }
+          }
+        }
+      } catch {
+        /* fallback silencioso */
+      }
+    }
+    const pinMap = await getPinsForSpots([newId]);
+    const state = pinMap.get(newId);
+    const created: Spot = {
+      ...(inserted as Omit<Spot, "saved" | "visited" | "pinStatus">),
+      cover_image_url: coverUrl ?? inserted?.cover_image_url ?? null,
+      saved: state?.saved ?? false,
+      visited: state?.visited ?? false,
+      pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
+    };
+    setSelectedSpot(created);
+    setSheetState("expanded");
+    setIsPlacingDraftSpot(false);
+    setDraftCoverUri(null);
+    searchV2.setOpen(false);
+    refetchSpots();
+  }, [
+    selectedSpot,
+    draftCoverUri,
+    requireAuthOrModal,
+    refetchSpots,
+    toast,
+  ]);
+
+  const SKIP_CREATE_SPOT_CONFIRM_KEY = "flowya_create_spot_skip_confirm";
 
   const navigateToCreateSpotWithCoords = useCallback(
     (coords: { lat: number; lng: number }) => {
@@ -324,7 +474,7 @@ export function MapScreenVNext() {
       }
       (router.push as (href: string) => void)(`/create-spot?${query}`);
     },
-    [router, mapInstance]
+    [router, mapInstance],
   );
 
   const handleMapLongPress = useCallback(
@@ -334,8 +484,8 @@ export function MapScreenVNext() {
       searchV2.setOpen(false);
       blurActiveElement();
       const skipConfirm =
-        typeof localStorage !== 'undefined' &&
-        localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === 'true';
+        typeof localStorage !== "undefined" &&
+        localStorage.getItem(SKIP_CREATE_SPOT_CONFIRM_KEY) === "true";
       if (skipConfirm) {
         navigateToCreateSpotWithCoords(coords);
       } else {
@@ -343,7 +493,7 @@ export function MapScreenVNext() {
         setShowCreateSpotConfirmModal(true);
       }
     },
-    [requireAuthOrModal, searchV2, navigateToCreateSpotWithCoords]
+    [requireAuthOrModal, searchV2, navigateToCreateSpotWithCoords],
   );
   useEffect(() => {
     onLongPressHandlerRef.current = handleMapLongPress;
@@ -352,14 +502,14 @@ export function MapScreenVNext() {
   const handleCreateSpotConfirm = useCallback(
     (dontShowAgain: boolean) => {
       if (pendingCreateSpotCoords === null) return;
-      if (dontShowAgain && typeof localStorage !== 'undefined') {
-        localStorage.setItem(SKIP_CREATE_SPOT_CONFIRM_KEY, 'true');
+      if (dontShowAgain && typeof localStorage !== "undefined") {
+        localStorage.setItem(SKIP_CREATE_SPOT_CONFIRM_KEY, "true");
       }
       navigateToCreateSpotWithCoords(pendingCreateSpotCoords);
       setPendingCreateSpotCoords(null);
       setShowCreateSpotConfirmModal(false);
     },
-    [pendingCreateSpotCoords, navigateToCreateSpotWithCoords]
+    [pendingCreateSpotCoords, navigateToCreateSpotWithCoords],
   );
 
   const handleCreateSpotConfirmCancel = useCallback(() => {
@@ -368,27 +518,27 @@ export function MapScreenVNext() {
   }, []);
 
   const stageLabel =
-    searchV2.stage === 'viewport'
-      ? 'En esta zona'
-      : searchV2.stage === 'expanded'
-        ? 'Cerca de aquí'
-        : 'En todo el mapa';
+    searchV2.stage === "viewport"
+      ? "En esta zona"
+      : searchV2.stage === "expanded"
+        ? "Cerca de aquí"
+        : "En todo el mapa";
 
   const handlePinClick = useCallback(
     (spot: Spot) => {
       if (selectedSpot?.id === spot.id) {
-        setSheetState('expanded');
+        setSheetState("expanded");
       } else {
         setSelectedSpot(spot);
-        setSheetState('medium');
+        setSheetState("medium");
       }
     },
-    [selectedSpot?.id, setSheetState]
+    [selectedSpot?.id, setSheetState],
   );
 
   const handleSelectedPinTap = useCallback(() => {
     if (!selectedSpot) return;
-    setSheetState('expanded');
+    setSheetState("expanded");
   }, [selectedSpot, setSheetState]);
 
   const handleSheetOpenDetail = useCallback(() => {
@@ -415,34 +565,41 @@ export function MapScreenVNext() {
 
   const handleShare = useCallback(
     async (spot: Spot) => {
+      if (spot.id.startsWith("draft_")) return;
       const result = await shareSpot(spot.id, spot.title);
-      if (result.copied) toast.show('Link copiado', { type: 'success' });
+      if (result.copied) toast.show("Link copiado", { type: "success" });
     },
-    [toast]
+    [toast],
   );
 
   const updateSpotPinState = useCallback(
     (spotId: string, next: { saved: boolean; visited: boolean }) => {
-      const pinStatus: SpotPinStatus =
-        next.visited ? 'visited' : next.saved ? 'to_visit' : 'default';
+      const pinStatus: SpotPinStatus = next.visited
+        ? "visited"
+        : next.saved
+          ? "to_visit"
+          : "default";
       setSpots((prev) =>
         prev.map((s) =>
-          s.id === spotId ? { ...s, saved: next.saved, visited: next.visited, pinStatus } : s
-        )
+          s.id === spotId
+            ? { ...s, saved: next.saved, visited: next.visited, pinStatus }
+            : s,
+        ),
       );
       setSelectedSpot((prev) =>
         prev?.id === spotId
           ? prev
             ? { ...prev, saved: next.saved, visited: next.visited, pinStatus }
             : null
-          : prev
+          : prev,
       );
     },
-    []
+    [],
   );
 
   const handleSavePin = useCallback(
     async (spot: Spot) => {
+      if (spot.id.startsWith("draft_")) return;
       const userId = await getCurrentUserId();
       if (!userId) {
         openAuthModal({
@@ -454,19 +611,20 @@ export function MapScreenVNext() {
       const nextState = await setSaved(spot.id, !spot.saved);
       if (nextState) {
         updateSpotPinState(spot.id, nextState);
-        toast.show(nextState.saved ? 'Guardado' : 'Quitado de guardados', {
-          type: 'success',
+        toast.show(nextState.saved ? "Guardado" : "Quitado de guardados", {
+          type: "success",
         });
       } else {
         updateSpotPinState(spot.id, { saved: false, visited: false });
-        toast.show('Quitado de guardados', { type: 'success' });
+        toast.show("Quitado de guardados", { type: "success" });
       }
     },
-    [toast, openAuthModal, updateSpotPinState]
+    [toast, openAuthModal, updateSpotPinState],
   );
 
   const handleMarkVisited = useCallback(
     async (spot: Spot) => {
+      if (spot.id.startsWith("draft_")) return;
       const userId = await getCurrentUserId();
       if (!userId) {
         openAuthModal({
@@ -478,15 +636,15 @@ export function MapScreenVNext() {
       const nextState = await setVisited(spot.id, !spot.visited);
       if (nextState) {
         updateSpotPinState(spot.id, nextState);
-        toast.show(nextState.visited ? 'Marcado como visitado' : 'Desmarcado', {
-          type: 'success',
+        toast.show(nextState.visited ? "Marcado como visitado" : "Desmarcado", {
+          type: "success",
         });
       } else {
         updateSpotPinState(spot.id, { saved: false, visited: false });
-        toast.show('Desmarcado', { type: 'success' });
+        toast.show("Desmarcado", { type: "success" });
       }
     },
-    [toast, openAuthModal, updateSpotPinState]
+    [toast, openAuthModal, updateSpotPinState],
   );
 
   useFocusEffect(
@@ -502,19 +660,23 @@ export function MapScreenVNext() {
         });
       });
       return () => cancelAnimationFrame(id);
-    }, [mapInstance])
+    }, [mapInstance]),
   );
 
   if (!MAPBOX_TOKEN) {
     return (
       <View style={[styles.mapScreenRoot, styles.placeholder]}>
-        <Text style={styles.placeholderText}>Set EXPO_PUBLIC_MAPBOX_TOKEN for the map.</Text>
+        <Text style={styles.placeholderText}>
+          Set EXPO_PUBLIC_MAPBOX_TOKEN for the map.
+        </Text>
       </View>
     );
   }
 
   const mapStyle =
-    colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+    colorScheme === "dark"
+      ? "mapbox://styles/mapbox/dark-v11"
+      : "mapbox://styles/mapbox/light-v11";
 
   const showDock = selectedSpot == null && !searchV2.isOpen;
   const dockBottomOffset = 12;
@@ -523,7 +685,7 @@ export function MapScreenVNext() {
     <View
       ref={mapRootRef as React.RefObject<View>}
       style={styles.mapScreenRoot}
-      {...(Platform.OS === 'web' && { className: 'map-screen-root-dvh' })}
+      {...(Platform.OS === "web" && { className: "map-screen-root-dvh" })}
     >
       <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
@@ -539,13 +701,15 @@ export function MapScreenVNext() {
         zoom={zoom}
         onPinClick={handlePinClick}
         styleMap={styles.map}
+        onClick={handleMapClick}
       />
       {selectedSpot && selectedPinScreenPos ? (
         <Pressable
           style={[
             styles.selectedPinHitArea,
             {
-              left: Math.round(selectedPinScreenPos.x) - SELECTED_PIN_HIT_RADIUS,
+              left:
+                Math.round(selectedPinScreenPos.x) - SELECTED_PIN_HIT_RADIUS,
               top: Math.round(selectedPinScreenPos.y) - SELECTED_PIN_HIT_RADIUS,
             },
           ]}
@@ -554,17 +718,21 @@ export function MapScreenVNext() {
           accessibilityRole="button"
         />
       ) : null}
-      <View style={[styles.filterOverlay, { pointerEvents: 'box-none' }]}>
-        <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
-          <MapPinFilter value={pinFilter} onChange={setPinFilter} counts={pinCounts} />
+      <View style={[styles.filterOverlay, { pointerEvents: "box-none" }]}>
+        <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
+          <MapPinFilter
+            value={pinFilter}
+            onChange={setPinFilter}
+            counts={pinCounts}
+          />
         </View>
       </View>
-      {!searchV2.isOpen && sheetState !== 'expanded' ? (
+      {!searchV2.isOpen && sheetState !== "expanded" ? (
         <View
           style={[
             styles.controlsOverlay,
             {
-              pointerEvents: 'box-none',
+              pointerEvents: "box-none",
               bottom:
                 CONTROLS_OVERLAY_BOTTOM +
                 (selectedSpot ? sheetHeight : DOCK_HEIGHT + 12),
@@ -572,15 +740,15 @@ export function MapScreenVNext() {
           ]}
         >
           <MapControls
-          map={mapInstance}
-          onLocate={handleLocate}
-          selectedSpot={selectedSpot}
-          onReframeSpot={handleReframeSpot}
-          onReframeSpotAndUser={handleReframeSpotAndUser}
-          hasUserLocation={userCoords != null}
-          onViewWorld={handleViewWorld}
-          activeMapControl={activeMapControl}
-        />
+            map={mapInstance}
+            onLocate={handleLocate}
+            selectedSpot={selectedSpot}
+            onReframeSpot={handleReframeSpot}
+            onReframeSpotAndUser={handleReframeSpotAndUser}
+            hasUserLocation={userCoords != null}
+            onViewWorld={handleViewWorld}
+            activeMapControl={activeMapControl}
+          />
         </View>
       ) : null}
       {selectedSpot == null ? (
@@ -613,11 +781,11 @@ export function MapScreenVNext() {
           <SearchResultCard
             spot={spot}
             savePinState={
-              spot.pinStatus === 'to_visit'
-                ? 'toVisit'
-                : spot.pinStatus === 'visited'
-                  ? 'visited'
-                  : 'default'
+              spot.pinStatus === "to_visit"
+                ? "toVisit"
+                : spot.pinStatus === "visited"
+                  ? "visited"
+                  : "default"
             }
             onPress={() => searchV2.onSelect(spot)}
           />
@@ -631,8 +799,10 @@ export function MapScreenVNext() {
           spot={selectedSpot}
           onClose={() => {
             setSelectedSpot(null);
-            setSheetState('peek');
+            setSheetState("peek");
             setSheetHeight(SHEET_PEEK_HEIGHT);
+            setIsPlacingDraftSpot(false);
+            setDraftCoverUri(null);
           }}
           onOpenDetail={handleSheetOpenDetail}
           state={sheetState}
@@ -643,8 +813,18 @@ export function MapScreenVNext() {
           onMarkVisited={() => handleMarkVisited(selectedSpot)}
           userCoords={userCoords ?? undefined}
           isAuthUser={isAuthUser}
-          onDirections={(s) => Linking.openURL(getMapsDirectionsUrl(s.latitude, s.longitude))}
-          onEdit={(spotId) => (router.push as (href: string) => void)(`/spot/${spotId}?edit=1`)}
+          onDirections={(s) =>
+            Linking.openURL(getMapsDirectionsUrl(s.latitude, s.longitude))
+          }
+          onEdit={(spotId) =>
+            (router.push as (href: string) => void)(`/spot/${spotId}?edit=1`)
+          }
+          isPlacingDraftSpot={isPlacingDraftSpot}
+          onConfirmPlacement={() => setIsPlacingDraftSpot(false)}
+          onDraftBackToPlacing={() => setIsPlacingDraftSpot(true)}
+          draftCoverUri={draftCoverUri}
+          onDraftCoverChange={setDraftCoverUri}
+          onCreateSpot={handleCreateSpotFromDraft}
         />
       ) : null}
       <ConfirmModal
@@ -670,54 +850,54 @@ export function MapScreenVNext() {
 
 const styles = StyleSheet.create({
   mapScreenRoot: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     top: 0,
     bottom: 0,
     ...Platform.select({
-      web: { width: '100%' },
+      web: { width: "100%" },
       default: {},
     }),
   },
   map: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   selectedPinHitArea: {
-    position: 'absolute',
+    position: "absolute",
     width: SELECTED_PIN_HIT_RADIUS * 2,
     height: SELECTED_PIN_HIT_RADIUS * 2,
     zIndex: 10,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   filterOverlay: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     top: FILTER_OVERLAY_TOP,
-    alignItems: 'center',
+    alignItems: "center",
     zIndex: 10,
   },
   filterRowWrap: {
-    position: 'relative',
+    position: "relative",
     zIndex: 20,
     ...Platform.select({ android: { elevation: 4 } }),
   },
   controlsOverlay: {
-    position: 'absolute',
+    position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
     zIndex: 10,
   },
   placeholder: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#eee',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#eee",
   },
   placeholderText: {
-    color: '#333',
+    color: "#333",
     fontSize: 14,
   },
 });

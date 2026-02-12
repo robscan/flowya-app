@@ -569,6 +569,7 @@ function SpotDetailScreenContent({
         onCoverImageChange={(url) =>
           setSpot((prev) => (prev ? { ...prev, cover_image_url: url } : null))
         }
+        hideHero={isEditing}
         mapSlot={
           isEditing ? (
             <EditSpotMapSlot

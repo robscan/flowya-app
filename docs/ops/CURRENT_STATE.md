@@ -10,10 +10,21 @@
 
 ## Ahora mismo
 
-- **Scope activo:** PR listo (rama `fix/ol-056-to-ol-061-spot-sheet-search`): OL-056..061 cerrados (spot→sheet state machine, search→MEDIUM, padding collapsed, gap recientes, empty states, contrato). Pendiente merge a main.
-- **Branch activa:** `fix/ol-056-to-ol-061-spot-sheet-search` (PR preparado, no abierto).
-- **Estado del repo:** `main` protegido; cambios en rama de fix.
+- **Scope activo:** Create spot E2E cerrado (map-first). Merge a main en curso (rama `fix/ol-056-to-ol-061-spot-sheet-search`).
+- **Branch activa:** Tras cierre del día: `main`; rama de trabajo mergeada y eliminada.
+- **Estado del repo:** Código + docs versionados en commit de cierre.
 - **Entorno:** Web mobile (Explore público) + Search web overlay activo.
+
+---
+
+## Hoy (2026-02-11)
+
+- **Create spot E2E cerrado (map-first):** Sin resultados → “Crear spot nuevo aquí” → placing → Confirmar ubicación → BORRADOR (imagen opcional, 1 cover) → Crear spot → spot persistido → sheet expanded → “Editar detalles” → Edit Spot sin hero.
+- **Auth gate:** Sin sesión, “Crear spot nuevo aquí” y “Crear spot” (BORRADOR) abren modal de auth; no se crea draft ni se inserta. Reutilizado `requireAuthOrModal` (bitácora 048).
+- **CTA:** “Editar detalles” en SpotSheet/card; tap navega a `/spot/[id]?edit=1`.
+- **Edit Spot:** Sin hero (back en header); mapa pasivo + Editar ubicación.
+- **Imagen:** 1 cover (sin galería); pipeline existente `optimizeSpotImage` + `uploadSpotCover`; reutiliza `cover_image_url`.
+- **DB:** Tabla `spots` no tiene `user_id` (solo `pins`); insert corregido para no enviar `user_id`. Ver bitácora 082.
 
 ---
 
@@ -26,10 +37,9 @@
   - **INSERT:** solo usuarios autenticados
   - **UPDATE:** solo usuarios autenticados
   - **DELETE físico:** deshabilitado
-- Soft delete activo vía `is_hidden`.
+- Soft delete activo vía `is_hidden` (columna puede no estar en migraciones 001/002; ver OPEN_LOOPS).
 - Trazabilidad de creación:
-  - `spots.user_id` existe
-  - Los INSERTs envían `user_id = auth.uid()` desde la app
+  - La tabla `spots` **no** tiene columna `user_id` (solo `pins` la tiene); los INSERTs en spots no envían `user_id`. Ver bitácora 082.
 - UX de creación protegida:
   - Usuarios no autenticados **no acceden** al wizard
   - Se reutiliza el modal de login existente
