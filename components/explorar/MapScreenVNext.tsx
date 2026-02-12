@@ -259,7 +259,7 @@ export function MapScreenVNext() {
     searchV2.setOnSelect((spot: Spot) => {
       searchV2.setOpen(false);
       setSelectedSpot(spot);
-      setSheetState('medium');
+      setSheetState('medium'); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
       if (mapInstance) {
