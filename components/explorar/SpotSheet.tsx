@@ -23,6 +23,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function usePrefersReducedMotion(): boolean {
   const [prefers, setPrefers] = useState(false);
@@ -343,6 +344,7 @@ export function SpotSheet({
 
   const colorScheme = useColorScheme();
   const prefersReducedMotion = usePrefersReducedMotion();
+  const insets = useSafeAreaInsets();
   const vh = Dimensions.get('window').height;
   /** Altura estimada del handle (handleRow: SheetHandle padding+bar + marginBottom). */
   const HANDLE_ROW_ESTIMATE = 20;
@@ -622,6 +624,7 @@ export function SpotSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
+          paddingBottom: Math.max(CONTAINER_PADDING_BOTTOM, insets.bottom),
         },
         animatedContainerStyle,
       ]}
