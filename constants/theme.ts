@@ -154,6 +154,8 @@ export const Radius = {
   md: 12,
   lg: 16,
   xl: 20,
+  /** Pill / totalmente redondeado (chips, botones de acción). */
+  pill: 9999,
 } as const;
 
 export const Fonts = Platform.select({

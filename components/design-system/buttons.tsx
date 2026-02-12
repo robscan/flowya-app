@@ -93,13 +93,13 @@ const styles = StyleSheet.create({
   primary: {
     paddingVertical: 14,
     paddingHorizontal: 28,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     alignItems: 'center',
   },
   secondary: {
     paddingVertical: 14,
     paddingHorizontal: 28,
-    borderRadius: Radius.lg,
+    borderRadius: Radius.pill,
     borderWidth: 1,
     alignItems: 'center',
   },

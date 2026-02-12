@@ -87,6 +87,7 @@ export function MapScreenVNext() {
     lat: number;
     lng: number;
   } | null>(null);
+  const openFromSearchRef = useRef(false);
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -257,6 +258,7 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     searchV2.setOnSelect((spot: Spot) => {
+      openFromSearchRef.current = true;
       searchV2.setOpen(false);
       setSelectedSpot(spot);
       setSheetState('medium'); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
@@ -271,6 +273,14 @@ export function MapScreenVNext() {
       }
     });
   }, [mapInstance, searchHistory, searchV2]);
+
+  /** OL-057: Force sheet MEDIUM when spot was selected from search (avoids collapsed on first paint). */
+  useEffect(() => {
+    if (selectedSpot && openFromSearchRef.current) {
+      openFromSearchRef.current = false;
+      setSheetState('medium');
+    }
+  }, [selectedSpot]);
 
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(

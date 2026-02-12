@@ -616,6 +616,9 @@ export function SpotSheet({
     if (onEdit) onEdit(spot.id);
   };
 
+  /** Offset del borde inferior para que el sheet colapsado no quede pegado al viewport (OL-058). */
+  const bottomOffset = Math.max(Spacing.md, insets.bottom);
+
   return (
     <Animated.View
       style={[
@@ -624,7 +627,8 @@ export function SpotSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
-          paddingBottom: Math.max(CONTAINER_PADDING_BOTTOM, insets.bottom),
+          bottom: bottomOffset,
+          paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
         animatedContainerStyle,
       ]}
@@ -858,7 +862,7 @@ const styles = StyleSheet.create({
   actionPill: {
     flex: 1,
     height: ACTION_PILL_HEIGHT,
-    borderRadius: ACTION_PILL_HEIGHT / 2,
+    borderRadius: Radius.pill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -891,7 +895,7 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: 12,
     paddingHorizontal: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
     marginTop: 4,
   },
   detailButtonText: {

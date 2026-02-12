@@ -12,7 +12,7 @@
 
 ## 2) Componentes DS mencionados en ops/definitions para Explore vNext
 
-- **Chips / filtros:** Border radius y estados (active/inactive/pressed) deben venir de tokens del sistema; consistencia con design system. _Fuente: EXPLORAR_VNEXT_UI._
+- **Chips / filtros:** Border radius y estados (active/inactive/pressed) deben venir de tokens del sistema; consistencia con design system. Bordes totalmente redondeados (pill): usar `Radius.pill`. _Fuente: EXPLORAR_VNEXT_UI._
 - **Search input:** Top bar tipo Apple Maps (input + close en una línea; clear "x" dentro del input; focus = fondo del contenedor, no línea azul). _Fuente: EXPLORAR_VNEXT_UI, definitions/EXPLORE_SHEET._
 - **IconButton, Botones, SpotCard, etc.:** Reglas generales en COMPONENT_LIBRARY_POLICY (estados, deprecación controlada, contract primero).
 - **SheetHandle (canónico):** Affordance de arrastre para sheets. `components/design-system/sheet-handle.tsx`. Usado en SpotSheet y SearchFloating (Explore vNext). Web: hover/active con cambio sutil de opacidad (sin sombras ni blur). OL-044.
