@@ -5,7 +5,6 @@
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
-import { ButtonPrimary } from '@/components/design-system/buttons';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import React, { useCallback, useEffect } from 'react';
 import {
@@ -26,7 +25,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Search, X } from 'lucide-react-native';
+import { ChevronRight, Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { SearchResultsListV2 } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
@@ -130,6 +129,8 @@ export function SearchFloatingNative<T>({
   const isEmpty = len === 0;
   const isPreSearch = len > 0 && len < 3;
   const isSearch = len >= 3;
+  /** Estado "Sin resultados" (contrato SEARCH_NO_RESULTS_CREATE_CHOOSER): query >= threshold, results vacío, no loading. */
+  const isNoResults = isSearch && controller.results.length === 0 && !controller.isLoading;
 
   if (!controller.isOpen) return null;
 
@@ -257,7 +258,7 @@ export function SearchFloatingNative<T>({
                     />
                   </>
                 )}
-                {isSearch && controller.results.length === 0 && (
+                {isNoResults && (
                   <>
                     {controller.suggestions.length > 0 && (
                       <View style={styles.suggestionsSection}>
@@ -280,13 +281,23 @@ export function SearchFloatingNative<T>({
                         ))}
                       </View>
                     )}
-                    <View style={styles.noResults}>
-                      <ButtonPrimary
+                    <View style={styles.chooserSection}>
+                      <Pressable
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          styles.chooserRow,
+                          { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                        ]}
                         onPress={controller.onCreate}
-                        accessibilityLabel={q ? `Crear "${q}"` : onCreateLabel}
+                        accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
+                        accessibilityRole="button"
                       >
-                        {q ? `Crear "${q}"` : onCreateLabel}
-                      </ButtonPrimary>
+                        <View style={styles.chooserRowContent}>
+                          <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
+                          <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                        </View>
+                        <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                      </Pressable>
                     </View>
                   </>
                 )}
@@ -381,6 +392,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.base,
     borderRadius: Radius.sm,
   },
-  noResults: { marginTop: Spacing.base, alignItems: 'center', gap: Spacing.base },
+  chooserSection: { marginTop: Spacing.sm },
+  chooserRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
+  chooserRowTitle: { fontSize: 16, fontWeight: '600' },
+  chooserRowSubtitle: { fontSize: 13 },
   emptyText: { fontSize: 15, textAlign: 'center' },
 });

@@ -43,6 +43,7 @@ En vez de “Crear <query>” único, mostrar:
 
 CTA: **“Crear spot nuevo aquí”**
 
+- **Auth:** Sin sesión, el tap abre modal de login y no crea draft ni entra en placing; con sesión sigue el flujo normal (placing → BORRADOR → Crear spot).
 - Coordenadas:
   1. Centro del mapa (viewport center) si está disponible
   2. Fallback: ubicación actual

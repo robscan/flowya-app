@@ -6,7 +6,11 @@
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import { MapPinLocation, MapPinSpot } from '@/components/design-system/map-pins';
 import { LABEL_MIN_ZOOM } from '@/lib/map-core/constants';
-import type { MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
+import type {
+  MapMouseEvent,
+  MapTouchEvent,
+  ViewStateChangeEvent,
+} from 'react-map-gl/mapbox-legacy';
 import { Map, Marker } from 'react-map-gl/mapbox-legacy';
 
 export type MapCoreSpot = {
@@ -32,6 +36,10 @@ export type MapCoreViewProps = {
   onPinClick: (spot: MapCoreSpot) => void;
   /** Estilo del Map. */
   styleMap: object;
+  /** Llamado al terminar movimiento/cámara (pan/zoom). Útil para draft placement. */
+  onMoveEnd?: (e: ViewStateChangeEvent) => void;
+  /** Tap/click en el mapa (lngLat del punto). Para draft placement: mover pin al punto tocado. */
+  onClick?: (e: { lngLat: { lat: number; lng: number } }) => void;
 };
 
 export function MapCoreView({
@@ -48,6 +56,8 @@ export function MapCoreView({
   zoom,
   onPinClick,
   styleMap,
+  onMoveEnd,
+  onClick,
 }: MapCoreViewProps) {
   return (
     <Map
@@ -65,6 +75,8 @@ export function MapCoreView({
         onTouchStart={onPointerDown}
         onTouchMove={onPointerMove}
         onTouchEnd={onPointerUp}
+        onMoveEnd={onMoveEnd}
+        onClick={onClick}
       >
         {spots.map((spot) => (
           <Marker
