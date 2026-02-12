@@ -14,3 +14,8 @@
 - **DESIGN_SYSTEM_USAGE.md** — Uso de componentes canónicos en Explore vNext; chips/tokens; inventario TBD (OPEN LOOP).
 - **DATA_MODEL_CURRENT.md** — Modelo de datos vigente (referencia operativa).
 - **PROFILE_AUTH_CONTRACT_CURRENT.md** — Contrato de autenticación/perfil (referencia operativa).
+
+## Search
+
+- **SEARCH_NO_RESULTS_CREATE_CHOOSER.md** — Contrato: “Sin resultados” → chooser explícito (anti-traición).
+- Nota: `SEARCH_V2.md` ya está listado arriba como contrato canónico del modo búsqueda en Explore vNext.
