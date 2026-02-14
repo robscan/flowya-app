@@ -51,7 +51,9 @@ import {
     setSaved,
     setVisited,
 } from "@/lib/pins";
-import { createSpotsStrategy } from "@/lib/search/spotsStrategy";
+import { createMapboxGeocodingProvider } from "@/core/shared/search";
+import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spotsStrategyProvider";
+import { onlyVisible } from "@/core/shared/visibility-softdelete";
 import { shareSpot } from "@/lib/share-spot";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
@@ -98,6 +100,10 @@ export function MapScreenVNext() {
   const [sheetState, setSheetState] = useState<"peek" | "medium" | "expanded">(
     "peek",
   );
+
+  const prevSpotIdsRef = useRef<Set<string>>(new Set());
+  const prevSelectedSpotRef = useRef<Spot | null>(null);
+  const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
   const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] =
     useState(false);
@@ -124,6 +130,8 @@ export function MapScreenVNext() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  const invalidateSpotIdRef = useRef<((spotId: string) => void) | null>(null);
 
   const refetchSpots = useCallback(async () => {
     const { data } = await supabase
@@ -152,9 +160,30 @@ export function MapScreenVNext() {
             : ("default" as SpotPinStatus),
       };
     });
-    setSpots(withPins);
-    return withPins;
-  }, []);
+
+    const visible = onlyVisible(withPins);
+    const nextIds = new Set(visible.map((s) => s.id));
+    const prevIds = prevSpotIdsRef.current;
+    const disappeared = [...prevIds].filter((id) => !nextIds.has(id));
+
+    prevSpotIdsRef.current = nextIds;
+
+    for (const id of disappeared) {
+      invalidateSpotIdRef.current?.(id);
+    }
+
+    if (
+      selectedSpot &&
+      selectedSpot.id &&
+      disappeared.includes(selectedSpot.id)
+    ) {
+      setSelectedSpot(null);
+      setSheetState("peek");
+    }
+
+    setSpots(visible);
+    return visible;
+  }, [selectedSpot]);
 
   useFocusEffect(
     useCallback(() => {
@@ -169,6 +198,7 @@ export function MapScreenVNext() {
   const mapCore = useMapCore(selectedSpot, {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     skipCenterOnUser: false,
+    // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => setSheetState("peek"),
   });
   const {
@@ -235,9 +265,9 @@ export function MapScreenVNext() {
     }
   }, [pinFilter, filteredSpots, selectedSpot]);
 
-  const spotsStrategyV2 = useMemo(
+  const spotsProvider = useMemo(
     () =>
-      createSpotsStrategy({
+      createSpotsStrategyProvider({
         getFilteredSpots: () => filteredSpots,
         getBbox: () => {
           if (!mapInstance) return null;
@@ -259,12 +289,13 @@ export function MapScreenVNext() {
     [filteredSpots, mapInstance, zoom],
   );
 
+  const geocoding = useMemo(() => createMapboxGeocodingProvider(), []);
+
   const searchV2 = useSearchControllerV2<Spot>({
     mode: "spots",
     isToggleable: true,
     defaultOpen: false,
-    strategy:
-      spotsStrategyV2 as import("@/hooks/search/useSearchControllerV2").SearchStrategy<Spot>,
+    provider: spotsProvider,
     getBbox: () => {
       if (!mapInstance) return null;
       try {
@@ -310,6 +341,13 @@ export function MapScreenVNext() {
     });
   }, [mapInstance, searchHistory, searchV2]);
 
+  useEffect(() => {
+    invalidateSpotIdRef.current = searchV2.invalidateSpotId;
+    return () => {
+      invalidateSpotIdRef.current = null;
+    };
+  }, [searchV2.invalidateSpotId]);
+
   /** OL-057: Force sheet MEDIUM when spot was selected from search (avoids collapsed on first paint). */
   useEffect(() => {
     if (selectedSpot && openFromSearchRef.current) {
@@ -336,24 +374,81 @@ export function MapScreenVNext() {
   /** Micro-scope 2: "Crear spot nuevo aquí" → draft local (solo si autenticado). Contrato SEARCH_NO_RESULTS_CREATE_CHOOSER. */
   const handleCreateFromNoResults = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    const q = searchV2.query.trim();
     let lat: number;
     let lng: number;
-    if (mapInstance) {
+    let title = q || "Nuevo spot";
+
+    const getFallbackCoords = (): { lat: number; lng: number } => {
+      if (mapInstance) {
+        try {
+          const c = mapInstance.getCenter();
+          return { lat: c.lat, lng: c.lng };
+        } catch {
+          return {
+            lat: userCoords?.latitude ?? FALLBACK_VIEW.latitude,
+            lng: userCoords?.longitude ?? FALLBACK_VIEW.longitude,
+          };
+        }
+      }
+      return {
+        lat: userCoords?.latitude ?? FALLBACK_VIEW.latitude,
+        lng: userCoords?.longitude ?? FALLBACK_VIEW.longitude,
+      };
+    };
+
+    if (q.length >= 3) {
       try {
-        const c = mapInstance.getCenter();
-        lng = c.lng;
-        lat = c.lat;
+        const viewport =
+          mapInstance &&
+          (() => {
+            try {
+              const c = mapInstance.getCenter();
+              const b = mapInstance.getBounds();
+              return {
+                center: { lat: c.lat, lng: c.lng },
+                zoom,
+                bounds: b
+                  ? {
+                      west: b.getWest(),
+                      south: b.getSouth(),
+                      east: b.getEast(),
+                      north: b.getNorth(),
+                    }
+                  : undefined,
+              };
+            } catch {
+              return undefined;
+            }
+          })();
+
+        const resolved = await geocoding.resolvePlaceForCreate({
+          query: q,
+          viewport: viewport ?? undefined,
+        });
+        if (resolved) {
+          lat = resolved.coords.lat;
+          lng = resolved.coords.lng;
+          title = resolved.title ?? q;
+        } else {
+          const fallback = getFallbackCoords();
+          lat = fallback.lat;
+          lng = fallback.lng;
+        }
       } catch {
-        lat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
-        lng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+        const fallback = getFallbackCoords();
+        lat = fallback.lat;
+        lng = fallback.lng;
       }
     } else {
-      lat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
-      lng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+      const fallback = getFallbackCoords();
+      lat = fallback.lat;
+      lng = fallback.lng;
     }
+
     const draft: Spot = {
       id: `draft_${Date.now()}`,
-      title: searchV2.query.trim() || "Nuevo spot",
+      title,
       description_short: null,
       description_long: null,
       cover_image_url: null,
@@ -368,7 +463,7 @@ export function MapScreenVNext() {
     setSelectedSpot(draft);
     setSheetState("medium");
     setIsPlacingDraftSpot(true);
-  }, [mapInstance, userCoords, searchV2, requireAuthOrModal]);
+  }, [mapInstance, userCoords, searchV2, requireAuthOrModal, geocoding, zoom]);
 
   /** Micro-scope 3 (tap-to-move): tap en mapa en modo "Ajustar ubicación" mueve el pin al punto tocado. */
   const handleMapClick = useCallback(
@@ -451,6 +546,7 @@ export function MapScreenVNext() {
     draftCoverUri,
     requireAuthOrModal,
     refetchSpots,
+    searchV2,
     toast,
   ]);
 
@@ -498,6 +594,21 @@ export function MapScreenVNext() {
   useEffect(() => {
     onLongPressHandlerRef.current = handleMapLongPress;
   }, [handleMapLongPress]);
+
+  // CONTRATO: Search full-screen — al cerrar Search, restaurar sheetState+selectedSpot si no fueron modificados
+  const wasSearchOpenRef = useRef(searchV2.isOpen);
+  useEffect(() => {
+    const wasOpen = wasSearchOpenRef.current;
+    wasSearchOpenRef.current = searchV2.isOpen;
+    if (wasOpen && !searchV2.isOpen) {
+      const prev = prevSelectedSpotRef.current;
+      if (prev != null && selectedSpot === null) {
+        setSelectedSpot(prev);
+        setSheetState(prevSheetStateRef.current);
+      }
+      prevSelectedSpotRef.current = null;
+    }
+  }, [searchV2.isOpen, selectedSpot]);
 
   const handleCreateSpotConfirm = useCallback(
     (dontShowAgain: boolean) => {
@@ -753,7 +864,11 @@ export function MapScreenVNext() {
       ) : null}
       {selectedSpot == null ? (
         <BottomDock
-          onOpenSearch={() => searchV2.setOpen(true)}
+          onOpenSearch={() => {
+            prevSelectedSpotRef.current = selectedSpot;
+            prevSheetStateRef.current = sheetState;
+            searchV2.setOpen(true);
+          }}
           onProfilePress={handleProfilePress}
           isAuthUser={isAuthUser}
           dockVisible={showDock}
@@ -771,6 +886,7 @@ export function MapScreenVNext() {
           accessibilityRole="button"
         />
       ) : null}
+      {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot>
         controller={searchV2}
         defaultItems={defaultSpots}
@@ -794,10 +910,12 @@ export function MapScreenVNext() {
         scope="explorar"
         getItemKey={(s) => s.id}
       />
+      {/* CONTRATO: Sheet disabled while search open — SpotSheet NO renderiza cuando searchV2.isOpen; al cerrar se restaura sheetState+selectedSpot */}
       {selectedSpot != null && !searchV2.isOpen ? (
         <SpotSheet
           spot={selectedSpot}
           onClose={() => {
+            // CONTRATO X dismiss: cierra sheet completamente (selectedSpot=null); no snap a peek
             setSelectedSpot(null);
             setSheetState("peek");
             setSheetHeight(SHEET_PEEK_HEIGHT);
@@ -901,3 +1019,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+/*
+ * CONTRATO: Search Fullscreen Overlay — Checklist manual:
+ * - Tap pin => medium (o expanded si mismo pin)
+ * - Drag peek<->medium<->expanded OK
+ * - X en SpotSheet => cierra total (selectedSpot null)
+ * - Map pan en medium/expanded => peek
+ * - Abrir Search => sheet no se renderiza (no captura gestos)
+ * - Cerrar Search => vuelve al estado anterior exacto
+ */

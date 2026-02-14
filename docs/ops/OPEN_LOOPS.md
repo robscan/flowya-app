@@ -92,4 +92,3 @@
 - El código filtra `is_hidden = false` en refetchSpots y otras queries; la pantalla de spot hace soft delete con `update({ is_hidden: true })`.
 - La columna `is_hidden` **no** aparece en migraciones 001/002 (posible migración posterior o columna añadida fuera del repo).
 - Pendiente: verificar esquema real en DB; alinear migraciones y políticas si hace falta; asegurar que listados/mapa/recientes no muestren spots borrados tras refetch. Sin tocar RLS/migraciones hoy.
-
