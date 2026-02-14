@@ -1,17 +1,12 @@
 /**
- * Scope E: compartir spot mediante link público /spot/:id.
+ * Scope E: compartir spot mediante deep link canónico (Explore + sheet extended).
+ * Contrato: docs/contracts/DEEP_LINK_SPOT.md
  * Web Share API si está disponible; si no, copiar link al clipboard.
- * No incluye pins ni estado. Sin parámetros en la URL.
  */
 
-export type ShareSpotResult = { copied: boolean };
+import { getMapSpotShareUrl } from "@/lib/explore-deeplink";
 
-function getSpotShareUrl(spotId: string): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return `${window.location.origin}/spot/${spotId}`;
-  }
-  return `/spot/${spotId}`;
-}
+export type ShareSpotResult = { copied: boolean };
 
 async function copyToClipboard(text: string): Promise<boolean> {
   if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
@@ -34,7 +29,7 @@ export async function shareSpot(
   spotId: string,
   title?: string | null
 ): Promise<ShareSpotResult> {
-  const url = getSpotShareUrl(spotId);
+  const url = getMapSpotShareUrl(spotId);
   const shareTitle = title?.trim() || 'Spot';
 
   const canShare =

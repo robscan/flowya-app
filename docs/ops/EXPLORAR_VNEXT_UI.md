@@ -1,7 +1,7 @@
-# EXPLORAR_VNEXT_UI (ARCHIVED)
+# EXPLORAR_VNEXT_UI — DEPRECATED
 
-Este alcance (Explore V3 UI con nuevo framework) fue **cancelado/revertido**.
-- Gate C (V3 UI) está **PAUSADO** y fuera del sprint actual.
-- Fuente histórica: `docs/_archive/ops/EXPLORAR_VNEXT_UI.md`
+Este documento fue movido a histórico:
 
-No usar este documento para decisiones activas.
+- `docs/_archive/ops/EXPLORAR_VNEXT_UI.md`
+
+Motivo: alcance de UI nueva (Explore V3) **cancelado**; Gate C está **PAUSADO**.

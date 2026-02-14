@@ -38,6 +38,7 @@ export const AUTH_MODAL_MESSAGES = {
   savePin: 'Crea una cuenta para guardar tus lugares',
   profile: 'Ingresa a tu cuenta de FLOWYA',
   createSpot: 'Inicia sesión para crear un spot',
+  editSpot: 'Inicia sesión para editar este spot',
 } as const;
 
 type AuthModalContextValue = {

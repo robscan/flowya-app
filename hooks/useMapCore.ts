@@ -218,6 +218,20 @@ export function useMapCore(
     mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
   }, [mapInstance]);
 
+  /** flyTo que no dispara onUserMapGestureStart (movestart se considera programático). */
+  const programmaticFlyTo = useCallback(
+    (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => {
+      if (!mapInstance) return;
+      programmaticMoveRef.current = true;
+      mapInstance.flyTo({
+        center: [center.lng, center.lat],
+        zoom: options?.zoom ?? 15,
+        duration: options?.duration ?? 800,
+      });
+    },
+    [mapInstance]
+  );
+
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
@@ -226,7 +240,11 @@ export function useMapCore(
     };
     const onMoveEnd = () => {
       if (programmaticMoveRef.current) {
-        programmaticMoveRef.current = false;
+        // Defer reset so any movestart that fires right after (e.g. flyTo follow-up) still sees programmatic
+        const ref = programmaticMoveRef;
+        setTimeout(() => {
+          ref.current = false;
+        }, 200);
       } else {
         setActiveMapControl(null);
       }
@@ -308,6 +326,7 @@ export function useMapCore(
     handleReframeSpot,
     handleReframeSpotAndUser,
     handleViewWorld,
+    programmaticFlyTo,
     handleMapPointerDown,
     handleMapPointerMove,
     handleMapPointerUp,
