@@ -4,6 +4,11 @@
  * Threshold 3 chars para emitir resultados.
  */
 
+import {
+  createSpotsStrategyProvider,
+  type SpotsStrategyProvider,
+} from '@/core/shared/search/providers/spotsStrategyProvider';
+import { createMemorySearchCache } from '@/core/shared/search/cache/memoryCache';
 import { getSuggestions } from '@/lib/search/suggestions';
 import { normalizeQuery } from '@/lib/search/normalize';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -55,31 +60,14 @@ function cacheKey(
 }
 
 
-type CacheEntry<T> = { data: SearchStrategyResult<T>; ts: number };
-
-function createCache<T>(ttlMs: number) {
-  const map = new Map<string, CacheEntry<T>>();
-  return {
-    get(key: string): SearchStrategyResult<T> | null {
-      const e = map.get(key);
-      if (!e) return null;
-      if (Date.now() - e.ts > ttlMs) {
-        map.delete(key);
-        return null;
-      }
-      return e.data;
-    },
-    set(key: string, data: SearchStrategyResult<T>) {
-      map.set(key, { data, ts: Date.now() });
-    },
-  };
-}
-
 export type UseSearchControllerV2Options<T> = {
   mode: 'spots' | 'places';
   isToggleable?: boolean;
   defaultOpen?: boolean;
-  strategy: SearchStrategy<T>;
+  /** Strategy directa (places o spots legacy). */
+  strategy?: SearchStrategy<T>;
+  /** Provider para spots (usa execute internamente). Si se pasa, strategy se ignora para mode spots. */
+  provider?: SpotsStrategyProvider;
   getBbox?: () => BBox | null;
   getFilters?: () => unknown;
   initialFilters?: unknown;
@@ -107,21 +95,34 @@ export type UseSearchControllerV2Return<T> = {
   isLoading: boolean;
   isOpen: boolean;
   setOpen: (open: boolean) => void;
+  open: () => void;
+  close: () => void;
   onSelect: (item: T) => void;
   onCreate: () => void;
   setOnSelect: (fn: (item: T) => void) => void;
   setOnCreate: (fn: () => void) => void;
+  /** Invalida cache por spotId (soft delete). No limpia resultados en pantalla. */
+  invalidateSpotId: (spotId: string) => void;
 };
 
 export function useSearchControllerV2<T>({
   mode,
   isToggleable = true,
   defaultOpen = false,
-  strategy,
+  strategy: strategyProp,
+  provider,
   getBbox = () => null,
   getFilters = () => null,
   initialFilters,
 }: UseSearchControllerV2Options<T>): UseSearchControllerV2Return<T> {
+  const strategy: SearchStrategy<T> =
+    mode === 'spots' && provider
+      ? (provider.execute as SearchStrategy<T>)
+      : (strategyProp as SearchStrategy<T>);
+
+  if (!strategy) {
+    throw new Error('useSearchControllerV2 requires strategy or provider');
+  }
   const [query, setQueryState] = useState('');
   const [results, setResults] = useState<T[]>([]);
   const [sections, setSections] = useState<SearchSection<T>[]>([]);
@@ -133,7 +134,13 @@ export function useSearchControllerV2<T>({
 
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
-  const cacheRef = useRef(createCache<T>(CACHE_TTL_MS));
+  const cacheRef = useRef(
+    createMemorySearchCache<T>({
+      ttlMs: CACHE_TTL_MS,
+      getSpotId: (item) =>
+        (item as { id?: string }).id ?? (item as { spotId?: string }).spotId,
+    })
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSelectRef = useRef<(item: T) => void>(() => {});
   const onCreateRef = useRef<() => void>(() => {});
@@ -269,6 +276,10 @@ export function useSearchControllerV2<T>({
     onCreateRef.current();
   }, []);
 
+  const invalidateSpotId = useCallback((spotId: string) => {
+    cacheRef.current.invalidateSpotId(spotId);
+  }, []);
+
   /** S3: sugerencias solo cuando agotamos find (stage global + 0 resultados). No en viewport/expanded. */
   const suggestions = useMemo(() => {
     if (mode !== 'spots') return [];
@@ -285,6 +296,9 @@ export function useSearchControllerV2<T>({
     [setQuery]
   );
 
+  const close = useCallback(() => setOpen(false), []);
+  const open = useCallback(() => setOpen(true), []);
+
   return {
     query,
     setQuery,
@@ -300,9 +314,12 @@ export function useSearchControllerV2<T>({
     isLoading,
     isOpen,
     setOpen,
+    open,
+    close,
     onSelect,
     onCreate,
     setOnSelect,
     setOnCreate,
+    invalidateSpotId,
   };
 }

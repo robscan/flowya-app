@@ -1,6 +1,7 @@
 /**
  * SearchFloating — Router por plataforma.
- * Web: overlay modal (SearchOverlayWeb). Native: sheet con drag (SearchFloatingNative).
+ * Web: overlay modal (SearchOverlayWeb).
+ * Native: sheet con drag (SearchFloatingNative).
  */
 
 import { Platform } from 'react-native';

@@ -1,6 +1,9 @@
 /**
- * SearchOverlayWeb — Overlay modal de búsqueda solo para WEB.
- * Sin sheet, sin gestos, sin handle. Overlay transparente; panel sólido; un solo scroll (lista).
+ * SearchOverlayWeb — Overlay modal full-screen de búsqueda (solo WEB).
+ * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel overlayScrim; zIndex alto.
+ * SpotSheet no se renderiza cuando isOpen (MapScreenVNext).
+ * CONTRATO: Keyboard-safe — NO 100vh; usar 100dvh o fallback visualViewport.height; --app-height en :root.
+ * CONTRATO: Un solo scroller — ramas isEmpty/isPreSearch/isSearch mutuamente excluyentes; solo 1 ScrollView visible a la vez.
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -39,43 +42,36 @@ export function SearchOverlayWeb<T>({
   const savedOverflowRef = useRef<string | null>(null);
   const savedScrollYRef = useRef(0);
 
-  const getViewportRect = useCallback(() => {
-    if (typeof window === 'undefined')
-      return { top: 0, left: 0, width: 0, height: 0 };
-    const vv = window.visualViewport;
-    if (vv)
-      return {
-        top: vv.offsetTop,
-        left: vv.offsetLeft,
-        width: vv.width,
-        height: vv.height,
-      };
-    return {
-      top: 0,
-      left: 0,
-      width: window.innerWidth,
-      height: window.innerHeight,
-    };
-  }, []);
-
-  const [viewportRect, setViewportRect] = useState(() => getViewportRect());
+  /** Keyboard-safe: 100dvh o fallback visualViewport.height. NO 100vh. */
+  const supportsDvh =
+    typeof CSS !== 'undefined' && typeof CSS.supports === 'function' && CSS.supports('height', '100dvh');
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.visualViewport) return;
+    if (!controller.isOpen || typeof window === 'undefined' || typeof document === 'undefined') return;
+    const root = document.documentElement;
     const vv = window.visualViewport;
-    const update = () => setViewportRect(getViewportRect());
-    vv.addEventListener('resize', update);
-    vv.addEventListener('scroll', update);
+    const setAppHeight = () => {
+      if (supportsDvh) {
+        root.style.setProperty('--app-height', '100dvh');
+      } else if (vv) {
+        root.style.setProperty('--app-height', `${Math.round(vv.height)}px`);
+      } else {
+        root.style.setProperty('--app-height', `${window.innerHeight}px`);
+      }
+    };
+    setAppHeight();
+    if (!supportsDvh && vv) {
+      vv.addEventListener('resize', setAppHeight);
+      vv.addEventListener('scroll', setAppHeight);
+    }
     return () => {
-      vv.removeEventListener('resize', update);
-      vv.removeEventListener('scroll', update);
+      if (!supportsDvh && vv) {
+        vv.removeEventListener('resize', setAppHeight);
+        vv.removeEventListener('scroll', setAppHeight);
+      }
+      root.style.removeProperty('--app-height');
     };
-  }, [getViewportRect]);
-
-  useEffect(() => {
-    if (!controller.isOpen) return;
-    setViewportRect(getViewportRect());
-  }, [controller.isOpen, getViewportRect]);
+  }, [controller.isOpen, supportsDvh]);
 
   useEffect(() => {
     if (!controller.isOpen) return;
@@ -131,18 +127,11 @@ export function SearchOverlayWeb<T>({
 
   if (!controller.isOpen) return null;
 
-  const overlaySizeStyle = {
-    top: viewportRect.top,
-    left: viewportRect.left,
-    width: viewportRect.width,
-    height: viewportRect.height,
-  };
-
   return (
     <View
       style={[
         styles.overlayBase,
-        overlaySizeStyle,
+        Platform.OS === 'web' && styles.overlayWebFixed,
         Platform.OS === 'web' && styles.overlayWebLock,
       ]}
       pointerEvents="auto"
@@ -183,6 +172,7 @@ export function SearchOverlayWeb<T>({
             <X size={24} color={colors.text} strokeWidth={2} />
           </IconButton>
         </View>
+        {/* CONTRATO: Un solo scroller por estado (isEmpty | isPreSearch | isSearch | isNoResults); no anidar scrolls. */}
         <View style={styles.resultsArea}>
           {isEmpty && defaultItems.length > 0 && (
             <ScrollView
@@ -298,6 +288,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     zIndex: 15,
   },
+  overlayWebFixed:
+    Platform.OS === 'web'
+      ? {
+          position: 'fixed' as const,
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 'var(--app-height, 100dvh)',
+        }
+      : {},
   overlayWebLock:
     Platform.OS === 'web'
       ? { touchAction: 'none' as const }

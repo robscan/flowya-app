@@ -2,6 +2,12 @@
  * SpotSheet — Sheet inferior estilo Apple Maps (Explorar vNext).
  * 3 estados: PEEK (solo header), MEDIUM (header + resumen), EXPANDED (header + resumen con más espacio).
  * Drag + snap según docs/contracts/MOTION_SHEET.md (translateY, anchors, 25% + velocity).
+ *
+ * CONTRATOS (EXPLORE_SHEET, MOTION_SHEET):
+ * - X dismiss: onClose llamado al tap X (parent setSelectedSpot(null) → unmount)
+ * - map->peek: parent useMapCore onUserMapGestureStart → setSheetState("peek")
+ * - drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded
+ * - scroll único: un solo ScrollView en body (bodyNeedsScroll); header fijo
  */
 
 import { IconButton } from "@/components/design-system/icon-button";
@@ -909,6 +915,7 @@ export function SpotSheet({
         animatedContainerStyle,
       ]}
     >
+      {/* CONTRATO drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded */}
       <GestureDetector gesture={panGesture}>
         <View style={styles.dragArea} onLayout={onDragAreaLayout}>
           <View style={styles.handleRow}>
@@ -1007,6 +1014,7 @@ export function SpotSheet({
         </View>
       </GestureDetector>
 
+      {/* CONTRATO scroll único: un solo ScrollView en body; header fijo; scroll solo si overflow */}
       {/* Body MEDIUM: solo descripción + imagen + Guardar/Visitado; altura al contenido; scroll solo si supera max */}
       {isMedium ? (
         bodyNeedsScroll ? (

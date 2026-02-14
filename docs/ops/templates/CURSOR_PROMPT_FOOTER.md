@@ -1,35 +1,20 @@
----
-CURSOR — CLOSEOUT (MANDATORY)
+# CURSOR_PROMPT_FOOTER — FLOWYA
 
-Este micro-scope NO se considera terminado hasta cumplir TODO:
+## Reglas operativas (obligatorio)
+- **V3 congelado:** No iterar UI V3; solo borrar o aislar. Explore V3 (Radix/shadcn) está PAUSADO.
+- **Deps:** Si Radix/shadcn fue agregado solo para V3 y ya no se usa en runtime, remover de `package.json` / `package-lock.json`.
+- **No refactor masivo**. Solo lo necesario para la fase actual.
+- **No UI nueva** si estamos en **Fase 2** (core extraction).
+- **No duplicar estado**: alinear con `contracts/explore/EXPLORE_STATE.md` y `contracts/shared/SEARCH_STATE.md`.
+- **Search shared**: no acoplarlo a Explore.
+- **No crear paja**: si agregas un helper nuevo, debe reemplazar uno viejo o justificarlo explícitamente.
 
-1. Git
-- `main` está protegido: **NO direct commit / NO direct push**.
-- Crear rama desde `main`.
-- Commit claro (1 micro-scope).
-- Push a la rama.
-- Abrir PR y mergear según reglas del repo.
+## Output obligatorio de Cursor (al final)
+1) **Archivos tocados** (lista)
+2) **Qué cambió y por qué** (bullets cortos)
+3) **Riesgos / regresiones posibles** (≤ 5)
+4) **Legacy candidates** marcados para borrar en Fase 4 (lista)
 
-2. CURRENT_STATE
-- Actualizar **entregando el archivo completo final**:
-  - Scope activo
-  - Branch
-  - Commit / PR
-  - Qué está sólido
-  - Qué está frágil
-  - Next step (1 línea)
-
-3. OPEN_LOOPS
-- Actualizar **entregando el archivo completo final**:
-  - SOLO loops activos
-  - Eliminar loops cerrados
-  - Abrir nuevos loops si aparecen (con DoD, owner y prioridad)
-
-4. Evidencia
-- Si hubo cambio real: PR, commit o bitácora.
-- Si no hubo cambio de código: justificar explícitamente.
-
-5. Regla final
-- Si hay duda → el loop queda OPEN.
-- Nunca asumir DONE sin evidencia.
----
+## Calidad mínima
+- Mantén cambios pequeños pero completos.
+- Prefiere cambios “quirúrgicos” con rutas claras hacia Fase 3 y Fase 4.
