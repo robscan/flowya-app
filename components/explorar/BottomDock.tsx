@@ -6,7 +6,7 @@
 import { IconButton } from '@/components/design-system/icon-button';
 import { Colors, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { LogOut, Search, User } from 'lucide-react-native';
+import { LogOut, Plus, Search, User } from 'lucide-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -25,6 +25,8 @@ export type BottomDockInsets = {
 export type BottomDockProps = {
   onOpenSearch: () => void;
   onProfilePress: () => void;
+  /** CTA primario crear spot (Micro-scope 2: una sola entrada). Si se proporciona, se muestra botón (+) en el dock. */
+  onCreateSpot?: () => void;
   isAuthUser: boolean;
   dockVisible: boolean;
   bottomOffset: number;
@@ -36,6 +38,7 @@ export type BottomDockProps = {
 export function BottomDock({
   onOpenSearch,
   onProfilePress,
+  onCreateSpot,
   isAuthUser,
   dockVisible,
   bottomOffset,
@@ -91,6 +94,16 @@ export function BottomDock({
             />
           </IconButton>
         </View>
+        {onCreateSpot != null ? (
+          <IconButton
+            variant="default"
+            size={PROFILE_BUTTON_SIZE}
+            onPress={onCreateSpot}
+            accessibilityLabel="Crear spot"
+          >
+            <Plus size={24} color={colors.text} strokeWidth={2} />
+          </IconButton>
+        ) : null}
         <Pressable
           style={({ pressed }) => [
             styles.pill,

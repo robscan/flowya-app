@@ -166,6 +166,7 @@ export function SearchOverlayWeb<T>({
           </View>
           <IconButton
             variant="default"
+            selected
             onPress={onClosePress}
             accessibilityLabel="Cerrar búsqueda"
           >
@@ -236,45 +237,58 @@ export function SearchOverlayWeb<T>({
             </>
           )}
           {isNoResults && (
-            <>
-              {controller.suggestions.length > 0 && (
-                <View style={styles.suggestionsSection}>
-                  <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Sugerencias</Text>
-                  {controller.suggestions.map((s) => (
-                    <Pressable
-                      key={s}
-                      style={({ pressed }) => [
-                        styles.suggestionRow,
-                        { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                      ]}
-                      onPress={() => controller.onSuggestionTap(s)}
-                      accessibilityLabel={`Buscar: ${s}`}
-                      accessibilityRole="button"
-                    >
-                      <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              )}
-              <View style={styles.chooserSection}>
-                <Pressable
-                  style={({ pressed }) => [
-                    styles.suggestionRow,
-                    styles.chooserRow,
-                    { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                  ]}
-                  onPress={controller.onCreate}
-                  accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
-                  accessibilityRole="button"
-                >
-                  <View style={styles.chooserRowContent}>
-                    <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
-                    <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+            <View style={styles.noResultsWrap}>
+              <ScrollView
+                style={styles.noResultsScroll}
+                contentContainerStyle={styles.resultsContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator
+              >
+                {controller.suggestions.length > 0 && (
+                  <View style={styles.suggestionsSection}>
+                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Sugerencias</Text>
+                    {controller.suggestions.map((s) => (
+                      <Pressable
+                        key={s}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                        ]}
+                        onPress={() => controller.onSuggestionTap(s)}
+                        accessibilityLabel={`Buscar: ${s}`}
+                        accessibilityRole="button"
+                      >
+                        <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
+                      </Pressable>
+                    ))}
                   </View>
-                  <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
-                </Pressable>
-              </View>
-            </>
+                )}
+                <View style={styles.chooserSection}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.suggestionRow,
+                      styles.chooserRow,
+                      { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                    ]}
+                    onPress={controller.onCreate}
+                    accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
+                    accessibilityRole="button"
+                  >
+                    <View style={styles.chooserRowContent}>
+                      <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
+                      <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                    </View>
+                    <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                  </Pressable>
+                </View>
+              </ScrollView>
+              <Pressable
+                style={styles.tapToCloseMapArea}
+                onPress={doClose}
+                accessibilityLabel="Cerrar búsqueda. Toca el mapa."
+                accessibilityRole="button"
+              />
+            </View>
           )}
         </View>
       </View>
@@ -319,6 +333,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     zIndex: 1,
+    overflow: 'hidden',
   },
   header: {
     flexDirection: 'row',
@@ -342,6 +357,15 @@ const styles = StyleSheet.create({
   resultsArea: {
     flex: 1,
     minHeight: 0,
+  },
+  noResultsWrap: {
+    flex: 1,
+    minHeight: 0,
+  },
+  noResultsScroll: {},
+  tapToCloseMapArea: {
+    flex: 1,
+    minHeight: 80,
   },
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },

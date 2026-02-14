@@ -3,9 +3,10 @@
  * No body overflow ni visualViewport; solo iOS/Android.
  */
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { IconButton } from '@/components/design-system/icon-button';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
+import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useCallback, useEffect } from 'react';
 import {
   Dimensions,
@@ -174,17 +175,14 @@ export function SearchFloatingNative<T>({
                       embedded
                     />
                   </View>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.closeButton,
-                      { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                    ]}
+                  <IconButton
+                    variant="default"
+                    selected
                     onPress={requestClose}
                     accessibilityLabel="Cerrar búsqueda"
-                    accessibilityRole="button"
                   >
                     <X size={24} color={colors.text} strokeWidth={2} />
-                  </Pressable>
+                  </IconButton>
                 </View>
               </View>
             </GestureDetector>
@@ -259,47 +257,60 @@ export function SearchFloatingNative<T>({
                   </>
                 )}
                 {isNoResults && (
-                  <>
-                    {controller.suggestions.length > 0 && (
-                      <View style={styles.suggestionsSection}>
-                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                          Sugerencias
-                        </Text>
-                        {controller.suggestions.map((s) => (
-                          <Pressable
-                            key={s}
-                            style={({ pressed }) => [
-                              styles.suggestionRow,
-                              { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                            ]}
-                            onPress={() => controller.onSuggestionTap(s)}
-                            accessibilityLabel={`Buscar: ${s}`}
-                            accessibilityRole="button"
-                          >
-                            <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                    <View style={styles.chooserSection}>
-                      <Pressable
-                        style={({ pressed }) => [
-                          styles.suggestionRow,
-                          styles.chooserRow,
-                          { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                        ]}
-                        onPress={controller.onCreate}
-                        accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
-                        accessibilityRole="button"
-                      >
-                        <View style={styles.chooserRowContent}>
-                          <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
-                          <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                  <View style={styles.noResultsWrap}>
+                    <ScrollView
+                      style={styles.noResultsScroll}
+                      contentContainerStyle={styles.resultsContent}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator
+                    >
+                      {controller.suggestions.length > 0 && (
+                        <View style={styles.suggestionsSection}>
+                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                            Sugerencias
+                          </Text>
+                          {controller.suggestions.map((s) => (
+                            <Pressable
+                              key={s}
+                              style={({ pressed }) => [
+                                styles.suggestionRow,
+                                { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                              ]}
+                              onPress={() => controller.onSuggestionTap(s)}
+                              accessibilityLabel={`Buscar: ${s}`}
+                              accessibilityRole="button"
+                            >
+                              <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
+                            </Pressable>
+                          ))}
                         </View>
-                        <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
-                      </Pressable>
-                    </View>
-                  </>
+                      )}
+                      <View style={styles.chooserSection}>
+                        <Pressable
+                          style={({ pressed }) => [
+                            styles.suggestionRow,
+                            styles.chooserRow,
+                            { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                          ]}
+                          onPress={controller.onCreate}
+                          accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
+                          accessibilityRole="button"
+                        >
+                          <View style={styles.chooserRowContent}>
+                            <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
+                            <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                          </View>
+                          <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                        </Pressable>
+                      </View>
+                    </ScrollView>
+                    <Pressable
+                      style={styles.tapToCloseMapArea}
+                      onPress={requestClose}
+                      accessibilityLabel="Cerrar búsqueda. Toca el mapa."
+                      accessibilityRole="button"
+                    />
+                  </View>
                 )}
               </View>
             </KeyboardAvoidingView>
@@ -364,15 +375,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     minWidth: 0,
   },
-  closeButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   keyboardAvoid: { flex: 1, minHeight: 0 },
   resultsArea: { flex: 1, minHeight: 0, marginTop: Spacing.sm },
+  noResultsWrap: { flex: 1, minHeight: 0 },
+  noResultsScroll: {},
+  tapToCloseMapArea: { flex: 1, minHeight: 80 },
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },
   resultItemWrap: { width: '100%' },

@@ -24,7 +24,11 @@ export type ConfirmModalProps = {
   confirmLabel: string;
   cancelLabel?: string;
   variant?: ConfirmModalVariant;
-  onConfirm: () => void;
+  /** Si true, el botón de confirmar se deshabilita (p. ej. mientras corre una acción async). */
+  confirmDisabled?: boolean;
+  /** Si true, el botón cancelar se deshabilita (p. ej. mientras corre la acción de confirmar). */
+  cancelDisabled?: boolean;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 };
 
@@ -35,6 +39,8 @@ export function ConfirmModal({
   confirmLabel,
   cancelLabel = 'Cancelar',
   variant = 'default',
+  confirmDisabled = false,
+  cancelDisabled = false,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -76,11 +82,13 @@ export function ConfirmModal({
                   styles.cancelButton,
                   {
                     borderColor: colors.border,
-                    backgroundColor: pressed ? colors.backgroundElevated : 'transparent',
+                    backgroundColor: pressed && !cancelDisabled ? colors.backgroundElevated : 'transparent',
+                    opacity: cancelDisabled ? 0.6 : 1,
                   },
                   WebTouchManipulation,
                 ]}
                 onPress={onCancel}
+                disabled={cancelDisabled}
                 accessibilityLabel={cancelLabel}
               >
                 <Text style={[styles.cancelLabel, { color: colors.text }]}>
@@ -92,11 +100,13 @@ export function ConfirmModal({
                   styles.button,
                   styles.confirmButton,
                   {
-                    backgroundColor: pressed ? colors.text : confirmBg,
+                    backgroundColor: confirmDisabled ? colors.textSecondary : pressed ? colors.text : confirmBg,
+                    opacity: confirmDisabled ? 0.8 : 1,
                   },
                   WebTouchManipulation,
                 ]}
                 onPress={onConfirm}
+                disabled={confirmDisabled}
                 accessibilityLabel={confirmLabel}
               >
                 <Text style={styles.confirmLabel}>{confirmLabel}</Text>

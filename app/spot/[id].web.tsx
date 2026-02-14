@@ -1,51 +1,51 @@
-import '@/styles/mapbox-attribution-overrides.css';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import "@/styles/mapbox-attribution-overrides.css";
+import "mapbox-gl/dist/mapbox-gl.css";
 
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { Locate, MapPin, Route, X } from 'lucide-react-native';
+import { Stack, useLocalSearchParams, useRouter } from "expo-router";
+import { Locate, Route } from "lucide-react-native";
 
-import { FrameWithDot } from '@/components/icons/FrameWithDot';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useState } from 'react';
-import type { MapEvent } from 'react-map-gl/mapbox-legacy';
-import Map, { Marker } from 'react-map-gl/mapbox-legacy';
+import { FrameWithDot } from "@/components/icons/FrameWithDot";
+import type { Map as MapboxMap } from "mapbox-gl";
+import { useCallback, useEffect, useState } from "react";
+import type { MapEvent } from "react-map-gl/mapbox-legacy";
+import Map, { Marker } from "react-map-gl/mapbox-legacy";
 import {
-    Linking,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
-} from 'react-native';
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
-import { IconButton } from '@/components/design-system/icon-button';
-import { ImageFullscreenModal } from '@/components/design-system/image-fullscreen-modal';
+import { IconButton } from "@/components/design-system/icon-button";
+import { ImageFullscreenModal } from "@/components/design-system/image-fullscreen-modal";
 import {
-    MapLocationPicker,
-    type MapLocationPickerResult,
-} from '@/components/design-system/map-location-picker';
+  MapPinLocation,
+  MapPinSpot,
+  type SpotPinStatus,
+} from "@/components/design-system/map-pins";
+import type { SpotDetailSpot } from "@/components/design-system/spot-detail";
+import { SpotDetail } from "@/components/design-system/spot-detail";
+import { useToast } from "@/components/ui/toast";
+import { Colors, Radius, Spacing } from "@/constants/theme";
+import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
-    MapPinLocation,
-    MapPinSpot,
-    type SpotPinStatus,
-} from '@/components/design-system/map-pins';
-import type { SpotDetailSpot } from '@/components/design-system/spot-detail';
-import { SpotDetail } from '@/components/design-system/spot-detail';
-import { useToast } from '@/components/ui/toast';
-import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
-import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+  distanceKm,
+  formatDistanceKm,
+  getMapsDirectionsUrl,
+} from "@/lib/geo-utils";
 import {
-    distanceKm,
-    formatDistanceKm,
-    getMapsDirectionsUrl,
-} from '@/lib/geo-utils';
-import { getCurrentUserId, getPin, nextPinStatus, removePin, setPinStatus } from '@/lib/pins';
-import { shareSpot } from '@/lib/share-spot';
-import { supabase } from '@/lib/supabase';
+  getCurrentUserId,
+  getPin,
+  nextPinStatus,
+  removePin,
+  setPinStatus,
+} from "@/lib/pins";
+import { shareSpot } from "@/lib/share-spot";
+import { supabase } from "@/lib/supabase";
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
+const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 
 /**
  * Genera HTML estático para cada spot en build time.
@@ -53,9 +53,9 @@ const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
  */
 export async function generateStaticParams(): Promise<{ id: string }[]> {
   const { data } = await supabase
-    .from('spots')
-    .select('id')
-    .eq('is_hidden', false);
+    .from("spots")
+    .select("id")
+    .eq("is_hidden", false);
   return (data ?? []).map((row) => ({ id: row.id }));
 }
 
@@ -70,7 +70,7 @@ type UserCoords = { latitude: number; longitude: number } | null;
 function SpotDetailMapSlot({
   latitude,
   longitude,
-  pinStatus = 'default',
+  pinStatus = "default",
   userCoords,
 }: {
   latitude: number;
@@ -79,17 +79,24 @@ function SpotDetailMapSlot({
   userCoords: UserCoords;
 }) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const mapStyle =
-    colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
+    colorScheme === "dark"
+      ? "mapbox://styles/mapbox/dark-v11"
+      : "mapbox://styles/mapbox/light-v11";
 
   const onMapLoad = useCallback((e: MapEvent) => {
     setMapInstance(e.target);
   }, []);
 
   const handleLocate = useCallback(() => {
-    if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (
+      !mapInstance ||
+      typeof navigator === "undefined" ||
+      !navigator.geolocation
+    )
+      return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         mapInstance.flyTo({
@@ -99,7 +106,7 @@ function SpotDetailMapSlot({
         });
       },
       () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
   }, [mapInstance]);
 
@@ -123,7 +130,7 @@ function SpotDetailMapSlot({
         [minLng, minLat],
         [maxLng, maxLat],
       ],
-      { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
+      { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
     );
   }, [mapInstance, userCoords, latitude, longitude]);
 
@@ -133,8 +140,18 @@ function SpotDetailMapSlot({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <View style={[styles.mapPlaceholder, { backgroundColor: Colors.light.border }]}>
-        <Text style={[styles.mapPlaceholderText, { color: Colors.light.textSecondary }]}>
+      <View
+        style={[
+          styles.mapPlaceholder,
+          { backgroundColor: Colors.light.border },
+        ]}
+      >
+        <Text
+          style={[
+            styles.mapPlaceholderText,
+            { color: Colors.light.textSecondary },
+          ]}
+        >
           Mapa (configura EXPO_PUBLIC_MAPBOX_TOKEN)
         </Text>
       </View>
@@ -168,9 +185,7 @@ function SpotDetailMapSlot({
           </Marker>
         ) : null}
       </Map>
-      <View
-        style={[styles.mapControlsOverlay, { pointerEvents: 'box-none' }]}
-      >
+      <View style={[styles.mapControlsOverlay, { pointerEvents: "box-none" }]}>
         <View style={styles.mapControlsStack}>
           <IconButton
             variant="default"
@@ -206,80 +221,39 @@ function SpotDetailMapSlot({
   );
 }
 
-/** Edit Spot: mapa pasivo (preview) + botón Editar ubicación. Sin controles de ruta/encuadre/ubicación. */
-function EditSpotMapSlot({
-  latitude,
-  longitude,
-  onEditLocation,
-}: {
-  latitude: number;
-  longitude: number;
-  onEditLocation: () => void;
-}) {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
-  const mapStyle =
-    colorScheme === 'dark' ? 'mapbox://styles/mapbox/dark-v11' : 'mapbox://styles/mapbox/light-v11';
-
-  if (!MAPBOX_TOKEN) {
-    return (
-      <View style={[styles.mapPlaceholder, { backgroundColor: Colors.light.border }]}>
-        <Text style={[styles.mapPlaceholderText, { color: Colors.light.textSecondary }]}>
-          Mapa (configura EXPO_PUBLIC_MAPBOX_TOKEN)
-        </Text>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.mapContainer}>
-      <Map
-        key={mapStyle}
-        mapboxAccessToken={MAPBOX_TOKEN}
-        mapStyle={mapStyle}
-        initialViewState={{ longitude, latitude, zoom: 14 }}
-        style={styles.map}
-        interactive={false}
-      >
-        <Marker longitude={longitude} latitude={latitude} anchor="center">
-          <MapPinSpot status="default" />
-        </Marker>
-      </Map>
-      <View
-        style={[styles.editMapOverlay, { pointerEvents: 'box-none' }]}
-      >
-        <Pressable
-          style={({ pressed }) => [
-            styles.editLocationButton,
-            {
-              borderColor: colors.border,
-              backgroundColor: pressed ? colors.backgroundElevated : 'transparent',
-            },
-            WebTouchManipulation,
-          ]}
-          onPress={onEditLocation}
-          accessibilityLabel="Editar ubicación"
-          accessibilityRole="button"
-        >
-          <MapPin size={18} color={colors.text} strokeWidth={2} />
-          <Text style={[styles.editLocationButtonLabel, { color: colors.text }]}>
-            Editar ubicación
-          </Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 export default function SpotDetailScreen() {
-  const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
+  const { id, edit, refreshed } = useLocalSearchParams<{
+    id: string;
+    edit?: string;
+    refreshed?: string;
+  }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const colors = Colors[colorScheme ?? "light"];
 
   const [spot, setSpot] = useState<SpotDetailSpot | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isEditing, setIsEditing] = useState(edit === '1');
+
+  useEffect(() => {
+    if (edit === "1" && id) {
+      (router.replace as (href: string) => void)(`/spot/edit/${id}`);
+    }
+  }, [edit, id, router]);
+
+  if (edit === "1" && id) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View
+          style={[
+            { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.background },
+          ]}
+        >
+          <Text style={{ color: colors.textSecondary }}>Redirigiendo a edición…</Text>
+        </View>
+      </>
+    );
+  }
 
   return (
     <>
@@ -292,8 +266,7 @@ export default function SpotDetailScreen() {
         setSpot={setSpot}
         loading={loading}
         setLoading={setLoading}
-        isEditing={isEditing}
-        setIsEditing={setIsEditing}
+        refreshed={refreshed}
       />
     </>
   );
@@ -307,28 +280,24 @@ function SpotDetailScreenContent({
   setSpot,
   loading,
   setLoading,
-  isEditing,
-  setIsEditing,
+  refreshed,
 }: {
   id: string | undefined;
-  colors: (typeof Colors)['light'];
+  colors: (typeof Colors)["light"];
   router: ReturnType<typeof useRouter>;
   spot: SpotDetailSpot | null;
   setSpot: React.Dispatch<React.SetStateAction<SpotDetailSpot | null>>;
   loading: boolean;
   setLoading: (v: boolean) => void;
-  isEditing: boolean;
-  setIsEditing: (v: boolean) => void;
+  refreshed?: string;
 }) {
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(
+    null,
+  );
   const [userCoords, setUserCoords] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
-  /** Draft de ubicación al editar (solo local hasta Guardar). */
-  const [locationDraft, setLocationDraft] = useState<MapLocationPickerResult | null>(null);
-  const [showLocationPicker, setShowLocationPicker] = useState(false);
-  /** Alineación RLS: mutaciones solo con auth; ocultar Editar / Eliminar / Pin si no auth. */
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -348,7 +317,7 @@ function SpotDetailScreenContent({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_IN') {
+      if (event === "SIGNED_IN") {
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -360,7 +329,8 @@ function SpotDetailScreenContent({
 
   /** Ubicación del usuario: una sola vez al cargar el spot. No watchPosition. */
   useEffect(() => {
-    if (!spot || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (!spot || typeof navigator === "undefined" || !navigator.geolocation)
+      return;
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setUserCoords({
@@ -369,7 +339,7 @@ function SpotDetailScreenContent({
         });
       },
       () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
   }, [spot?.id]);
 
@@ -388,10 +358,12 @@ function SpotDetailScreenContent({
     setLoading(true);
     (async () => {
       const { data, error } = await supabase
-        .from('spots')
-        .select('id, title, description_short, description_long, cover_image_url, latitude, longitude, address')
-        .eq('id', id)
-        .eq('is_hidden', false)
+        .from("spots")
+        .select(
+          "id, title, description_short, description_long, cover_image_url, latitude, longitude, address",
+        )
+        .eq("id", id)
+        .eq("is_hidden", false)
         .single();
       if (cancelled) return;
       if (error || !data) {
@@ -401,13 +373,16 @@ function SpotDetailScreenContent({
       }
       const pinStatus = await getPin(id);
       if (cancelled) return;
-      setSpot({ ...(data as SpotDetailSpot), pinStatus: pinStatus ?? undefined });
+      setSpot({
+        ...(data as SpotDetailSpot),
+        pinStatus: pinStatus ?? undefined,
+      });
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [id, refreshed]);
 
   const handleBack = useCallback(() => {
     router.back();
@@ -416,98 +391,27 @@ function SpotDetailScreenContent({
   const toast = useToast();
   const { openAuthModal } = useAuthModal();
 
-  const handleSaveEdit = useCallback(
-    async (payload: {
-      title: string;
-      description_short: string | null;
-      description_long: string | null;
-    }) => {
-      if (!spot?.id) return;
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || user.is_anonymous) {
-        toast.show('Inicia sesión para editar', { type: 'error' });
-        return;
-      }
-      const updates: Record<string, unknown> = {
-        title: payload.title,
-        description_short: payload.description_short,
-        description_long: payload.description_long,
-        updated_at: new Date().toISOString(),
-      };
-      if (locationDraft) {
-        updates.latitude = locationDraft.latitude;
-        updates.longitude = locationDraft.longitude;
-        updates.address = locationDraft.address;
-      }
-      const { error } = await supabase
-        .from('spots')
-        .update(updates)
-        .eq('id', spot.id);
-      if (error) {
-        toast.show(error.message ?? 'No se pudo guardar', { type: 'error' });
-        return;
-      }
-      setSpot((prev) =>
-        prev
-          ? {
-              ...prev,
-              title: payload.title,
-              description_short: payload.description_short,
-              description_long: payload.description_long,
-              ...(locationDraft
-                ? {
-                    latitude: locationDraft.latitude,
-                    longitude: locationDraft.longitude,
-                    address: locationDraft.address,
-                  }
-                : {}),
-            }
-          : null
-      );
-      setLocationDraft(null);
-      setIsEditing(false);
-    },
-    [spot?.id, locationDraft, toast]
-  );
+  const handleEdit = useCallback(() => {
+    if (id) (router.push as (href: string) => void)(`/spot/edit/${id}`);
+  }, [id, router]);
 
-  /** Soft delete: ÚNICA mutación es UPDATE is_hidden. Asegurar sesión reciente para que RLS reciba JWT. */
-  const handleDeleteSpot = useCallback(async () => {
-    if (!spot?.id) return;
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user || user.is_anonymous) {
-      openAuthModal({ message: AUTH_MODAL_MESSAGES.profile });
-      return;
-    }
-    await supabase.auth.getSession();
-    const { error } = await supabase
-      .from('spots')
-      .update({ is_hidden: true, updated_at: new Date().toISOString() })
-      .eq('id', spot.id);
-    if (!error) {
-      toast.show('Spot eliminado', { type: 'success' });
-      router.back();
-    } else {
-      toast.show(error.message ?? 'No se pudo eliminar', { type: 'error' });
-    }
-  }, [spot?.id, router, toast, openAuthModal]);
   const handleShare = useCallback(async () => {
     if (!spot?.id) return;
     const result = await shareSpot(spot.id, spot.title);
-    if (result.copied) toast.show('Link copiado', { type: 'success' });
+    if (result.copied) toast.show("Link copiado", { type: "success" });
   }, [spot?.id, spot?.title, toast]);
+
   const handleSavePin = useCallback(async () => {
     if (!spot?.id) return;
     const current =
-      spot.pinStatus === 'to_visit' || spot.pinStatus === 'visited' ? spot.pinStatus : null;
-    if (current === 'visited') {
+      spot.pinStatus === "to_visit" || spot.pinStatus === "visited"
+        ? spot.pinStatus
+        : null;
+    if (current === "visited") {
       const ok = await removePin(spot.id);
       if (ok) {
         setSpot((prev) => (prev ? { ...prev, pinStatus: undefined } : null));
-        toast.show('Pin quitado', { type: 'success' });
+        toast.show("Pin quitado", { type: "success" });
       }
     } else {
       const userId = await getCurrentUserId();
@@ -522,14 +426,18 @@ function SpotDetailScreenContent({
       const newStatus = await setPinStatus(spot.id, next);
       if (newStatus !== null) {
         setSpot((prev) => (prev ? { ...prev, pinStatus: newStatus } : null));
-        toast.show(newStatus === 'to_visit' ? 'Por visitar' : 'Visitado', { type: 'success' });
+        toast.show(newStatus === "to_visit" ? "Por visitar" : "Visitado", {
+          type: "success",
+        });
       }
     }
   }, [spot?.id, spot?.pinStatus, toast, openAuthModal]);
 
   if (loading) {
     return (
-      <View style={[styles.placeholder, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.placeholder, { backgroundColor: colors.background }]}
+      >
         <Text style={{ color: colors.textSecondary }}>Cargando…</Text>
       </View>
     );
@@ -537,9 +445,14 @@ function SpotDetailScreenContent({
 
   if (!spot) {
     return (
-      <View style={[styles.placeholder, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.placeholder, { backgroundColor: colors.background }]}
+      >
         <Text style={{ color: colors.text }}>Spot no encontrado</Text>
-        <Text style={{ color: colors.tint, marginTop: Spacing.base }} onPress={() => router.back()}>
+        <Text
+          style={{ color: colors.tint, marginTop: Spacing.base }}
+          onPress={() => router.back()}
+        >
           ← Volver
         </Text>
       </View>
@@ -547,44 +460,31 @@ function SpotDetailScreenContent({
   }
 
   const savePinState =
-    spot.pinStatus === 'to_visit' ? 'toVisit' : spot.pinStatus === 'visited' ? 'visited' : 'default';
+    spot.pinStatus === "to_visit"
+      ? "toVisit"
+      : spot.pinStatus === "visited"
+        ? "visited"
+        : "default";
 
   return (
     <>
       <SpotDetail
         spot={spot}
-        isEditing={isEditing}
+        isEditing={false}
         savePinState={savePinState}
         onBack={handleBack}
         onSavePin={handleSavePin}
         onShare={handleShare}
-        onEdit={isAuthenticated ? () => setIsEditing(true) : undefined}
-        onCancelEdit={() => {
-          setLocationDraft(null);
-          setIsEditing(false);
-        }}
-        onSaveEdit={handleSaveEdit}
-        onDeleteSpot={isAuthenticated ? handleDeleteSpot : undefined}
+        onEdit={isAuthenticated ? handleEdit : undefined}
+        onSaveEdit={() => {}}
         onImagePress={setFullscreenImageUri}
-        onCoverImageChange={(url) =>
-          setSpot((prev) => (prev ? { ...prev, cover_image_url: url } : null))
-        }
-        hideHero={isEditing}
         mapSlot={
-          isEditing ? (
-            <EditSpotMapSlot
-              latitude={locationDraft?.latitude ?? spot.latitude}
-              longitude={locationDraft?.longitude ?? spot.longitude}
-              onEditLocation={() => setShowLocationPicker(true)}
-            />
-          ) : (
-            <SpotDetailMapSlot
-              latitude={spot.latitude}
-              longitude={spot.longitude}
-              pinStatus={spot.pinStatus}
-              userCoords={userCoords}
-            />
-          )
+          <SpotDetailMapSlot
+            latitude={spot.latitude}
+            longitude={spot.longitude}
+            pinStatus={spot.pinStatus}
+            userCoords={userCoords}
+          />
         }
         distanceText={distanceText}
       />
@@ -593,44 +493,6 @@ function SpotDetailScreenContent({
         uri={fullscreenImageUri}
         onClose={() => setFullscreenImageUri(null)}
       />
-      <Modal
-        visible={showLocationPicker}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setShowLocationPicker(false)}
-      >
-        <View style={[styles.locationPickerModal, { backgroundColor: colors.background }]}>
-          <View
-            style={[
-              styles.locationPickerHeader,
-              { backgroundColor: colors.backgroundElevated, borderBottomColor: colors.borderSubtle },
-            ]}
-          >
-            <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
-              Selecciona la ubicación del spot
-            </Text>
-            <Pressable
-              style={styles.locationPickerCloseTouch}
-              onPress={() => setShowLocationPicker(false)}
-              hitSlop={12}
-              accessibilityLabel="Cerrar"
-              accessibilityRole="button"
-            >
-              <X size={22} color={colors.text} strokeWidth={2} />
-            </Pressable>
-          </View>
-          <View style={styles.locationPickerContent}>
-            <MapLocationPicker
-              initialLatitude={locationDraft?.latitude ?? spot.latitude}
-              initialLongitude={locationDraft?.longitude ?? spot.longitude}
-              onConfirm={(result) => {
-                setLocationDraft(result);
-                setShowLocationPicker(false);
-              }}
-            />
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -638,82 +500,38 @@ function SpotDetailScreenContent({
 const styles = StyleSheet.create({
   placeholder: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     padding: Spacing.xl,
   },
   mapContainer: {
     flex: 1,
-    width: '100%',
+    width: "100%",
     height: MAP_SPOT_HEIGHT,
-    position: 'relative',
+    position: "relative",
   },
   map: {
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   mapControlsOverlay: {
-    position: 'absolute',
+    position: "absolute",
     right: MAP_CONTROLS_PADDING,
     bottom: MAP_CONTROLS_PADDING,
     zIndex: 10,
   },
   mapControlsStack: {
-    flexDirection: 'column',
+    flexDirection: "column",
     gap: Spacing.xs,
   },
   mapPlaceholder: {
     flex: 1,
-    width: '100%',
+    width: "100%",
     height: MAP_SPOT_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   mapPlaceholderText: {
     fontSize: 14,
-  },
-  editMapOverlay: {
-    position: 'absolute',
-    left: MAP_CONTROLS_PADDING,
-    right: MAP_CONTROLS_PADDING,
-    bottom: MAP_CONTROLS_PADDING,
-    zIndex: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  editLocationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-  },
-  editLocationButtonLabel: {
-    fontSize: 17,
-    fontWeight: '500',
-  },
-  locationPickerModal: {
-    flex: 1,
-  },
-  locationPickerHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.md,
-    paddingTop: Platform.OS === 'web' ? Spacing.md : 48,
-    borderBottomWidth: 1,
-  },
-  locationPickerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  locationPickerCloseTouch: {
-    padding: Spacing.sm,
-  },
-  locationPickerContent: {
-    flex: 1,
   },
 });
