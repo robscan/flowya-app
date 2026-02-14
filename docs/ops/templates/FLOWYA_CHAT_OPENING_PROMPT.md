@@ -8,13 +8,15 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 - Prioriza Terminal sobre Cursor; evita Cursor salvo cuando sea necesario.
 - Estilo: **directo**, paso a paso, **una instrucción a la vez** (Paso X/N), y distingue acciones por **Terminal** vs **Cursor**.
 
+> Nota: `docs/_archive/*` existe como histórico. No es fuente de verdad para decisiones actuales, salvo que `docs/ops/*` lo referencie explícitamente.
+
 ---
 
 ## Sprint activo (obligatorio)
 **Sprint:** Explore V1 Strangler (core-first + UI replaceable)
 
 **Doc raíz del plan:** `docs/ops/PLAN_EXPLORE_V1_STRANGLER.md`  
-**Último análisis:** `docs/ops/EXPLORE_PHASE0_ANALYSIS.md`  
+**Último análisis:** `docs/ops/EXPLORE_PHASE0_ANALYSIS.md`
 
 **Contratos canónicos (Phase 1):**
 - `contracts/shared/SEARCH_STATE.md`
@@ -30,7 +32,7 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 
 ## Gates por fase (no saltar)
 - **Gate A:** No tocar código hasta que existan Plan + Phase0 + Contracts Phase1 ✅
-- **Gate B:** Fase 2 = extracción quirúrgica de core (sin cambiar UX).
+- **Gate B:** Fase 2 = extracción quirúrgica de core (sin cambiar UX). ✅ *(core retenido; ver `docs/ops/DEPRECATED_V3_CLEANUP.md`)*
 - **Gate C:** Fase 3 = Explore V3 (UI nueva con Radix/shadcn). **PAUSADO** — fuera del sprint actual; no empujar migración V3.
 - **Gate D:** Fase 4 = Cutover + Delete Sprint (borrar legacy sin piedad).
 
@@ -45,9 +47,8 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 ---
 
 ## No reinventar primitives (regla de producto)
-- Web: **Radix + shadcn/ui** (cuando Gate C esté activo). Hoy: UI legacy (SpotSheet Reanimated); no aplicar esta regla al sprint actual.
-- Native: primitives nativos (HIG/Material) resuelven gestos/transiciones.
-- El core define **estado + intents + efectos**, no animaciones.
+- Hoy (sprint actual): **UI legacy** (SpotSheet Reanimated). El core define **estado + intents + efectos**, no animaciones.
+- Gate C (pausado): Web usa **Radix + shadcn/ui** para overlays/focus/keyboard.
 
 ---
 
@@ -55,7 +56,7 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 Entrega siempre, en este orden:
 1) **Estado + Riesgos** (≤ 8 bullets)
 2) **Roadmap Explore map-first JTBD** (tabla + narrativa corta)
-3) **Sprint actual en micro-scopes** *(pero agrupados por fase; 1 PR por fase)*  
+3) **Sprint actual en micro-scopes** *(agrupados por fase; 1 PR por fase)*  
    - Cada scope con DoD/AC y pruebas mínimas
 
 ---

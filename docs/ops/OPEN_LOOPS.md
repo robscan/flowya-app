@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-11
+**Fecha:** 2026-02-14
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
@@ -8,87 +8,143 @@
 
 ---
 
-## Cerrados hoy (OL-056..061 + Create spot E2E)
-
-- **OL-056** — Spot selection state machine: 1º tap MEDIUM, 2º tap mismo spot EXPANDED (no navegar); fix 3er spot invisible (SpotSheet reset solo sin-spot→con-spot). Contrato SPOT_SELECTION_SHEET_SIZING.md.
-- **OL-057** — SearchResultCard abre SpotSheet en MEDIUM; confirmado, sin degradar a peek.
-- **OL-058** — SpotSheet padding bottom / safe area en collapsed (no cortado).
-- **OL-059** — Gap entre items “Vistos recientemente” (web + native).
-- **OL-060** — No mostrar empty states cuando no hay recientes/resultados; secciones solo si tienen datos.
-- **OL-061** — Contrato SPOT_SELECTION_SHEET_SIZING + docs. Ver bitácora 080.
-- **Create spot E2E (map-first)** — Sin resultados → Crear spot nuevo aquí (auth gate) → placing → BORRADOR → Crear spot → sheet expanded → “Editar detalles” → Edit Spot. Insert sin `user_id` (spots no tiene esa columna). Ver bitácora 082.
+## Prioridades (orden fijo)
+1) **Resolver soft delete ya**  
+2) **Resolver Create Spot: siempre desde creador mínimo**  
+3) **Rediseñar Edit Spot**  
+4) Resolver bugs restantes detectados en pruebas
 
 ---
 
-## Loops activos
+## Loops activos (P0 → P2)
 
-### OL-021 — Spot edit by section (mini-sheets)
+### OL-P0-001 — Soft delete consistente (no fantasmas)
 
-**Estado:** Contrato listo (docs/contracts/SPOT_EDIT_MINI_SHEETS.md). Implementación pendiente.
+**Estado:** ACTIVO
 
-- Patrón: SpotSheet principal + SubSheet modal (1 nivel max) por sección “Editar”.
-- MVP secciones: (1) Detalles (tel/web), (2) Categoría + etiquetas.
-- Guardrails: keyboard-safe, 1 nivel max, sin overlays frágiles.
+**Problema:** Spots con `is_hidden = true` siguen apareciendo (en pins, search results, sheet o cache).
 
----
+**DoD / AC**
+- Un spot hidden **nunca** aparece en:
+  - pins (guardados/visitados)
+  - resultados de Search (spots)
+  - selección/SpotSheet (si estaba seleccionado, se debe limpiar o mostrar estado “no disponible”)
+- Search invalida inmediatamente cache/resultados usando `softDeleteInvalidation.hiddenSpotIds`.
+- Smoke: borrar/ocultar spot → desaparece en UI sin refresh.
 
-### OL-050 — SpotSheet medium open “shrink/glitch”
-
-**Estado:** Investigado/mitigado en ramas Explore Quality, pero requiere verificación final en iOS/Android (gestures + teclado + safe area).
-
-- Síntoma: al abrir en estado “medium” hay un salto/shrink.
-- Riesgo: regresión al tocar Search/Spot layering.
-
----
-
-### OL-051 — SearchSheet: pill enter animation
-
-**Estado:** Diseño/contrato pendiente (no definido en docs/contracts). **OPEN LOOP** de motion.
-
-- Objetivo: animación de entrada de Search pill consistente (web + native) sin afectar performance.
+**Pruebas mínimas**
+- Unit: invalidación purga spotIds
+- Smoke: ocultar spot y verificar 3 superficies (pins/search/sheet)
 
 ---
 
-### OL-052d — Search web rebuilt as overlay (no sheet)
+### OL-P0-002 — Create Spot: **siempre** desde creador mínimo (una sola ruta)
 
-**Estado:** Implementado (bitácoras 077–078). Falta consolidación: pruebas + cleanup + contract update si aplica.
+**Estado:** ACTIVO
 
-- Web: Search overlay fijo (anclado a visualViewport) + scroll-lock.
-- Native: sigue sheet.
+**Problema:** hay entrypoints inconsistentes o frágiles. Queremos 1 flujo canónico: crear mínimo (ubicación + imagen opcional) → persistir → luego editar textos.
 
----
+**DoD / AC**
+- Cualquier “crear” (desde no-results, desde mapa, etc.) aterriza en el mismo flujo:
+  - draft placing → confirmar → creador mínimo → persist → sheet → “Editar detalles”
+- No existe “crear spot” alterno que salte al editor largo directamente.
+- Si hay auth gate, se aplica antes de crear draft/inserción.
 
-### OL-053 — SearchSheet: drag-to-dismiss robustness vs scroll
-
-**Estado:** Pendiente.
-
-- Objetivo: evitar conflicto entre scroll de resultados vs gesto de dismiss.
-- Guardrail: no romper “tap-outside”, no romper teclado.
-
----
-
-### OL-054 — Layering contract (Search vs Spot)
-
-**Estado:** Contrato pendiente (no existe doc/contracts específico). **OPEN LOOP**.
-
-- Definir precedencia y estados cuando SpotSheet y Search conviven.
-- Regla: 1 overlay/sheet dominante, sin duplicados.
+**Pruebas mínimas**
+- Smoke: no-results → crear → persist → edit
+- Smoke: mapa → crear → persist → edit
 
 ---
 
-### OL-055 — Deploy: Vercel “ready” pero no “current”
+### OL-P0-003 — Create Spot se activa por error con pinch/zoom (dos dedos)
 
-**Estado:** Observación en operación. Falta diagnóstico documentado. **OPEN LOOP**.
+**Estado:** ACTIVO
 
-- Riesgo: creemos que main está deployado pero el tráfico sigue apuntando a un build anterior.
-- Requiere: checklist de verificación + causas comunes (branch, preview/prod, caching, manual redeploy).
+**Problema:** al navegar con dos dedos / hacer zoom, se dispara “crear spot” accidentalmente.
+
+**DoD / AC**
+- Gestos de mapa (pan/zoom/pinch) **no** disparan create.
+- Create solo se dispara por intent explícito (botón / long-press / chooser definido).
+- Añadir guardrail: ignorar “press” cuando hubo multi-touch o gesture in-progress.
+
+**Pruebas mínimas**
+- Smoke en móvil: 10 intentos de pinch/zoom sin activar create
+- Unit (si aplica): detector multi-touch → cancela intent
 
 ---
 
-### Soft delete (is_hidden) — esquema y queries
+### OL-P1-001 — Dirección postal no se genera en creación mínima
 
-**Estado:** No cerrado hoy. **OPEN LOOP** para mañana.
+**Estado:** ACTIVO
 
-- El código filtra `is_hidden = false` en refetchSpots y otras queries; la pantalla de spot hace soft delete con `update({ is_hidden: true })`.
-- La columna `is_hidden` **no** aparece en migraciones 001/002 (posible migración posterior o columna añadida fuera del repo).
-- Pendiente: verificar esquema real en DB; alinear migraciones y políticas si hace falta; asegurar que listados/mapa/recientes no muestren spots borrados tras refetch. Sin tocar RLS/migraciones hoy.
+**Problema:** al crear un spot con el creador mínimo, la dirección/postal no se completa.
+
+**DoD / AC**
+- Tras persistir spot mínimo, se ejecuta enriquecimiento (reverse geocode / Mapbox place) y se guarda address.
+- UI refleja address cuando disponible (con loading si es async).
+- Si falla, queda estado de error recuperable (retry) sin romper flujo.
+
+**Pruebas mínimas**
+- Smoke: crear spot mínimo en 2 ubicaciones distintas → address aparece
+- Unit: efecto de enrichment maneja error/retry
+
+---
+
+### OL-P1-002 — Botón “cerrar buscador” en estado activo
+
+**Estado:** ACTIVO
+
+**Problema:** cuando Search está activo/abierto, el botón de cerrar no respeta estados (disabled/priority/click area).
+
+**DoD / AC**
+- Cerrar siempre disponible cuando status=open.
+- No compite con focus del input ni rompe el layout.
+- Hit area consistente.
+
+**Pruebas mínimas**
+- Smoke: abrir search → cerrar (sin pérdida de estado de Explore indebida)
+
+---
+
+### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)
+
+**Estado:** ACTIVO
+
+**Problema:** necesidad de UI de filtros (como Explore v1) sin activar Gate C.
+
+**DoD / AC**
+- Primera línea: filtros + cerrar buscador
+- Segunda línea: input de búsqueda ancho completo
+- No se introduce Radix/shadcn (Gate C pausado): usar componentes existentes/estables.
+
+**Pruebas mínimas**
+- Smoke: cambiar filtro afecta resultados/pins según contrato de Search/Explore
+
+---
+
+### OL-P2-002 — En buscador: teclado desaparece al hacer scroll o interactuar
+
+**Estado:** ACTIVO
+
+**DoD / AC**
+- Scroll/tap fuera del input cierra teclado (sin cerrar Search).
+- No rompe overlay/sheet ni causa jumps.
+
+**Pruebas mínimas**
+- Smoke: abrir search + teclado → scroll results → teclado se oculta
+
+---
+
+### OL-P2-003 — Color de pines cuando filtro “Guardados” está activo
+
+**Estado:** ACTIVO
+
+**Problema:** si selecciono filtro “Guardados”, los pines visitados se ven con color “visitados” y confunde.
+
+**DoD / AC**
+- Si filtro = Guardados: todos los pines visibles usan color “guardados”.
+- Si filtro = Visitados: todos los pines visibles usan color “visitados”.
+- Si filtro = Todos: color por estado real (guardado/visitado/etc.).
+
+**Pruebas mínimas**
+- Smoke: alternar filtros y validar consistencia visual
