@@ -555,6 +555,7 @@ export default function CreateSpotScreen() {
               style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               <TextInput
                 value={title}
@@ -619,6 +620,7 @@ export default function CreateSpotScreen() {
               style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               <TextInput
                 value={descriptionShort}
@@ -671,6 +673,7 @@ export default function CreateSpotScreen() {
               style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               <TextInput
                 value={descriptionLong}
@@ -720,6 +723,7 @@ export default function CreateSpotScreen() {
             <ScrollView
               style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
+              keyboardDismissMode="on-drag"
             >
               <View style={styles.stepImageOnly}>
                 {selectedCoverUri ? (
@@ -792,6 +796,7 @@ export default function CreateSpotScreen() {
             <ScrollView
               style={styles.scrollView}
               contentContainerStyle={[styles.scrollContentWithBar, styles.scrollContentAboveFixedBar]}
+              keyboardDismissMode="on-drag"
             >
               <View style={[styles.summaryBlock, { backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle }]}>
                 <Text style={[styles.summaryTitle, { color: colors.text }]}>{title.trim() || 'Sin título'}</Text>

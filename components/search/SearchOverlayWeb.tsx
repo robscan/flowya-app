@@ -9,10 +9,20 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { IconButton } from '@/components/design-system/icon-button';
+import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ChevronRight, Search, X } from 'lucide-react-native';
+import { ChevronRight, MapPin, Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { SearchResultsListV2 } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
@@ -30,9 +40,14 @@ export function SearchOverlayWeb<T>({
   recentViewedItems,
   renderItem,
   stageLabel,
-  emptyMessage = 'No hay spots cercanos. Mantén pulsado el mapa para crear uno.',
+  emptyMessage = 'No hay spots cercanos. Busca en el mapa o crea uno nuevo.',
   onCreateLabel = 'Crear nuevo spot',
   getItemKey,
+  pinFilter,
+  pinCounts,
+  onPinFilterChange,
+  placeSuggestions = [],
+  onCreateFromPlace,
 }: SearchFloatingProps<T>) {
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
@@ -41,6 +56,7 @@ export function SearchOverlayWeb<T>({
   const [isInputFocused, setIsInputFocused] = useState(false);
   const savedOverflowRef = useRef<string | null>(null);
   const savedScrollYRef = useRef(0);
+  const lastScrollYRef = useRef(0);
 
   /** Keyboard-safe: 100dvh o fallback visualViewport.height. NO 100vh. */
   const supportsDvh =
@@ -101,6 +117,17 @@ export function SearchOverlayWeb<T>({
     if (el?.blur) el.blur();
   }, []);
 
+  /** Contrato KEYBOARD_AND_TEXT_INPUTS: scroll cierra teclado (web). */
+  const handleScrollDismissKeyboard = useCallback(
+    (contentOffsetY: number) => {
+      if (Math.abs(contentOffsetY - lastScrollYRef.current) > 15) {
+        lastScrollYRef.current = contentOffsetY;
+        blurActiveElement();
+      }
+    },
+    [blurActiveElement]
+  );
+
   const doClose = useCallback(() => controller.setOpen(false), [controller]);
 
   const onClosePress = useCallback(() => {
@@ -150,19 +177,15 @@ export function SearchOverlayWeb<T>({
         ]}
         pointerEvents="box-none"
       >
-        <View style={styles.header}>
-          <View style={[styles.searchPill, { backgroundColor: colors.background, borderColor: colors.borderSubtle }]}>
-            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-            <SearchInputV2
-              value={controller.query}
-              onChangeText={controller.setQuery}
-              onClear={controller.clear}
-              placeholder="Buscar lugares…"
-              autoFocus
-              embedded
-              onFocus={() => setIsInputFocused(true)}
-              onBlur={() => setIsInputFocused(false)}
-            />
+        <View style={styles.topRow}>
+          <View style={styles.filterRow}>
+            {pinFilter != null && onPinFilterChange != null ? (
+              <MapPinFilterInline
+                value={pinFilter}
+                onChange={onPinFilterChange}
+                counts={pinCounts}
+              />
+            ) : null}
           </View>
           <IconButton
             variant="default"
@@ -173,6 +196,21 @@ export function SearchOverlayWeb<T>({
             <X size={24} color={colors.text} strokeWidth={2} />
           </IconButton>
         </View>
+        <View style={styles.searchRow}>
+          <View style={[styles.searchPill, { backgroundColor: colors.background, borderColor: colors.borderSubtle }]}>
+            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+            <SearchInputV2
+              value={controller.query}
+              onChangeText={controller.setQuery}
+              onClear={controller.clear}
+              placeholder="Buscar spots…"
+              autoFocus
+              embedded
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => setIsInputFocused(false)}
+            />
+          </View>
+        </View>
         {/* CONTRATO: Un solo scroller por estado (isEmpty | isPreSearch | isSearch | isNoResults); no anidar scrolls. */}
         <View style={styles.resultsArea}>
           {isEmpty && defaultItems.length > 0 && (
@@ -180,9 +218,13 @@ export function SearchOverlayWeb<T>({
               style={styles.resultsScroll}
               contentContainerStyle={styles.resultsContent}
               keyboardShouldPersistTaps="handled"
+              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+                handleScrollDismissKeyboard(e.nativeEvent.contentOffset.y)
+              }
+              scrollEventThrottle={100}
               showsVerticalScrollIndicator
             >
-              <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
+              <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Spots cercanos</Text>
               {defaultItems.map((item, idx) => (
                 <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
                   {renderItem(item)}
@@ -195,6 +237,10 @@ export function SearchOverlayWeb<T>({
               style={styles.resultsScroll}
               contentContainerStyle={styles.resultsContent}
               keyboardShouldPersistTaps="handled"
+              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+                handleScrollDismissKeyboard(e.nativeEvent.contentOffset.y)
+              }
+              scrollEventThrottle={100}
               showsVerticalScrollIndicator
             >
               {recentQueries.length > 0 && (
@@ -233,6 +279,7 @@ export function SearchOverlayWeb<T>({
                 onEndReached={controller.fetchMore}
                 hasMore={controller.hasMore}
                 isLoading={controller.isLoading}
+                onScrollDismissKeyboard={(y) => handleScrollDismissKeyboard(y)}
               />
             </>
           )}
@@ -242,8 +289,15 @@ export function SearchOverlayWeb<T>({
                 style={styles.noResultsScroll}
                 contentContainerStyle={styles.resultsContent}
                 keyboardShouldPersistTaps="handled"
+                onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) =>
+                  handleScrollDismissKeyboard(e.nativeEvent.contentOffset.y)
+                }
+                scrollEventThrottle={100}
                 showsVerticalScrollIndicator
               >
+                <Text style={[styles.noResultsIntro, { color: colors.text }]}>
+                  No hay spots con ese nombre. Puedes crearlo en Flowya:
+                </Text>
                 {controller.suggestions.length > 0 && (
                   <View style={styles.suggestionsSection}>
                     <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Sugerencias</Text>
@@ -263,6 +317,35 @@ export function SearchOverlayWeb<T>({
                     ))}
                   </View>
                 )}
+                {placeSuggestions.length > 0 && onCreateFromPlace ? (
+                  <View style={styles.suggestionsSection}>
+                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                      Crear spot en uno de estos lugares
+                    </Text>
+                    {placeSuggestions.map((place) => (
+                      <Pressable
+                        key={place.id}
+                        style={({ pressed }) => [
+                          styles.suggestionRow,
+                          styles.placeRow,
+                          { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                        ]}
+                        onPress={() => onCreateFromPlace(place)}
+                        accessibilityLabel={`Crear en ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
+                        accessibilityRole="button"
+                      >
+                        <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
+                        <View style={styles.placeRowContent}>
+                          <Text style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>{place.name}</Text>
+                          {place.fullName ? (
+                            <Text style={[styles.placeRowSubtitle, { color: colors.textSecondary }]}>{place.fullName}</Text>
+                          ) : null}
+                        </View>
+                        <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
                 <View style={styles.chooserSection}>
                   <Pressable
                     style={({ pressed }) => [
@@ -271,12 +354,12 @@ export function SearchOverlayWeb<T>({
                       { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
                     ]}
                     onPress={controller.onCreate}
-                    accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
+                    accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
                     accessibilityRole="button"
                   >
                     <View style={styles.chooserRowContent}>
-                      <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
-                      <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                      <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot aquí</Text>
+                      <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Centro del mapa o tu ubicación</Text>
                     </View>
                     <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
                   </Pressable>
@@ -335,15 +418,23 @@ const styles = StyleSheet.create({
     zIndex: 1,
     overflow: 'hidden',
   },
-  header: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
     flexShrink: 0,
   },
-  searchPill: {
+  filterRow: {
     flex: 1,
+    minWidth: 0,
+  },
+  searchRow: {
+    marginBottom: Spacing.sm,
+    flexShrink: 0,
+  },
+  searchPill: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     height: HEADER_ROW_HEIGHT,
@@ -380,9 +471,13 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
+  noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
   suggestionsSection: { marginBottom: Spacing.base },
   suggestionRow: { paddingVertical: Spacing.md, paddingHorizontal: Spacing.base, borderRadius: Radius.sm },
   chooserSection: { marginTop: Spacing.sm },
+  placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  placeRowContent: { flex: 1, minWidth: 0, gap: 2 },
+  placeRowSubtitle: { fontSize: 13 },
   chooserRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
   chooserRowTitle: { fontSize: 16, fontWeight: '600' },

@@ -4,6 +4,7 @@
  */
 
 import { IconButton } from '@/components/design-system/icon-button';
+import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -26,7 +27,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ChevronRight, Search, X } from 'lucide-react-native';
+import { ChevronRight, MapPin, Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { SearchResultsListV2 } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
@@ -50,9 +51,14 @@ export function SearchFloatingNative<T>({
   recentViewedItems,
   renderItem,
   stageLabel,
-  emptyMessage = 'No hay spots cercanos. Mantén pulsado el mapa para crear uno.',
+  emptyMessage = 'No hay spots cercanos. Busca en el mapa o crea uno nuevo.',
   onCreateLabel = 'Crear nuevo spot',
   getItemKey,
+  pinFilter,
+  pinCounts,
+  onPinFilterChange,
+  placeSuggestions = [],
+  onCreateFromPlace,
 }: SearchFloatingProps<T>) {
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
@@ -155,7 +161,26 @@ export function SearchFloatingNative<T>({
                 <View style={styles.handleRow}>
                   <SheetHandle />
                 </View>
-                <View style={[styles.headerRow, { paddingTop: HEADER_TOP_PADDING }]}>
+                <View style={[styles.topRow, { paddingTop: HEADER_TOP_PADDING }]}>
+                  <View style={styles.filterRow}>
+                    {pinFilter != null && onPinFilterChange != null ? (
+                      <MapPinFilterInline
+                        value={pinFilter}
+                        onChange={onPinFilterChange}
+                        counts={pinCounts}
+                      />
+                    ) : null}
+                  </View>
+                  <IconButton
+                    variant="default"
+                    selected
+                    onPress={requestClose}
+                    accessibilityLabel="Cerrar búsqueda"
+                  >
+                    <X size={24} color={colors.text} strokeWidth={2} />
+                  </IconButton>
+                </View>
+                <View style={styles.searchRow}>
                   <View
                     style={[
                       styles.searchPill,
@@ -170,19 +195,11 @@ export function SearchFloatingNative<T>({
                       value={controller.query}
                       onChangeText={controller.setQuery}
                       onClear={controller.clear}
-                      placeholder="Buscar lugares…"
+                      placeholder="Buscar spots…"
                       autoFocus
                       embedded
                     />
                   </View>
-                  <IconButton
-                    variant="default"
-                    selected
-                    onPress={requestClose}
-                    accessibilityLabel="Cerrar búsqueda"
-                  >
-                    <X size={24} color={colors.text} strokeWidth={2} />
-                  </IconButton>
                 </View>
               </View>
             </GestureDetector>
@@ -196,9 +213,10 @@ export function SearchFloatingNative<T>({
                     style={styles.resultsScroll}
                     contentContainerStyle={styles.resultsContent}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator
                   >
-                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
+                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Spots cercanos</Text>
                     {defaultItems.map((item, idx) => (
                       <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
                         {renderItem(item)}
@@ -211,6 +229,7 @@ export function SearchFloatingNative<T>({
                     style={styles.resultsScroll}
                     contentContainerStyle={styles.resultsContent}
                     keyboardShouldPersistTaps="handled"
+                    keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator
                   >
                     {recentQueries.length > 0 && (
@@ -262,8 +281,12 @@ export function SearchFloatingNative<T>({
                       style={styles.noResultsScroll}
                       contentContainerStyle={styles.resultsContent}
                       keyboardShouldPersistTaps="handled"
+                      keyboardDismissMode="on-drag"
                       showsVerticalScrollIndicator
                     >
+                      <Text style={[styles.noResultsIntro, { color: colors.text }]}>
+                        No hay spots con ese nombre. Puedes crearlo en Flowya:
+                      </Text>
                       {controller.suggestions.length > 0 && (
                         <View style={styles.suggestionsSection}>
                           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
@@ -285,6 +308,35 @@ export function SearchFloatingNative<T>({
                           ))}
                         </View>
                       )}
+                      {placeSuggestions.length > 0 && onCreateFromPlace ? (
+                        <View style={styles.suggestionsSection}>
+                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                            Crear spot en uno de estos lugares
+                          </Text>
+                          {placeSuggestions.map((place) => (
+                            <Pressable
+                              key={place.id}
+                              style={({ pressed }) => [
+                                styles.suggestionRow,
+                                styles.placeRow,
+                                { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                              ]}
+                              onPress={() => onCreateFromPlace(place)}
+                              accessibilityLabel={`Crear en ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
+                              accessibilityRole="button"
+                            >
+                              <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
+                              <View style={styles.placeRowContent}>
+                                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>{place.name}</Text>
+                                {place.fullName ? (
+                                  <Text style={[styles.placeRowSubtitle, { color: colors.textSecondary }]}>{place.fullName}</Text>
+                                ) : null}
+                              </View>
+                              <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
+                            </Pressable>
+                          ))}
+                        </View>
+                      ) : null}
                       <View style={styles.chooserSection}>
                         <Pressable
                           style={({ pressed }) => [
@@ -293,12 +345,12 @@ export function SearchFloatingNative<T>({
                             { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
                           ]}
                           onPress={controller.onCreate}
-                          accessibilityLabel="Crear spot nuevo aquí. Usará el centro del mapa."
+                          accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
                           accessibilityRole="button"
                         >
                           <View style={styles.chooserRowContent}>
-                            <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot nuevo aquí</Text>
-                            <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Usará el centro del mapa</Text>
+                            <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot aquí</Text>
+                            <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Centro del mapa o tu ubicación</Text>
                           </View>
                           <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
                         </Pressable>
@@ -357,14 +409,16 @@ const styles = StyleSheet.create({
   },
   dragArea: { flexShrink: 0 },
   handleRow: { paddingTop: 8, marginBottom: 4 },
-  headerRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
     marginBottom: Spacing.sm,
   },
+  filterRow: { flex: 1, minWidth: 0 },
+  searchRow: { marginBottom: Spacing.sm },
   searchPill: {
-    flex: 1,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     height: HEADER_ROW_HEIGHT,
@@ -393,6 +447,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
+  noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
   suggestionsSection: { marginBottom: Spacing.base },
   suggestionRow: {
     paddingVertical: Spacing.md,
@@ -400,6 +455,9 @@ const styles = StyleSheet.create({
     borderRadius: Radius.sm,
   },
   chooserSection: { marginTop: Spacing.sm },
+  placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  placeRowContent: { flex: 1, minWidth: 0, gap: 2 },
+  placeRowSubtitle: { fontSize: 13 },
   chooserRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
   chooserRowTitle: { fontSize: 16, fontWeight: '600' },

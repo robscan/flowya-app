@@ -54,6 +54,12 @@ export const TypographyStyles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 20,
   },
+  /** Apple Maps style: labels de filtro (más grande y delgado). */
+  filterLabel: {
+    fontSize: 17,
+    fontWeight: '300',
+    lineHeight: 22,
+  },
 });
 
 const styles = StyleSheet.create({

@@ -1,7 +1,7 @@
 # SEARCH — No Results → Create Chooser (anti-traición)
 
 **Objetivo:** Evitar que el usuario se sienta traicionado cuando no hay resultados.
-**Principio:** “Crear” nunca debe resolver texto y terminar creando un match inesperado (p.ej. una calle homónima).
+**Principio:** "Crear" nunca debe resolver texto y terminar creando un match inesperado (p.ej. una calle homónima).
 
 ---
 
@@ -17,40 +17,28 @@ Estado aplica cuando:
 
 ## UI canónica (chooser explícito)
 
-En vez de “Crear <query>” único, mostrar:
+En vez de "Crear <query>" único, mostrar:
 
-### A) Sugerencias (con coordenadas)
+### A) Sugerencias de texto (ES↔EN)
 
-- Lista de 3–8 sugerencias con coords (si existen).
-- Cada item debe mostrar:
-  - **Título**
-  - **Tipo** (Landmark/POI/Ciudad/Calle)
-  - **Ubicación** (Ciudad, País)
+- Diccionario curado; reintento de búsqueda. Tap = setQuery(suggestion).
 
-- Acción:
-  - Tap en item = **Preview + Crear desde este lugar**
-  - Debe ser claro que “esto va a crear un spot con estas coordenadas”.
+### B) Listado de lugares (Mapbox, con coordenadas)
 
-**Ranking v0 de sugerencias:**
+- Lista de 3–8 sugerencias con coords (searchPlaces, limit 6–8). Cada item: **Nombre** + **Dirección/contexto** (fullName). Tap = crear spot con esas coords. Prohibido CTA único que resuelva texto sin mostrar dirección.
 
-1. `poi_landmark`
-2. `poi`
-3. `place`
-4. `address`
-5. `street`
+### C) Crear spot aquí (UGC, sin resolver texto)
 
-### B) Crear spot nuevo (UGC, sin resolver texto)
+CTA: **"Crear spot aquí"** — subtítulo: Centro del mapa o tu ubicación.
 
-CTA: **“Crear spot nuevo aquí”**
-
-- **Auth:** Sin sesión, el tap abre modal de login y no crea draft ni entra en placing; con sesión sigue el flujo normal (placing → BORRADOR → Crear spot).
+- **Auth:** Sin sesión, el tap abre modal de login; con sesión sigue el flujo (CreateSpotNameOverlay → draft).
 - Coordenadas:
   1. Centro del mapa (viewport center) si está disponible
   2. Fallback: ubicación actual
 
 - Nombre:
   - Usar `query` como nombre provisional permitido, pero sin resolverlo.
-  - Recomendación UX: hint “Nombre provisional (puedes editarlo)”.
+  - Recomendación UX: hint "Nombre provisional (puedes editarlo)".
 
 ---
 
@@ -65,5 +53,5 @@ CTA: **“Crear spot nuevo aquí”**
 
 ## Prohibiciones (guardrails)
 
-- Prohibido: “Crear <query>” que ejecute geocoding silencioso y cree street/address por default.
-- Prohibido: crear con coords “inventadas” o “primer match” sin selección explícita.
+- Prohibido: "Crear <query>" que ejecute geocoding silencioso y cree street/address por default.
+- Prohibido: crear con coords "inventadas" o "primer match" sin selección explícita.

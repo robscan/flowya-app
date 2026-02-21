@@ -131,7 +131,6 @@ export function MapControls({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'column',
-    padding: Spacing.xs,
     gap: Spacing.xs,
   },
 });

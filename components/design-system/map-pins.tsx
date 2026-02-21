@@ -7,20 +7,30 @@
  */
 
 import { Pin } from 'lucide-react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { Colors, Spacing } from '@/constants/theme';
+
+const PIN_SELECT_DURATION_MS = 200;
+const PIN_HOVER_PRESS_DURATION_MS = 100;
+const PIN_EASING = Easing.out(Easing.cubic);
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const LOCATION_PIN_SIZE = 14;
 
 /** Jerarquía canónica: Nivel 1 = protagonista (spot seleccionado). Nivel 2 = presencia (reposo, tamaño uniforme). Nivel 3 = mapa base. */
 const SPOT_PIN_SIZE = 12; // Nivel 2 — reposo
-const SPOT_PIN_SELECTED_SIZE = 24; // Nivel 1 — protagonista (spot seleccionado)
+const SPOT_PIN_SELECTED_SIZE = 36; // Nivel 1 — protagonista (estilo Apple Maps ~30–40px)
 const SPOT_PIN_STROKE = 2;
-const SPOT_PIN_SELECTED_STROKE = 2;
-const SPOT_PIN_ICON_SIZE = 14;
+const SPOT_PIN_SELECTED_STROKE = 3;
+const SPOT_PIN_ICON_SIZE = 20;
 const PIN_LABEL_FONT_SIZE = 11;
 const PIN_LABEL_GAP = 2;
 const PIN_LABEL_MAX_WIDTH = 80;
@@ -87,7 +97,7 @@ function getSpotPinOutlineColor(colors: (typeof Colors)['light']): string {
 
 /** Pin de spot: círculo sólido con borde + label opcional debajo. Pin y label se mueven juntos. */
 /** Reposo (no seleccionado): tamaño base, sin icono. Activo (seleccionado): grande, con icono Pin si to_visit o visited. */
-/** Hover y press son solo feedback visual; selected tiene siempre prioridad. */
+/** Hover y press son solo feedback visual; selected tiene siempre prioridad. Animaciones: scale al seleccionar; hover 1.08x y press 0.95x en reposo. */
 export function MapPinSpot({
   status = 'default',
   label,
@@ -112,13 +122,66 @@ export function MapPinSpot({
   const labelWeight = selected ? '600' : '500';
 
   const isSavedPin = status === 'to_visit' || status === 'visited';
-  const isLargePin = selected;
-  const pinSize = isLargePin ? SPOT_PIN_SELECTED_SIZE : SPOT_PIN_SIZE;
-  const stroke = isLargePin ? SPOT_PIN_SELECTED_STROKE : SPOT_PIN_STROKE;
-  const innerSize = pinSize - stroke * 2;
 
-  const showHover = !selected && isHovered;
-  const showPress = !selected && isPressed;
+  const selectedProgress = useSharedValue(selected ? 1 : 0);
+  const hoverProgress = useSharedValue(0);
+  const pressProgress = useSharedValue(0);
+
+  useEffect(() => {
+    selectedProgress.value = withTiming(selected ? 1 : 0, {
+      duration: PIN_SELECT_DURATION_MS,
+      easing: PIN_EASING,
+    });
+  }, [selected, selectedProgress]);
+
+  useEffect(() => {
+    const active = !selected && isHovered;
+    hoverProgress.value = withTiming(active ? 1 : 0, {
+      duration: PIN_HOVER_PRESS_DURATION_MS,
+      easing: PIN_EASING,
+    });
+  }, [selected, isHovered, hoverProgress]);
+
+  useEffect(() => {
+    const active = !selected && isPressed;
+    pressProgress.value = withTiming(active ? 1 : 0, {
+      duration: PIN_HOVER_PRESS_DURATION_MS,
+      easing: PIN_EASING,
+    });
+  }, [selected, isPressed, pressProgress]);
+
+  const pinAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const w = SPOT_PIN_SIZE + (SPOT_PIN_SELECTED_SIZE - SPOT_PIN_SIZE) * p;
+    const s = SPOT_PIN_STROKE + (SPOT_PIN_SELECTED_STROKE - SPOT_PIN_STROKE) * p;
+    const hoverScale = 1 + 0.08 * hoverProgress.value;
+    const pressScale = 1 - 0.05 * pressProgress.value;
+    const interactScale = pressProgress.value > 0 ? pressScale : hoverScale;
+    return {
+      width: w,
+      height: w,
+      borderRadius: w / 2,
+      borderWidth: s,
+      transform: [{ scale: interactScale }],
+    };
+  }, []);
+
+  const innerAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const w = SPOT_PIN_SIZE + (SPOT_PIN_SELECTED_SIZE - SPOT_PIN_SIZE) * p;
+    const s = SPOT_PIN_STROKE + (SPOT_PIN_SELECTED_STROKE - SPOT_PIN_STROKE) * p;
+    const inner = w - s * 2;
+    return {
+      width: inner,
+      height: inner,
+      borderRadius: inner / 2,
+    };
+  }, []);
+
+  const iconOpacityStyle = useAnimatedStyle(
+    () => ({ opacity: isSavedPin ? selectedProgress.value : 0 }),
+    [isSavedPin]
+  );
 
   return (
     <View
@@ -131,42 +194,32 @@ export function MapPinSpot({
       onMouseDown={() => setIsPressed(true)}
       onMouseUp={() => setIsPressed(false)}
     >
-      <View
+      <Animated.View
         style={[
           styles.spotPinOuter,
-          {
-            width: pinSize,
-            height: pinSize,
-            borderRadius: pinSize / 2,
-            borderWidth: stroke,
-            borderColor: outline,
-            opacity: 1,
-          },
-          showPress && { transform: [{ scale: 0.95 }] },
+          { borderColor: outline },
+          pinAnimatedStyle,
         ]}
       >
-        <View
+        <Animated.View
           style={[
             styles.spotPinInner,
-            {
-              width: innerSize,
-              height: innerSize,
-              borderRadius: innerSize / 2,
-              backgroundColor: fill,
-              opacity: 1,
-            },
+            { backgroundColor: fill },
+            innerAnimatedStyle,
           ]}
         >
-          {selected && isSavedPin ? (
-            <Pin
-              size={SPOT_PIN_ICON_SIZE}
-              color="#ffffff"
-              strokeWidth={2}
-              style={styles.spotPinIcon}
-            />
+          {isSavedPin ? (
+            <Animated.View style={[StyleSheet.absoluteFill, iconOpacityStyle, styles.spotPinIconWrap]}>
+              <Pin
+                size={SPOT_PIN_ICON_SIZE}
+                color="#ffffff"
+                strokeWidth={2}
+                style={styles.spotPinIcon}
+              />
+            </Animated.View>
           ) : null}
-        </View>
-      </View>
+        </Animated.View>
+      </Animated.View>
       {label ? (
         <Text
           style={[
@@ -368,6 +421,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   spotPinInner: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spotPinIconWrap: {
     alignItems: 'center',
     justifyContent: 'center',
   },

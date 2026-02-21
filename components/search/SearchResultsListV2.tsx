@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 
@@ -24,6 +24,10 @@ export type SearchResultsListV2Props<T> = {
   hasMore?: boolean;
   isLoading?: boolean;
   keyboardShouldPersistTaps?: 'always' | 'never' | 'handled';
+  /** Contrato KEYBOARD_AND_TEXT_INPUTS: scroll cierra teclado. */
+  keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
+  /** Web: llamado al hacer scroll para cerrar teclado (blur). Recibe contentOffset.y para throttling. */
+  onScrollDismissKeyboard?: (contentOffsetY: number) => void;
 };
 
 export function SearchResultsListV2<T>({
@@ -35,6 +39,8 @@ export function SearchResultsListV2<T>({
   hasMore = false,
   isLoading = false,
   keyboardShouldPersistTaps = 'handled',
+  keyboardDismissMode = 'on-drag',
+  onScrollDismissKeyboard,
 }: SearchResultsListV2Props<T>) {
   const showSections = sections.length > 0;
   const showFlat = !showSections && results.length > 0;
@@ -44,7 +50,10 @@ export function SearchResultsListV2<T>({
       style={styles.scroll}
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      onScroll={({ nativeEvent }) => {
+      keyboardDismissMode={keyboardDismissMode}
+      onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
+        const { nativeEvent } = e;
+        onScrollDismissKeyboard?.(nativeEvent.contentOffset.y);
         if (!onEndReached || isLoading || !hasMore) return;
         const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
         const padding = 80;

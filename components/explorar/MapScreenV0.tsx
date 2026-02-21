@@ -686,7 +686,7 @@ export function MapScreenV0() {
                 value={searchV2.query}
                 onChangeText={searchV2.setQuery}
                 onClear={searchV2.clear}
-                placeholder="Buscar lugares…"
+                placeholder="Buscar spots…"
                 autoFocus
               />
             </View>
@@ -706,7 +706,7 @@ export function MapScreenV0() {
                       keyboardShouldPersistTaps="handled"
                       showsVerticalScrollIndicator
                     >
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Cercanos</Text>
+                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Spots cercanos</Text>
                       {defaultSpots.length > 0 ? (
                         defaultSpots.map((spot) => (
                           <View key={spot.id} style={styles.searchResultItemWrap}>
@@ -725,7 +725,7 @@ export function MapScreenV0() {
                         ))
                       ) : (
                         <Text style={[styles.searchNoResultsText, { color: colors.textSecondary }]}>
-                          No hay spots cercanos. Mantén pulsado el mapa para crear uno.
+                          No hay spots cercanos. Busca en el mapa o crea uno nuevo.
                         </Text>
                       )}
                     </ScrollView>
@@ -816,6 +816,9 @@ export function MapScreenV0() {
                 }
                 return (
                   <>
+                    <Text style={[styles.searchNoResultsText, { color: colors.text, marginBottom: Spacing.md }]}>
+                      No hay spots con ese nombre. Puedes crearlo en Flowya:
+                    </Text>
                     {searchV2.suggestions.length > 0 ? (
                       <View style={styles.suggestionsSection}>
                         <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>

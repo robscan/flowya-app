@@ -166,6 +166,7 @@ export default function EditSpotScreen() {
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           showsVerticalScrollIndicator
         >
           <View style={styles.fieldGroup}>

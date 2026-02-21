@@ -1,6 +1,9 @@
 /**
  * MapCoreView — componente presentacional del núcleo del mapa (Explorar).
  * Renderiza Map + markers (spots + user). MapControls lo sigue renderizando el contenedor.
+ *
+ * Jerarquía de capas (orden de render = stacking): 1) spots no seleccionados,
+ * 2) spot seleccionado (si existe), 3) ubicación del usuario (siempre encima).
  */
 
 import type { SpotPinStatus } from '@/components/design-system/map-pins';
@@ -78,23 +81,40 @@ export function MapCoreView({
         onMoveEnd={onMoveEnd}
         onClick={onClick}
       >
-        {spots.map((spot) => (
-          <Marker
-            key={spot.id}
-            latitude={spot.latitude}
-            longitude={spot.longitude}
-            anchor="center"
-            onClick={() => onPinClick(spot)}
-          >
-            <MapPinSpot
-              status={spot.pinStatus ?? 'default'}
-              label={
-                zoom >= LABEL_MIN_ZOOM || selectedSpotId === spot.id ? spot.title : undefined
-              }
-              selected={selectedSpotId === spot.id}
-            />
-          </Marker>
-        ))}
+        {spots
+          .filter((s) => s.id !== selectedSpotId)
+          .map((spot) => (
+            <Marker
+              key={spot.id}
+              latitude={spot.latitude}
+              longitude={spot.longitude}
+              anchor="center"
+              onClick={() => onPinClick(spot)}
+            >
+              <MapPinSpot
+                status={spot.pinStatus ?? 'default'}
+                label={zoom >= LABEL_MIN_ZOOM ? spot.title : undefined}
+                selected={false}
+              />
+            </Marker>
+          ))}
+        {spots
+          .filter((s) => s.id === selectedSpotId)
+          .map((spot) => (
+            <Marker
+              key={spot.id}
+              latitude={spot.latitude}
+              longitude={spot.longitude}
+              anchor="center"
+              onClick={() => onPinClick(spot)}
+            >
+              <MapPinSpot
+                status={spot.pinStatus ?? 'default'}
+                label={spot.title}
+                selected
+              />
+            </Marker>
+          ))}
         {userCoords ? (
           <Marker
             latitude={userCoords.latitude}

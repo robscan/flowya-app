@@ -1,50 +1,56 @@
 /**
- * BottomDock — Cluster flotante estilo Apple Maps (Explorar vNext).
- * Perfil a la izquierda, Search pill a la derecha. Logout popover encima del perfil.
+ * BottomDock — Pill de búsqueda (o cluster perfil+crear+pill cuando showProfile/showCreateSpot).
+ * Modo pillOnly: solo SearchPill flotante, sin contenedor envolvente.
  */
 
 import { IconButton } from '@/components/design-system/icon-button';
+import { SearchPill } from '@/components/design-system/search-pill';
 import { Colors, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { LogOut, Plus, Search, User } from 'lucide-react-native';
+import { LogOut, Plus, User } from 'lucide-react-native';
 import React from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 export const DOCK_HEIGHT = 66;
 
 const CLUSTER_BORDER_RADIUS = 999;
-const PILL_BORDER_RADIUS = 25;
-const PILL_HEIGHT = 50;
 const PROFILE_BUTTON_SIZE = 44;
 const CLUSTER_PADDING = 8;
 const CLUSTER_MARGIN_H = 16;
+const PILL_MARGIN_H = 16;
 export type BottomDockInsets = {
   bottom: number;
 };
 
 export type BottomDockProps = {
   onOpenSearch: () => void;
-  onProfilePress: () => void;
-  /** CTA primario crear spot (Micro-scope 2: una sola entrada). Si se proporciona, se muestra botón (+) en el dock. */
+  onProfilePress?: () => void;
+  /** CTA primario crear spot. Si se proporciona y showCreateSpot, se muestra botón (+). */
   onCreateSpot?: () => void;
-  isAuthUser: boolean;
+  isAuthUser?: boolean;
   dockVisible: boolean;
   bottomOffset: number;
   insets: BottomDockInsets;
   showLogoutPopover?: boolean;
   onLogoutPress?: () => void;
+  /** Si false, no muestra perfil (por defecto true). */
+  showProfile?: boolean;
+  /** Si false, no muestra botón crear spot (por defecto true cuando onCreateSpot). */
+  showCreateSpot?: boolean;
 };
 
 export function BottomDock({
   onOpenSearch,
   onProfilePress,
   onCreateSpot,
-  isAuthUser,
+  isAuthUser = false,
   dockVisible,
   bottomOffset,
   insets,
   showLogoutPopover = false,
   onLogoutPress,
+  showProfile = true,
+  showCreateSpot = true,
 }: BottomDockProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -52,6 +58,15 @@ export function BottomDock({
   if (!dockVisible) return null;
 
   const bottom = bottomOffset + insets.bottom;
+  const pillOnly = !showProfile && !showCreateSpot;
+
+  if (pillOnly) {
+    return (
+      <View style={[styles.outer, { bottom, pointerEvents: 'box-none', paddingHorizontal: PILL_MARGIN_H }]}>
+        <SearchPill onPress={onOpenSearch} variant="onDark" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.outer, { bottom, pointerEvents: 'box-none' }]}>
@@ -68,33 +83,35 @@ export function BottomDock({
           },
         ]}
       >
-        <View style={styles.profileWrap}>
-          {showLogoutPopover && onLogoutPress ? (
-            <View style={styles.logoutPopover}>
-              <IconButton
-                variant="default"
-                size={PROFILE_BUTTON_SIZE}
-                onPress={onLogoutPress}
-                accessibilityLabel="Cerrar sesión"
-              >
-                <LogOut size={22} color={colors.stateError} strokeWidth={2} />
-              </IconButton>
-            </View>
-          ) : null}
-          <IconButton
-            variant="default"
-            size={PROFILE_BUTTON_SIZE}
-            onPress={onProfilePress}
-            accessibilityLabel="Cuenta"
-          >
-            <User
-              size={24}
-              color={isAuthUser ? colors.primary : colors.text}
-              strokeWidth={2}
-            />
-          </IconButton>
-        </View>
-        {onCreateSpot != null ? (
+        {showProfile && onProfilePress != null ? (
+          <View style={styles.profileWrap}>
+            {showLogoutPopover && onLogoutPress ? (
+              <View style={styles.logoutPopover}>
+                <IconButton
+                  variant="default"
+                  size={PROFILE_BUTTON_SIZE}
+                  onPress={onLogoutPress}
+                  accessibilityLabel="Cerrar sesión"
+                >
+                  <LogOut size={22} color={colors.stateError} strokeWidth={2} />
+                </IconButton>
+              </View>
+            ) : null}
+            <IconButton
+              variant="default"
+              size={PROFILE_BUTTON_SIZE}
+              onPress={onProfilePress}
+              accessibilityLabel="Cuenta"
+            >
+              <User
+                size={24}
+                color={isAuthUser ? colors.primary : colors.text}
+                strokeWidth={2}
+              />
+            </IconButton>
+          </View>
+        ) : null}
+        {showCreateSpot && onCreateSpot != null ? (
           <IconButton
             variant="default"
             size={PROFILE_BUTTON_SIZE}
@@ -104,22 +121,9 @@ export function BottomDock({
             <Plus size={24} color={colors.text} strokeWidth={2} />
           </IconButton>
         ) : null}
-        <Pressable
-          style={({ pressed }) => [
-            styles.pill,
-            {
-              backgroundColor: pressed ? colors.borderSubtle : colors.background,
-              borderColor: colors.borderSubtle,
-            },
-            Platform.OS === 'web' && { cursor: 'pointer' },
-          ]}
-          onPress={onOpenSearch}
-          accessibilityLabel="Buscar"
-          accessibilityRole="button"
-        >
-          <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-          <Text style={[styles.pillLabel, { color: colors.textSecondary }]}>Buscar</Text>
-        </Pressable>
+        <View style={styles.pillWrap}>
+          <SearchPill onPress={onOpenSearch} fill variant="onDark" />
+        </View>
       </View>
     </View>
   );
@@ -154,18 +158,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 13,
   },
-  pill: {
+  pillWrap: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    height: PILL_HEIGHT,
-    minWidth: 120,
-    paddingHorizontal: Spacing.base,
-    borderRadius: PILL_BORDER_RADIUS,
-    borderWidth: 1,
-  },
-  pillLabel: {
-    fontSize: 16,
   },
 });

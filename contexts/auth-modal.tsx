@@ -172,6 +172,23 @@ function AuthModalView({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
 
+  /** Web: keyboard height para CTA sticky (contrato KEYBOARD_AND_TEXT_INPUTS). */
+  const [keyboardHeightWeb, setKeyboardHeightWeb] = useState(0);
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () =>
+      setKeyboardHeightWeb(Math.max(0, window.innerHeight - vv.height));
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    update();
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+    };
+  }, [visible]);
+
   const handleSubmit = useCallback(async () => {
     const trimmed = email.trim();
     if (!trimmed) {
@@ -208,7 +225,7 @@ function AuthModalView({
       <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Cerrar">
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.centered}
+          style={[styles.centered, Platform.OS === 'web' && { paddingBottom: keyboardHeightWeb + Spacing.xxl }]}
         >
           <Pressable
             style={[styles.sheet, { backgroundColor: colors.backgroundElevated }]}

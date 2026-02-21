@@ -14,6 +14,8 @@
 - **DESIGN_SYSTEM_USAGE.md** — Uso de componentes canónicos en Explore vNext; chips/tokens; inventario TBD (OPEN LOOP).
 - **DATA_MODEL_CURRENT.md** — Modelo de datos vigente (referencia operativa).
 - **PROFILE_AUTH_CONTRACT_CURRENT.md** — Contrato de autenticación/perfil (referencia operativa).
+- **MAP_PINS_CONTRACT.md** — Map pins: tamaños, jerarquía de capas (ubicación > seleccionado > resto), animaciones.
+- **KEYBOARD_AND_TEXT_INPUTS.md** — Teclado y campos de texto: foco/teclado, CTA sticky sobre teclado, scroll cierra teclado.
 
 ## Search
 
