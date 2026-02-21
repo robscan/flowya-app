@@ -12,7 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const TOAST_DURATION_MS = 2500;
 
-export type ToastType = 'success' | 'default';
+export type ToastType = 'success' | 'default' | 'error';
 
 type ToastContextValue = {
   show: (message: string, options?: { type?: ToastType }) => void;
@@ -47,32 +47,36 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         {children}
         {toast ? (
           <View style={[styles.containerWrap, { pointerEvents: 'none' }]}>
-            <View
-              style={[
-                styles.container,
-                {
-                  backgroundColor:
-                    toast.type === 'success'
-                      ? colors.stateSuccess
+          <View
+            style={[
+              styles.container,
+              {
+                backgroundColor:
+                  toast.type === 'success'
+                    ? colors.stateSuccess
+                    : toast.type === 'error'
+                      ? colors.stateError
                       : (colors.backgroundElevated ?? colors.background),
-                  borderColor:
-                    toast.type === 'success'
-                      ? colors.stateSuccess
+                borderColor:
+                  toast.type === 'success'
+                    ? colors.stateSuccess
+                    : toast.type === 'error'
+                      ? colors.stateError
                       : colors.borderSubtle,
+              },
+              Shadow.card,
+            ]}
+          >
+            <Text
+              style={[
+                styles.text,
+                {
+                  color:
+                    toast.type === 'success' || toast.type === 'error'
+                      ? '#ffffff'
+                      : colors.text,
                 },
-                Shadow.card,
               ]}
-            >
-              <Text
-                style={[
-                  styles.text,
-                  {
-                    color:
-                      toast.type === 'success'
-                        ? '#1d1d1f'
-                        : colors.text,
-                  },
-                ]}
                 numberOfLines={2}
               >
                 {toast.message}

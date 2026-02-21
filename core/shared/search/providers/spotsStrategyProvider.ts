@@ -4,8 +4,7 @@
  */
 
 import type { SearchProvider } from "../effects";
-import type { SearchStage, SearchCursor, SearchResult } from "../state";
-import type { SpotResult } from "../state";
+import type { SearchStage, SearchResult } from "../state";
 import { createSpotsStrategy } from "@/lib/search/spotsStrategy";
 import type { BBox } from "@/lib/search/bbox";
 import type { SpotForSearch } from "@/lib/search/spotsStrategy";
@@ -43,7 +42,7 @@ export function createSpotsStrategyProvider(
     execute,
 
     async runSearch(args) {
-      const { query, stage, context: _context, cursor, viewport } = args;
+      const { query, stage, cursor, viewport } = args;
 
       if (stage === "idle") {
         return {

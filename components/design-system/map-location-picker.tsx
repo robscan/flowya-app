@@ -9,7 +9,8 @@ import '@/styles/mapbox-attribution-overrides.css';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useState } from 'react';
 import type { MapEvent, MapMouseEvent } from 'react-map-gl/mapbox-legacy';
-import Map, { Marker } from 'react-map-gl/mapbox-legacy';
+import { default as MapGL, Marker } from 'react-map-gl/mapbox-legacy';
+import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -102,7 +103,7 @@ export function MapLocationPicker({
     Number.isFinite(initialViewLongitude) &&
     Number.isFinite(initialViewLatitude) &&
     Number.isFinite(initialViewZoom);
-  const [state, setState] = useState<MapLocationPickerState>(
+  const [, setState] = useState<MapLocationPickerState>(
     hasInitialCoords ? 'selecting' : 'empty'
   );
   const [lngLat, setLngLat] = useState<{ lng: number; lat: number } | null>(
@@ -127,7 +128,9 @@ export function MapLocationPicker({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- lngLat fields sufficient; full object causes re-fetch on ref change
   }, [lngLat?.lat, lngLat?.lng]);
+
 
   const onMapLoad = useCallback(
     (e: MapEvent) => {
@@ -164,10 +167,13 @@ export function MapLocationPicker({
     });
     setLngLat({ lng, lat });
     setState('selecting');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- externalCenter fields sufficient; full object causes re-run
   }, [externalCenter?.lat, externalCenter?.lng, mapInstance]);
+
 
   const onMapClick = useCallback((e: MapMouseEvent) => {
     e.originalEvent?.stopPropagation?.();
+
     const { lng, lat } = e.lngLat;
     setLngLat({ lng, lat });
     setState('selecting');
@@ -188,8 +194,8 @@ export function MapLocationPicker({
 
   if (!MAPBOX_TOKEN) {
     return (
-      <View style={[styles.container, styles.placeholder]}>
-        <Text style={[styles.placeholderText, { color: colors.textSecondary }]}>
+      <View style={[styles.container, styles.placeholder] as StyleProp<ViewStyle>}>
+        <Text style={[styles.placeholderText, { color: colors.textSecondary }] as StyleProp<TextStyle>}>
           Set EXPO_PUBLIC_MAPBOX_TOKEN for the map.
         </Text>
       </View>
@@ -220,13 +226,13 @@ export function MapLocationPicker({
       : FALLBACK_VIEW;
 
   return (
-    <View style={styles.container}>
-      <Map
+    <View style={styles.container as StyleProp<ViewStyle>}>
+      <MapGL
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
         initialViewState={initialViewState}
-        style={styles.map}
+        style={styles.map as React.CSSProperties}
         onClick={onMapClick}
         onLoad={onMapLoad}
       >
@@ -251,41 +257,43 @@ export function MapLocationPicker({
             <MapPinCreating label={spotTitle ?? undefined} colorScheme={colorScheme ?? undefined} />
           </Marker>
         ) : null}
-      </Map>
+      </MapGL>
       <View
-        style={[styles.controlsOverlay, { zIndex: CONTROLS_Z_INDEX, pointerEvents: 'box-none' }]}
+        style={[styles.controlsOverlay, { zIndex: CONTROLS_Z_INDEX, pointerEvents: 'box-none' }] as StyleProp<ViewStyle>}
       >
         <MapControls map={mapInstance} />
       </View>
       {lngLat ? (
-        <View
-          style={[
+      <View
+        style={
+          [
             styles.ctaBar,
             {
               paddingBottom: Math.max(insets.bottom, Spacing.base),
               zIndex: CTA_Z_INDEX,
             },
-          ]}
-        >
+          ] as StyleProp<ViewStyle>
+        }
+      >
           <Pressable
-            style={({ pressed }) => [
-              styles.confirmButton,
-              {
-                backgroundColor:
-                  confirming ? colors.border : pressed ? colors.text : colors.tint,
-              },
-              WebTouchManipulation,
-              Platform.OS === 'web' && {
-                outlineWidth: 0,
-                outlineStyle: 'none' as const,
-                ...(confirmButtonFocused && {
-                  boxShadow:
-                    colorScheme === 'dark'
-                      ? '0 0 0 2px rgba(41,151,255,0.35)'
-                      : '0 0 0 2px rgba(0,113,227,0.35)',
-                }),
-              },
-            ]}
+            style={({ pressed }: { pressed: boolean }) => [
+                styles.confirmButton,
+                {
+                  backgroundColor:
+                    confirming ? colors.border : pressed ? colors.text : colors.tint,
+                },
+                WebTouchManipulation,
+                Platform.OS === 'web' && {
+                  outlineWidth: 0,
+                  outlineStyle: 'none' as const,
+                  ...(confirmButtonFocused && {
+                    boxShadow:
+                      colorScheme === 'dark'
+                        ? '0 0 0 2px rgba(41,151,255,0.35)'
+                        : '0 0 0 2px rgba(0,113,227,0.35)',
+                  }),
+                },
+              ]}
             onPress={handleConfirm}
             onFocus={() => setConfirmButtonFocused(true)}
             onBlur={() => setConfirmButtonFocused(false)}
@@ -296,7 +304,7 @@ export function MapLocationPicker({
             {confirming ? (
               <ActivityIndicator size="small" color={colors.background} />
             ) : (
-              <Text style={[styles.confirmLabel, { color: colors.background }]}>
+              <Text style={[styles.confirmLabel, { color: colors.background }] as StyleProp<TextStyle>}>
                 Confirmar ubicación
               </Text>
             )}

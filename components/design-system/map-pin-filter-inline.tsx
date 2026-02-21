@@ -92,13 +92,13 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
   const getSelectedColors = (optValue: MapPinFilterValue) => {
     switch (optValue) {
       case 'all':
-        return { bg: colors.text, text: colors.background };
+        return { bg: colors.text, text: colors.background, border: colors.text };
       case 'saved':
-        return { bg: colors.stateToVisit, text: '#ffffff' };
+        return { bg: colors.stateToVisit, text: '#ffffff', border: colors.stateToVisit };
       case 'visited':
-        return { bg: colors.stateSuccess, text: '#ffffff' };
+        return { bg: colors.stateSuccess, text: '#ffffff', border: colors.stateSuccess };
       default:
-        return { bg: colors.borderSubtle, text: colors.text };
+        return { bg: colors.borderSubtle, text: colors.text, border: colors.borderSubtle };
     }
   };
 

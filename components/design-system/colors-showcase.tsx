@@ -19,7 +19,6 @@ function SwatchRow({
   tokens: { name: string; key: keyof (typeof Colors)['light'] }[];
 }) {
   const colors = Colors[mode];
-  const textColor = mode === 'light' ? Colors.light.text : Colors.dark.text;
   const labelColor = mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary;
 
   return (

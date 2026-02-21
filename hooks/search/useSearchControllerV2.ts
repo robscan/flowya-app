@@ -4,10 +4,7 @@
  * Threshold 3 chars para emitir resultados.
  */
 
-import {
-  createSpotsStrategyProvider,
-  type SpotsStrategyProvider,
-} from '@/core/shared/search/providers/spotsStrategyProvider';
+import type { SpotsStrategyProvider } from '@/core/shared/search/providers/spotsStrategyProvider';
 import { createMemorySearchCache } from '@/core/shared/search/cache/memoryCache';
 import { getSuggestions } from '@/lib/search/suggestions';
 import { normalizeQuery } from '@/lib/search/normalize';

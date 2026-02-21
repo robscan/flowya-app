@@ -3,7 +3,6 @@
  */
 
 import type { GeocodingProvider } from "../effects";
-import type { MapViewportSnapshot } from "../state";
 import { resolvePlaceForCreate } from "@/lib/mapbox-geocoding";
 
 /**

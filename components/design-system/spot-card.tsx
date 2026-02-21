@@ -43,7 +43,6 @@ type SpotCardMapSelectionProps = {
 };
 
 const LEFT_COLUMN_MAX_WIDTH = 128;
-const ICON_SIZE = 20;
 const ACTIONS_ICON_SIZE = 18;
 const ACTIONS_BUTTON_SIZE = 36;
 const ICON_ON_STATE = '#ffffff';

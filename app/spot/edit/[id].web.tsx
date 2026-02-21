@@ -4,7 +4,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, MapPin, X } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
-import Map, { Marker } from "react-map-gl/mapbox-legacy";
+import { default as MapGL, Marker } from "react-map-gl/mapbox-legacy";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -131,7 +131,7 @@ function EditSpotMapSlot({
 
   return (
     <View style={styles.mapContainer}>
-      <Map
+      <MapGL
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
@@ -142,7 +142,7 @@ function EditSpotMapSlot({
         <Marker longitude={longitude} latitude={latitude} anchor="center">
           <MapPinSpot status="default" />
         </Marker>
-      </Map>
+      </MapGL>
       <View style={[styles.editMapOverlay, { pointerEvents: "box-none" }]}>
         <Pressable
           style={({ pressed }) => [

@@ -8,11 +8,10 @@ import { FrameWithDot } from "@/components/icons/FrameWithDot";
 import type { Map as MapboxMap } from "mapbox-gl";
 import { useCallback, useEffect, useState } from "react";
 import type { MapEvent } from "react-map-gl/mapbox-legacy";
-import Map, { Marker } from "react-map-gl/mapbox-legacy";
+import { default as MapGL, Marker } from "react-map-gl/mapbox-legacy";
 import {
   Linking,
-  Pressable,
-  StyleSheet,
+    StyleSheet,
   Text,
   View,
 } from "react-native";
@@ -27,7 +26,7 @@ import {
 import type { SpotDetailSpot } from "@/components/design-system/spot-detail";
 import { SpotDetail } from "@/components/design-system/spot-detail";
 import { useToast } from "@/components/ui/toast";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Spacing } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
@@ -160,7 +159,7 @@ function SpotDetailMapSlot({
 
   return (
     <View style={styles.mapContainer}>
-      <Map
+      <MapGL
         key={mapStyle}
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
@@ -184,7 +183,7 @@ function SpotDetailMapSlot({
             <MapPinLocation />
           </Marker>
         ) : null}
-      </Map>
+      </MapGL>
       <View style={[styles.mapControlsOverlay, { pointerEvents: "box-none" }]}>
         <View style={styles.mapControlsStack}>
           <IconButton
@@ -341,7 +340,9 @@ function SpotDetailScreenContent({
       () => {},
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
     );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- spot used for guard; setUserCoords stable; avoid re-run on spot change
   }, [spot?.id]);
+
 
   /** Distancia al spot: calculada una vez con userCoords. No recalcular en re-renders/scroll. */
   const distanceText =
@@ -382,10 +383,13 @@ function SpotDetailScreenContent({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setLoading/setSpot stable; id+refreshed intentional deps
   }, [id, refreshed]);
+
 
   const handleBack = useCallback(() => {
     router.back();
+
   }, [router]);
 
   const toast = useToast();
@@ -431,12 +435,15 @@ function SpotDetailScreenContent({
         });
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setSpot stable; spot fields intentional
   }, [spot?.id, spot?.pinStatus, toast, openAuthModal]);
+
 
   if (loading) {
     return (
       <View
         style={[styles.placeholder, { backgroundColor: colors.background }]}
+
       >
         <Text style={{ color: colors.textSecondary }}>Cargando…</Text>
       </View>

@@ -52,7 +52,7 @@ const POLL_SESSION_INTERVAL_MS = 2000;
 
 export function AuthModalProvider({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
-  const [message, setMessage] = useState(AUTH_MODAL_MESSAGES.savePin);
+  const [message, setMessage] = useState<string>(AUTH_MODAL_MESSAGES.savePin);
   const [email, setEmail] = useState('');
   const [state, setState] = useState<AuthModalState>('idle');
   const [errorText, setErrorText] = useState('');
@@ -210,6 +210,7 @@ function AuthModalView({
       return;
     }
     setState('success');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setErrorText/setState stable; email is sole trigger
   }, [email]);
 
   if (!visible) return null;

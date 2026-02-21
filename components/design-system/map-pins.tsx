@@ -17,11 +17,11 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Colors, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const PIN_SELECT_DURATION_MS = 200;
 const PIN_HOVER_PRESS_DURATION_MS = 100;
 const PIN_EASING = Easing.out(Easing.cubic);
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const LOCATION_PIN_SIZE = 14;
 

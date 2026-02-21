@@ -832,7 +832,6 @@ export function SpotSheet({
   const maxBodyHeight = isExpanded
     ? maxBodyFromViewport
     : Math.min(SHEET_MEDIUM_MAX_BODY, maxBodyFromViewport);
-  const effectiveBodyHeight = Math.min(bodyContentHeight || 0, maxBodyHeight);
   const bodyNeedsScroll = bodyContentHeight > maxBodyHeight;
   if (spot == null) return null;
 

@@ -4,7 +4,7 @@
  * Light y Dark mode. Map pins y UI referencian esta paleta.
  */
 
-import { Platform } from 'react-native';
+import { Platform, type ViewStyle } from 'react-native';
 
 // — Paleta Light (valores únicos; pines y UI referencian estas claves)
 const primaryLight = '#0071e3';
@@ -145,8 +145,8 @@ export const Shadow = {
  * Web: evita zoom por doble tap en botones interactivos.
  * Usar en Pressable de acciones.
  */
-export const WebTouchManipulation =
-  Platform.OS === 'web' ? { touchAction: 'manipulation' as const } : {};
+export const WebTouchManipulation: ViewStyle =
+  Platform.OS === 'web' ? { touchAction: 'manipulation' } : {};
 
 /** Radios de borde suaves. */
 export const Radius = {
