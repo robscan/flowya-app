@@ -80,7 +80,10 @@ export async function searchPlaces(
         f.properties?.name?.trim() ||
         f.properties?.place_formatted?.trim() ||
         q;
-      const fullName = f.properties?.full_address?.trim();
+      const fullName =
+        f.properties?.full_address?.trim() ||
+        f.properties?.place_formatted?.trim() ||
+        undefined;
       out.push({
         id: f.id ?? `place-${i}-${lng}-${lat}`,
         name,

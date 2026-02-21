@@ -21,8 +21,10 @@ import {
     MapControls,
     MapLocationPicker,
     MapPinFilter,
+    MapPinFilterInline,
     MapPinsShowcase,
     MapUIShowcase,
+    SearchPill,
     SearchResultsShowcase,
     SpotCard,
     SpotDetailShowcase,
@@ -172,6 +174,39 @@ export default function DesignSystemScreen() {
               >
                 <Pin size={22} color="#ffffff" strokeWidth={2} />
               </IconButton>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Search pill (Explore entry point)
+          </Text>
+          <View
+            style={{
+              ...styles.sectionContent,
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              ...Shadow.subtle,
+            }}
+          >
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
+              Entry point para abrir búsqueda en Explore. Estilo Apple Maps. minWidth 150px para evitar
+              colapso. variant=onDark en BottomDock: fondo blanco y texto oscuro sobre cluster flotante.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.base, alignItems: 'center', flexWrap: 'wrap' }}>
+              <SearchPill onPress={() => {}} variant="default" />
+              <View
+                style={{
+                  padding: Spacing.base,
+                  borderRadius: 999,
+                  backgroundColor: colorScheme === 'dark' ? 'rgba(40,40,42,0.94)' : 'rgba(28,28,30,0.92)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.12)',
+                }}
+              >
+                <SearchPill onPress={() => {}} variant="onDark" />
+              </View>
             </View>
           </View>
         </View>
@@ -535,14 +570,24 @@ export default function DesignSystemScreen() {
             }}
           >
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Filtro visual de pins en el mapa. Tres opciones: Todos | Guardados | Visitados.
-              Solo afecta qué pins se muestran; no modifica datos ni estado. Estilo consistente con
-              MapControls (compacto, no invasivo). Estados: selected (tint) / idle (backgroundElevated).
+              Dropdown estilo Apple Mail. Trigger muestra valor seleccionado; al tocar se despliegan
+              Todos, Por visitar (con count) y Visitados (con count). Iconos: Globe, Pin, CheckCircle.
+              Counts en badge circular (28×28): en trigger, círculo blanco + texto negro; en menú,
+              círculo negro + texto blanco. Menú centrado bajo el trigger. Animaciones: menú
+              scale+opacity al abrir/cerrar; pulse en trigger al cambiar valor; LayoutAnimation para
+              transición de layout. Solo afecta qué pins se muestran; no modifica datos ni estado.
             </Text>
-            <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginTop: Spacing.base }}>
-              <MapPinFilter value="all" onChange={() => {}} />
-              <MapPinFilter value="saved" onChange={() => {}} />
-              <MapPinFilter value="visited" onChange={() => {}} />
+            <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginTop: Spacing.base, alignItems: 'center' }}>
+              <MapPinFilter value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
+              <MapPinFilter value="saved" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
+              <MapPinFilter value="visited" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
+            </View>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.lg }}>
+              Variante inline para panel de búsqueda: tres pills en una sola fila, sin dropdown.
+              Mismo diseño (iconos, colores, counts).
+            </Text>
+            <View style={{ marginTop: Spacing.sm, width: '100%', maxWidth: 360 }}>
+              <MapPinFilterInline value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
             </View>
           </View>
         </View>
@@ -562,7 +607,9 @@ export default function DesignSystemScreen() {
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
               Pines unificados: ubicación (círculo azul, sin label). Spots: punto con borde + nombre
               debajo (caption, max 2 líneas, truncado). Estados: normal, por visitar, visitado;
-              seleccionado aumenta peso/opacidad del label. Pin y label forman un solo componente
+              seleccionado aumenta peso/opacidad del label. Tamaños: reposo 12px, seleccionado 36px
+              (estilo Apple Maps ~30–40px), icono interno 20px. Animaciones: scale al seleccionar,
+              hover (1.08x) y press (0.95x) en reposo. Pin y label forman un solo componente
               (se mueven juntos). Paleta global; light y dark.
             </Text>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.xs }}>
