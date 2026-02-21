@@ -148,3 +148,22 @@
 
 **Pruebas mínimas**
 - Smoke: alternar filtros y validar consistencia visual
+
+---
+
+## Futuro (no prioritario — retomar después)
+
+> Ideas documentadas para no perder. No bloquean cierre de sesión.
+> Plan detallado en `docs/ops/PLAN_SPOT_GALLERY_MI_DIARIO.md`.
+
+### OL-FUT-001 — Galería de imágenes por spot
+
+**Estado:** DOCUMENTADO (no implementar aún)
+
+Múltiples imágenes públicas por spot: grid 2-3 celdas en hero, tap abre galería estilo Apple Maps, imágenes públicas y compartidas.
+
+### OL-FUT-002 — Mi diario (notas personales)
+
+**Estado:** DOCUMENTADO (no implementar aún)
+
+Notas personales del usuario sobre cada spot, solo visibles para él. Columna `notes` en tabla `pins`; RLS ya aplica por usuario.

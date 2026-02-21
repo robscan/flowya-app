@@ -22,12 +22,14 @@
 
 ---
 
-## Hoy ({today})
+## Hoy (2026-02-14)
 
-- Se consolida documentación para reflejar:
-  - V3 UI cancelado y removido (ver `docs/ops/DEPRECATED_V3_CLEANUP.md`).
-  - Plan actualizado: Gate C pausado; sprint actual es estabilización P0/P1 sobre core extraído.
-  - OPEN_LOOPS actualizado con bugs detectados y nuevas prioridades.
+- Se consolida documentación y cambios de Explore/Search:
+  - Search pill DS refactor; Map overlays redesign (entry icon Search derecha, FLOWYA abajo-izquierda).
+  - MapPinFilterInline en Search; filtros + cerrar en fila 1, input ancho completo en fila 2.
+  - Contrato KEYBOARD_AND_TEXT_INPUTS aplicado (CTA sticky, scroll cierra teclado).
+  - MapControls: fix alineación (eliminado padding 4px del contenedor) para coincidir con botón Search.
+  - OPEN_LOOPS actualizado con OL-FUT-001 (Galería imágenes) y OL-FUT-002 (Mi diario) — documentado para retomar.
 
 ---
 
