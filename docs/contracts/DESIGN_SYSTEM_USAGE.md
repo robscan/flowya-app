@@ -23,3 +23,5 @@
 
 - **OPEN LOOP:** No existe en ops un inventario cerrado de "lista de componentes DS canónicos que Explore vNext debe usar". CURRENT_STATE y EXPLORAR_VNEXT_UI mencionan chips, top bar, sheet, pero no un catálogo único.
 - **TBD:** Hasta que ops o definitions definan un inventario mínimo (p.ej. en OPEN_LOOPS o en un doc de DS), este contrato se limita a: usar componentes de librería; chips/filtros con tokens; no duplicar variantes. Cualquier ampliación debe documentarse en ops primero.
+- **Map pins:** Ver `MAP_PINS_CONTRACT.md` para tamaños, jerarquía de capas y animaciones.
+- **SearchPill:** Entry point para abrir búsqueda en Explore. `components/design-system/search-pill.tsx`. Pill blanco con icono y texto. En BottomDock pillOnly: solo el pill flotante (sin contenedor envolvente). `variant=onDark` para contraste sobre mapa. Props: `label`, `onPress`, `fill`, `variant`.

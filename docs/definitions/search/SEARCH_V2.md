@@ -27,7 +27,7 @@
 | spots    | Mapa       | Spots/DB por bbox  | Sí        | Sí      |
 | places   | Create Spot| Mapbox forward     | No        | No      |
 
-**Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag. Overlay de búsqueda theme-aware (light: blanco translúcido, dark: negro translúcido). Sugerencias y resultados en panel tipo sheet (scroll, borderRadius, maxHeight ~55%).
+**Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag. Overlay de búsqueda theme-aware. **Filtros** (Todos / Por visitar / Visitados) visibles dentro del panel Search. Sugerencias y resultados en panel tipo sheet.
 
 ---
 
@@ -86,7 +86,7 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 - Tap sugerencia = una sola acción: `setQuery(suggestion)` → dispara búsqueda normal (viewport→expanded→global); reutiliza debounce/cancelación/caché; sin llamadas duplicadas.
 - Diccionario ES↔EN mínimo curado (`lib/search/suggestions.ts`); `normalizeQuery`; máximo 3 sugerencias.
 - UI: sección "Sugerencias" (lista tipo Google, filas tapables) dentro de panel con scroll; CTA con nombre (véase CTA Crear en mapa).
-- **CTA Crear en mapa (mode=spots):** Label `Crear "${query}"` cuando hay query; fallback `Crear nuevo spot` si query vacío. Al tocar: **resolvedPlaceForCreate** (Mapbox forward, limit=1, solo para obtener coords de creación; no es el motor de búsqueda de spots). Si `query.trim().length >= 3` se llama a `resolvePlaceForCreate(query, proximity/bbox)`; si devuelve coords → navegar a `/create-spot?name=...&lat=...&lng=...&source=search`; si no → `/create-spot?source=search&name=<query>`. Create Spot permite elegir ubicación manual cuando no hay lat/lng.
+- **Crear desde sin resultados (mode=spots):** (1) Listado de lugares Mapbox (`searchPlaces`, limit 6–8) con nombre + dirección visible; tap = crear spot con esas coords. (2) CTA "Crear spot aquí" (UGC): centro del mapa o ubicación; sin resolver texto. **Prohibido** CTA único que resuelva texto sin mostrar ubicación al usuario.
 - **Futuro:** Marcar términos genéricos (ej. centro↔Center) para no sugerirlos cuando la query sea de 1 sola palabra o muy corta; hoy no bloquea porque sugerencias solo aparecen tras global+0 resultados.
 
 ---

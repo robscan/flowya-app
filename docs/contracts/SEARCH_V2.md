@@ -10,7 +10,7 @@
 
 ## 1) Entry/Exit del modo búsqueda en Explore vNext
 
-* **Entry:** Usuario abre búsqueda desde BottomDock (pill Buscar) o equivalente.
+* **Entry:** Usuario abre búsqueda desde BottomDock (SearchPill del DS, label "Buscar spots") o equivalente.
 * **Exit:** Cerrar búsqueda (botón close) o selección que lleva a spot/mapa (al seleccionar un item, el mapa centra y el SpotSheet se abre en MEDIUM).
 
 ---

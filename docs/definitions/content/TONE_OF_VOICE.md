@@ -25,7 +25,7 @@ Te ayuda a guardar, recordar y moverte sin fricción.
 
 ### Placeholders
 
-- “Buscar lugares…”
+- “Buscar spots… (Explore: deja claro que se buscan spots en Flowya)”
 - “Ponle un nombre…”
 - “Escribe una nota corta…” (solo si aplica)
 
