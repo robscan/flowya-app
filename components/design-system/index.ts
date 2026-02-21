@@ -27,9 +27,13 @@ export type {
 } from './map-location-picker';
 export { MapPinFilter } from './map-pin-filter';
 export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
+export { MapPinFilterInline } from './map-pin-filter-inline';
+export type { MapPinFilterInlineProps } from './map-pin-filter-inline';
 export { MapPinCreating, MapPinExisting, MapPinLocation, MapPinSpot, MapPinsShowcase } from './map-pins';
 export type { SpotPinStatus } from './map-pins';
 export { MapUIShowcase } from './map-ui';
+export { SearchPill } from './search-pill';
+export type { SearchPillProps, SearchPillVariant } from './search-pill';
 export { SearchResultCard, SearchResultsShowcase } from './search-result-card';
 export type { SearchResultCardProps } from './search-result-card';
 export { SheetHandle } from './sheet-handle';

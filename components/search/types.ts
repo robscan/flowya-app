@@ -1,4 +1,6 @@
+import type { MapPinFilterCounts, MapPinFilterValue } from '@/components/design-system/map-pin-filter';
 import type { UseSearchControllerV2Return } from '@/hooks/search/useSearchControllerV2';
+import type { PlaceResult } from '@/lib/places/searchPlaces';
 import type { ReactNode } from 'react';
 
 export type SearchFloatingProps<T> = {
@@ -24,4 +26,12 @@ export type SearchFloatingProps<T> = {
   getItemKey?: (item: T) => string;
   /** Insets para sheet (top/bottom). Si no se pasa, se usa 0. */
   insets?: { top: number; bottom: number };
+  /** Filtro de pins: Todos / Por visitar / Visitados. Si no se pasa, no se muestra filtro. */
+  pinFilter?: MapPinFilterValue;
+  pinCounts?: MapPinFilterCounts;
+  onPinFilterChange?: (value: MapPinFilterValue) => void;
+  /** Sugerencias Mapbox para crear spot en lugar (solo cuando isNoResults, query >= 3). */
+  placeSuggestions?: PlaceResult[];
+  /** Callback al seleccionar un lugar de placeSuggestions. */
+  onCreateFromPlace?: (place: PlaceResult) => void;
 };

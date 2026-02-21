@@ -9,6 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { LogOut, Plus, Search, User } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Linking,
@@ -20,6 +21,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IconButton } from "@/components/design-system/icon-button";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
     MapPinFilter,
@@ -27,17 +29,19 @@ import {
 } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchResultCard } from "@/components/design-system/search-result-card";
-import { BottomDock, DOCK_HEIGHT } from "@/components/explorar/BottomDock";
+import { TypographyStyles } from "@/components/design-system/typography";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
 import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
 import { useToast } from "@/components/ui/toast";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
+import { Colors, WebTouchManipulation } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useMapCore } from "@/hooks/useMapCore";
 import {
@@ -46,14 +50,15 @@ import {
 } from "@/lib/focus-management";
 import { distanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
+import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import { FALLBACK_VIEW } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
     getPinsForSpots,
-    setSaved,
-    setVisited,
+    nextPinStatus,
+    removePin,
+    setPinStatus,
 } from "@/lib/pins";
-import { createMapboxGeocodingProvider } from "@/core/shared/search";
 import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spotsStrategyProvider";
 import { onlyVisible } from "@/core/shared/visibility-softdelete";
 import { shareSpot } from "@/lib/share-spot";
@@ -86,6 +91,9 @@ const SELECTED_PIN_HIT_RADIUS = 24;
 const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
+const TOP_OVERLAY_INSET = 16;
+const SEARCH_ICON_HEIGHT = 44;
+const CONTROLS_TO_SEARCH_GAP = 8;
 
 export function MapScreenVNext() {
   const router = useRouter();
@@ -120,8 +128,10 @@ export function MapScreenVNext() {
     lng: number;
   } | null>(null);
   const [createSpotInitialName, setCreateSpotInitialName] = useState<string | undefined>(undefined);
+  const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
+  const [showBetaModal, setShowBetaModal] = useState(false);
   const openFromSearchRef = useRef(false);
   const appliedSpotIdFromParamsRef = useRef<string | null>(null);
   const appliedCreatedIdRef = useRef<string | null>(null);
@@ -306,8 +316,6 @@ export function MapScreenVNext() {
     [filteredSpots, mapInstance, zoom],
   );
 
-  const geocoding = useMemo(() => createMapboxGeocodingProvider(), []);
-
   const searchV2 = useSearchControllerV2<Spot>({
     mode: "spots",
     isToggleable: true,
@@ -332,6 +340,52 @@ export function MapScreenVNext() {
   });
 
   const searchHistory = useSearchHistory();
+
+  /** Sugerencias Mapbox cuando isNoResults y query >= 3 (para crear spot en lugar con contexto visible). */
+  useEffect(() => {
+    const q = searchV2.query.trim();
+    const isNoResults =
+      searchV2.isOpen &&
+      q.length >= 3 &&
+      searchV2.results.length === 0 &&
+      !searchV2.isLoading;
+    if (!isNoResults) {
+      setPlaceSuggestions([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!mapInstance) return;
+        const c = mapInstance.getCenter();
+        const b = mapInstance.getBounds();
+        const results = await searchPlaces(q, {
+          limit: 6,
+          proximity: { lat: c.lat, lng: c.lng },
+          bbox: b
+            ? {
+                west: b.getWest(),
+                south: b.getSouth(),
+                east: b.getEast(),
+                north: b.getNorth(),
+              }
+            : undefined,
+        });
+        if (!cancelled) setPlaceSuggestions(results);
+      } catch {
+        if (!cancelled) setPlaceSuggestions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    searchV2.results.length,
+    searchV2.isLoading,
+    mapInstance,
+  ]);
 
   const recentViewedSpots = useMemo(() => {
     const ids = getRecentViewedSpotIds();
@@ -559,76 +613,28 @@ export function MapScreenVNext() {
     [searchV2],
   );
 
-  /** "Crear spot nuevo aquí" desde búsqueda sin resultados: mismo flujo mínimo (draft → sheet). */
+  /** "Crear spot nuevo aquí" (solo UGC): centro del mapa o ubicación actual. Sin resolver texto. */
   const handleCreateFromNoResults = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-    const q = searchV2.query.trim();
-    let lat: number;
-    let lng: number;
-    let title = q || "Nuevo spot";
-
-    if (q.length >= 3) {
-      try {
-        const viewport =
-          mapInstance &&
-          (() => {
-            try {
-              const c = mapInstance.getCenter();
-              const b = mapInstance.getBounds();
-              return {
-                center: { lat: c.lat, lng: c.lng },
-                zoom,
-                bounds: b
-                  ? {
-                      west: b.getWest(),
-                      south: b.getSouth(),
-                      east: b.getEast(),
-                      north: b.getNorth(),
-                    }
-                  : undefined,
-              };
-            } catch {
-              return undefined;
-            }
-          })();
-
-        const resolved = await geocoding.resolvePlaceForCreate({
-          query: q,
-          viewport: viewport ?? undefined,
-        });
-        if (resolved) {
-          lat = resolved.coords.lat;
-          lng = resolved.coords.lng;
-          title = resolved.title ?? q;
-        } else {
-          const fallback = getFallbackCoords();
-          lat = fallback.lat;
-          lng = fallback.lng;
-        }
-      } catch {
-        const fallback = getFallbackCoords();
-        lat = fallback.lat;
-        lng = fallback.lng;
-      }
-    } else {
-      const fallback = getFallbackCoords();
-      lat = fallback.lat;
-      lng = fallback.lng;
-    }
-
+    const { lat, lng } = getFallbackCoords();
+    const title = searchV2.query.trim() || "Nuevo spot";
     searchV2.setOpen(false);
     setCreateSpotPendingCoords({ lat, lng });
     setCreateSpotInitialName(title);
     setCreateSpotNameOverlayOpen(true);
-  }, [
-    mapInstance,
-    userCoords,
-    searchV2,
-    requireAuthOrModal,
-    geocoding,
-    zoom,
-    getFallbackCoords,
-  ]);
+  }, [requireAuthOrModal, searchV2, getFallbackCoords]);
+
+  /** Crear spot desde lugar Mapbox seleccionado (con coords explícitas). */
+  const handleCreateFromPlace = useCallback(
+    async (place: PlaceResult) => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      searchV2.setOpen(false);
+      setCreateSpotPendingCoords({ lat: place.lat, lng: place.lng });
+      setCreateSpotInitialName(place.name);
+      setCreateSpotNameOverlayOpen(true);
+    },
+    [requireAuthOrModal, searchV2],
+  );
 
   /** Micro-scope 3 (tap-to-move): tap en mapa en modo "Ajustar ubicación" mueve el pin al punto tocado. */
   const handleMapClick = useCallback(
@@ -919,40 +925,30 @@ export function MapScreenVNext() {
         });
         return;
       }
-      const nextState = await setSaved(spot.id, !spot.saved);
-      if (nextState) {
-        updateSpotPinState(spot.id, nextState);
-        toast.show(nextState.saved ? "Guardado" : "Quitado de guardados", {
-          type: "success",
-        });
+      const current =
+        spot.pinStatus === "to_visit" || spot.pinStatus === "visited"
+          ? spot.pinStatus
+          : null;
+      if (current === "visited") {
+        const ok = await removePin(spot.id);
+        if (ok) {
+          updateSpotPinState(spot.id, { saved: false, visited: false });
+          toast.show("Pin quitado", { type: "success" });
+        }
       } else {
-        updateSpotPinState(spot.id, { saved: false, visited: false });
-        toast.show("Quitado de guardados", { type: "success" });
-      }
-    },
-    [toast, openAuthModal, updateSpotPinState],
-  );
-
-  const handleMarkVisited = useCallback(
-    async (spot: Spot) => {
-      if (spot.id.startsWith("draft_")) return;
-      const userId = await getCurrentUserId();
-      if (!userId) {
-        openAuthModal({
-          message: AUTH_MODAL_MESSAGES.savePin,
-          onSuccess: () => handleMarkVisited(spot),
-        });
-        return;
-      }
-      const nextState = await setVisited(spot.id, !spot.visited);
-      if (nextState) {
-        updateSpotPinState(spot.id, nextState);
-        toast.show(nextState.visited ? "Marcado como visitado" : "Desmarcado", {
-          type: "success",
-        });
-      } else {
-        updateSpotPinState(spot.id, { saved: false, visited: false });
-        toast.show("Desmarcado", { type: "success" });
+        const next = nextPinStatus(current);
+        const newStatus = await setPinStatus(spot.id, next);
+        if (newStatus) {
+          const nextState =
+            newStatus === "to_visit"
+              ? { saved: true, visited: false }
+              : { saved: false, visited: true };
+          updateSpotPinState(spot.id, nextState);
+          toast.show(
+            newStatus === "to_visit" ? "Por visitar" : "Visitado",
+            { type: "success" },
+          );
+        }
       }
     },
     [toast, openAuthModal, updateSpotPinState],
@@ -989,7 +985,6 @@ export function MapScreenVNext() {
       ? "mapbox://styles/mapbox/dark-v11"
       : "mapbox://styles/mapbox/light-v11";
 
-  const showDock = selectedSpot == null && !searchV2.isOpen;
   const dockBottomOffset = 12;
 
   return (
@@ -1029,8 +1024,8 @@ export function MapScreenVNext() {
           accessibilityRole="button"
         />
       ) : null}
-      {!createSpotNameOverlayOpen ? (
-        <View style={[styles.filterOverlay, { pointerEvents: "box-none" }]}>
+      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
+        <View style={[styles.filterOverlay, { top: FILTER_OVERLAY_TOP + insets.top, pointerEvents: "box-none" }]}>
           <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
             <MapPinFilter
               value={pinFilter}
@@ -1040,15 +1035,75 @@ export function MapScreenVNext() {
           </View>
         </View>
       ) : null}
+      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
+        <View
+          style={[
+            styles.profileOverlay,
+            {
+              top: TOP_OVERLAY_INSET + insets.top,
+              left: TOP_OVERLAY_INSET + insets.left,
+            },
+            { pointerEvents: "box-none" },
+          ]}
+        >
+          <IconButton
+            variant="default"
+            onPress={handleProfilePress}
+            accessibilityLabel="Cuenta"
+          >
+            <User
+              size={24}
+              color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
+              strokeWidth={2}
+            />
+          </IconButton>
+          {showLogoutOption && isAuthUser ? (
+            <View style={styles.logoutButtonWrap}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.logoutButtonFloating,
+                  pressed && styles.logoutButtonFloatingPressed,
+                ]}
+                onPress={handleLogoutPress}
+                accessibilityLabel="Cerrar sesión"
+                accessibilityRole="button"
+              >
+                <LogOut size={24} color={Colors[colorScheme ?? "light"].stateError} strokeWidth={2} />
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
+        <View
+          style={[
+            styles.createSpotOverlay,
+            {
+              top: TOP_OVERLAY_INSET + insets.top,
+              right: CONTROLS_OVERLAY_RIGHT + insets.right,
+            },
+            { pointerEvents: "box-none" },
+          ]}
+        >
+          <IconButton
+            variant="default"
+            onPress={handleOpenCreateSpot}
+            accessibilityLabel="Crear spot"
+          >
+            <Plus size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
+          </IconButton>
+        </View>
+      ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen && sheetState !== "expanded" ? (
         <View
           style={[
             styles.controlsOverlay,
             {
               pointerEvents: "box-none",
-              bottom:
-                CONTROLS_OVERLAY_BOTTOM +
-                (selectedSpot ? sheetHeight : DOCK_HEIGHT + 12),
+              right: CONTROLS_OVERLAY_RIGHT + insets.right,
+              bottom: selectedSpot
+                ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
+                : dockBottomOffset + SEARCH_ICON_HEIGHT + CONTROLS_TO_SEARCH_GAP + insets.bottom,
             },
           ]}
         >
@@ -1064,23 +1119,52 @@ export function MapScreenVNext() {
           />
         </View>
       ) : null}
-      {selectedSpot == null && !createSpotNameOverlayOpen ? (
-        <BottomDock
-          onOpenSearch={() => {
-            prevSelectedSpotRef.current = selectedSpot;
-            prevSheetStateRef.current = sheetState;
-            searchV2.setOpen(true);
-          }}
-          onCreateSpot={handleOpenCreateSpot}
-          onProfilePress={handleProfilePress}
-          isAuthUser={isAuthUser}
-          dockVisible={showDock}
-          bottomOffset={dockBottomOffset}
-          insets={{ bottom: insets.bottom }}
-          showLogoutPopover={showLogoutOption && isAuthUser}
-          onLogoutPress={handleLogoutPress}
-        />
+      {selectedSpot == null && !createSpotNameOverlayOpen && !searchV2.isOpen ? (
+        <View
+          style={[
+            styles.searchOverlay,
+            {
+              bottom: dockBottomOffset + insets.bottom,
+              right: CONTROLS_OVERLAY_RIGHT + insets.right,
+            },
+            { pointerEvents: "box-none" },
+          ]}
+        >
+          <IconButton
+            variant="default"
+            onPress={() => {
+              prevSelectedSpotRef.current = selectedSpot;
+              prevSheetStateRef.current = sheetState;
+              searchV2.setOpen(true);
+            }}
+            accessibilityLabel="Buscar spots"
+          >
+            <Search size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
+          </IconButton>
+        </View>
       ) : null}
+      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
+        <Pressable
+          style={[styles.flowyaLabelWrap, { left: TOP_OVERLAY_INSET + insets.left, bottom: dockBottomOffset + insets.bottom }, WebTouchManipulation]}
+          onPress={() => setShowBetaModal(true)}
+          accessibilityLabel="FLOWYA Beta"
+        >
+          {({ pressed }) => (
+            <Text
+              style={[
+                TypographyStyles.heading2,
+                { color: Colors[colorScheme ?? "light"].text, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              FLOWYA
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
+      <FlowyaBetaModal
+        visible={showBetaModal}
+        onClose={() => setShowBetaModal(false)}
+      />
       {showLogoutOption && isAuthUser && selectedSpot == null ? (
         <Pressable
           style={[StyleSheet.absoluteFill, { zIndex: 11 }]}
@@ -1102,6 +1186,11 @@ export function MapScreenVNext() {
         recentQueries={searchHistory.recentQueries}
         recentViewedItems={recentViewedSpots}
         insets={{ top: insets.top, bottom: insets.bottom }}
+        pinFilter={pinFilter}
+        pinCounts={pinCounts}
+        onPinFilterChange={setPinFilter}
+        placeSuggestions={placeSuggestions}
+        onCreateFromPlace={handleCreateFromPlace}
         renderItem={(spot) => (
           <SearchResultCard
             spot={spot}
@@ -1137,7 +1226,6 @@ export function MapScreenVNext() {
           onSheetHeightChange={setSheetHeight}
           onShare={() => handleShare(selectedSpot)}
           onSavePin={() => handleSavePin(selectedSpot)}
-          onMarkVisited={() => handleMarkVisited(selectedSpot)}
           userCoords={userCoords ?? undefined}
           isAuthUser={isAuthUser}
           onDirections={(s) =>
@@ -1212,10 +1300,44 @@ const styles = StyleSheet.create({
     zIndex: 20,
     ...Platform.select({ android: { elevation: 4 } }),
   },
+  profileOverlay: {
+    position: "absolute",
+    left: TOP_OVERLAY_INSET,
+    zIndex: 12,
+  },
+  createSpotOverlay: {
+    position: "absolute",
+    right: CONTROLS_OVERLAY_RIGHT,
+    zIndex: 11,
+  },
+  logoutButtonWrap: {
+    marginTop: 8,
+  },
+  logoutButtonFloating: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logoutButtonFloatingPressed: {
+    opacity: 0.85,
+  },
   controlsOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
     zIndex: 10,
+  },
+  searchOverlay: {
+    position: "absolute",
+    zIndex: 12,
+  },
+  flowyaLabelWrap: {
+    position: "absolute",
+    zIndex: 5,
+    alignSelf: "flex-start",
+    padding: 8,
   },
   placeholder: {
     flex: 1,

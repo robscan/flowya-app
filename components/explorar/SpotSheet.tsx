@@ -133,7 +133,6 @@ export type SpotSheetProps = {
   onStateChange: (state: SheetState) => void;
   onShare?: () => void;
   onSavePin?: () => void;
-  onMarkVisited?: () => void;
   userCoords?: { latitude: number; longitude: number } | null;
   isAuthUser?: boolean;
   onDirections?: (spot: SpotSheetSpot) => void;
@@ -169,8 +168,7 @@ type BodyContentProps = {
   colors: (typeof Colors)["light"];
   colorScheme: "light" | "dark" | null;
   onOpenDetail: () => void;
-  handleToggleSaved: () => void;
-  handleToggleVisited: () => void;
+  handleSavePin: () => void;
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
@@ -186,8 +184,7 @@ function MediumBodyContent({
   isDraft,
   colors,
   colorScheme,
-  handleToggleSaved,
-  handleToggleVisited,
+  handleSavePin,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -197,8 +194,7 @@ function MediumBodyContent({
   | "isVisited"
   | "colors"
   | "colorScheme"
-  | "handleToggleSaved"
-  | "handleToggleVisited"
+  | "handleSavePin"
 > & { isDraft?: boolean }) {
   return (
     <>
@@ -230,62 +226,45 @@ function MediumBodyContent({
             style={[
               styles.actionPill,
               {
-                backgroundColor: isSaved
-                  ? colors.stateToVisit
-                  : colors.backgroundElevated,
-                borderColor: colors.borderSubtle,
-                borderWidth: isSaved ? 0 : 1,
-              },
-            ]}
-            onPress={handleToggleSaved}
-            accessibilityLabel={isSaved ? "Guardado" : "Guardar"}
-            accessibilityRole="button"
-            accessibilityState={{ selected: isSaved }}
-          >
-            <Pin
-              size={ACTION_ICON_SIZE}
-              color={isSaved ? "#ffffff" : colors.text}
-              strokeWidth={2}
-            />
-            <Text
-              style={[
-                styles.actionPillText,
-                { color: isSaved ? "#ffffff" : colors.text },
-              ]}
-              numberOfLines={1}
-            >
-              Guardar
-            </Text>
-          </Pressable>
-          <Pressable
-            style={[
-              styles.actionPill,
-              {
                 backgroundColor: isVisited
                   ? colors.stateSuccess
-                  : colors.backgroundElevated,
+                  : isSaved
+                    ? colors.stateToVisit
+                    : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
-                borderWidth: isVisited ? 0 : 1,
+                borderWidth: isSaved || isVisited ? 0 : 1,
               },
             ]}
-            onPress={handleToggleVisited}
-            accessibilityLabel={isVisited ? "Visitado" : "Visitado"}
+            onPress={handleSavePin}
+            accessibilityLabel={
+              isVisited ? "Visitado (tocar para quitar)" : isSaved ? "Por visitar (tocar para marcar visitado)" : "Por visitar"
+            }
             accessibilityRole="button"
-            accessibilityState={{ selected: isVisited }}
+            accessibilityState={{ selected: isSaved || isVisited }}
           >
-            <CheckCircle
-              size={ACTION_ICON_SIZE}
-              color={isVisited ? "#ffffff" : colors.text}
-              strokeWidth={2}
-            />
+            {isVisited ? (
+              <CheckCircle
+                size={ACTION_ICON_SIZE}
+                color={isVisited ? "#ffffff" : colors.text}
+                strokeWidth={2}
+              />
+            ) : (
+              <Pin
+                size={ACTION_ICON_SIZE}
+                color={isSaved ? "#ffffff" : colors.text}
+                strokeWidth={2}
+              />
+            )}
             <Text
               style={[
                 styles.actionPillText,
-                { color: isVisited ? "#ffffff" : colors.text },
+                {
+                  color: isSaved || isVisited ? "#ffffff" : colors.text,
+                },
               ]}
               numberOfLines={1}
             >
-              Visitado
+              {isVisited ? "Visitado" : "Por visitar"}
             </Text>
           </Pressable>
         </View>
@@ -529,7 +508,6 @@ export function SpotSheet({
   onStateChange,
   onShare,
   onSavePin,
-  onMarkVisited,
   userCoords,
   isAuthUser,
   onDirections,
@@ -881,12 +859,8 @@ export function SpotSheet({
     else if (__DEV__) console.log("[SpotSheet] Share stub", spot.id);
   };
 
-  const handleToggleSaved = () => {
+  const handleSavePin = () => {
     if (onSavePin) onSavePin();
-  };
-
-  const handleToggleVisited = () => {
-    if (onMarkVisited) onMarkVisited();
   };
 
   const handleDirections = () => {
@@ -1041,8 +1015,7 @@ export function SpotSheet({
                     isDraft={isDraft}
                     colors={colors}
                     colorScheme={colorScheme}
-                    handleToggleSaved={handleToggleSaved}
-                    handleToggleVisited={handleToggleVisited}
+                    handleSavePin={handleSavePin}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1077,8 +1050,7 @@ export function SpotSheet({
                     isDraft={isDraft}
                     colors={colors}
                     colorScheme={colorScheme}
-                    handleToggleSaved={handleToggleSaved}
-                    handleToggleVisited={handleToggleVisited}
+                    handleSavePin={handleSavePin}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1122,8 +1094,7 @@ export function SpotSheet({
                     isDraft={isDraft}
                     colors={colors}
                     colorScheme={colorScheme}
-                    handleToggleSaved={handleToggleSaved}
-                    handleToggleVisited={handleToggleVisited}
+                    handleSavePin={handleSavePin}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1169,8 +1140,7 @@ export function SpotSheet({
                     isDraft={isDraft}
                     colors={colors}
                     colorScheme={colorScheme}
-                    handleToggleSaved={handleToggleSaved}
-                    handleToggleVisited={handleToggleVisited}
+                    handleSavePin={handleSavePin}
                   />
                   {isDraft ? (
                     <DraftInlineEditor

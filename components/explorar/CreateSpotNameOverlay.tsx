@@ -10,6 +10,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
+  Keyboard,
   Platform,
   Pressable,
   StyleSheet,
@@ -40,6 +41,38 @@ export function CreateSpotNameOverlay({
   const colors = Colors[colorScheme ?? "light"];
   const [value, setValue] = useState("");
   const panelAnim = useRef(new Animated.Value(0)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  /** Web: keyboard height via visualViewport (contrato KEYBOARD_AND_TEXT_INPUTS). */
+  useEffect(() => {
+    if (!visible || Platform.OS !== "web" || typeof window === "undefined") return;
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const update = () =>
+      setKeyboardHeight(Math.max(0, window.innerHeight - vv.height));
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    update();
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [visible]);
+
+  /** Native: keyboard height via Keyboard API. */
+  useEffect(() => {
+    if (!visible || Platform.OS === "web") return;
+    const show = Keyboard.addListener("keyboardDidShow", (e) =>
+      setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hide = Keyboard.addListener("keyboardDidHide", () =>
+      setKeyboardHeight(0)
+    );
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [visible]);
 
   useEffect(() => {
     if (visible) setValue(initialName?.trim() ?? "");
@@ -173,6 +206,7 @@ export function CreateSpotNameOverlay({
         style={[
           styles.continueBar,
           {
+            bottom: keyboardHeight,
             paddingBottom: barPaddingBottom,
             paddingHorizontal: sideMargin,
           },
