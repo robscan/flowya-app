@@ -5,6 +5,14 @@
 
 import type { Map as MapboxMap } from 'mapbox-gl';
 
+/** Estilos FLOWYA (Mapbox Studio). Light preset day. */
+export const FLOWYA_MAP_STYLE_LIGHT =
+  "mapbox://styles/robscan/cmlyeznh2000q01s35k8s2pv1";
+
+/** Estilo FLOWYA dark (lightPreset: night). */
+export const FLOWYA_MAP_STYLE_DARK =
+  "mapbox://styles/robscan/cmlyfk2g1000i01rzcgy0d8cl";
+
 /** Fallback cuando geolocalización está denegada o no disponible (Riviera Maya). */
 export const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
 

@@ -53,6 +53,13 @@ function getPointFromEvent(e: MapMouseEvent | MapTouchEvent): { x: number; y: nu
   return { x, y };
 }
 
+/** Multi-touch: más de un dedo en pantalla. No iniciar long-press (evitar create spot con pinch/zoom). */
+function isMultiTouch(e: MapMouseEvent | MapTouchEvent): boolean {
+  const ev = 'originalEvent' in e ? e.originalEvent : null;
+  if (!ev || typeof (ev as TouchEvent).touches === 'undefined') return false;
+  return (ev as TouchEvent).touches.length > 1;
+}
+
 export function useMapCore(
   selectedSpot: MapCoreSelectedSpot,
   options: UseMapCoreOptions
@@ -281,6 +288,10 @@ export function useMapCore(
 
   const handleMapPointerDown = useCallback(
     (e: MapMouseEvent | MapTouchEvent) => {
+      if (isMultiTouch(e)) {
+        clearLongPressTimer();
+        return;
+      }
       const lngLat = 'lngLat' in e ? e.lngLat : (e as MapMouseEvent).lngLat;
       if (!lngLat) return;
       const { x, y } = getPointFromEvent(e);
@@ -288,11 +299,15 @@ export function useMapCore(
       longPressPointerStartRef.current = { x, y };
       longPressTimerRef.current = setTimeout(fireLongPress, LONG_PRESS_MS);
     },
-    [fireLongPress]
+    [fireLongPress, clearLongPressTimer]
   );
 
   const handleMapPointerMove = useCallback(
     (e: MapMouseEvent | MapTouchEvent) => {
+      if (isMultiTouch(e)) {
+        clearLongPressTimer();
+        return;
+      }
       if (longPressTimerRef.current === null || longPressPointerStartRef.current === null) return;
       const { x, y } = getPointFromEvent(e);
       const start = longPressPointerStartRef.current;

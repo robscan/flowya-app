@@ -37,7 +37,7 @@ Al abrir Paso 0 se setean los tres; al cerrar o confirmar se limpian.
 
 - **Posición:** Parte superior del mapa (márgenes con insets); zIndex 16 (por encima de Search 15).
 - **Contenido:** Label "Nombre del spot", un TextInput; fondo y bordes del **tema** (colors.background, borderSubtle).
-- **Botón "Continuar":** Flotante en la base, ancho completo, estilo pill como "Cómo llegar" (SpotSheet); **deshabilitado** si el nombre está vacío (trim); siempre visible (no depende del teclado).
+- **Botón "Continuar y ajustar ubicación":** Flotante en la base, ancho completo, estilo pill como "Cómo llegar" (SpotSheet); **deshabilitado** si el nombre está vacío (trim); siempre visible (no depende del teclado). Indica que el siguiente paso es ajustar la ubicación en el mapa.
 - **Tap fuera:** Backdrop a pantalla completa → `onDismiss` (cierra y limpia estado).
 - **Animación:** Entrada del panel desde arriba (translateY + opacity, ~320 ms).
 
@@ -47,6 +47,7 @@ Al abrir Paso 0 se setean los tres; al cerrar o confirmar se limpian.
 
 - **Ocultos:** MapPinFilter, MapControls, BottomDock (solo se ve mapa + overlay + Continuar).
 - **Exclusión:** Search y SpotSheet no se muestran al mismo tiempo que Paso 0.
+- **Pin de preview:** Se muestra un pin en `createSpotPendingCoords` para indicar dónde se creará el spot (MapCoreView `previewPinCoords`). Estado visual: selected (más grande). Label del pin = valor actual del input (actualizado en tiempo real). No interactivo.
 
 ---
 
@@ -65,5 +66,6 @@ Al abrir Paso 0 se setean los tres; al cerrar o confirmar se limpian.
 
 ## H) Archivos clave
 
-- `components/explorar/MapScreenVNext.tsx`: estado, handlers, integración, ocultar controles, displayedSpots, post-creación.
+- `components/explorar/MapScreenVNext.tsx`: estado, handlers, integración, ocultar controles, displayedSpots, post-creación, previewPinCoords.
+- `components/explorar/MapCoreView.tsx`: prop `previewPinCoords` para pin de preview durante Paso 0.
 - `components/explorar/CreateSpotNameOverlay.tsx`: overlay (props visible, initialName, onConfirm, onDismiss).

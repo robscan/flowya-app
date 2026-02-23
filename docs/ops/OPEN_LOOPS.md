@@ -58,7 +58,7 @@
 
 ### OL-P0-003 — Create Spot se activa por error con pinch/zoom (dos dedos)
 
-**Estado:** ACTIVO
+**Estado:** CERRADO (2026-02-14, bitácora 102)
 
 **Problema:** al navegar con dos dedos / hacer zoom, se dispara “crear spot” accidentalmente.
 
@@ -66,6 +66,8 @@
 - Gestos de mapa (pan/zoom/pinch) **no** disparan create.
 - Create solo se dispara por intent explícito (botón / long-press / chooser definido).
 - Añadir guardrail: ignorar “press” cuando hubo multi-touch o gesture in-progress.
+
+**Plan de ejecución:** `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A).
 
 **Pruebas mínimas**
 - Smoke en móvil: 10 intentos de pinch/zoom sin activar create
@@ -151,19 +153,56 @@
 
 ---
 
+### OL-DEPREC-001 — Limpieza de código deprecated
+
+**Estado:** DOCUMENTADO (no prioritario)
+
+**Problema:** Hay pantallas/flujos marcados como deprecated que siguen en el código.
+
+**DoD / AC**
+- Seguir `docs/ops/GUARDRAILS_DEPRECACION.md` (3 fases: Marcar → Desconectar → Eliminar).
+- Revisar tabla de elementos deprecated; identificar cuáles están listos para Fase 3.
+- Bitácora por cada eliminación.
+
+**Referencias**
+- `docs/ops/GUARDRAILS_DEPRECACION.md`
+- Elementos: `/mapaV0`, `onOpenDetail` (SpotSheet), `getPinsForSpotsLegacy`, flujo wizard largo create-spot
+
+---
+
 ## Futuro (no prioritario — retomar después)
 
 > Ideas documentadas para no perder. No bloquean cierre de sesión.
-> Plan detallado en `docs/ops/PLAN_SPOT_GALLERY_MI_DIARIO.md`.
 
 ### OL-FUT-001 — Galería de imágenes por spot
 
 **Estado:** DOCUMENTADO (no implementar aún)
 
-Múltiples imágenes públicas por spot: grid 2-3 celdas en hero, tap abre galería estilo Apple Maps, imágenes públicas y compartidas.
+Plan: `docs/ops/PLAN_SPOT_GALLERY_MI_DIARIO.md` (Feature 1).
+Múltiples imágenes públicas por spot: grid 2-3 celdas en hero, tap abre galería estilo Apple Maps.
 
-### OL-FUT-002 — Mi diario (notas personales)
+### OL-FUT-002 — Mi diario (Recordar)
 
 **Estado:** DOCUMENTADO (no implementar aún)
 
-Notas personales del usuario sobre cada spot, solo visibles para él. Columna `notes` en tabla `pins`; RLS ya aplica por usuario.
+Plan completo: `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
+Contrato entry point: `docs/contracts/RECORDAR_ENTRY_SPOT_SHEET.md`.
+Notas personales por spot; entry desde SpotSheet cuando saved/visited; dos botones en fila responsiva.
+
+---
+
+### OL-PLAN-EXPLORE — Ajustes Mapa + Búsqueda
+
+**Estado:** PLAN DOCUMENTADO (ejecutar después de P0)
+
+**Plan:** `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md`
+
+| MS | Título |
+|----|--------|
+| MS-A | Long-press solo un dedo (OL-P0-003) |
+| MS-B | Pin visible en Paso 0 |
+| MS-C | POIs/landmarks en mapa |
+| MS-D | Colores agua y zonas verdes |
+| MS-E | Búsqueda POIs en sin-resultados |
+
+Un MS por PR; revisión tras cada uno.

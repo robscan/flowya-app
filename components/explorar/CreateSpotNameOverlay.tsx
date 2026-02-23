@@ -1,6 +1,6 @@
 /**
  * CreateSpotNameOverlay — Paso 0 "Nombre del spot" (overlay sobre mapa).
- * Un solo input arriba; tap fuera cierra; Continuar flotando abajo centrado (estilo "Cómo llegar" sin icono).
+ * Un solo input arriba; tap fuera cierra; botón "Continuar y ajustar ubicación" flotando abajo (estilo "Cómo llegar" sin icono).
  * Botón deshabilitado si no hay nombre. Barra siempre visible en la base.
  * zIndex lo define el padre (MapScreenVNext).
  */
@@ -25,6 +25,8 @@ export type CreateSpotNameOverlayProps = {
   initialName?: string;
   onConfirm: (name: string) => void;
   onDismiss: () => void;
+  /** Callback cuando el usuario escribe (para mostrar el nombre en el pin de preview). */
+  onValueChange?: (value: string) => void;
 };
 
 const PANEL_ENTRANCE_OFFSET = 80;
@@ -35,6 +37,7 @@ export function CreateSpotNameOverlay({
   initialName,
   onConfirm,
   onDismiss,
+  onValueChange,
 }: CreateSpotNameOverlayProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -183,7 +186,10 @@ export function CreateSpotNameOverlay({
           </Text>
           <TextInput
             value={value}
-            onChangeText={setValue}
+            onChangeText={(text) => {
+              setValue(text);
+              onValueChange?.(text);
+            }}
             placeholder="Ej. Mirador, Playa Norte…"
             placeholderTextColor={placeholderColor}
             style={[
@@ -223,11 +229,11 @@ export function CreateSpotNameOverlay({
               opacity: hasName ? (pressed ? 0.9 : 1) : 0.6,
             },
           ]}
-          accessibilityLabel="Continuar"
+          accessibilityLabel="Continuar y ajustar ubicación"
           accessibilityRole="button"
           accessibilityState={{ disabled: !hasName }}
         >
-          <Text style={styles.continueLabel}>Continuar</Text>
+          <Text style={styles.continueLabel}>Continuar y ajustar ubicación</Text>
         </Pressable>
       </View>
     </View>
