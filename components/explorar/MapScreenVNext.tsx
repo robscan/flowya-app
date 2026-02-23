@@ -51,7 +51,11 @@ import {
 import { distanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
-import { FALLBACK_VIEW } from "@/lib/map-core/constants";
+import {
+    FALLBACK_VIEW,
+    FLOWYA_MAP_STYLE_DARK,
+    FLOWYA_MAP_STYLE_LIGHT,
+} from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
     getPinsForSpots,
@@ -128,6 +132,8 @@ export function MapScreenVNext() {
     lng: number;
   } | null>(null);
   const [createSpotInitialName, setCreateSpotInitialName] = useState<string | undefined>(undefined);
+  /** Valor actual del input en Paso 0 (para label del pin de preview). */
+  const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
@@ -137,6 +143,15 @@ export function MapScreenVNext() {
   const appliedCreatedIdRef = useRef<string | null>(null);
 
   const params = useLocalSearchParams<{ spotId?: string; sheet?: string; created?: string }>();
+
+  /** Sync createSpotNameValue cuando abre/cierra Paso 0. */
+  useEffect(() => {
+    if (createSpotNameOverlayOpen) {
+      setCreateSpotNameValue(createSpotInitialName?.trim() ?? "");
+    } else {
+      setCreateSpotNameValue("");
+    }
+  }, [createSpotNameOverlayOpen, createSpotInitialName]);
 
   useEffect(() => {
     const updateAuth = async () => {
@@ -981,9 +996,7 @@ export function MapScreenVNext() {
   }
 
   const mapStyle =
-    colorScheme === "dark"
-      ? "mapbox://styles/mapbox/dark-v11"
-      : "mapbox://styles/mapbox/light-v11";
+    colorScheme === "dark" ? FLOWYA_MAP_STYLE_DARK : FLOWYA_MAP_STYLE_LIGHT;
 
   const dockBottomOffset = 12;
 
@@ -1008,6 +1021,14 @@ export function MapScreenVNext() {
         onPinClick={handlePinClick}
         styleMap={styles.map}
         onClick={handleMapClick}
+        previewPinCoords={
+          createSpotNameOverlayOpen && createSpotPendingCoords
+            ? createSpotPendingCoords
+            : null
+        }
+        previewPinLabel={
+          createSpotNameOverlayOpen ? createSpotNameValue : null
+        }
       />
       {selectedSpot && selectedPinScreenPos ? (
         <Pressable
@@ -1178,6 +1199,7 @@ export function MapScreenVNext() {
         initialName={createSpotInitialName}
         onConfirm={onConfirmCreateSpotName}
         onDismiss={handleCloseCreateSpotNameOverlay}
+        onValueChange={setCreateSpotNameValue}
       />
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot>

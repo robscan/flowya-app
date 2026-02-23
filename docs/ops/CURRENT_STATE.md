@@ -24,6 +24,7 @@
 
 ## Hoy (2026-02-14)
 
+- **Plan documentado (post-P0):** Ajustes Explore mapa + búsqueda en `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A a MS-E: long-press multi-touch, pin Paso 0, POIs mapa, colores, búsqueda POIs). Un MS por PR; revisión tras cada uno.
 - Se consolida documentación y cambios de Explore/Search:
   - Search pill DS refactor; Map overlays redesign (entry icon Search derecha, FLOWYA abajo-izquierda).
   - MapPinFilterInline en Search; filtros + cerrar en fila 1, input ancho completo en fila 2.

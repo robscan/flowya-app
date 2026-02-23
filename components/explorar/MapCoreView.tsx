@@ -43,6 +43,10 @@ export type MapCoreViewProps = {
   onMoveEnd?: (e: ViewStateChangeEvent) => void;
   /** Tap/click en el mapa (lngLat del punto). Para draft placement: mover pin al punto tocado. */
   onClick?: (e: { lngLat: { lat: number; lng: number } }) => void;
+  /** Pin de preview (ej. Paso 0 create spot): muestra posición donde se creará el spot. No interactivo. */
+  previewPinCoords?: { lat: number; lng: number } | null;
+  /** Label del pin de preview (ej. nombre que el usuario escribe). */
+  previewPinLabel?: string | null;
 };
 
 export function MapCoreView({
@@ -61,6 +65,8 @@ export function MapCoreView({
   styleMap,
   onMoveEnd,
   onClick,
+  previewPinCoords = null,
+  previewPinLabel = null,
 }: MapCoreViewProps) {
   return (
     <Map
@@ -122,6 +128,19 @@ export function MapCoreView({
             anchor="center"
           >
             <MapPinLocation />
+          </Marker>
+        ) : null}
+        {previewPinCoords ? (
+          <Marker
+            latitude={previewPinCoords.lat}
+            longitude={previewPinCoords.lng}
+            anchor="center"
+          >
+            <MapPinSpot
+              status="default"
+              selected
+              label={previewPinLabel?.trim() || undefined}
+            />
           </Marker>
         ) : null}
     </Map>

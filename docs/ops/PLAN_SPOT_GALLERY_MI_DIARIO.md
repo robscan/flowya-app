@@ -1,8 +1,8 @@
-# Plan: Galería de imágenes + Mi diario (futuro)
+# Plan: Galería de imágenes (futuro)
 
 **Estado:** Documentado para retomar. No implementar aún.
 
-> Ideas discutidas 2026-02-14. Plan detallado para ejecución futura.
+> Ideas discutidas 2026-02-14. Feature 1 (Galería) aquí; Feature 2 (Mi diario) en `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
 
 ---
 
@@ -22,19 +22,14 @@
 
 ## Feature 2: Mi diario (notas personales)
 
-### Modelo de datos
-- **pins:** Añadir `notes text`, `notes_updated_at timestamptz`.
-- RLS existente ya protege; no cambios de políticas.
+> **Plan completo en:** `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`  
+> **Contrato entry point:** `docs/contracts/RECORDAR_ENTRY_SPOT_SHEET.md`
 
-### Lib
-- `lib/pins.ts`: PinState.notes, updatePinNotes(spotId, notes).
-- Requiere pin (saved o visited); al guardar primera nota, crear pin con saved=true si no existe.
-
-### UI
-- **SpotDetail:** Sección "Mi diario" después de descripción; TextInput multiline; visible solo si usuario autenticado.
+Modelo de datos y lib siguen vigentes: `pins.notes`, `notes_updated_at`, `lib/pins` (updatePinNotes).
+UI: entry desde SpotSheet (dos botones en fila: Por visitar/Visitado + Mi diario), no desde SpotDetail.
 
 ---
 
 ## Orden de implementación sugerido
-1. **Mi diario** (menor alcance): migración pins + lib + UI SpotDetail.
+1. **Mi diario:** Ver `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
 2. **Galería:** migración spot_images + lib + SpotImageGrid + ImageFullscreenModal extendido + Create/Edit Spot.
