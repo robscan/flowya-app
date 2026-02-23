@@ -87,7 +87,7 @@ export function CreateSpotNameOverlay({
     Animated.timing(panelAnim, {
       toValue: 1,
       duration: ENTRANCE_DURATION_MS,
-      useNativeDriver: true,
+      useNativeDriver: Platform.OS !== 'web',
     }).start();
   }, [visible, panelAnim]);
 
@@ -146,8 +146,8 @@ export function CreateSpotNameOverlay({
       style={[
         styles.container,
         Platform.OS === "web" && styles.containerWeb,
+        { pointerEvents: "auto" },
       ]}
-      pointerEvents="auto"
     >
       <Pressable style={StyleSheet.absoluteFill} onPress={onDismiss} />
       <Animated.View
@@ -165,8 +165,8 @@ export function CreateSpotNameOverlay({
               },
             ],
           },
+          { pointerEvents: "box-none" },
         ]}
-        pointerEvents="box-none"
       >
         <View
           style={[
@@ -216,8 +216,8 @@ export function CreateSpotNameOverlay({
             paddingBottom: barPaddingBottom,
             paddingHorizontal: sideMargin,
           },
+          { pointerEvents: "box-none" },
         ]}
-        pointerEvents="box-none"
       >
         <Pressable
           onPress={handleConfirm}

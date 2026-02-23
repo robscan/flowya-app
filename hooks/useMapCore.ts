@@ -8,13 +8,25 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
 
+import MapboxLanguage from '@mapbox/mapbox-gl-language';
+import {
+  setupSpotsLayer,
+  updateSpotsLayerData,
+  type SpotForLayer,
+} from '@/lib/map-core/spots-layer';
 import {
   applyGlobeAndAtmosphere,
+  applyWaterAndGreenspaceColors,
+  enable3DBuildingsAndObjects,
   FIT_BOUNDS_DURATION_MS,
+  hideCommercialPOIsViaConfig,
   hideNoiseLayers,
+  INITIAL_PITCH,
   LONG_PRESS_DRAG_THRESHOLD_PX,
   LONG_PRESS_MS,
+  set3DBuildingsEnabled,
   SPOT_FOCUS_ZOOM,
+  showLandmarkLabels,
   tryCenterOnUser,
   type UserCoords,
   WORLD_BOUNDS,
@@ -28,6 +40,18 @@ export type UseMapCoreOptions = {
   skipCenterOnUser?: boolean;
   /** Llamado cuando el usuario inicia pan/zoom (no programático). */
   onUserMapGestureStart?: () => void;
+  /** Si true, activa showLandmarkIcons/showLandmarkIconLabels (estilo FLOWYA/Standard). */
+  enableLandmarkLabels?: boolean;
+  /** Si true, usa light-v11/dark-v11 y aplica plugin idioma + colores agua/naturaleza. */
+  useCoreMapStyles?: boolean;
+  /** true = modo oscuro (para colores agua/greenspace). */
+  isDarkStyle?: boolean;
+  /** Spots a dibujar como capa nativa debajo de POI. */
+  spots?: SpotForLayer[];
+  /** Spot actualmente seleccionado (para estilo y click). */
+  selectedSpotId?: string | null;
+  /** Llamado al hacer click en un spot de la capa. */
+  onPinClick?: (spot: SpotForLayer) => void;
 };
 
 const GEO_OPTIONS: PositionOptions = {
@@ -64,7 +88,22 @@ export function useMapCore(
   selectedSpot: MapCoreSelectedSpot,
   options: UseMapCoreOptions
 ) {
-  const { onLongPress, skipCenterOnUser = false, onUserMapGestureStart } = options;
+  const {
+    onLongPress,
+    skipCenterOnUser = false,
+    onUserMapGestureStart,
+    enableLandmarkLabels = false,
+    useCoreMapStyles = false,
+    isDarkStyle = false,
+    spots = [],
+    selectedSpotId = null,
+    onPinClick,
+  } = options;
+
+  const spotsRef = useRef<SpotForLayer[]>(spots);
+  const onPinClickRef = useRef(onPinClick);
+  spotsRef.current = spots;
+  onPinClickRef.current = onPinClick;
 
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const [userCoords, setUserCoords] = useState<UserCoords>(null);
@@ -112,15 +151,52 @@ export function useMapCore(
       setMapInstance(map);
       setZoom(map.getZoom());
       applyGlobeAndAtmosphere(map);
-      hideNoiseLayers(map);
+      // Plugin de idioma: funciona con FLOWYA (Standard basemap) y Mapbox Standard
+      try {
+        map.addControl(new MapboxLanguage());
+      } catch {
+        /* ignore */
+      }
+      if (useCoreMapStyles) {
+        enable3DBuildingsAndObjects(map);
+        applyWaterAndGreenspaceColors(map, isDarkStyle);
+        hideCommercialPOIsViaConfig(map); // POIs comerciales vía config; no hideNoiseLayers (oculta landmarks)
+      } else {
+        hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
+      }
+      if (enableLandmarkLabels) {
+        showLandmarkLabels(map);
+      }
       if (!skipCenterOnUser) {
         tryCenterOnUser(map, (coords) => {
           if (mountedRef.current) setUserCoords(coords);
         });
       }
     },
-    [skipCenterOnUser]
+    [skipCenterOnUser, enableLandmarkLabels, useCoreMapStyles, isDarkStyle]
   );
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map || !onPinClick) return;
+    setupSpotsLayer(
+      map,
+      spots,
+      selectedSpotId,
+      zoom,
+      isDarkStyle,
+      (spotId) => {
+        const s = spotsRef.current.find((sp) => sp.id === spotId);
+        if (s) onPinClickRef.current?.(s);
+      }
+    );
+  }, [mapInstance, onPinClick, isDarkStyle]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map || !map.getSource('flowya-spots')) return;
+    updateSpotsLayerData(map, spots, selectedSpotId, zoom);
+  }, [mapInstance, spots, selectedSpotId, zoom]);
 
   const handleLocate = useCallback(() => {
     if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
@@ -224,6 +300,16 @@ export function useMapCore(
     setActiveMapControl('world');
     mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
   }, [mapInstance]);
+
+  const handleToggle3D = useCallback(
+    (enabled: boolean) => {
+      if (!mapInstance) return;
+      programmaticMoveRef.current = true;
+      mapInstance.easeTo({ pitch: enabled ? INITIAL_PITCH : 0, duration: 600 });
+      set3DBuildingsEnabled(mapInstance, enabled);
+    },
+    [mapInstance]
+  );
 
   /** flyTo que no dispara onUserMapGestureStart (movestart se considera programático). */
   const programmaticFlyTo = useCallback(
@@ -341,6 +427,7 @@ export function useMapCore(
     handleReframeSpot,
     handleReframeSpotAndUser,
     handleViewWorld,
+    handleToggle3D,
     programmaticFlyTo,
     handleMapPointerDown,
     handleMapPointerMove,

@@ -198,8 +198,7 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
       </Animated.View>
 
       <Animated.View
-        style={[styles.backdrop, backdropAnimatedStyle]}
-        pointerEvents={open ? 'auto' : 'none'}
+        style={[styles.backdrop, backdropAnimatedStyle, { pointerEvents: open ? 'auto' : 'none' }]}
       >
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -207,7 +206,7 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
           accessibilityLabel="Cerrar menú"
         />
       </Animated.View>
-      <View style={styles.menuContainer} pointerEvents={open ? 'auto' : 'none'}>
+      <View style={[styles.menuContainer, { pointerEvents: open ? 'auto' : 'none' }]}>
         <Animated.View
           style={[
             styles.menu,

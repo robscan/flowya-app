@@ -47,7 +47,9 @@ Al abrir Paso 0 se setean los tres; al cerrar o confirmar se limpian.
 
 - **Ocultos:** MapPinFilter, MapControls, BottomDock (solo se ve mapa + overlay + Continuar).
 - **Exclusión:** Search y SpotSheet no se muestran al mismo tiempo que Paso 0.
-- **Pin de preview:** Se muestra un pin en `createSpotPendingCoords` para indicar dónde se creará el spot (MapCoreView `previewPinCoords`). Estado visual: selected (más grande). Label del pin = valor actual del input (actualizado en tiempo real). No interactivo.
+- **Pin de preview:** Se muestra un pin para indicar dónde se creará el spot (MapCoreView `previewPinCoords`). Estado visual: selected (más grande). No interactivo.
+  - **Durante Paso 0:** Pin en `createSpotPendingCoords`; label = valor actual del input (actualizado en tiempo real).
+  - **Al seleccionar sugerencia de búsqueda (POI):** También cuando `poiTapped != null && selectedSpot == null`; pin en coords del POI, label = nombre del lugar. Bitácora 112.
 
 ---
 

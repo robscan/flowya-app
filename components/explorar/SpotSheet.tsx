@@ -33,6 +33,7 @@ import {
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Dimensions,
     type LayoutChangeEvent,
     Linking,
@@ -153,6 +154,11 @@ export type SpotSheetProps = {
   onDraftCoverChange?: (uri: string | null) => void;
   /** CTA "Crear spot" del BORRADOR: crear spot mínimo y abrir sheet EXTENDED. */
   onCreateSpot?: () => void;
+  /** Modo POI no agregado: mismo sheet, animación y gestos. Sustituye POISheetMedium. */
+  poi?: { name: string; lat: number; lng: number } | null;
+  onPoiPorVisitar?: () => void | Promise<void>;
+  onPoiShare?: () => void | Promise<void>;
+  poiLoading?: boolean;
 };
 
 type BodyContentProps = {
@@ -311,14 +317,16 @@ function ExpandedExtra({
           </Text>
         </View>
       ) : null}
-      <View style={styles.detailBlock}>
-        <Text style={[styles.detailSectionTitle, { color: colors.text }]}>
-          Dirección
-        </Text>
-        <Text style={[styles.detailBody, { color: colors.textSecondary }]}>
-          {addressText || "Sin dirección guardada"}
-        </Text>
-      </View>
+      {addressText ? (
+        <View style={styles.detailBlock}>
+          <Text style={[styles.detailSectionTitle, { color: colors.text }]}>
+            Dirección
+          </Text>
+          <Text style={[styles.detailBody, { color: colors.textSecondary }]}>
+            {addressText}
+          </Text>
+        </View>
+      ) : null}
       <Pressable
         style={[styles.detailButton, { backgroundColor: colors.tint }]}
         onPress={handleDirections}
@@ -446,6 +454,51 @@ function DraftInlineEditor({
   );
 }
 
+/** Modo POI no agregado: botón Por visitar o estado de carga mientras se crea el spot. */
+function PoiBodyContent({
+  onPorVisitar,
+  loading,
+  colors,
+}: {
+  onPorVisitar: () => void | Promise<void>;
+  loading: boolean;
+  colors: (typeof Colors)["light"];
+}) {
+  if (loading) {
+    return (
+      <View style={[styles.poiLoadingWrap, { marginTop: Spacing.md }]}>
+        <ActivityIndicator size="small" color={colors.primary} />
+        <Text style={[styles.poiLoadingText, { color: colors.textSecondary }]}>
+          Creando spot…
+        </Text>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.actionRow, { marginTop: Spacing.md }]}>
+      <Pressable
+        style={[
+          styles.actionPill,
+          {
+            backgroundColor: colors.backgroundElevated,
+            borderColor: colors.borderSubtle,
+            borderWidth: 1,
+          },
+        ]}
+        onPress={onPorVisitar}
+        accessibilityLabel="Por visitar"
+        accessibilityRole="button"
+        accessibilityState={{ selected: false }}
+      >
+        <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+        <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+          Por visitar
+        </Text>
+      </Pressable>
+    </View>
+  );
+}
+
 /** Modo colocar pin: una instrucción + Confirmar ubicación (primario) + Cancelar (secundario). */
 function PlacingDraftContent({
   onConfirm,
@@ -520,6 +573,10 @@ export function SpotSheet({
   draftCoverUri = null,
   onDraftCoverChange,
   onCreateSpot,
+  poi = null,
+  onPoiPorVisitar,
+  onPoiShare,
+  poiLoading = false,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -603,19 +660,19 @@ export function SpotSheet({
   const hasAnimatedEntranceRef = useRef(false);
   const lastSpotIdRef = useRef<string | null>(null);
 
-  /** Reset de entrada solo en transición sin spot → con spot. Spot A → spot B: no resetear, solo actualizar ref; sheet permanece visible en MEDIUM. */
+  /** Reset de entrada solo en transición sin spot/poi → con spot/poi. Spot A → spot B o POI: no resetear, solo actualizar ref. */
+  const effectiveId = spot?.id ?? (poi ? `poi-${poi.lat}-${poi.lng}` : null);
   useEffect(() => {
-    const id = spot?.id ?? null;
-    if (id !== lastSpotIdRef.current) {
+    if (effectiveId !== lastSpotIdRef.current) {
       const wasNull = lastSpotIdRef.current === null;
-      lastSpotIdRef.current = id;
-      if (wasNull && id !== null) {
+      lastSpotIdRef.current = effectiveId;
+      if (wasNull && effectiveId !== null) {
         hasAnimatedEntranceRef.current = false;
         translateYShared.value = vh;
         opacityShared.value = 0;
       }
     }
-  }, [spot?.id, translateYShared, opacityShared, vh]);
+  }, [effectiveId, translateYShared, opacityShared, vh]);
 
   useEffect(() => {
     reducedMotionShared.value = prefersReducedMotion ? 1 : 0;
@@ -833,16 +890,17 @@ export function SpotSheet({
     ? maxBodyFromViewport
     : Math.min(SHEET_MEDIUM_MAX_BODY, maxBodyFromViewport);
   const bodyNeedsScroll = bodyContentHeight > maxBodyHeight;
-  if (spot == null) return null;
+  const isPoiMode = !spot && !!poi;
+  if (spot == null && !poi) return null;
 
-  const isDraft = spot.id.startsWith("draft_");
+  const isDraft = spot ? spot.id.startsWith("draft_") : false;
   const colors = Colors[colorScheme ?? "light"];
-  const hasDesc = Boolean(spot.description_short?.trim());
-  const hasCover = Boolean(spot.cover_image_url);
-  const isSaved = spot.saved ?? spot.pinStatus === "to_visit";
-  const isVisited = spot.visited ?? spot.pinStatus === "visited";
+  const hasDesc = spot ? Boolean(spot.description_short?.trim()) : false;
+  const hasCover = spot ? Boolean(spot.cover_image_url) : false;
+  const isSaved = spot ? (spot.saved ?? spot.pinStatus === "to_visit") : false;
+  const isVisited = spot ? (spot.visited ?? spot.pinStatus === "visited") : false;
   const distanceKmVal =
-    userCoords != null
+    spot && userCoords != null
       ? distanceKm(
           userCoords.latitude,
           userCoords.longitude,
@@ -850,12 +908,14 @@ export function SpotSheet({
           spot.longitude,
         )
       : null;
-  const whyText = (spot.why ?? spot.description_long)?.trim() || null;
-  const addressText = spot.address?.trim() || null;
+  const whyText = spot ? ((spot.why ?? spot.description_long)?.trim() || null) : null;
+  const addressText = spot ? (spot.address?.trim() || null) : null;
+  const displayTitle = isPoiMode && poi ? poi.name : spot?.title ?? "";
 
   const handleShare = () => {
-    if (onShare) onShare();
-    else if (__DEV__) console.log("[SpotSheet] Share stub", spot.id);
+    if (isPoiMode && onPoiShare) onPoiShare();
+    else if (onShare) onShare();
+    else if (__DEV__ && spot) console.log("[SpotSheet] Share stub", spot.id);
   };
 
   const handleSavePin = () => {
@@ -863,16 +923,18 @@ export function SpotSheet({
   };
 
   const handleDirections = () => {
-    if (onDirections) onDirections(spot);
-    else Linking.openURL(getMapsDirectionsUrl(spot.latitude, spot.longitude));
+    if (spot && onDirections) onDirections(spot);
+    else if (spot) Linking.openURL(getMapsDirectionsUrl(spot.latitude, spot.longitude));
   };
 
   const handleEdit = () => {
-    if (onEdit) onEdit(spot.id);
+    if (spot && onEdit) onEdit(spot.id);
   };
 
-  /** Offset del borde inferior para que el sheet colapsado no quede pegado al viewport (OL-058). */
+  /** Offset del borde inferior para que el sheet colapsado no quede pegado al viewport (OL-058).
+   * En expanded, bottom: 0 para que no quede hueco visible del mapa en la base. */
   const bottomOffset = Math.max(Spacing.md, insets.bottom);
+  const sheetBottom = state === "expanded" ? 0 : bottomOffset;
 
   return (
     <Animated.View
@@ -882,7 +944,7 @@ export function SpotSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
-          bottom: bottomOffset,
+          bottom: sheetBottom,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
         animatedContainerStyle,
@@ -900,6 +962,7 @@ export function SpotSheet({
                 variant="default"
                 size={HEADER_BUTTON_SIZE}
                 onPress={handleShare}
+                disabled={isPoiMode && poiLoading}
                 accessibilityLabel="Compartir"
               >
                 <Share2 size={20} color={colors.text} strokeWidth={2} />
@@ -924,12 +987,13 @@ export function SpotSheet({
             {isDraft ? (
               <View style={styles.titleWrap}>
                 <View style={styles.titleRow}>
-                <Text
-                  style={[styles.title, { color: colors.text }]}
-                  numberOfLines={1}
-                >
-                  {spot.title}
-                </Text>
+                <View style={styles.titleTextWrap}>
+                  <Text
+                    style={[styles.title, { color: colors.text }]}
+                  >
+                    {displayTitle}
+                  </Text>
+                </View>
                 <View
                   style={[
                     styles.draftBadge,
@@ -961,12 +1025,13 @@ export function SpotSheet({
                 accessibilityRole="button"
               >
                 <View style={styles.titleRow}>
-                  <Text
-                    style={[styles.title, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {spot.title}
-                  </Text>
+                  <View style={styles.titleTextWrap}>
+                    <Text
+                      style={[styles.title, { color: colors.text }]}
+                    >
+                      {displayTitle}
+                    </Text>
+                  </View>
                 </View>
               </Pressable>
             )}
@@ -997,7 +1062,15 @@ export function SpotSheet({
             showsVerticalScrollIndicator={true}
           >
             <View style={styles.bodyContentInner} onLayout={onMediumBodyLayout}>
-              {isDraft && isPlacingDraftSpot ? (
+              {isPoiMode ? (
+                onPoiPorVisitar ? (
+                  <PoiBodyContent
+                    onPorVisitar={onPoiPorVisitar}
+                    loading={poiLoading}
+                    colors={colors}
+                  />
+                ) : null
+              ) : isDraft && isPlacingDraftSpot ? (
                 <PlacingDraftContent
                   onConfirm={() => onConfirmPlacement?.()}
                   onCancel={onClose}
@@ -1006,7 +1079,7 @@ export function SpotSheet({
               ) : (
                 <>
                   <MediumBodyContent
-                    spot={spot}
+                    spot={spot!}
                     hasDesc={hasDesc}
                     hasCover={hasCover}
                     isSaved={isSaved}
@@ -1032,7 +1105,15 @@ export function SpotSheet({
         ) : (
           <View style={styles.bodyContentWrap}>
             <View style={styles.bodyContentInner} onLayout={onMediumBodyLayout}>
-              {isDraft && isPlacingDraftSpot ? (
+              {isPoiMode ? (
+                onPoiPorVisitar ? (
+                  <PoiBodyContent
+                    onPorVisitar={onPoiPorVisitar}
+                    loading={poiLoading}
+                    colors={colors}
+                  />
+                ) : null
+              ) : isDraft && isPlacingDraftSpot ? (
                 <PlacingDraftContent
                   onConfirm={() => onConfirmPlacement?.()}
                   onCancel={onClose}
@@ -1041,7 +1122,7 @@ export function SpotSheet({
               ) : (
                 <>
                   <MediumBodyContent
-                    spot={spot}
+                    spot={spot!}
                     hasDesc={hasDesc}
                     hasCover={hasCover}
                     isSaved={isSaved}
@@ -1076,7 +1157,15 @@ export function SpotSheet({
             showsVerticalScrollIndicator={true}
           >
             <View style={styles.bodyContentInner} onLayout={onFullBodyLayout}>
-              {isDraft && isPlacingDraftSpot ? (
+              {isPoiMode ? (
+                onPoiPorVisitar ? (
+                  <PoiBodyContent
+                    onPorVisitar={onPoiPorVisitar}
+                    loading={poiLoading}
+                    colors={colors}
+                  />
+                ) : null
+              ) : isDraft && isPlacingDraftSpot ? (
                 <PlacingDraftContent
                   onConfirm={() => onConfirmPlacement?.()}
                   onCancel={onClose}
@@ -1085,7 +1174,7 @@ export function SpotSheet({
               ) : (
                 <>
                   <MediumBodyContent
-                    spot={spot}
+                    spot={spot!}
                     hasDesc={hasDesc}
                     hasCover={hasCover}
                     isSaved={isSaved}
@@ -1122,7 +1211,15 @@ export function SpotSheet({
         ) : (
           <View style={styles.bodyContentWrap}>
             <View style={styles.bodyContentInner} onLayout={onFullBodyLayout}>
-              {isDraft && isPlacingDraftSpot ? (
+              {isPoiMode ? (
+                onPoiPorVisitar ? (
+                  <PoiBodyContent
+                    onPorVisitar={onPoiPorVisitar}
+                    loading={poiLoading}
+                    colors={colors}
+                  />
+                ) : null
+              ) : isDraft && isPlacingDraftSpot ? (
                 <PlacingDraftContent
                   onConfirm={() => onConfirmPlacement?.()}
                   onCancel={onClose}
@@ -1131,7 +1228,7 @@ export function SpotSheet({
               ) : (
                 <>
                   <MediumBodyContent
-                    spot={spot}
+                    spot={spot!}
                     hasDesc={hasDesc}
                     hasCover={hasCover}
                     isSaved={isSaved}
@@ -1226,11 +1323,18 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: Spacing.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  titleTextWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   title: {
     fontSize: 18,
     fontWeight: "600",
     textAlign: "center",
+    lineHeight: 24,
   },
   draftBadge: {
     paddingHorizontal: Spacing.sm,
@@ -1371,6 +1475,17 @@ const styles = StyleSheet.create({
   actionPillText: {
     fontSize: 15,
     fontWeight: "600",
+  },
+  poiLoadingWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: Spacing.sm,
+    paddingVertical: Spacing.md,
+    minHeight: ACTION_PILL_HEIGHT,
+  },
+  poiLoadingText: {
+    fontSize: 14,
   },
   detailLabel: {
     fontSize: 14,

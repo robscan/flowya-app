@@ -4,7 +4,7 @@
  * Usa IconButton canónico (44×44 circular).
  */
 
-import { Globe, Locate } from 'lucide-react-native';
+import { Boxes, Globe, Locate } from 'lucide-react-native';
 
 import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -27,6 +27,12 @@ export type MapControlsProps = {
   onReframeSpotAndUser?: () => void;
   hasUserLocation?: boolean;
   activeMapControl?: ActiveMapControl;
+  /** Mostrar botón 3D; cuando true, se renderiza encima del Globe. */
+  show3DToggle?: boolean;
+  /** Estado actual de vista 3D (para mostrar selected). */
+  is3DEnabled?: boolean;
+  /** Callback al pulsar: el parent hace toggle y llama handleToggle3D(newValue). */
+  onToggle3D?: () => void;
 };
 
 const ICON_SIZE = 22;
@@ -40,6 +46,9 @@ export function MapControls({
   onReframeSpotAndUser,
   hasUserLocation = false,
   activeMapControl = null,
+  show3DToggle = false,
+  is3DEnabled = false,
+  onToggle3D,
 }: MapControlsProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -93,6 +102,17 @@ export function MapControls({
 
   return (
     <View style={styles.container}>
+      {show3DToggle && onToggle3D ? (
+        <IconButton
+          variant="default"
+          onPress={onToggle3D}
+          disabled={!enabled}
+          selected={is3DEnabled}
+          accessibilityLabel="Activar o desactivar vista 3D"
+        >
+          <Boxes size={ICON_SIZE} color={enabled ? colors.text : colors.textSecondary} strokeWidth={2} />
+        </IconButton>
+      ) : null}
       {showWorld ? (
         <IconButton
           variant="default"

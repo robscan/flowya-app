@@ -22,9 +22,11 @@
 
 ---
 
-## Hoy (2026-02-14)
+## Hoy (2026-02-23)
 
-- **Plan documentado (post-P0):** Ajustes Explore mapa + búsqueda en `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A a MS-E: long-press multi-touch, pin Paso 0, POIs mapa, colores, búsqueda POIs). Un MS por PR; revisión tras cada uno.
+- **Plan documentado (post-P0):** Ajustes Explore mapa + búsqueda en `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A a MS-E). MS-A, MS-B, MS-C, MS-D completados; MS-E pendiente.
+- **Preview pin al seleccionar sugerencia de búsqueda (POI):** flyTo + pin en coordenadas del lugar. Bitácora 112.
+- **Otros ajustes sesión:** Bitácora 113 — fix mapa post-edición (flyTo spot editado), placeholder buscador "Buscar en esta zona del mapa…", sheet POI unificado con SpotSheet, sync selectedSpot con filteredSpots, estado de carga al crear spot desde POI, nombre spot con wrap, desfase sheet expanded, controles y botón crear spot.
 - Se consolida documentación y cambios de Explore/Search:
   - Search pill DS refactor; Map overlays redesign (entry icon Search derecha, FLOWYA abajo-izquierda).
   - MapPinFilterInline en Search; filtros + cerrar en fila 1, input ancho completo en fila 2.
