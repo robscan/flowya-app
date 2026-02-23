@@ -115,6 +115,7 @@
 
 - summary en medium
 - full (o más completo) en expanded
+- Reglas de contenido y sheet única: ver [SPOT_SHEET_CONTENT_RULES.md](SPOT_SHEET_CONTENT_RULES.md)
 
 **Regla clave:**
 

@@ -80,7 +80,8 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 
 ## Sugerencias (S3) — solo después de agotar "find"
 
-- **Condición obligatoria:** `mode === 'spots'` AND `query.trim().length >= 3` AND **stage === 'global'** AND **results.length === 0**.
+- **@deprecated 2026-02-22:** UI de sugerencias ES↔EN oculta; reemplazo previsto: `mapPoiResults` (POIs del mapa en resultados). Ver `GUARDRAILS_DEPRECACION`.
+- **Condición obligatoria (cuando se usaba):** `mode === 'spots'` AND `query.trim().length >= 3` AND **stage === 'global'** AND **results.length === 0**.
 - **No** mostrar sugerencias en viewport ni expanded (aunque haya 0 resultados).
 - **No** mostrar sugerencias si ya hay resultados en cualquier stage.
 - Tap sugerencia = una sola acción: `setQuery(suggestion)` → dispara búsqueda normal (viewport→expanded→global); reutiliza debounce/cancelación/caché; sin llamadas duplicadas.

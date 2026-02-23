@@ -23,10 +23,13 @@
 
 | Elemento | Motivo | Fase | Marcado | Eliminado | Notas |
 |----------|--------|------|---------|-----------|-------|
+| Marker+MapPinSpot para spots en MapCoreView | Reemplazado por SymbolLayer en useMapCore | 3 | 2026-02-14 | 2026-02-14 | Spots ahora como capa nativa debajo de POI |
+| Modal POI (Agregar spot / Por visitar) | Sustituido por POISheetMedium | 3 | 2026-02-14 | 2026-02-14 | Nueva sheet: Compartir, Por visitar, Cerrar |
 | `/mapaV0` (MapScreenV0) | Legacy; entry real es `/` | 1 | 2026-02-14 | — | Fase 2: quitar de _layout; Fase 3: borrar app/mapaV0.* y MapScreenV0 |
 | Flujo wizard largo create-spot | Sustituido por draft + creador mínimo | 1 | 2026-02-14 | — | Verificar si /create-spot se usa; si no, deprecar |
 | `onOpenDetail` en SpotSheet | Flujo actual = expanded sin navegar a SpotDetail | 1 | 2026-02-14 | — | Hacer opcional o eliminar prop si no hay CTA |
 | `getPinsForSpotsLegacy` | Migración 011 (saved/visited) | 1 | 2026-02-14 | — | Eliminar con MapScreenV0 |
+| Sugerencias ES↔EN (no results) | Sin criterio útil; reemplazar por mapPoiResults | 1 | 2026-02-22 | — | SearchOverlayWeb + SearchFloatingNative; `{false && ...}` |
 
 ---
 

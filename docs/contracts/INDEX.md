@@ -18,6 +18,8 @@
 - **KEYBOARD_AND_TEXT_INPUTS.md** — Teclado y campos de texto: foco/teclado, CTA sticky sobre teclado, scroll cierra teclado.
 - **RECORDAR_ENTRY_SPOT_SHEET.md** — Entry "Mi diario" en SpotSheet: condición (saved/visited), layout (dos botones en fila responsiva), accesibilidad.
 - **CREATE_SPOT_LONG_PRESS.md** — Reglas long-press para create spot: solo un dedo, 3s, umbral arrastre 10px, multi-touch cancela.
+- **SPOT_SHEET_CONTENT_RULES.md** — Sheet única para spots existentes; campos condicionales (mostrar si hay datos, ocultar si no).
+- **SYSTEM_STATUS_BAR.md** — Comunicación sistema-usuario: mensajes de estado, cola hasta 3 líneas, tono asistente de viaje; sustituye toast.
 
 ## Search
 

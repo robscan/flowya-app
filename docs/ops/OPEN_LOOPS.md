@@ -1,10 +1,19 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-14
+**Fecha:** 2026-02-23
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
 > Los loops cerrados NO permanecen aquí (se registran en bitácora).
+
+---
+
+## Siguiente sprint (prioridad)
+
+| Plan | Descripción |
+|------|-------------|
+| [PLAN_SYSTEM_STATUS_BAR.md](PLAN_SYSTEM_STATUS_BAR.md) | System Status Bar: reemplazo de toast, cola 3 mensajes, tono asistente de viaje, textos canónicos. Definición en `docs/definitions/SYSTEM_STATUS_BAR.md`. |
+| [PLAN_RECORDAR_MI_DIARIO.md](PLAN_RECORDAR_MI_DIARIO.md) | Mi diario (Recordar): notas personales por spot, entry desde SpotSheet (saved/visited). EP-1 a EP-3. |
 
 ---
 
@@ -170,6 +179,18 @@
 
 ---
 
+### OL-MAPBOX-001 — Alertas Mapbox en consola (featureset, image variables)
+
+**Estado:** DOCUMENTADO (revisar al actualizar mapbox-gl)
+
+**Problema:** Avisos en consola al cargar el mapa: `featureNamespace place-A of featureset place-labels's selector...`, `Ignoring unknown image variable "background"`, `"background-stroke"`, `"icon"`.
+
+**Acción:** Al actualizar mapbox-gl o el estilo del mapa, verificar si desaparecen o requieren ajustes.
+
+**Bitácora:** `docs/bitacora/2026/02/106-consola-warnings-fix-mapbox-doc.md`
+
+---
+
 ## Futuro (no prioritario — retomar después)
 
 > Ideas documentadas para no perder. No bloquean cierre de sesión.
@@ -206,3 +227,5 @@ Notas personales por spot; entry desde SpotSheet cuando saved/visited; dos boton
 | MS-E | Búsqueda POIs en sin-resultados |
 
 Un MS por PR; revisión tras cada uno.
+
+**Nota (2026-02-22):** Preview pin al seleccionar sugerencia de búsqueda (POI) implementado como extensión del flujo search→create. Bitácora 112.

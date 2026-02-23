@@ -143,8 +143,8 @@ export function SearchFloatingNative<T>({
 
   return (
     <>
-      <View style={[StyleSheet.absoluteFill, styles.scrim]} pointerEvents="none" />
-      <View style={styles.sheetWrapper} pointerEvents="box-none">
+      <View style={[StyleSheet.absoluteFill, styles.scrim, { pointerEvents: 'none' }]} />
+      <View style={[styles.sheetWrapper, { pointerEvents: 'box-none' }]}>
         <View style={styles.sheetRoot}>
           <Animated.View
             style={[
@@ -195,7 +195,7 @@ export function SearchFloatingNative<T>({
                       value={controller.query}
                       onChangeText={controller.setQuery}
                       onClear={controller.clear}
-                      placeholder="Buscar spots…"
+                      placeholder="Buscar en esta zona del mapa…"
                       autoFocus
                       embedded
                     />
@@ -284,10 +284,16 @@ export function SearchFloatingNative<T>({
                       keyboardDismissMode="on-drag"
                       showsVerticalScrollIndicator
                     >
-                      <Text style={[styles.noResultsIntro, { color: colors.text }]}>
-                        No hay spots con ese nombre. Puedes crearlo en Flowya:
-                      </Text>
-                      {controller.suggestions.length > 0 && (
+                      {(() => {
+                        const showNoSpotsMessage = placeSuggestions.length === 0;
+                        return showNoSpotsMessage ? (
+                          <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
+                            No hay spots con ese nombre. Puedes crearlo en Flowya:
+                          </Text>
+                        ) : null;
+                      })()}
+                      {/** @deprecated Sugerencias ES↔EN sin criterio útil; eliminar cuando mapPoiResults esté estable. Ver GUARDRAILS_DEPRECACION. */}
+                      {false && controller.suggestions.length > 0 && (
                         <View style={styles.suggestionsSection}>
                           <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
                             Sugerencias
@@ -340,19 +346,17 @@ export function SearchFloatingNative<T>({
                       <View style={styles.chooserSection}>
                         <Pressable
                           style={({ pressed }) => [
-                            styles.suggestionRow,
-                            styles.chooserRow,
-                            { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
+                            styles.chooserButton,
+                            { backgroundColor: pressed ? colors.tintPressed ?? colors.tint : colors.tint },
                           ]}
                           onPress={controller.onCreate}
                           accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
                           accessibilityRole="button"
                         >
-                          <View style={styles.chooserRowContent}>
-                            <Text style={[styles.chooserRowTitle, { color: colors.text }]}>Crear spot aquí</Text>
-                            <Text style={[styles.chooserRowSubtitle, { color: colors.textSecondary }]}>Centro del mapa o tu ubicación</Text>
+                          <View style={styles.chooserButtonContent}>
+                            <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
+                            <Text style={styles.chooserButtonSubtitle}>Centro del mapa o tu ubicación</Text>
                           </View>
-                          <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
                         </Pressable>
                       </View>
                     </ScrollView>
@@ -462,5 +466,17 @@ const styles = StyleSheet.create({
   chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
   chooserRowTitle: { fontSize: 16, fontWeight: '600' },
   chooserRowSubtitle: { fontSize: 13 },
+  chooserButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.pill,
+    marginTop: 4,
+  },
+  chooserButtonContent: { gap: 2, alignItems: 'center' },
+  chooserButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  chooserButtonSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13 },
   emptyText: { fontSize: 15, textAlign: 'center' },
 });

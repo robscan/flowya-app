@@ -19,9 +19,12 @@ Estado aplica cuando:
 
 En vez de "Crear <query>" único, mostrar:
 
-### A) Sugerencias de texto (ES↔EN)
+- **Intro condicional:** El mensaje "No hay spots con ese nombre. Puedes crearlo en Flowya:" se muestra solo si `placeSuggestions.length === 0` (centrado).
+
+### A) Sugerencias de texto (ES↔EN) — **@deprecated 2026-02-22**
 
 - Diccionario curado; reintento de búsqueda. Tap = setQuery(suggestion).
+- **Estado:** Ocultas en UI (`{false && ...}`). Ver `GUARDRAILS_DEPRECACION`. Reemplazo previsto: `mapPoiResults` (queryRenderedFeatures) en MS-2.
 
 ### B) Listado de lugares (Mapbox, con coordenadas)
 
@@ -29,7 +32,7 @@ En vez de "Crear <query>" único, mostrar:
 
 ### C) Crear spot aquí (UGC, sin resolver texto)
 
-CTA: **"Crear spot aquí"** — subtítulo: Centro del mapa o tu ubicación.
+CTA: **"Crear spot aquí"** — botón pill (tint), subtítulo: Centro del mapa o tu ubicación. Estilo similar a `detailButton` de SpotSheet.
 
 - **Auth:** Sin sesión, el tap abre modal de login; con sesión sigue el flujo (CreateSpotNameOverlay → draft).
 - Coordenadas:
@@ -48,6 +51,11 @@ CTA: **"Crear spot aquí"** — subtítulo: Centro del mapa o tu ubicación.
 - Seleccionar sugerencia o crear nuevo:
   - Cierra buscador
   - Abre SpotSheet en **MEDIUM** del spot creado/seleccionado (contrato `SPOT_SELECTION_SHEET_SIZING`)
+
+- **Al seleccionar sugerencia de lugar (B):**
+  - FlyTo a las coordenadas del lugar.
+  - Pin de preview en el mapa en esa posición, label = nombre del lugar.
+  - Cierra buscador y abre SpotSheet/POISheet según corresponda.
 
 ---
 

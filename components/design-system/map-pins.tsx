@@ -25,20 +25,21 @@ const PIN_EASING = Easing.out(Easing.cubic);
 
 const LOCATION_PIN_SIZE = 14;
 
-/** Jerarquía canónica: Nivel 1 = protagonista (spot seleccionado). Nivel 2 = presencia (reposo, tamaño uniforme). Nivel 3 = mapa base. */
-const SPOT_PIN_SIZE = 12; // Nivel 2 — reposo
-const SPOT_PIN_SELECTED_SIZE = 36; // Nivel 1 — protagonista (estilo Apple Maps ~30–40px)
+/** Jerarquía canónica: Nivel 1 = protagonista (spot seleccionado). Nivel 2 = presencia (reposo). Alineado con Mapbox POI (~16–20px base). */
+const SPOT_PIN_SIZE = 14;
+const SPOT_PIN_SELECTED_SIZE = 32;
 const SPOT_PIN_STROKE = 2;
 const SPOT_PIN_SELECTED_STROKE = 3;
-const SPOT_PIN_ICON_SIZE = 20;
-const PIN_LABEL_FONT_SIZE = 11;
-const PIN_LABEL_GAP = 2;
-const PIN_LABEL_MAX_WIDTH = 80;
+const SPOT_PIN_ICON_SIZE = 18;
+const PIN_LABEL_FONT_SIZE = 13;
+const PIN_LABEL_FONT_SIZE_SELECTED = 14;
+const PIN_LABEL_GAP = 3;
+const PIN_LABEL_MAX_WIDTH = 90;
 const EXISTING_PIN_LABEL_FONT_SIZE = 10;
-const EXISTING_PIN_LABEL_GAP = 2;
-const EXISTING_PIN_LABEL_MAX_WIDTH = 80;
+const EXISTING_PIN_LABEL_GAP = 3;
+const EXISTING_PIN_LABEL_MAX_WIDTH = 90;
 const CREATING_PIN_LABEL_FONT_SIZE = 11;
-const CREATING_PIN_LABEL_GAP = 2;
+const CREATING_PIN_LABEL_GAP = 3;
 const CREATING_PIN_LABEL_MAX_WIDTH = 100;
 
 /** Pin de ubicación del usuario: círculo azul clásico. No reutiliza MapPinSpot. */
@@ -120,6 +121,7 @@ export function MapPinSpot({
   const outline = getSpotPinOutlineColor(colors);
   const labelColor = colors.text;
   const labelWeight = selected ? '600' : '500';
+  const labelFontSize = selected ? PIN_LABEL_FONT_SIZE_SELECTED : PIN_LABEL_FONT_SIZE;
 
   const isSavedPin = status === 'to_visit' || status === 'visited';
 
@@ -228,6 +230,11 @@ export function MapPinSpot({
               color: labelColor,
               opacity: 1,
               fontWeight: labelWeight,
+              fontSize: labelFontSize,
+              lineHeight: labelFontSize + 2,
+              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
+              textShadowOffset: { width: 0, height: 0 },
+              textShadowRadius: 2,
             },
           ]}
           numberOfLines={2}
@@ -297,6 +304,9 @@ export function MapPinCreating({
             {
               color: colors.text,
               fontWeight: '600',
+              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
+              textShadowOffset: { width: 0, height: 0 },
+              textShadowRadius: 2,
             },
           ]}
           numberOfLines={2}
@@ -357,6 +367,9 @@ export function MapPinExisting({
             styles.existingPinLabel,
             {
               color: colors.text,
+              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
+              textShadowOffset: { width: 0, height: 0 },
+              textShadowRadius: 2,
             },
           ]}
           numberOfLines={2}
@@ -432,8 +445,6 @@ const styles = StyleSheet.create({
     marginTop: -2,
   },
   spotPinLabel: {
-    fontSize: PIN_LABEL_FONT_SIZE,
-    lineHeight: PIN_LABEL_FONT_SIZE + 2,
     marginTop: PIN_LABEL_GAP,
     maxWidth: PIN_LABEL_MAX_WIDTH,
     textAlign: 'center',

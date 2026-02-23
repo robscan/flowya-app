@@ -2,7 +2,7 @@
 
 **Estado:** Documentado para ejecución por fases  
 **Prioridad:** Después de P0 (soft delete, create spot mínimo)  
-**Última actualización:** 2026-02-14
+**Última actualización:** 2026-02-22
 
 > Plan maestro de ajustes acordados para mapa y búsqueda en Explorar. Ejecución por micro-scopes; revisión tras cada MS para verificar ausencia de regresiones.
 
@@ -83,6 +83,7 @@
 - [x] Pin visible en Paso 0 cuando hay coords pendientes.
 - [x] Contrato CREATE_SPOT_PASO_0 actualizado.
 - [x] Bitácora 103.
+- [x] Extensión: preview pin al seleccionar sugerencia de búsqueda (poiTapped) — Bitácora 112.
 
 ---
 
@@ -109,10 +110,10 @@
 - Si B/C: validar con doc Mapbox y versión de react-map-gl.
 
 **DoD:**
-- [ ] Decisión landmarks vs POIs documentada.
-- [ ] POIs/landmarks visibles en zonas de prueba (Montjuïc, etc.).
-- [ ] Sin regresión en rendimiento ni legibilidad de pins Flowya.
-- [ ] Bitácora de cierre.
+- [x] Decisión landmarks vs POIs documentada (solo landmarks, no comerciales).
+- [x] Landmarks visibles vía showLandmarkIcons/showLandmarkIconLabels (FLOWYA/Standard).
+- [ ] Validar en zonas de prueba (Montjuïc, etc.).
+- [x] Bitácora 105.
 
 ---
 
