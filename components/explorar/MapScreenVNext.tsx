@@ -35,6 +35,7 @@ import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import { DuplicateSpotModal } from "@/components/ui/duplicate-spot-modal";
 import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
 import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
 import { useToast } from "@/components/ui/toast";
@@ -58,9 +59,11 @@ import {
     FLOWYA_MAP_STYLE_LIGHT,
     INITIAL_BEARING,
     INITIAL_PITCH,
+    MAP_BASEMAP_THEME,
     MAP_STYLE_STANDARD,
     SPOT_FOCUS_ZOOM,
     SPOT_POI_MATCH_TOLERANCE_KM,
+    USE_CORE_MAP_STYLES,
 } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
@@ -73,6 +76,7 @@ import {
 import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spotsStrategyProvider";
 import { onlyVisible } from "@/core/shared/visibility-softdelete";
 import { shareSpot } from "@/lib/share-spot";
+import { checkDuplicateSpot } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
 import {
@@ -104,9 +108,6 @@ const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
 const TOP_OVERLAY_INSET = 16;
 
-const USE_CORE_MAP_STYLES =
-  process.env.EXPO_PUBLIC_USE_CORE_MAP_STYLES === "true";
-
 export function MapScreenVNext() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -126,6 +127,7 @@ export function MapScreenVNext() {
   const prevSpotIdsRef = useRef<Set<string>>(new Set());
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
+  const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
   const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] =
     useState(false);
@@ -146,11 +148,18 @@ export function MapScreenVNext() {
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [is3DEnabled, setIs3DEnabled] = useState(USE_CORE_MAP_STYLES);
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
   const [poiTapped, setPoiTapped] = useState<{
     name: string;
     lat: number;
     lng: number;
+  } | null>(null);
+  /** Modal duplicado: Ver spot | Crear otro | Cerrar (2 pasos). */
+  const [duplicateModal, setDuplicateModal] = useState<{
+    existingTitle: string;
+    existingSpotId: string;
+    onCreateAnyway: () => void | Promise<void>;
   } | null>(null);
   const openFromSearchRef = useRef(false);
   const appliedSpotIdFromParamsRef = useRef<string | null>(null);
@@ -168,18 +177,21 @@ export function MapScreenVNext() {
   }, [createSpotNameOverlayOpen, createSpotInitialName]);
 
   useEffect(() => {
-    const updateAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const loadInitialAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       setIsAuthUser(!!user && !user.is_anonymous);
     };
-    updateAuth();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      updateAuth();
-    });
+    loadInitialAuth();
+    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setIsAuthUser(!session.user.is_anonymous);
+        } else {
+          setIsAuthUser(false);
+        }
+      }
+    );
     return () => subscription.unsubscribe();
   }, []);
 
@@ -259,6 +271,10 @@ export function MapScreenVNext() {
         ? filteredSpots.slice(0, MAP_PIN_CAP)
         : filteredSpots;
     if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
+    /** POI match: spot puede estar filtrado (ej. Visitados pero spot Por visitar). Incluir selectedSpot para mostrar pin y coherencia sheet↔mapa. */
+    if (selectedSpot && !base.some((s) => s.id === selectedSpot.id)) {
+      return [...base, selectedSpot];
+    }
     return base;
   }, [filteredSpots, selectedSpot, isPlacingDraftSpot]);
 
@@ -266,9 +282,14 @@ export function MapScreenVNext() {
     (coords: { lat: number; lng: number }) => void
   >(() => {});
   const onPinClickHandlerRef = useRef<(spot: Spot) => void>(() => {});
+  /** No centrar en usuario cuando volvemos de edit/create; fallback URL evita race con params. */
+  const skipCenterOnUser =
+    !!(params.spotId || params.created) ||
+    (typeof window !== "undefined" && /[?&](spotId|created)=/.test(window.location?.search ?? ""));
+
   const mapCore = useMapCore(selectedSpot, {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
-    skipCenterOnUser: !!(params.spotId || params.created),
+    skipCenterOnUser,
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => setSheetState("peek"),
     enableLandmarkLabels: true,
@@ -285,6 +306,7 @@ export function MapScreenVNext() {
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
+    is3DEnabled,
   });
   const {
     mapInstance,
@@ -304,8 +326,6 @@ export function MapScreenVNext() {
     handleMapPointerMove,
     handleMapPointerUp,
   } = mapCore;
-
-  const [is3DEnabled, setIs3DEnabled] = useState(USE_CORE_MAP_STYLES);
 
   const handleToggle3DPress = useCallback(() => {
     const next = !is3DEnabled;
@@ -335,7 +355,10 @@ export function MapScreenVNext() {
       .slice(0, 10);
   }, [filteredSpots, userCoords]);
 
+  /** Solo deseleccionar cuando el usuario cambia el filtro y el spot pasa a estar fuera. NO deseleccionar en tap POI cross-filter (Por visitar↔Visitados). */
   useEffect(() => {
+    if (prevPinFilterRef.current === pinFilter) return;
+    prevPinFilterRef.current = pinFilter;
     if (!selectedSpot) return;
     if (selectedSpot.id.startsWith("draft_")) return;
     if (!filteredSpots.some((s) => s.id === selectedSpot.id)) {
@@ -466,7 +489,7 @@ export function MapScreenVNext() {
       searchHistory.addCompletedQuery(searchV2.query);
       programmaticFlyTo(
         { lng: spot.longitude, lat: spot.latitude },
-        { zoom: 15, duration: 800 },
+        { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
       );
     });
   }, [programmaticFlyTo, searchHistory, searchV2]);
@@ -486,7 +509,8 @@ export function MapScreenVNext() {
     }
   }, [selectedSpot]);
 
-  /** Deep link intake: spotId + sheet=extended|medium → select spot, open sheet in that state, then clean params. See docs/contracts/DEEP_LINK_SPOT.md */
+  /** Deep link intake: spotId + sheet=extended|medium → select spot, open sheet in that state, then clean params. See docs/contracts/DEEP_LINK_SPOT.md.
+   * Siempre fetch desde DB para tener coords actualizadas (ej. tras editar ubicación). */
   useEffect(() => {
     const spotId = params.spotId;
     const sheetParam = params.sheet;
@@ -505,18 +529,14 @@ export function MapScreenVNext() {
       setSelectedSpot(spot);
       setSheetState(targetState); // extended → expanded, medium → medium
       addRecentViewedSpotId(spot.id);
-      // No flyTo aquí: el flyTo dispara movestart y colapsa el sheet a peek. Priorizamos que el sheet quede en expanded/medium.
+      setSpots((prev) =>
+        prev.some((s) => s.id === spot.id) ? prev : [...prev, spot],
+      );
       // Defer URL cleanup so React commits state first; avoids sheet flashing
       setTimeout(() => {
         (router.replace as (href: string) => void)("/(tabs)");
       }, 0);
     };
-
-    const fromList = spots.find((s) => s.id === spotId);
-    if (fromList) {
-      applySpot(fromList);
-      return;
-    }
 
     let cancelled = false;
     (async () => {
@@ -546,15 +566,12 @@ export function MapScreenVNext() {
         pinStatus: visited ? "visited" : saved ? "to_visit" : "default",
       };
       if (cancelled) return;
-      setSpots((prev) =>
-        prev.some((s) => s.id === spot.id) ? prev : [...prev, spot],
-      );
       applySpot(spot);
     })();
     return () => {
       cancelled = true;
     };
-  }, [params.spotId, params.sheet, spots, router]);
+  }, [params.spotId, params.sheet, router]);
 
   /** Post-create intake: created=<id> → select spot, open sheet expanded, then clean params. Preserva comportamiento Create Spot original (Explorar + SpotSheet extended). */
   useEffect(() => {
@@ -739,8 +756,8 @@ export function MapScreenVNext() {
           if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) continue;
           const [lng, lat] = geom.coordinates;
           if (typeof lat !== "number" || typeof lng !== "number") continue;
-          // CONTRATO SPOT_SHEET_CONTENT_RULES: match en filteredSpots (sin cap) para evitar falsos negativos
-          const match = filteredSpots.find(
+          // CONTRATO SPOT_SHEET_CONTENT_RULES: match en spots (lista completa) para evitar falsos negativos cuando filtro oculta spot
+          const match = spots.find(
             (s) => !s.id.startsWith("draft_") && distanceKm(s.latitude, s.longitude, lat, lng) <= SPOT_POI_MATCH_TOLERANCE_KM
           );
           if (match) {
@@ -758,18 +775,31 @@ export function MapScreenVNext() {
         /* ignore query errors */
       }
     },
-    [isPlacingDraftSpot, mapInstance, filteredSpots],
+    [isPlacingDraftSpot, mapInstance, spots],
   );
 
   useEffect(() => {
     searchV2.setOnCreate(handleCreateFromNoResults);
   }, [searchV2, handleCreateFromNoResults]);
 
-  /** Crear spot mínimo desde BORRADOR: insert + cover si hay imagen; reverse geocoding una vez → guardar address en DB; luego spot seleccionado y sheet MEDIUM. */
-  const handleCreateSpotFromDraft = useCallback(async () => {
-    const draft = selectedSpot;
-    if (!draft || !draft.id.startsWith("draft_")) return;
-    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+  /** Crear spot mínimo desde BORRADOR. skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
+  const handleCreateSpotFromDraft = useCallback(
+    async (skipDuplicateCheck = false) => {
+      const draft = selectedSpot;
+      if (!draft || !draft.id.startsWith("draft_")) return;
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      const titleToUse = draft.title?.trim() || "Nuevo spot";
+      if (!skipDuplicateCheck) {
+        const duplicateResult = await checkDuplicateSpot(titleToUse, draft.latitude, draft.longitude);
+        if (duplicateResult.duplicate) {
+          setDuplicateModal({
+            existingTitle: duplicateResult.existingTitle,
+            existingSpotId: duplicateResult.existingSpotId,
+            onCreateAnyway: () => handleCreateSpotFromDraft(true),
+          });
+          return;
+        }
+      }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -847,24 +877,35 @@ export function MapScreenVNext() {
           }
         });
     });
-  }, [
-    selectedSpot,
-    draftCoverUri,
-    requireAuthOrModal,
-    refetchSpots,
-    searchV2,
-    toast,
-  ]);
+    },
+    [selectedSpot, draftCoverUri, requireAuthOrModal, refetchSpots, searchV2, toast, setDuplicateModal],
+  );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
 
-  /** Crear spot desde POI tocado (tap en mapa). asToVisit = también añadir a "Por visitar". targetSheetState = estado del sheet tras crear (por defecto medium). */
+  /** Crear spot desde POI tocado (tap en mapa). asToVisit = también añadir a "Por visitar". targetSheetState = estado del sheet tras crear (por defecto medium). skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
   const handleCreateSpotFromPoi = useCallback(
-    async (asToVisit: boolean, targetSheetState: "medium" | "expanded" = "medium") => {
+    async (
+      asToVisit: boolean,
+      targetSheetState: "medium" | "expanded" = "medium",
+      skipDuplicateCheck = false,
+    ) => {
       const poi = poiTapped;
       if (!poi) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       setPoiSheetLoading(true);
+      if (!skipDuplicateCheck) {
+        const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
+        if (duplicateResult.duplicate) {
+          setPoiSheetLoading(false);
+          setDuplicateModal({
+            existingTitle: duplicateResult.existingTitle,
+            existingSpotId: duplicateResult.existingSpotId,
+            onCreateAnyway: () => handleCreateSpotFromPoi(asToVisit, targetSheetState, true),
+          });
+          return;
+        }
+      }
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -927,15 +968,28 @@ export function MapScreenVNext() {
           });
       });
     },
-    [poiTapped, requireAuthOrModal, refetchSpots, toast],
+    [poiTapped, requireAuthOrModal, refetchSpots, setDuplicateModal],
   );
 
-  /** Crear spot desde POI y compartir. */
-  const handleCreateSpotFromPoiAndShare = useCallback(async () => {
-    const poi = poiTapped;
-    if (!poi) return;
-    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-    setPoiSheetLoading(true);
+  /** Crear spot desde POI y compartir. skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
+  const handleCreateSpotFromPoiAndShare = useCallback(
+    async (skipDuplicateCheck = false) => {
+      const poi = poiTapped;
+      if (!poi) return;
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      setPoiSheetLoading(true);
+      if (!skipDuplicateCheck) {
+        const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
+        if (duplicateResult.duplicate) {
+          setPoiSheetLoading(false);
+          setDuplicateModal({
+            existingTitle: duplicateResult.existingTitle,
+            existingSpotId: duplicateResult.existingSpotId,
+            onCreateAnyway: () => handleCreateSpotFromPoiAndShare(true),
+          });
+          return;
+        }
+      }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -988,7 +1042,53 @@ export function MapScreenVNext() {
     setPoiSheetLoading(false);
     setSheetState("medium");
     refetchSpots();
-  }, [poiTapped, requireAuthOrModal, refetchSpots, toast]);
+  }, [poiTapped, requireAuthOrModal, refetchSpots, toast, setDuplicateModal]);
+
+  /** Ver spot existente (desde modal duplicado): abre sheet MEDIUM con pin seleccionado. */
+  const handleViewExistingSpot = useCallback(
+    (spotId: string) => {
+      setPoiTapped(null);
+      const fromList = spots.find((s) => s.id === spotId);
+      if (fromList) {
+        setPinFilter("all");
+        setSelectedSpot(fromList);
+        setSheetState("medium");
+        addRecentViewedSpotId(fromList.id);
+        programmaticFlyTo(
+          { lng: fromList.longitude, lat: fromList.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
+        );
+        return;
+      }
+      (async () => {
+        const { data, error } = await supabase
+          .from("spots")
+          .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
+          .eq("id", spotId)
+          .eq("is_hidden", false)
+          .single();
+        if (error || !data) return;
+        const pinMap = await getPinsForSpots([data.id]);
+        const state = pinMap.get(data.id);
+        const spot: Spot = {
+          ...(data as Omit<Spot, "saved" | "visited" | "pinStatus">),
+          saved: state?.saved ?? false,
+          visited: state?.visited ?? false,
+          pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
+        };
+        setSpots((prev) => (prev.some((s) => s.id === spot.id) ? prev : [...prev, spot]));
+        setPinFilter("all");
+        setSelectedSpot(spot);
+        setSheetState("medium");
+        addRecentViewedSpotId(spot.id);
+        programmaticFlyTo(
+          { lng: spot.longitude, lat: spot.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
+        );
+      })();
+    },
+    [spots, programmaticFlyTo],
+  );
 
   const SKIP_CREATE_SPOT_CONFIRM_KEY = "flowya_create_spot_skip_confirm";
 
@@ -1235,7 +1335,12 @@ export function MapScreenVNext() {
       ? FLOWYA_MAP_STYLE_DARK
       : FLOWYA_MAP_STYLE_LIGHT;
   const mapConfig = USE_CORE_MAP_STYLES
-    ? { basemap: { lightPreset: colorScheme === "dark" ? "night" : "day" } }
+    ? {
+        basemap: {
+          lightPreset: colorScheme === "dark" ? "night" : "day",
+          ...(MAP_BASEMAP_THEME !== "default" && { theme: MAP_BASEMAP_THEME }),
+        },
+      }
     : undefined;
 
   const initialViewState = USE_CORE_MAP_STYLES
@@ -1267,18 +1372,22 @@ export function MapScreenVNext() {
         styleMap={styles.map}
         onClick={handleMapClick}
         previewPinCoords={
-          createSpotNameOverlayOpen && createSpotPendingCoords
-            ? createSpotPendingCoords
-            : poiTapped != null && selectedSpot == null
-              ? { lat: poiTapped.lat, lng: poiTapped.lng }
-              : null
+          selectedSpot?.id.startsWith("draft_")
+            ? { lat: selectedSpot.latitude, lng: selectedSpot.longitude }
+            : createSpotNameOverlayOpen && createSpotPendingCoords
+              ? createSpotPendingCoords
+              : poiTapped != null && selectedSpot == null
+                ? { lat: poiTapped.lat, lng: poiTapped.lng }
+                : null
         }
         previewPinLabel={
-          createSpotNameOverlayOpen
-            ? createSpotNameValue
-            : poiTapped != null && selectedSpot == null
-              ? poiTapped.name
-              : null
+          selectedSpot?.id.startsWith("draft_")
+            ? selectedSpot.title ?? null
+            : createSpotNameOverlayOpen
+              ? createSpotNameValue
+              : poiTapped != null && selectedSpot == null
+                ? poiTapped.name
+                : null
         }
       />
       {selectedSpot && selectedPinScreenPos ? (
@@ -1549,6 +1658,16 @@ export function MapScreenVNext() {
         onConfirm={handleCreateSpotConfirm}
         onCancel={handleCreateSpotConfirmCancel}
       />
+      {duplicateModal ? (
+        <DuplicateSpotModal
+          visible={true}
+          existingTitle={duplicateModal.existingTitle}
+          existingSpotId={duplicateModal.existingSpotId}
+          onViewSpot={() => handleViewExistingSpot(duplicateModal.existingSpotId)}
+          onCreateAnyway={duplicateModal.onCreateAnyway}
+          onClose={() => setDuplicateModal(null)}
+        />
+      ) : null}
     </View>
   );
 }

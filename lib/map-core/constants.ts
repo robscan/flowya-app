@@ -13,9 +13,15 @@ export const FLOWYA_MAP_STYLE_LIGHT =
 export const FLOWYA_MAP_STYLE_DARK =
   "mapbox://styles/robscan/cmlyfk2g1000i01rzcgy0d8cl";
 
-/** Mapbox Standard (basemap configurable). Para Explore cuando EXPO_PUBLIC_USE_CORE_MAP_STYLES=true.
+/** Mapbox Standard (basemap configurable). Para Explore.
  * light-v11/dark-v11 son clásicos sin basemap; Standard permite showLandmarkIcons, hideCommercialPOIs, etc. */
 export const MAP_STYLE_STANDARD = "mapbox://styles/mapbox/standard";
+
+/** Mapbox Standard + 3D para Explore. Toggle centralizado aquí; cambiar a false para usar FLOWYA Studio. */
+export const USE_CORE_MAP_STYLES = true;
+
+/** Theme del basemap Standard: "default" (alto contraste) | "faded" (suavizado). Rollback: cambiar a "default". */
+export const MAP_BASEMAP_THEME: "default" | "faded" = "faded";
 
 /** Fallback cuando geolocalización está denegada o no disponible (Riviera Maya). */
 export const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
@@ -38,7 +44,11 @@ export const SPOT_POI_MATCH_TOLERANCE_KM = 0.025;
 
 export const FIT_BOUNDS_PADDING = 64;
 export const FIT_BOUNDS_DURATION_MS = 1200;
-export const SPOT_FOCUS_ZOOM = 15;
+/** Zoom al encuadrar spot (card búsqueda, control encuadrar). 17 = nivel edificio. */
+export const SPOT_FOCUS_ZOOM = 17;
+
+/** Padding inferior (px) al flyTo cuando sheet medium/expanded. El spot queda en zona visible. */
+export const SPOT_FOCUS_PADDING_BOTTOM = 220;
 
 export const LONG_PRESS_MS = 3000;
 export const LONG_PRESS_DRAG_THRESHOLD_PX = 10;

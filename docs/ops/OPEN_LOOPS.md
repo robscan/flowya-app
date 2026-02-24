@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-23
+**Fecha:** 2026-02-22
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
@@ -229,3 +229,21 @@ Notas personales por spot; entry desde SpotSheet cuando saved/visited; dos boton
 Un MS por PR; revisión tras cada uno.
 
 **Nota (2026-02-22):** Preview pin al seleccionar sugerencia de búsqueda (POI) implementado como extensión del flujo search→create. Bitácora 112.
+
+---
+
+### Plan Explore Anti-duplicados y UX
+
+**Estado:** CERRADO (2026-02-22, bitácora 114)
+
+| MS | Título |
+|----|--------|
+| MS-1 | 3D default en código (sin .env) |
+| MS-2 | Contrato ANTI_DUPLICATE_SPOT_RULES |
+| MS-3 | Match POI-spot con lista completa |
+| MS-4 | checkDuplicateSpot en flujos POI y Draft |
+| MS-4b | DuplicateSpotModal 2 pasos (Ver / Crear otro / Cerrar) |
+| MS-5 | Pin visible en pasos draft |
+| MS-6 | Altura sheet draft (anchor adaptativo) |
+
+Contrato: `docs/contracts/ANTI_DUPLICATE_SPOT_RULES.md`.

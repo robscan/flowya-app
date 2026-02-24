@@ -173,16 +173,12 @@ export default function CreateSpotScreen() {
 
   /** OL-009: Al detectar login (ej. usuario completa magic link), permitir wizard. */
   useEffect(() => {
+    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === 'SIGNED_IN') {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user && !user.is_anonymous) {
-          setIsAuthenticated(true);
-        }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user && !session.user.is_anonymous) {
+        setIsAuthenticated(true);
       }
     });
     return () => subscription.unsubscribe();

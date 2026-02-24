@@ -5,7 +5,7 @@
 
 import type { ActiveMapControl } from '@/components/design-system/map-controls';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
 
 import MapboxLanguage from '@mapbox/mapbox-gl-language';
@@ -25,6 +25,7 @@ import {
   LONG_PRESS_DRAG_THRESHOLD_PX,
   LONG_PRESS_MS,
   set3DBuildingsEnabled,
+  SPOT_FOCUS_PADDING_BOTTOM,
   SPOT_FOCUS_ZOOM,
   showLandmarkLabels,
   tryCenterOnUser,
@@ -52,6 +53,8 @@ export type UseMapCoreOptions = {
   selectedSpotId?: string | null;
   /** Llamado al hacer click en un spot de la capa. */
   onPinClick?: (spot: SpotForLayer) => void;
+  /** Si true, flyTo usa pitch 3D y padding para sheet. Si false, flyTo 2D (respeta preferencia usuario). */
+  is3DEnabled?: boolean;
 };
 
 const GEO_OPTIONS: PositionOptions = {
@@ -98,7 +101,20 @@ export function useMapCore(
     spots = [],
     selectedSpotId = null,
     onPinClick,
+    is3DEnabled = false,
   } = options;
+
+  const flyToOptions = useMemo(
+    () => ({
+      zoom: SPOT_FOCUS_ZOOM,
+      duration: FIT_BOUNDS_DURATION_MS,
+      ...(is3DEnabled && {
+        pitch: INITIAL_PITCH,
+        padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+      }),
+    }),
+    [is3DEnabled],
+  );
 
   const spotsRef = useRef<SpotForLayer[]>(spots);
   const onPinClickRef = useRef(onPinClick);
@@ -234,10 +250,9 @@ export function useMapCore(
     setActiveMapControl('spot');
     mapInstance.flyTo({
       center: [selectedSpot.longitude, selectedSpot.latitude],
-      zoom: SPOT_FOCUS_ZOOM,
-      duration: FIT_BOUNDS_DURATION_MS,
+      ...flyToOptions,
     });
-  }, [mapInstance, selectedSpot]);
+  }, [mapInstance, selectedSpot, flyToOptions]);
 
   const handleReframeSpotAndUser = useCallback(() => {
     if (!mapInstance || !selectedSpot) return;
@@ -253,8 +268,7 @@ export function useMapCore(
       if (pts.length === 1) {
         mapInstance.flyTo({
           center: [pts[0].longitude, pts[0].latitude],
-          zoom: SPOT_FOCUS_ZOOM,
-          duration: FIT_BOUNDS_DURATION_MS,
+          ...flyToOptions,
         });
       } else {
         let minLng = Infinity;
@@ -292,7 +306,7 @@ export function useMapCore(
     } else {
       runReframe(userCoords);
     }
-  }, [mapInstance, selectedSpot, userCoords]);
+  }, [mapInstance, selectedSpot, userCoords, flyToOptions]);
 
   const handleViewWorld = useCallback(() => {
     if (!mapInstance) return;
@@ -318,11 +332,15 @@ export function useMapCore(
       programmaticMoveRef.current = true;
       mapInstance.flyTo({
         center: [center.lng, center.lat],
-        zoom: options?.zoom ?? 15,
-        duration: options?.duration ?? 800,
+        zoom: options?.zoom ?? SPOT_FOCUS_ZOOM,
+        duration: options?.duration ?? FIT_BOUNDS_DURATION_MS,
+        ...(is3DEnabled && {
+          pitch: INITIAL_PITCH,
+          padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+        }),
       });
     },
-    [mapInstance]
+    [mapInstance, is3DEnabled],
   );
 
   useEffect(() => {

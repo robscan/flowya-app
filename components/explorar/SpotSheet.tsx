@@ -360,6 +360,8 @@ function ExpandedExtra({
 
 /** Estilos alineados con create-spot "Foto de portada" (celda canónica). */
 const DRAFT_COVER_ADD_MIN_HEIGHT = 100 + 28; // 128, mismo que coverAddWrapLarge
+/** Altura aproximada del body draft (DraftInlineEditor: label + add cell + botón) para anchor adaptativo. */
+const DRAFT_BODY_HEIGHT_ESTIMATE = 260;
 
 /** BORRADOR confirmado: Imagen (opcional) + CTA Crear spot. Sin campos de texto. Celda canónica = create-spot. */
 function DraftInlineEditor({
@@ -615,6 +617,9 @@ export function SpotSheet({
   const mediumAnchor = Math.round(vh * ANCHOR_MEDIUM_RATIO);
   const expandedAnchor = Math.round(vh * ANCHOR_EXPANDED_RATIO);
 
+  const isDraftForAnchor = spot ? spot.id.startsWith("draft_") : false;
+  const isDraftWithMinimalContent = isDraftForAnchor && !isPlacingDraftSpot;
+
   /** Altura total del contenido (header + body + padding) para no dejar espacio vacío bajo el sheet. */
   const mediumContentTotal =
     collapsedAnchor + mediumBodyContentHeight + CONTAINER_PADDING_BOTTOM;
@@ -626,10 +631,16 @@ export function SpotSheet({
     mediumBodyContentHeight > 0
       ? Math.min(mediumAnchor, mediumContentTotal)
       : mediumAnchor;
-  const expandedVisible =
+  const expandedVisibleRaw =
     (fullBodyContentHeight || mediumBodyContentHeight) > 0
       ? Math.min(expandedAnchor, expandedContentTotal)
       : expandedAnchor;
+  /** Draft "Agregar imagen": anchor adaptativo para evitar sheet alto + scroll innecesario (MS-6). */
+  const draftExpandedCap =
+    collapsedAnchor + DRAFT_BODY_HEIGHT_ESTIMATE + CONTAINER_PADDING_BOTTOM;
+  const expandedVisible = isDraftWithMinimalContent
+    ? Math.min(expandedVisibleRaw, draftExpandedCap)
+    : expandedVisibleRaw;
 
   const translateYToAnchor = useCallback(
     (s: SheetState) => {
@@ -894,6 +905,9 @@ export function SpotSheet({
   if (spot == null && !poi) return null;
 
   const isDraft = spot ? spot.id.startsWith("draft_") : false;
+  /** Draft "Agregar imagen": contenido mínimo, sin scroll necesario (MS-6). */
+  const effectiveBodyNeedsScroll =
+    isDraft && !isPlacingDraftSpot ? false : bodyNeedsScroll;
   const colors = Colors[colorScheme ?? "light"];
   const hasDesc = spot ? Boolean(spot.description_short?.trim()) : false;
   const hasCover = spot ? Boolean(spot.cover_image_url) : false;
@@ -1055,7 +1069,7 @@ export function SpotSheet({
       {/* CONTRATO scroll único: un solo ScrollView en body; header fijo; scroll solo si overflow */}
       {/* Body MEDIUM: solo descripción + imagen + Guardar/Visitado; altura al contenido; scroll solo si supera max */}
       {isMedium ? (
-        bodyNeedsScroll ? (
+        effectiveBodyNeedsScroll ? (
           <ScrollView
             style={[styles.bodyScroll, { maxHeight: maxBodyHeight }]}
             contentContainerStyle={styles.bodyContentWrap}
@@ -1150,7 +1164,7 @@ export function SpotSheet({
 
       {/* Body EXPANDED: medium + resto (distancia, Por qué, dirección, Cómo llegar, Editar); para draft solo DraftInlineEditor */}
       {isExpanded ? (
-        bodyNeedsScroll ? (
+        effectiveBodyNeedsScroll ? (
           <ScrollView
             style={[styles.bodyScroll, { maxHeight: maxBodyHeight }]}
             contentContainerStyle={styles.bodyContentWrap}
@@ -1431,11 +1445,13 @@ const styles = StyleSheet.create({
   },
   bodyScroll: {
     flexGrow: 0,
+    flexShrink: 1,
   },
   bodyContentWrap: {
     paddingHorizontal: BODY_PADDING_H,
     paddingBottom: 16,
     rowGap: BODY_ROW_GAP,
+    flexGrow: 0,
   },
   bodyContentInner: {
     rowGap: BODY_ROW_GAP,

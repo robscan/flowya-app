@@ -191,6 +191,7 @@
 ## 5. Trazabilidad
 
 - **OPEN_LOOPS:** OL-P0-003 (long-press) se cierra con MS-A. OL-PLAN-EXPLORE referencia este plan.
+- **Bitácora 118:** Zoom canónico al seleccionar desde búsqueda + post-edit siempre encuadra en ubicación del spot (no en usuario).
 - **CURRENT_STATE:** Referencia a este plan en "Foco siguiente" o "Plan documentado".
 - **Bitácoras:** Una por MS al cerrar (ej. `10X-ms-explore-long-press.md`).
 - **EXPLORE_UX_MICROSCOPES:** Este plan es independiente; MS1-MS3 ya tienen bitácoras propias. No sobrescribir.

@@ -91,18 +91,21 @@ export function MapScreenV0() {
   const onLongPressRef = useRef<(coords: { lat: number; lng: number }) => void>(() => {});
 
   useEffect(() => {
-    const updateAuth = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+    const loadInitialAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       setIsAuthUser(!!user && !user.is_anonymous);
     };
-    updateAuth();
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      updateAuth();
-    });
+    loadInitialAuth();
+    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          setIsAuthUser(!session.user.is_anonymous);
+        } else {
+          setIsAuthUser(false);
+        }
+      }
+    );
     return () => subscription.unsubscribe();
   }, []);
 
