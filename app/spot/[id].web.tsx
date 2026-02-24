@@ -313,14 +313,12 @@ function SpotDetailScreenContent({
     };
   }, []);
   useEffect(() => {
+    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event) => {
-      if (event === "SIGNED_IN") {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        setIsAuthenticated(!!user && !user.is_anonymous);
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_IN" && session?.user) {
+        setIsAuthenticated(!session.user.is_anonymous);
       }
     });
     return () => subscription.unsubscribe();

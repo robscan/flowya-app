@@ -22,8 +22,9 @@
 
 ---
 
-## Hoy (2026-02-23)
+## Hoy (2026-02-22)
 
+- **Plan Explore Anti-duplicados y UX cerrado:** Bitácora 114. MS-1 a MS-6: 3D default, contrato ANTI_DUPLICATE_SPOT_RULES, checkDuplicateSpot en todos los entry points, DuplicateSpotModal (Ver spot | Crear otro | Cerrar), pin visible en pasos draft, altura sheet draft adaptativa. Contrato `docs/contracts/ANTI_DUPLICATE_SPOT_RULES.md`.
 - **Plan documentado (post-P0):** Ajustes Explore mapa + búsqueda en `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A a MS-E). MS-A, MS-B, MS-C, MS-D completados; MS-E pendiente.
 - **Preview pin al seleccionar sugerencia de búsqueda (POI):** flyTo + pin en coordenadas del lugar. Bitácora 112.
 - **Otros ajustes sesión:** Bitácora 113 — fix mapa post-edición (flyTo spot editado), placeholder buscador "Buscar en esta zona del mapa…", sheet POI unificado con SpotSheet, sync selectedSpot con filteredSpots, estado de carga al crear spot desde POI, nombre spot con wrap, desfase sheet expanded, controles y botón crear spot.

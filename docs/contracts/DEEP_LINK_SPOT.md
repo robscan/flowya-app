@@ -37,6 +37,7 @@
   - `getMapSpotDeepLink(spotId, sheet?)` — default `extended` (post-edit).
   - `getMapSpotShareUrl(spotId)` — usa `sheet=medium`.
 - **Consumo:** MapScreenVNext lee `spotId` y `sheet`; mapea `extended` → `setSheetState('expanded')`, `medium` → `setSheetState('medium')`; luego limpia params.
+- **Intake spotId:** MapScreenVNext siempre hace fetch del spot por id en DB (no usa caché local) para tener coordenadas actuales. Garantiza encuadre correcto tras post-edit con cambio de ubicación.
 
 ---
 
