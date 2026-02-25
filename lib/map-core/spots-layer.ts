@@ -26,21 +26,12 @@ const CIRCLES_LAYER_ID = 'flowya-spots-circles';
 const MAKIS_LAYER_ID = 'flowya-spots-makis';
 const LABELS_LAYER_ID = 'flowya-spots-labels';
 
-function makiToGlyph(maki?: string | null): string {
+function makiToIconName(maki?: string | null): string {
   const normalized = (maki ?? '').trim().toLowerCase();
-  if (!normalized) return '+';
-  if (normalized.includes('museum')) return 'M';
-  if (normalized.includes('park') || normalized.includes('garden')) return 'P';
-  if (normalized.includes('beach') || normalized.includes('water')) return 'W';
-  if (normalized.includes('restaurant') || normalized.includes('food')) return 'F';
-  if (normalized.includes('religious') || normalized.includes('church') || normalized.includes('temple'))
-    return 'R';
-  if (normalized.includes('monument') || normalized.includes('landmark')) return 'L';
-  if (normalized.includes('hotel') || normalized.includes('lodging')) return 'H';
-  if (normalized.includes('shopping') || normalized.includes('shop')) return 'S';
-  if (normalized.includes('airport') || normalized.includes('bus') || normalized.includes('rail'))
-    return 'T';
-  return normalized.charAt(0).toUpperCase() || '+';
+  if (!normalized) return 'marker-15';
+  // Maki sprite names usually use -11 / -15 suffix.
+  if (/-\d{1,2}$/.test(normalized)) return normalized;
+  return `${normalized}-11`;
 }
 
 function spotsToGeoJSON(
@@ -49,7 +40,7 @@ function spotsToGeoJSON(
   zoom: number
 ): GeoJSON.FeatureCollection<
   GeoJSON.Point,
-  { id: string; title: string; pinStatus: string; selected: boolean; makiGlyph: string }
+  { id: string; title: string; pinStatus: string; selected: boolean; makiIcon: string }
 > {
   return {
     type: 'FeatureCollection',
@@ -64,7 +55,7 @@ function spotsToGeoJSON(
         title: s.title ?? '',
         pinStatus: s.pinStatus ?? 'default',
         selected: s.id === selectedSpotId,
-        makiGlyph: makiToGlyph(s.linkedMaki),
+        makiIcon: makiToIconName(s.linkedMaki),
       },
     })),
   };
@@ -165,16 +156,22 @@ export function setupSpotsLayer(
             type: 'symbol',
             source: SOURCE_ID,
             layout: {
-              'text-field': ['get', 'makiGlyph'],
-              'text-font': ['Noto Sans Bold', 'Arial Unicode MS Bold'],
-              'text-size': 10,
-              'text-anchor': 'center',
+              // If maki icon is unavailable in current sprite, fallback to marker-15.
+              'icon-image': [
+                'coalesce',
+                ['image', ['get', 'makiIcon']],
+                ['image', 'marker-15'],
+              ],
+              'icon-size': [
+                'case',
+                ['get', 'selected'],
+                0.95,
+                0.8,
+              ],
               'text-allow-overlap': true,
-            },
-            paint: {
-              'text-color': '#ffffff',
-              'text-halo-color': isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.15)',
-              'text-halo-width': 1,
+              'icon-allow-overlap': true,
+              'icon-ignore-placement': true,
+              'icon-anchor': 'center',
             },
             filter: ['in', ['get', 'pinStatus'], ['literal', ['to_visit', 'visited']]],
           },
