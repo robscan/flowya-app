@@ -60,7 +60,6 @@ import {
     INITIAL_BEARING,
     INITIAL_PITCH,
     SPOT_FOCUS_ZOOM,
-    SPOT_POI_MATCH_TOLERANCE_KM,
 } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
@@ -76,6 +75,7 @@ import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
+import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
     getRecentViewedSpotIds,
@@ -93,6 +93,9 @@ type Spot = {
   longitude: number;
   saved: boolean;
   visited: boolean;
+  link_status?: "linked" | "uncertain" | "unlinked" | null;
+  linked_place_id?: string | null;
+  linked_place_kind?: "poi" | "landmark" | null;
   /** Derivado de saved/visited para map-pins (visited > saved > default). */
   pinStatus?: SpotPinStatus;
 };
@@ -105,6 +108,8 @@ type TappedMapFeature = {
   lat: number;
   lng: number;
   kind: TappedMapFeatureKind;
+  placeId: string | null;
+  maki: string | null;
   visualState: TappedMapFeatureVisualState;
 };
 
@@ -125,9 +130,36 @@ function classifyTappedFeatureKind(
   return "poi";
 }
 
+function getTappedFeatureId(
+  featureId: unknown,
+  props?: Record<string, unknown> | null,
+): string | null {
+  const candidates: unknown[] = [
+    featureId,
+    props?.mapbox_id,
+    props?.place_id,
+    props?.id,
+    props?.feature_id,
+  ];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
+function getTappedFeatureMaki(props?: Record<string, unknown> | null): string | null {
+  const candidates: unknown[] = [props?.maki, props?.icon];
+  for (const value of candidates) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
+const LINKED_TAP_FALLBACK_TOLERANCE_KM = 0.012;
 const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
@@ -223,7 +255,7 @@ export function MapScreenVNext() {
     const { data } = await supabase
       .from("spots")
       .select(
-        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude",
+        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind",
       )
       .eq("is_hidden", false);
     const list = (data ?? []) as Omit<
@@ -746,6 +778,8 @@ export function MapScreenVNext() {
         lat: place.lat,
         lng: place.lng,
         kind: "poi",
+        placeId: place.id,
+        maki: place.maki ?? null,
         visualState: "default",
       });
       setSheetState("medium");
@@ -784,10 +818,28 @@ export function MapScreenVNext() {
           if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) continue;
           const [lng, lat] = geom.coordinates;
           if (typeof lat !== "number" || typeof lng !== "number") continue;
-          // CONTRATO SPOT_SHEET_CONTENT_RULES: match en spots (lista completa) para evitar falsos negativos cuando filtro oculta spot
-          const match = spots.find(
-            (s) => !s.id.startsWith("draft_") && distanceKm(s.latitude, s.longitude, lat, lng) <= SPOT_POI_MATCH_TOLERANCE_KM
+          const tappedFeatureId = getTappedFeatureId(
+            f.id,
+            props as Record<string, unknown>,
           );
+          const strictMatch = tappedFeatureId
+            ? spots.find(
+                (s) =>
+                  !s.id.startsWith("draft_") &&
+                  s.link_status === "linked" &&
+                  typeof s.linked_place_id === "string" &&
+                  s.linked_place_id === tappedFeatureId,
+              )
+            : undefined;
+          const proximityLinkedFallback =
+            strictMatch ??
+            spots.find(
+              (s) =>
+                !s.id.startsWith("draft_") &&
+                s.link_status === "linked" &&
+                distanceKm(s.latitude, s.longitude, lat, lng) <= LINKED_TAP_FALLBACK_TOLERANCE_KM,
+            );
+          const match = proximityLinkedFallback;
           if (match) {
             setSelectedSpot(match);
             setSheetState("medium");
@@ -800,6 +852,8 @@ export function MapScreenVNext() {
               lat,
               lng,
               kind,
+              placeId: tappedFeatureId,
+              maki: getTappedFeatureMaki(props as Record<string, unknown>),
               visualState: "default",
             });
             setSheetState("medium");
@@ -971,6 +1025,12 @@ export function MapScreenVNext() {
           latitude: poi.lat,
           longitude: poi.lng,
           address: null,
+          link_status: poi.placeId ? "linked" : "unlinked",
+          linked_place_id: poi.placeId,
+          linked_place_kind: poi.placeId ? poi.kind : null,
+          linked_maki: poi.placeId ? poi.maki : null,
+          linked_at: poi.placeId ? new Date().toISOString() : null,
+          link_version: poi.placeId ? SPOT_LINK_VERSION : null,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;
@@ -1067,6 +1127,12 @@ export function MapScreenVNext() {
           latitude: poi.lat,
           longitude: poi.lng,
           address: null,
+          link_status: poi.placeId ? "linked" : "unlinked",
+          linked_place_id: poi.placeId,
+          linked_place_kind: poi.placeId ? poi.kind : null,
+          linked_maki: poi.placeId ? poi.maki : null,
+          linked_at: poi.placeId ? new Date().toISOString() : null,
+          link_version: poi.placeId ? SPOT_LINK_VERSION : null,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;

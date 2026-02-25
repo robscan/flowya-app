@@ -129,11 +129,11 @@ export function set3DBuildingsEnabled(map: MapboxMap, enabled: boolean): void {
   }
 }
 
-/** Activa iconos y labels de landmarks en estilo FLOWYA (Mapbox Studio). */
-export function showLandmarkLabels(map: MapboxMap): void {
+/** Activa/desactiva iconos y labels de landmarks en estilo FLOWYA (Mapbox Studio). */
+export function setLandmarkLabelsEnabled(map: MapboxMap, enabled: boolean): void {
   try {
-    map.setConfigProperty('basemap', 'showLandmarkIcons', true);
-    map.setConfigProperty('basemap', 'showLandmarkIconLabels', true);
+    map.setConfigProperty('basemap', 'showLandmarkIcons', enabled);
+    map.setConfigProperty('basemap', 'showLandmarkIconLabels', enabled);
   } catch {
     // ignore if style has no basemap import
   }

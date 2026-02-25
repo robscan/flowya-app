@@ -20,10 +20,10 @@ import {
   INITIAL_PITCH,
   LONG_PRESS_DRAG_THRESHOLD_PX,
   LONG_PRESS_MS,
+  setLandmarkLabelsEnabled,
   set3DBuildingsEnabled,
   SPOT_FOCUS_PADDING_BOTTOM,
   SPOT_FOCUS_ZOOM,
-  showLandmarkLabels,
   tryCenterOnUser,
   type UserCoords,
   WORLD_BOUNDS,
@@ -161,9 +161,7 @@ export function useMapCore(
       setZoom(map.getZoom());
       applyGlobeAndAtmosphere(map);
       hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
-      if (enableLandmarkLabels) {
-        showLandmarkLabels(map);
-      }
+      setLandmarkLabelsEnabled(map, enableLandmarkLabels);
       if (!skipCenterOnUser) {
         tryCenterOnUser(map, (coords) => {
           if (mountedRef.current) setUserCoords(coords);
