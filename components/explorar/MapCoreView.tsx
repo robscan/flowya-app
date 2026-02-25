@@ -13,6 +13,7 @@ import type {
 } from 'react-map-gl/mapbox-legacy';
 import mapboxgl from 'mapbox-gl';
 import { Map, Marker } from 'react-map-gl/mapbox-legacy';
+import { StyleSheet, View } from 'react-native';
 
 try {
   // Evita ruido de warnings internos del style/featuresets; mantiene errores visibles.
@@ -28,6 +29,9 @@ export type MapCoreSpot = {
   longitude: number;
   pinStatus?: SpotPinStatus;
 };
+
+export type PreviewPinKind = 'spot' | 'poi' | 'landmark';
+export type PreviewPinState = 'default' | 'to_visit';
 
 export type MapCoreViewProps = {
   mapboxAccessToken: string;
@@ -52,6 +56,8 @@ export type MapCoreViewProps = {
   onClick?: (e: { lngLat: { lat: number; lng: number }; point?: { x: number; y: number } }) => void;
   /** Pin de preview (ej. Paso 0 create spot): muestra posición donde se creará el spot. No interactivo. */
   previewPinCoords?: { lat: number; lng: number } | null;
+  previewPinKind?: PreviewPinKind;
+  previewPinState?: PreviewPinState;
   /** Label del pin de preview (ej. nombre que el usuario escribe). */
   previewPinLabel?: string | null;
 };
@@ -73,8 +79,12 @@ export function MapCoreView({
   onMoveEnd,
   onClick,
   previewPinCoords = null,
+  previewPinKind = 'spot',
+  previewPinState = 'default',
   previewPinLabel = null,
 }: MapCoreViewProps) {
+  const previewPoiColor = previewPinState === 'to_visit' ? '#e6862b' : '#1d1d1f';
+
   return (
     <Map
         key={mapStyle}
@@ -110,13 +120,55 @@ export function MapCoreView({
             longitude={previewPinCoords.lng}
             anchor="center"
           >
-            <MapPinSpot
-              status="default"
-              selected
-              label={previewPinLabel?.trim() || undefined}
-            />
+            {previewPinKind === 'landmark' ? (
+              <View style={styles.landmarkBadgeWrap}>
+                <View
+                  style={[
+                    styles.landmarkBadgeDot,
+                    {
+                      backgroundColor: previewPoiColor,
+                    },
+                  ]}
+                />
+              </View>
+            ) : previewPinKind === 'poi' ? (
+              <View
+                style={[
+                  styles.poiDot,
+                  {
+                    backgroundColor: previewPoiColor,
+                  },
+                ]}
+              />
+            ) : (
+              <MapPinSpot
+                status="default"
+                selected
+                label={previewPinLabel?.trim() || undefined}
+              />
+            )}
           </Marker>
         ) : null}
     </Map>
   );
 }
+
+const styles = StyleSheet.create({
+  poiDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.95)',
+  },
+  landmarkBadgeWrap: {
+    transform: [{ translateX: 8 }, { translateY: -8 }],
+  },
+  landmarkBadgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.95)',
+  },
+});

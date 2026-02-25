@@ -239,6 +239,36 @@
 
 ---
 
+### OL-P0-004 — Visibilidad de spots según enlace POI/Landmark (linked/unlinked)
+
+**Estado:** ACTIVO
+
+**Problema:** Con mayor cobertura de POIs/Landmarks, los spots sin estado (`saved=false`, `visited=false`) generan ruido visual cuando ya existe señal de basemap para ese lugar.
+
+**Decisión de trabajo (en evaluación guiada):**
+- Si un spot está **enlazado** a POI/Landmark y no está en `Por visitar` ni `Visitado`, ocultar pin FLOWYA y dejar visible señal base.
+- Si un spot está **no enlazado** (zona sin POI), mantener visual FLOWYA aunque no tenga estado.
+- Evitar borrado destructivo de spots existentes en esta fase.
+
+**DoD / AC**
+- Modelo de enlace definido (`linked`, `unlinked`, `uncertain`) con score y trazabilidad.
+- Regla de render implementada detrás de feature flag, sin regresión en tap→sheet.
+- Backfill no destructivo para spots existentes con reporte de calidad.
+- Documentación actualizada: contrato de datos/mapa + bitácora de implementación.
+
+**Riesgos clave a mitigar**
+- Falsos positivos de enlace por densidad urbana/nombres repetidos.
+- Dependencia de IDs/capas del estilo Mapbox (inestabilidad entre estilos).
+- Riesgo de ocultar spots por clasificación ambigua (`uncertain` no debe ocultarse automáticamente).
+
+**Referencias**
+- `docs/contracts/MAPBOX_PLACE_ENRICHMENT.md`
+- `docs/contracts/DATA_MODEL_CURRENT.md`
+- `docs/ops/plans/PLAN_POI_TOURISM_DB_SUPABASE_MIGRATION.md`
+- `docs/bitacora/2026/02/121-poi-landmark-visual-state-and-retry-toasts.md`
+
+---
+
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)
 
 **Estado:** ACTIVO
