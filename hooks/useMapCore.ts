@@ -28,6 +28,7 @@ import {
   type UserCoords,
   WORLD_BOUNDS,
 } from '@/lib/map-core/constants';
+import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
 export type MapCoreSelectedSpot = { id: string; longitude: number; latitude: number } | null;
 
@@ -173,6 +174,12 @@ export function useMapCore(
     },
     [skipCenterOnUser, enableLandmarkLabels]
   );
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map) return;
+    return installStyleImageFallback(map);
+  }, [mapInstance]);
 
   useEffect(() => {
     const map = mapInstance;
