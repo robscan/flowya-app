@@ -97,6 +97,34 @@ type Spot = {
   pinStatus?: SpotPinStatus;
 };
 
+type TappedMapFeatureKind = "poi" | "landmark";
+type TappedMapFeatureVisualState = "default" | "to_visit";
+
+type TappedMapFeature = {
+  name: string;
+  lat: number;
+  lng: number;
+  kind: TappedMapFeatureKind;
+  visualState: TappedMapFeatureVisualState;
+};
+
+function classifyTappedFeatureKind(
+  layerId?: string,
+  props?: Record<string, unknown> | null,
+): TappedMapFeatureKind {
+  const id = (layerId ?? "").toLowerCase();
+  if (id.includes("landmark")) return "landmark";
+
+  const cls =
+    typeof props?.class === "string"
+      ? props.class.toLowerCase()
+      : typeof props?.category === "string"
+        ? props.category.toLowerCase()
+        : "";
+  if (cls.includes("landmark")) return "landmark";
+  return "poi";
+}
+
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
@@ -148,11 +176,7 @@ export function MapScreenVNext() {
   /** 3D debe poder usarse también con estilo FLOWYA (no solo Mapbox Standard). */
   const [is3DEnabled, setIs3DEnabled] = useState(true);
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
-  const [poiTapped, setPoiTapped] = useState<{
-    name: string;
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const [poiTapped, setPoiTapped] = useState<TappedMapFeature | null>(null);
   /** Modal duplicado: Ver spot | Crear otro | Cerrar (2 pasos). */
   const [duplicateModal, setDuplicateModal] = useState<{
     existingTitle: string;
@@ -717,7 +741,13 @@ export function MapScreenVNext() {
     (place: PlaceResult) => {
       searchV2.setOpen(false);
       setSelectedSpot(null);
-      setPoiTapped({ name: place.name, lat: place.lat, lng: place.lng });
+      setPoiTapped({
+        name: place.name,
+        lat: place.lat,
+        lng: place.lng,
+        kind: "poi",
+        visualState: "default",
+      });
       setSheetState("medium");
       programmaticFlyTo(
         { lng: place.lng, lat: place.lat },
@@ -763,8 +793,15 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
+            const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
             setSelectedSpot(null);
-            setPoiTapped({ name: name.trim(), lat, lng });
+            setPoiTapped({
+              name: name.trim(),
+              lat,
+              lng,
+              kind,
+              visualState: "default",
+            });
             setSheetState("medium");
           }
           return;
@@ -880,6 +917,15 @@ export function MapScreenVNext() {
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
+  const resetPoiTappedVisualState = useCallback((poi: TappedMapFeature) => {
+    setPoiTapped((prev) => {
+      if (!prev) return prev;
+      const sameFeature =
+        prev.name === poi.name && prev.lat === poi.lat && prev.lng === poi.lng;
+      if (!sameFeature) return prev;
+      return { ...prev, visualState: "default" };
+    });
+  }, []);
 
   /** Crear spot desde POI tocado (tap en mapa). asToVisit = también añadir a "Por visitar". targetSheetState = estado del sheet tras crear (por defecto medium). skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
   const handleCreateSpotFromPoi = useCallback(
@@ -891,82 +937,105 @@ export function MapScreenVNext() {
       const poi = poiTapped;
       if (!poi) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      let created = false;
+      if (asToVisit) {
+        setPoiTapped((prev) =>
+          prev
+            ? {
+                ...prev,
+                visualState: "to_visit",
+              }
+            : prev,
+        );
+      }
       setPoiSheetLoading(true);
-      if (!skipDuplicateCheck) {
-        const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
-        if (duplicateResult.duplicate) {
-          setPoiSheetLoading(false);
-          setDuplicateModal({
-            existingTitle: duplicateResult.existingTitle,
-            existingSpotId: duplicateResult.existingSpotId,
-            onCreateAnyway: () => handleCreateSpotFromPoi(asToVisit, targetSheetState, true),
-          });
+      try {
+        if (!skipDuplicateCheck) {
+          const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
+          if (duplicateResult.duplicate) {
+            setDuplicateModal({
+              existingTitle: duplicateResult.existingTitle,
+              existingSpotId: duplicateResult.existingSpotId,
+              onCreateAnyway: () => handleCreateSpotFromPoi(asToVisit, targetSheetState, true),
+            });
+            return;
+          }
+        }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const insertPayload: Record<string, unknown> = {
+          title: poi.name,
+          description_short: null,
+          description_long: null,
+          latitude: poi.lat,
+          longitude: poi.lng,
+          address: null,
+        };
+        if (user?.id && !user.is_anonymous) {
+          insertPayload.user_id = user.id;
+        }
+        const { data: inserted, error: insertError } = await supabase
+          .from("spots")
+          .insert(insertPayload)
+          .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
+          .single();
+        if (insertError) {
+          toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
           return;
         }
-      }
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      const insertPayload: Record<string, unknown> = {
-        title: poi.name,
-        description_short: null,
-        description_long: null,
-        latitude: poi.lat,
-        longitude: poi.lng,
-        address: null,
-      };
-      if (user?.id && !user.is_anonymous) {
-        insertPayload.user_id = user.id;
-      }
-      const { data: inserted, error: insertError } = await supabase
-        .from("spots")
-        .insert(insertPayload)
-        .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
-        .single();
-      if (insertError) {
+        const newId = inserted?.id;
+        if (!newId) {
+          toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+          return;
+        }
+        if (asToVisit) {
+          const savedState = await setSaved(newId, true);
+          if (savedState == null) {
+            toast.show("Se creó el lugar, pero no se pudo marcar como Por visitar. Intenta de nuevo.", {
+              type: "error",
+            });
+          }
+        }
+        const pinMap = await getPinsForSpots([newId]);
+        const state = pinMap.get(newId);
+        const createdSpot: Spot = {
+          ...(inserted as Omit<Spot, "saved" | "visited" | "pinStatus">),
+          cover_image_url: inserted?.cover_image_url ?? null,
+          saved: state?.saved ?? false,
+          visited: state?.visited ?? false,
+          pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
+        };
+        created = true;
+        setSpots((prev) => (prev.some((s) => s.id === createdSpot.id) ? prev : [...prev, createdSpot]));
+        setSelectedSpot(createdSpot);
+        setPoiTapped(null);
+        setSheetState(targetSheetState);
+        refetchSpots();
+        resolveAddress(poi.lat, poi.lng).then((address) => {
+          if (!address) return;
+          supabase
+            .from("spots")
+            .update({ address })
+            .eq("id", newId)
+            .then(({ error }) => {
+              if (!error) {
+                setSelectedSpot((prev) =>
+                  prev?.id === newId ? { ...prev, address } : prev,
+                );
+              }
+            });
+        });
+      } catch {
+        toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+      } finally {
         setPoiSheetLoading(false);
-        toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
-        return;
+        if (asToVisit && !created) {
+          resetPoiTappedVisualState(poi);
+        }
       }
-      const newId = inserted?.id;
-      if (!newId) {
-        setPoiSheetLoading(false);
-        return;
-      }
-      if (asToVisit) {
-        await setSaved(newId, true);
-      }
-      const pinMap = await getPinsForSpots([newId]);
-      const state = pinMap.get(newId);
-      const created: Spot = {
-        ...(inserted as Omit<Spot, "saved" | "visited" | "pinStatus">),
-        cover_image_url: inserted?.cover_image_url ?? null,
-        saved: state?.saved ?? false,
-        visited: state?.visited ?? false,
-        pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
-      };
-      setSpots((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
-      setSelectedSpot(created);
-      setPoiTapped(null);
-      setSheetState(targetSheetState);
-      refetchSpots();
-      setPoiSheetLoading(false);
-      resolveAddress(poi.lat, poi.lng).then((address) => {
-        if (!address) return;
-        supabase
-          .from("spots")
-          .update({ address })
-          .eq("id", newId)
-          .then(({ error }) => {
-            if (!error) {
-              setSelectedSpot((prev) =>
-                prev?.id === newId ? { ...prev, address } : prev,
-              );
-            }
-          });
-      });
     },
-    [poiTapped, requireAuthOrModal, refetchSpots, setDuplicateModal, toast],
+    [poiTapped, requireAuthOrModal, refetchSpots, resetPoiTappedVisualState, setDuplicateModal, toast],
   );
 
   /** Crear spot desde POI y compartir. skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
@@ -976,70 +1045,73 @@ export function MapScreenVNext() {
       if (!poi) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       setPoiSheetLoading(true);
-      if (!skipDuplicateCheck) {
-        const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
-        if (duplicateResult.duplicate) {
-          setPoiSheetLoading(false);
-          setDuplicateModal({
-            existingTitle: duplicateResult.existingTitle,
-            existingSpotId: duplicateResult.existingSpotId,
-            onCreateAnyway: () => handleCreateSpotFromPoiAndShare(true),
-          });
+      try {
+        if (!skipDuplicateCheck) {
+          const duplicateResult = await checkDuplicateSpot(poi.name, poi.lat, poi.lng);
+          if (duplicateResult.duplicate) {
+            setDuplicateModal({
+              existingTitle: duplicateResult.existingTitle,
+              existingSpotId: duplicateResult.existingSpotId,
+              onCreateAnyway: () => handleCreateSpotFromPoiAndShare(true),
+            });
+            return;
+          }
+        }
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const insertPayload: Record<string, unknown> = {
+          title: poi.name,
+          description_short: null,
+          description_long: null,
+          latitude: poi.lat,
+          longitude: poi.lng,
+          address: null,
+        };
+        if (user?.id && !user.is_anonymous) {
+          insertPayload.user_id = user.id;
+        }
+        const { data: inserted, error: insertError } = await supabase
+          .from("spots")
+          .insert(insertPayload)
+          .select("id, title")
+          .single();
+        if (insertError) {
+          toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
           return;
         }
+        const newId = inserted?.id;
+        if (!newId) {
+          toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+          return;
+        }
+        const result = await shareSpot(newId, poi.name);
+        if (result.copied) toast.show("Link copiado", { type: "success" });
+        const pinMap = await getPinsForSpots([newId]);
+        const state = pinMap.get(newId);
+        const created: Spot = {
+          id: newId,
+          title: poi.name,
+          description_short: null,
+          description_long: null,
+          cover_image_url: null,
+          address: null,
+          latitude: poi.lat,
+          longitude: poi.lng,
+          saved: state?.saved ?? false,
+          visited: state?.visited ?? false,
+          pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
+        };
+        setSpots((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
+        setSelectedSpot(created);
+        setPoiTapped(null);
+        setSheetState("medium");
+        refetchSpots();
+      } catch {
+        toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+      } finally {
+        setPoiSheetLoading(false);
       }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const insertPayload: Record<string, unknown> = {
-      title: poi.name,
-      description_short: null,
-      description_long: null,
-      latitude: poi.lat,
-      longitude: poi.lng,
-      address: null,
-    };
-    if (user?.id && !user.is_anonymous) {
-      insertPayload.user_id = user.id;
-    }
-    const { data: inserted, error: insertError } = await supabase
-      .from("spots")
-      .insert(insertPayload)
-      .select("id, title")
-      .single();
-    if (insertError) {
-      setPoiSheetLoading(false);
-      toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
-      return;
-    }
-    const newId = inserted?.id;
-    if (!newId) {
-      setPoiSheetLoading(false);
-      return;
-    }
-    const result = await shareSpot(newId, poi.name);
-    if (result.copied) toast.show("Link copiado", { type: "success" });
-    const pinMap = await getPinsForSpots([newId]);
-    const state = pinMap.get(newId);
-    const created: Spot = {
-      id: newId,
-      title: poi.name,
-      description_short: null,
-      description_long: null,
-      cover_image_url: null,
-      address: null,
-      latitude: poi.lat,
-      longitude: poi.lng,
-      saved: state?.saved ?? false,
-      visited: state?.visited ?? false,
-      pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
-    };
-    setSpots((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
-    setSelectedSpot(created);
-    setPoiTapped(null);
-    setPoiSheetLoading(false);
-    setSheetState("medium");
-    refetchSpots();
   }, [poiTapped, requireAuthOrModal, refetchSpots, toast, setDuplicateModal]);
 
   /** Ver spot existente (desde modal duplicado): abre sheet MEDIUM con pin seleccionado. */
@@ -1365,6 +1437,14 @@ export function MapScreenVNext() {
               : poiTapped != null && selectedSpot == null
                 ? { lat: poiTapped.lat, lng: poiTapped.lng }
                 : null
+        }
+        previewPinKind={
+          selectedSpot?.id.startsWith("draft_") || (createSpotNameOverlayOpen && createSpotPendingCoords)
+            ? "spot"
+            : poiTapped?.kind
+        }
+        previewPinState={
+          poiTapped != null && selectedSpot == null ? poiTapped.visualState : "default"
         }
         previewPinLabel={
           selectedSpot?.id.startsWith("draft_")

@@ -21,13 +21,13 @@ Export: `MAP_PIN_SIZES` en `map-pins.tsx` para anchor/consumidores externos.
 
 ## 2) Jerarquía de capas (stacking)
 
-En react-map-gl el orden de render determina la apilación visual. Orden canónico en `MapCoreView`:
+En `MapCoreView` actual:
 
-1. **Spots no seleccionados** — orden de `displayedSpots`.
-2. **Spot seleccionado** — si existe, renderizado después para quedar encima de los demás.
-3. **Ubicación del usuario** — siempre al final; siempre encima de todos los spots.
+1. **Spots** se renderizan como `SymbolLayer` nativa (no Marker DOM), gestionados en `useMapCore`.
+2. **Ubicación del usuario** se renderiza como Marker React.
+3. **Preview temporal** (draft/POI/Landmark) se renderiza como Marker React.
 
-Regla: **ubicación actual > spot seleccionado > resto de spots**.
+Regla práctica: la señal temporal de preview y la ubicación de usuario deben quedar visualmente por encima del contexto base.
 
 ---
 
@@ -48,6 +48,19 @@ Regla: **ubicación actual > spot seleccionado > resto de spots**.
 - **MapPinLocation:** Ubicación del usuario; círculo azul.
 - **MapPinCreating / MapPinExisting:** Create Spot (Scope G); 20px y 10px respectivamente.
 
+### Preview temporal en mapa (MapCoreView)
+
+`MapCoreView` soporta variantes de preview:
+
+- `previewPinKind="spot"`: usa `MapPinSpot` (flujo draft/paso 0).
+- `previewPinKind="poi"`: dot circular temporal.
+- `previewPinKind="landmark"`: badge dot desplazado arriba-derecha (no reemplaza centro del landmark).
+
+Estado visual temporal:
+
+- `previewPinState="default"`
+- `previewPinState="to_visit"` (accent naranja para feedback de acción)
+
 ---
 
 ## 5) Referencias
@@ -55,4 +68,5 @@ Regla: **ubicación actual > spot seleccionado > resto de spots**.
 - Bitácora 096: tamaños, animaciones, z-index.
 - Bitácora 095: MapPinFilter dropdown.
 - Bitácora 010: estados visuales spot (selected solo para tamaño).
+- Bitácora 121: preview diferenciado POI/Landmark + rollback/toasts.
 - DESIGN_SYSTEM_USAGE: componentes canónicos.
