@@ -1,14 +1,19 @@
 /**
  * Feature flags (Phase A scaffolding).
- * Defaults are OFF to avoid behavior changes before full rollout.
+ * Defaults are OFF salvo flags consolidadas de mapa (maki + hideLinkedUnsaved), que van ON por defecto.
  */
 
-function envEnabled(name: string): boolean {
-  return (process.env[name] ?? '').toLowerCase() === 'true';
+function envEnabled(name: string, defaultValue = false): boolean {
+  const raw = (process.env[name] ?? '').trim().toLowerCase();
+  if (!raw) return defaultValue;
+  return raw === 'true';
 }
 
 export const featureFlags = {
   linkOnEditSave: envEnabled('EXPO_PUBLIC_FF_LINK_ON_EDIT_SAVE'),
-  hideLinkedUnsaved: envEnabled('EXPO_PUBLIC_FF_HIDE_LINKED_UNSAVED'),
-  flowyaPinMakiIcon: envEnabled('EXPO_PUBLIC_FF_FLOWYA_PIN_MAKI_ICON'),
+  hideLinkedUnsaved: envEnabled('EXPO_PUBLIC_FF_HIDE_LINKED_UNSAVED', true),
+  flowyaPinMakiIcon: envEnabled('EXPO_PUBLIC_FF_FLOWYA_PIN_MAKI_ICON', true),
+  searchExternalPoiResults: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS'),
+  searchMixedRanking: envEnabled('EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING'),
+  searchExternalDedupe: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE'),
 } as const;

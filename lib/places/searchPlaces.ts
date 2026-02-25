@@ -41,9 +41,21 @@ export type SearchPlacesOptions = {
   limit?: number;
   bbox?: { west: number; south: number; east: number; north: number };
   proximity?: { lat: number; lng: number };
+  types?: string[];
 };
 
 const DEFAULT_LIMIT = 12;
+const SUPPORTED_GEOCODING_TYPES = new Set([
+  'country',
+  'region',
+  'postcode',
+  'district',
+  'place',
+  'locality',
+  'neighborhood',
+  'street',
+  'address',
+]);
 
 /**
  * Busca lugares/POIs por texto. Usar en Create Spot (mode="places").
@@ -68,6 +80,14 @@ export async function searchPlaces(
   if (opts?.bbox) {
     const { west, south, east, north } = opts.bbox;
     params.set('bbox', `${west},${south},${east},${north}`);
+  }
+  if (opts?.types && opts.types.length > 0) {
+    const sanitized = opts.types
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0 && SUPPORTED_GEOCODING_TYPES.has(value));
+    if (sanitized.length > 0) {
+      params.set('types', sanitized.join(','));
+    }
   }
 
   try {

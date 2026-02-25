@@ -20,6 +20,7 @@ import {
   INITIAL_PITCH,
   LONG_PRESS_DRAG_THRESHOLD_PX,
   LONG_PRESS_MS,
+  stripUnavailableLandmarkPoiTileset,
   setLandmarkLabelsEnabled,
   set3DBuildingsEnabled,
   SPOT_FOCUS_PADDING_BOTTOM,
@@ -163,6 +164,7 @@ export function useMapCore(
       const map = e.target;
       setMapInstance(map);
       setZoom(map.getZoom());
+      stripUnavailableLandmarkPoiTileset(map);
       applyGlobeAndAtmosphere(map);
       hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
       setLandmarkLabelsEnabled(map, enableLandmarkLabels);
@@ -174,6 +176,19 @@ export function useMapCore(
     },
     [skipCenterOnUser, enableLandmarkLabels]
   );
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map) return;
+    const reapply = () => {
+      stripUnavailableLandmarkPoiTileset(map);
+      hideNoiseLayers(map);
+    };
+    map.on('styledata', reapply);
+    return () => {
+      map.off('styledata', reapply);
+    };
+  }, [mapInstance]);
 
   useEffect(() => {
     const map = mapInstance;

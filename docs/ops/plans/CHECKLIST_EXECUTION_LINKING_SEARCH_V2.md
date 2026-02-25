@@ -21,12 +21,13 @@
 - [x] Create from POI/Search persiste `link_*` en insert.
 - [x] Tap POI prioriza `linked_place_id` y fallback seguro para `linked`.
 
-### A2. Pendiente Fase C (render e iconografía)
-- [ ] Activar `ff_hide_linked_unsaved` en entorno de prueba.
-- [ ] Implementar/validar regla visual:
+### A2. Fase C (render e iconografía) — completada en main
+- [x] Activar `ff_hide_linked_unsaved` en entorno de prueba.
+- [x] Implementar/validar regla visual:
   - `linked && !saved && !visited` => ocultar pin FLOWYA.
   - `uncertain || unlinked` => mantener pin FLOWYA.
-- [ ] Activar `ff_flowya_pin_maki_icon` con fallback de icono desconocido.
+- [x] Activar `ff_flowya_pin_maki_icon` con fallback de icono desconocido.
+- [x] Guardrail de visibilidad: no ocultar `linked+unsaved` si falta `linked_place_id`.
 
 **Archivos foco**
 - `components/explorar/MapScreenVNext.tsx`
@@ -35,7 +36,7 @@
 - `lib/feature-flags.ts`
 
 ### A3. Pendiente Fase D (hardening)
-- [ ] Definir umbrales operativos finales usando métricas del resolver.
+- [x] Definir umbrales operativos finales usando métricas del resolver.
 - [ ] Ejecutar QA no-go:
   - zonas densas (nombres repetidos),
   - zonas sin POI,
@@ -49,22 +50,22 @@
 - Regresión tap->sheet en spots linked.
 
 ### A4. Documentación obligatoria al cerrar
-- [ ] `docs/contracts/MAPBOX_PLACE_ENRICHMENT.md`
-- [ ] `docs/contracts/MAP_PINS_CONTRACT.md`
-- [ ] `docs/contracts/DATA_MODEL_CURRENT.md`
-- [ ] `docs/ops/OPEN_LOOPS.md`
-- [ ] `docs/bitacora/2026/02/NNN-*.md`
+- [x] `docs/contracts/MAPBOX_PLACE_ENRICHMENT.md`
+- [x] `docs/contracts/MAP_PINS_CONTRACT.md`
+- [x] `docs/contracts/DATA_MODEL_CURRENT.md`
+- [x] `docs/ops/OPEN_LOOPS.md`
+- [x] `docs/bitacora/2026/02/133-phase-d-hardening-guardrails-y-qa-matrix.md`
 
 ---
 
 ## 2) Track B — Search V2 POI-first Safe Migration
 
 ### B1. Fase A (contrato y banderas)
-- [ ] Añadir flags:
+- [x] Añadir flags:
   - `ff_search_external_poi_results`
   - `ff_search_mixed_ranking`
   - `ff_search_external_dedupe`
-- [ ] Actualizar contrato Search V2.1 mixto.
+- [x] Actualizar contrato Search V2.1 mixto.
 
 **Archivos foco**
 - `lib/feature-flags.ts`
@@ -72,8 +73,9 @@
 - `docs/definitions/search/SEARCH_V2.md`
 
 ### B2. Fase B (adapter externo)
-- [ ] Crear `searchPlacesPOI` (Search Box + fallback Geocoding).
-- [ ] Mapear resultado común `PlaceResultV2` (`id`, `maki`, `featureType`, categorías).
+- [x] Crear `searchPlacesPOI` (adapter externo con fallback Geocoding seguro).
+- [x] Mapear resultado común `PlaceResultV2` (`id`, `maki`, `featureType`, categorías).
+- [x] Integrar adapter en no-results de Explore detrás de `ff_search_external_poi_results`.
 
 **Archivos foco**
 - `lib/places/searchPlacesPOI.ts` (nuevo)
@@ -81,12 +83,12 @@
 - `hooks/search/useSearchControllerV2.ts` (integración)
 
 ### B3. Fase C (ranking mixto por secciones)
-- [ ] Implementar secciones:
+- [x] Implementar secciones:
   - Spots internos (primero),
   - POI/Landmark externos,
   - Place/address fallback.
-- [ ] Aplicar ranking taxonómico de intents.
-- [ ] Dedupe interno/externo por `linked_place_id` o proximidad+nombre.
+- [x] Aplicar ranking taxonómico de intents.
+- [x] Dedupe interno/externo por `linked_place_id` o proximidad+nombre.
 
 **Archivos foco**
 - `hooks/search/useSearchControllerV2.ts`
@@ -94,8 +96,8 @@
 - `lib/search/*` (ranker/strategies)
 
 ### B4. Fase D (integración create/linking)
-- [ ] Confirmar persistencia de snapshot mínimo externo en create-from-search.
-- [ ] Alinear con linking existente (sin duplicar lógica).
+- [x] Confirmar persistencia de snapshot mínimo externo en create-from-search.
+- [x] Alinear con linking existente (sin duplicar lógica).
 
 **Archivos foco**
 - `components/explorar/MapScreenVNext.tsx`
@@ -103,19 +105,39 @@
 - `docs/contracts/MAPBOX_PLACE_ENRICHMENT.md`
 
 ### B5. Fase E (rollout y hardening)
-- [ ] Rollout progresivo por flags.
-- [ ] Métricas mínimas:
+- [x] Rollout progresivo por flags.
+- [x] Métricas mínimas:
   - CTR resultado útil (spot/poi),
   - tasa no-results,
   - create exitoso desde search,
   - regresiones de performance.
 - [ ] Validar no-go de Search.
 
+**Estrategia de rollout (operativa)**
+- Etapa 0 (OFF): `ff_search_external_poi_results=false`, `ff_search_mixed_ranking=false`, `ff_search_external_dedupe=false`.
+- Etapa 1 (adapter): activar `ff_search_external_poi_results=true`.
+- Etapa 2 (calidad): activar `ff_search_external_dedupe=true`.
+- Etapa 3 (ranking): activar `ff_search_mixed_ranking=true`.
+- No avanzar de etapa si falla no-go de Search.
+
+**Métricas runtime (QA/manual)**
+- Expuestas en `globalThis.__flowyaSearchMetrics`.
+- Señales clave:
+  - `ctrUseful` (clicks útiles / búsquedas iniciadas),
+  - `noResultsRate`,
+  - `createFromSearchSuccessRate`,
+  - `externalFetchAvgDurationMs`, `externalFetchErrors`.
+- Guardrail de intents:
+  - verificar precedencia `landmark > geo > recommendation` con casos:
+    - `Torre Eiffel` (debe priorizar landmark),
+    - `París, Francia` (debe priorizar geo),
+    - query comercial (debe quedar en recommendation).
+
 ---
 
 ## 3) Sanidad por iteración (check fijo)
-- [ ] `npm run lint`
-- [ ] `npm run build`
+- [x] `npm run lint`
+- [x] `npm run build`
 - [ ] Smoke manual:
   - crear spot desde POI,
   - editar ubicación y re-link,

@@ -192,12 +192,12 @@ Sin estas 3 definiciones, no se ejecuta implementación.
 
 ## 12) DoD / AC
 
-- [ ] Migración `spots.link_*` aplicada.
-- [ ] Resolver integrado al guardar ubicación en Edit Spot.
-- [ ] Reglas de render activadas por flags y verificadas.
-- [ ] Fallback de icono implementado para `maki` desconocido.
+- [x] Migración `spots.link_*` aplicada.
+- [x] Resolver integrado al guardar ubicación en Edit Spot.
+- [x] Reglas de render activadas por flags y verificadas.
+- [x] Fallback de icono implementado para `maki` desconocido.
 - [ ] QA funcional y visual en zonas densas + zonas sin POI.
-- [ ] Documentación actualizada + bitácora de cierre.
+- [x] Documentación actualizada + bitácora de cierre parcial de Fase D.
 
 ---
 
@@ -208,4 +208,3 @@ Sin estas 3 definiciones, no se ejecuta implementación.
 - `docs/contracts/MAP_PINS_CONTRACT.md`
 - `docs/ops/OPEN_LOOPS.md`
 - `docs/bitacora/2026/02/NNN-*.md`
-

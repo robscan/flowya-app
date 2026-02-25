@@ -49,3 +49,56 @@
 Cuando `query >= threshold` y `results.length === 0`, el buscador debe seguir el contrato:
 
 * `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md` (nuevo).
+
+Regla adicional por filtro activo:
+
+- Si filtro es `saved` (`Por visitar`) o `visited` (`Visitados`):
+  - no renderizar recomendaciones externas,
+  - no renderizar CTA `Crear spot aquí`,
+  - mostrar mensaje centrado orientando a cambiar a `Todos`.
+- Si filtro es `all` (`Todos`): comportamiento normal de recomendaciones + chooser.
+
+---
+
+## 6) Flags de migración Search V2 POI-first
+
+Track B usa flags de rollout seguro:
+
+- `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`: habilita adapter externo POI en sin-resultados.
+- `EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING`: reserva para ranking mixto (interno + externo) por secciones.
+- `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE`: habilita deduplicación externa antes de render.
+
+Estado actual (Fase A-B):
+
+- Adapter `searchPlacesPOI` integrado para sin-resultados.
+- Fuente principal externa: Search Box `/forward` (una llamada por query).
+- Fallback estable a Geocoding v6.
+- Guardrail 429: cooldown temporal de Search Box y fallback automático para evitar degradación total.
+- UI/contrato de chooser no cambia.
+
+Estado actual (Fase C):
+
+- Con `EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING=true`, Search muestra sección externa adicional (POI/direcciones) junto a resultados de spots internos.
+- Orden operativo: spots internos primero; sección externa como complemento.
+- Dedupe interno/externo activo por `linked_place_id` y proximidad+nombre (si `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE=true`).
+- Ranking de intents externo activo en sugerencias (`poi_landmark > poi > place > address`).
+- Intents operativas en adapter externo:
+  - `landmark` (monumentos/atracciones),
+  - `geo` (topónimos/lugares),
+  - `recommendation` (resto).
+- Precedencia obligatoria: `landmark > geo > recommendation`.
+- Guardrail de ranking `landmark`:
+  - priorizar match exacto + cobertura completa de tokens,
+  - normalizar variantes/typos frecuentes de query para scoring (ej. `Eifel`),
+  - degradar resultados comerciales o de dirección cuando compiten con candidatos landmark.
+- En `landmark`, no usar sesgo local (`bbox/proximity`) para evitar que resultados cercanos al usuario dominen sobre el landmark canónico.
+
+Estado actual (Fase D parcial):
+
+- Create-from-search usa snapshot mínimo externo ya alineado con create-from-POI (`linked_place_id`, `linked_place_kind`, `linked_maki`, `lat/lng`, `name`).
+- Guardrail: IDs sintéticos de fallback no se persisten como `linked_place_id`.
+
+Estado actual (Fase E parcial):
+
+- Rollout por flags en secuencia controlada: adapter -> dedupe -> ranking mixto.
+- Métricas runtime de Search disponibles para QA/no-go en `globalThis.__flowyaSearchMetrics` (sin backend obligatorio en esta fase).

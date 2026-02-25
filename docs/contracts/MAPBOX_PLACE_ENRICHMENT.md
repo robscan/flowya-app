@@ -38,6 +38,7 @@ Cuando el sistema evalúa enlace spot↔POI/Landmark (por ejemplo al guardar nue
 Regla de seguridad:
 
 - `uncertain` no debe tratarse como `linked` para ocultamiento automático.
+- `linked` sin `linked_place_id` válido no debe ocultarse automáticamente (guardrail anti-desaparición).
 - Si falla resolución de enlace, el guardado de ubicación no se bloquea; fallback seguro = `unlinked`.
 
 Parámetros operativos calibrados (v1-phase-c-calibrated):

@@ -54,6 +54,11 @@ import { distanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import {
+  placeResultV2ToLegacy,
+  searchPlacesPOI,
+  type PlaceResultV2,
+} from "@/lib/places/searchPlacesPOI";
+import {
     FIT_BOUNDS_DURATION_MS,
     FALLBACK_VIEW,
     FLOWYA_MAP_STYLE_DARK,
@@ -76,6 +81,14 @@ import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
+import {
+  recordCreateFromSearchResult,
+  recordExternalFetchMetric,
+  recordSearchExternalClick,
+  recordSearchNoResults,
+  recordSearchSpotClick,
+  recordSearchStarted,
+} from "@/lib/search/metrics";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -113,6 +126,7 @@ type TappedMapFeature = {
   placeId: string | null;
   maki: string | null;
   visualState: TappedMapFeatureVisualState;
+  source: "map_tap" | "search_suggestion";
 };
 
 function classifyTappedFeatureKind(
@@ -159,7 +173,14 @@ function getTappedFeatureMaki(props?: Record<string, unknown> | null): string | 
 }
 
 function isLinkedUnsavedSpot(spot: Spot): boolean {
-  return spot.link_status === "linked" && !spot.saved && !spot.visited;
+  // Guardrail Fase D: si falta linked_place_id, no ocultar para evitar desaparición de lugar.
+  return (
+    spot.link_status === "linked" &&
+    typeof spot.linked_place_id === "string" &&
+    spot.linked_place_id.trim().length > 0 &&
+    !spot.saved &&
+    !spot.visited
+  );
 }
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -170,6 +191,203 @@ const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
 const TOP_OVERLAY_INSET = 16;
+
+function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
+  const seen = new Set<string>();
+  const out: PlaceResult[] = [];
+  for (const item of items) {
+    const key = `${item.id}:${item.name.trim().toLowerCase()}:${item.lat.toFixed(
+      5,
+    )}:${item.lng.toFixed(5)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
+const TOURISM_KEYWORDS = [
+  "museum",
+  "monument",
+  "historic",
+  "landmark",
+  "gallery",
+  "castle",
+  "church",
+  "cathedral",
+  "park",
+  "theatre",
+  "theater",
+];
+
+const TOURISM_MAKI_HINTS = [
+  "museum",
+  "monument",
+  "castle",
+  "theatre",
+  "theater",
+  "park",
+];
+
+function normalizeText(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function dedupeExternalPlacesAgainstSpots(
+  places: PlaceResult[],
+  spots: Spot[],
+): PlaceResult[] {
+  return places.filter((place) => {
+    const placeName = normalizeText(place.name);
+    return !spots.some((spot) => {
+      if (!spot || spot.id.startsWith("draft_")) return false;
+      const byLinkedId =
+        spot.linked_place_id != null &&
+        spot.linked_place_id.length > 0 &&
+        spot.linked_place_id === place.id;
+      if (byLinkedId) return true;
+      const closeEnough =
+        distanceKm(spot.latitude, spot.longitude, place.lat, place.lng) <= 0.02;
+      if (!closeEnough) return false;
+      const spotName = normalizeText(spot.title ?? "");
+      return spotName.length > 0 && placeName.length > 0 && spotName === placeName;
+    });
+  });
+}
+
+function inferExternalIntent(place: PlaceResult): "poi_landmark" | "poi" | "place" | "address" {
+  const featureType = normalizeText(place.featureType ?? "");
+  const maki = normalizeText(place.maki ?? "");
+  const categories = (place.categories ?? []).map((item) => normalizeText(item));
+  const bag = `${featureType} ${maki} ${categories.join(" ")}`.trim();
+  const hasTourismSignal =
+    TOURISM_KEYWORDS.some((keyword) => bag.includes(keyword)) ||
+    TOURISM_MAKI_HINTS.some((hint) => maki.includes(hint));
+  if (hasTourismSignal || featureType.includes("landmark")) return "poi_landmark";
+  if (featureType.includes("poi") || maki.length > 0 || categories.length > 0) return "poi";
+  if (featureType.includes("address") || featureType.includes("street")) return "address";
+  if (
+    featureType.includes("place") ||
+    featureType.includes("locality") ||
+    featureType.includes("district") ||
+    featureType.includes("neighborhood") ||
+    featureType.includes("postcode") ||
+    featureType.includes("region") ||
+    featureType.includes("country")
+  ) {
+    return "place";
+  }
+  return "place";
+}
+
+const COMMERCIAL_KEYWORDS = [
+  "tour",
+  "tours",
+  "ferry",
+  "restaurant",
+  "hotel",
+  "bar",
+  "cafe",
+  "snorkel",
+  "buggy",
+  "rental",
+  "rent",
+  "shop",
+  "store",
+  "taxi",
+  "agency",
+  "terminal",
+];
+
+const NON_GEO_QUERY_HINTS = [
+  "hotel",
+  "restaurante",
+  "restaurant",
+  "bar",
+  "cafe",
+  "cafeteria",
+  "tour",
+  "ferry",
+  "taxi",
+  "museo",
+  "museum",
+  "playa",
+  "beach",
+];
+
+function isGeoIntentQuery(query: string): boolean {
+  const q = normalizeText(query);
+  if (!q) return false;
+  const parts = q.split(/\s+/).filter(Boolean);
+  if (parts.length > 3) return false;
+  if (NON_GEO_QUERY_HINTS.some((hint) => q.includes(hint))) return false;
+  return true;
+}
+
+function isCommercialSuggestion(place: PlaceResult): boolean {
+  const bag = normalizeText(
+    `${place.name} ${place.fullName ?? ""} ${place.featureType ?? ""} ${(place.categories ?? []).join(" ")}`,
+  );
+  return COMMERCIAL_KEYWORDS.some((keyword) => bag.includes(keyword));
+}
+
+function rankExternalPlacesByIntent(items: PlaceResult[], query: string): PlaceResult[] {
+  const normalizedQuery = normalizeText(query);
+  const geoQuery = isGeoIntentQuery(query);
+  const hasExactPlace = items.some((item) => {
+    const intent = inferExternalIntent(item);
+    return intent === "place" && normalizeText(item.name) === normalizedQuery;
+  });
+
+  const scoreForIntent = (intent: ReturnType<typeof inferExternalIntent>): number => {
+    if (intent === "poi_landmark") return 0;
+    if (intent === "place") return 1;
+    if (intent === "poi") return 2;
+    return 3;
+  };
+
+  const ranked = items
+    .map((item, idx) => {
+      const intent = inferExternalIntent(item);
+      let score = scoreForIntent(intent);
+      const normalizedName = normalizeText(item.name);
+      const exactNameMatch = normalizedName === normalizedQuery;
+
+      if (geoQuery && intent === "place" && exactNameMatch) score -= 2;
+      if (intent === "poi" && isCommercialSuggestion(item)) score += geoQuery ? 4 : 2;
+      if (geoQuery && intent === "address") score += 2;
+
+      return { item, idx, score };
+    })
+    .sort((a, b) => (a.score === b.score ? a.idx - b.idx : a.score - b.score))
+    .map(({ item }) => item);
+
+  if (geoQuery && hasExactPlace) {
+    return ranked.filter((item) => {
+      const intent = inferExternalIntent(item);
+      if (intent === "place") return true;
+      if (intent === "poi_landmark") return true;
+      return !isCommercialSuggestion(item);
+    });
+  }
+  return ranked;
+}
+
+function getStablePlaceId(place: PlaceResult): string | null {
+  const id = place.id?.trim();
+  if (!id) return null;
+  // IDs sintéticos ("place-<i>-<lng>-<lat>") no deben persistirse como link.
+  if (id.startsWith("place-")) return null;
+  return id;
+}
+
+function inferTappedKindFromPlace(place: PlaceResult): TappedMapFeatureKind {
+  return inferExternalIntent(place) === "poi_landmark" ? "landmark" : "poi";
+}
 
 export function MapScreenVNext() {
   const router = useRouter();
@@ -191,6 +409,8 @@ export function MapScreenVNext() {
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
+  const lastSearchStartKeyRef = useRef<string | null>(null);
+  const lastNoResultsKeyRef = useRef<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
   const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] =
     useState(false);
@@ -339,6 +559,7 @@ export function MapScreenVNext() {
      * Guardrail: no reinsertar selectedSpot si está oculto por regla linked+unsaved.
      */
     if (
+      pinFilter === "all" &&
       selectedSpot &&
       !(featureFlags.hideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
       !base.some((s) => s.id === selectedSpot.id)
@@ -346,7 +567,7 @@ export function MapScreenVNext() {
       return [...base, selectedSpot];
     }
     return base;
-  }, [filteredSpots, selectedSpot, isPlacingDraftSpot]);
+  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter]);
 
   const onLongPressHandlerRef = useRef<
     (coords: { lat: number; lng: number }) => void
@@ -501,35 +722,71 @@ export function MapScreenVNext() {
   /** Sugerencias Mapbox cuando isNoResults y query >= 3 (para crear spot en lugar con contexto visible). */
   useEffect(() => {
     const q = searchV2.query.trim();
-    const isNoResults =
+    const shouldFetchExternal =
       searchV2.isOpen &&
       q.length >= 3 &&
-      searchV2.results.length === 0 &&
-      !searchV2.isLoading;
-    if (!isNoResults) {
+      !searchV2.isLoading &&
+      (searchV2.results.length === 0 || featureFlags.searchMixedRanking);
+    if (!shouldFetchExternal) {
       setPlaceSuggestions([]);
       return;
     }
     let cancelled = false;
     (async () => {
+      const startedAt = Date.now();
       try {
-        if (!mapInstance) return;
-        const c = mapInstance.getCenter();
-        const b = mapInstance.getBounds();
-        const results = await searchPlaces(q, {
+        const baseOpts: {
+          limit: number;
+          proximity?: { lat: number; lng: number };
+          bbox?: { west: number; south: number; east: number; north: number };
+        } = {
           limit: 6,
-          proximity: { lat: c.lat, lng: c.lng },
-          bbox: b
-            ? {
-                west: b.getWest(),
-                south: b.getSouth(),
-                east: b.getEast(),
-                north: b.getNorth(),
-              }
-            : undefined,
-        });
+        };
+        if (mapInstance) {
+          try {
+            const c = mapInstance.getCenter();
+            const b = mapInstance.getBounds();
+            baseOpts.proximity = { lat: c.lat, lng: c.lng };
+            baseOpts.bbox = b
+              ? {
+                  west: b.getWest(),
+                  south: b.getSouth(),
+                  east: b.getEast(),
+                  north: b.getNorth(),
+                }
+              : undefined;
+          } catch {
+            // fallback seguro: mantener búsqueda global sin bbox
+          }
+        }
+        const fetchExternal = async (
+          opts: typeof baseOpts,
+        ): Promise<PlaceResult[]> => {
+          if (featureFlags.searchExternalPoiResults) {
+            const external = await searchPlacesPOI(q, opts);
+            return external.map((item: PlaceResultV2) => placeResultV2ToLegacy(item));
+          }
+          return searchPlaces(q, opts);
+        };
+        let results: PlaceResult[];
+        results = await fetchExternal(baseOpts);
+        if (results.length === 0 && baseOpts.bbox) {
+          // Si no hay match local, reintentar global para permitir búsquedas fuera del viewport actual.
+          results = await fetchExternal({ limit: baseOpts.limit });
+        }
+        if (featureFlags.searchExternalDedupe) {
+          results = dedupeExternalPlacesAgainstSpots(results, searchV2.results);
+        }
+        if (featureFlags.searchExternalDedupe) {
+          results = dedupePlaceResults(results);
+        }
+        if (featureFlags.searchMixedRanking) {
+          results = rankExternalPlacesByIntent(results, q);
+        }
+        recordExternalFetchMetric(Date.now() - startedAt, false);
         if (!cancelled) setPlaceSuggestions(results);
       } catch {
+        recordExternalFetchMetric(Date.now() - startedAt, true);
         if (!cancelled) setPlaceSuggestions([]);
       }
     })();
@@ -539,10 +796,25 @@ export function MapScreenVNext() {
   }, [
     searchV2.isOpen,
     searchV2.query,
-    searchV2.results.length,
+    searchV2.results,
     searchV2.isLoading,
     mapInstance,
   ]);
+
+  useEffect(() => {
+    const q = searchV2.query.trim().toLowerCase();
+    if (!searchV2.isOpen || q.length < 3) return;
+    if (lastSearchStartKeyRef.current !== q) {
+      lastSearchStartKeyRef.current = q;
+      recordSearchStarted();
+    }
+    if (!searchV2.isLoading && searchV2.results.length === 0) {
+      if (lastNoResultsKeyRef.current !== q) {
+        lastNoResultsKeyRef.current = q;
+        recordSearchNoResults();
+      }
+    }
+  }, [searchV2.isOpen, searchV2.query, searchV2.isLoading, searchV2.results.length]);
 
   const recentViewedSpots = useMemo(() => {
     const ids = getRecentViewedSpotIds();
@@ -557,6 +829,7 @@ export function MapScreenVNext() {
       searchV2.setOpen(false);
       setSelectedSpot(spot);
       setSheetState("medium"); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
+      recordSearchSpotClick();
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
       programmaticFlyTo(
@@ -789,16 +1062,19 @@ export function MapScreenVNext() {
   /** Lugar sugerido en búsqueda: mostrar POI sheet (card medium con Por visitar) y encuadrar mapa en el lugar. */
   const handleCreateFromPlace = useCallback(
     (place: PlaceResult) => {
+      const stablePlaceId = getStablePlaceId(place);
       searchV2.setOpen(false);
       setSelectedSpot(null);
+      recordSearchExternalClick();
       setPoiTapped({
         name: place.name,
         lat: place.lat,
         lng: place.lng,
-        kind: "poi",
-        placeId: place.id,
+        kind: inferTappedKindFromPlace(place),
+        placeId: stablePlaceId,
         maki: place.maki ?? null,
         visualState: "default",
+        source: "search_suggestion",
       });
       setSheetState("medium");
       programmaticFlyTo(
@@ -863,17 +1139,18 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
-            const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
-            setSelectedSpot(null);
-            setPoiTapped({
+          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
+          setSelectedSpot(null);
+          setPoiTapped({
               name: name.trim(),
               lat,
               lng,
-              kind,
-              placeId: tappedFeatureId,
-              maki: getTappedFeatureMaki(props as Record<string, unknown>),
-              visualState: "default",
-            });
+            kind,
+            placeId: tappedFeatureId,
+            maki: getTappedFeatureMaki(props as Record<string, unknown>),
+            visualState: "default",
+            source: "map_tap",
+          });
             setSheetState("medium");
           }
           return;
@@ -1008,6 +1285,8 @@ export function MapScreenVNext() {
     ) => {
       const poi = poiTapped;
       if (!poi) return;
+      const shouldTrackCreateFromSearch = poi.source === "search_suggestion";
+      let didAttemptPersist = false;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       let created = false;
       if (asToVisit) {
@@ -1036,6 +1315,7 @@ export function MapScreenVNext() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        didAttemptPersist = true;
         const insertPayload: Record<string, unknown> = {
           title: poi.name,
           description_short: null,
@@ -1061,11 +1341,13 @@ export function MapScreenVNext() {
           )
           .single();
         if (insertError) {
+          if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
           toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
           return;
         }
         const newId = inserted?.id;
         if (!newId) {
+          if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
           toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
           return;
         }
@@ -1087,6 +1369,7 @@ export function MapScreenVNext() {
           pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
         };
         created = true;
+        if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(true);
         setSpots((prev) => (prev.some((s) => s.id === createdSpot.id) ? prev : [...prev, createdSpot]));
         setSelectedSpot(createdSpot);
         setPoiTapped(null);
@@ -1107,6 +1390,9 @@ export function MapScreenVNext() {
             });
         });
       } catch {
+        if (shouldTrackCreateFromSearch && didAttemptPersist) {
+          recordCreateFromSearchResult(false);
+        }
         toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
@@ -1727,13 +2013,6 @@ export function MapScreenVNext() {
         renderItem={(spot) => (
           <SearchResultCard
             spot={spot}
-            savePinState={
-              spot.pinStatus === "to_visit"
-                ? "toVisit"
-                : spot.pinStatus === "visited"
-                  ? "visited"
-                  : "default"
-            }
             onPress={() => searchV2.onSelect(spot)}
           />
         )}

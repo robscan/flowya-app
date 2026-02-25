@@ -70,3 +70,12 @@ Estado visual temporal:
 - Bitácora 010: estados visuales spot (selected solo para tamaño).
 - Bitácora 121: preview diferenciado POI/Landmark + rollback/toasts.
 - DESIGN_SYSTEM_USAGE: componentes canónicos.
+
+---
+
+## 6) Reglas de visibilidad linking (Track A)
+
+- Si `link_status=linked` y `saved=false` y `visited=false`, el pin FLOWYA puede ocultarse detrás de flag.
+- `uncertain` y `unlinked` nunca se ocultan automáticamente.
+- Guardrail de seguridad: no ocultar un spot `linked+unsaved` si no existe `linked_place_id` válido.
+- Cuando hay `saved` o `visited`, el pin FLOWYA siempre se mantiene visible.

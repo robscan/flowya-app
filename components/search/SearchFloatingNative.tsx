@@ -5,6 +5,7 @@
 
 import { IconButton } from '@/components/design-system/icon-button';
 import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
+import { SearchListCard } from '@/components/design-system/search-list-card';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -27,7 +28,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { ChevronRight, MapPin, Search, X } from 'lucide-react-native';
+import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { SearchResultsListV2 } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
@@ -63,6 +64,7 @@ export function SearchFloatingNative<T>({
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
   const screenHeight = Dimensions.get('window').height;
 
   const translateYShared = useSharedValue(screenHeight);
@@ -136,6 +138,8 @@ export function SearchFloatingNative<T>({
   const isEmpty = len === 0;
   const isPreSearch = len > 0 && len < 3;
   const isSearch = len >= 3;
+  const showPlaceRecommendations = pinFilter == null || pinFilter === 'all';
+  const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
   /** Estado "Sin resultados" (contrato SEARCH_NO_RESULTS_CREATE_CHOOSER): query >= threshold, results vacío, no loading. */
   const isNoResults = isSearch && controller.results.length === 0 && !controller.isLoading;
 
@@ -216,7 +220,7 @@ export function SearchFloatingNative<T>({
                     keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator
                   >
-                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>Spots cercanos</Text>
+                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>Spots cercanos</Text>
                     {defaultItems.map((item, idx) => (
                       <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
                         {renderItem(item)}
@@ -234,7 +238,7 @@ export function SearchFloatingNative<T>({
                   >
                     {recentQueries.length > 0 && (
                       <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
                           Búsquedas recientes
                         </Text>
                         {recentQueries.slice(0, 5).map((queryItem) => (
@@ -250,7 +254,7 @@ export function SearchFloatingNative<T>({
                     )}
                     {recentViewedItems.length > 0 && (
                       <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
                           Vistos recientemente
                         </Text>
                         <View style={styles.recentListWrap}>
@@ -264,7 +268,25 @@ export function SearchFloatingNative<T>({
                 )}
                 {isSearch && controller.results.length > 0 && (
                   <>
-                    <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{stageLabel}</Text>
+                    {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
+                      <View style={styles.suggestionsSection}>
+                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
+                          Recomendaciones
+                        </Text>
+                        <View style={styles.cardsList}>
+                          {placeSuggestions.slice(0, 3).map((place) => (
+                            <SearchListCard
+                              key={place.id}
+                              title={place.name}
+                              subtitle={place.fullName}
+                              onPress={() => onCreateFromPlace(place)}
+                              accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
+                            />
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>{stageLabel}</Text>
                     <SearchResultsListV2
                       sections={[]}
                       results={controller.results}
@@ -285,10 +307,13 @@ export function SearchFloatingNative<T>({
                       showsVerticalScrollIndicator
                     >
                       {(() => {
-                        const showNoSpotsMessage = placeSuggestions.length === 0;
+                        const showNoSpotsMessage =
+                          isFilteredPinSearch || placeSuggestions.length === 0;
                         return showNoSpotsMessage ? (
                           <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
-                            No hay spots con ese nombre. Puedes crearlo en Flowya:
+                            {isFilteredPinSearch
+                              ? 'No encontramos resultados en este filtro. Para ver recomendaciones del mundo, cambia a Todos.'
+                              : 'No encontramos ese lugar en tus spots.'}
                           </Text>
                         ) : null;
                       })()}
@@ -314,58 +339,43 @@ export function SearchFloatingNative<T>({
                           ))}
                         </View>
                       )}
-                      {placeSuggestions.length > 0 && onCreateFromPlace ? (
+                      {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
                         <View style={styles.suggestionsSection}>
-                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
-                            Crear spot en uno de estos lugares
+                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
+                            Lugares recomendados
                           </Text>
-                          {placeSuggestions.map((place) => (
-                            <Pressable
-                              key={place.id}
-                              style={({ pressed }) => [
-                                styles.suggestionRow,
-                                styles.placeRow,
-                                { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                              ]}
-                              onPress={() => onCreateFromPlace(place)}
-                              accessibilityLabel={`Crear en ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
-                              accessibilityRole="button"
-                            >
-                              <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
-                              <View style={styles.placeRowContent}>
-                                <Text style={{ color: colors.text, fontSize: 16, fontWeight: '500' }}>{place.name}</Text>
-                                {place.fullName ? (
-                                  <Text style={[styles.placeRowSubtitle, { color: colors.textSecondary }]}>{place.fullName}</Text>
-                                ) : null}
-                              </View>
-                              <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} />
-                            </Pressable>
-                          ))}
+                          <View style={styles.cardsList}>
+                            {placeSuggestions.map((place) => (
+                              <SearchListCard
+                                key={place.id}
+                                title={place.name}
+                                subtitle={place.fullName}
+                                onPress={() => onCreateFromPlace(place)}
+                                accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
+                              />
+                            ))}
+                          </View>
                         </View>
                       ) : null}
-                      <View style={styles.chooserSection}>
-                        <Pressable
-                          style={({ pressed }) => [
-                            styles.chooserButton,
-                            { backgroundColor: pressed ? colors.tintPressed ?? colors.tint : colors.tint },
-                          ]}
-                          onPress={controller.onCreate}
-                          accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
-                          accessibilityRole="button"
-                        >
-                          <View style={styles.chooserButtonContent}>
-                            <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
-                            <Text style={styles.chooserButtonSubtitle}>Centro del mapa o tu ubicación</Text>
-                          </View>
-                        </Pressable>
-                      </View>
+                      {!isFilteredPinSearch ? (
+                        <View style={styles.chooserSection}>
+                          <Pressable
+                            style={({ pressed }) => [
+                              styles.chooserButton,
+                              { backgroundColor: pressed ? colors.tintPressed ?? colors.tint : colors.tint },
+                            ]}
+                            onPress={controller.onCreate}
+                            accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
+                            accessibilityRole="button"
+                          >
+                            <View style={styles.chooserButtonContent}>
+                              <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
+                              <Text style={styles.chooserButtonSubtitle}>Centro del mapa o tu ubicación</Text>
+                            </View>
+                          </Pressable>
+                        </View>
+                      ) : null}
                     </ScrollView>
-                    <Pressable
-                      style={styles.tapToCloseMapArea}
-                      onPress={requestClose}
-                      accessibilityLabel="Cerrar búsqueda. Toca el mapa."
-                      accessibilityRole="button"
-                    />
                   </View>
                 )}
               </View>
@@ -437,22 +447,26 @@ const styles = StyleSheet.create({
   resultsArea: { flex: 1, minHeight: 0, marginTop: Spacing.sm },
   noResultsWrap: { flex: 1, minHeight: 0 },
   noResultsScroll: {},
-  tapToCloseMapArea: { flex: 1, minHeight: 80 },
+  tapToCloseMapArea: { minHeight: 0 },
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },
   resultItemWrap: { width: '100%' },
   recentListWrap: { gap: Spacing.sm, width: '100%' },
   sectionHeader: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
+    textShadowColor: 'rgba(0,0,0,0.55)',
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 1 },
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
   noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
   suggestionsSection: { marginBottom: Spacing.base },
+  cardsList: { gap: Spacing.sm },
   suggestionRow: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
@@ -461,7 +475,7 @@ const styles = StyleSheet.create({
   chooserSection: { marginTop: Spacing.sm },
   placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
   placeRowContent: { flex: 1, minWidth: 0, gap: 2 },
-  placeRowSubtitle: { fontSize: 13 },
+  placeRowSubtitle: { fontSize: 14, color: '#AAB2BF' },
   chooserRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
   chooserRowTitle: { fontSize: 16, fontWeight: '600' },

@@ -20,23 +20,16 @@ function createFallbackImage(sizePx = 32): ImageData | null {
   const cy = sizePx / 2;
   const radius = sizePx * 0.33;
 
-  // Base dark disk with white plus; works over orange/green pin backgrounds.
+  // Minimal neutral marker fallback (no plus).
   ctx.clearRect(0, 0, sizePx, sizePx);
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fillStyle = 'rgba(20, 20, 24, 0.92)';
   ctx.fill();
-
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineCap = 'round';
-  ctx.lineWidth = Math.max(2, Math.round(sizePx * 0.1));
-  const d = radius * 0.5;
   ctx.beginPath();
-  ctx.moveTo(cx - d, cy);
-  ctx.lineTo(cx + d, cy);
-  ctx.moveTo(cx, cy - d);
-  ctx.lineTo(cx, cy + d);
-  ctx.stroke();
+  ctx.arc(cx, cy, radius * 0.42, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
 
   return ctx.getImageData(0, 0, sizePx, sizePx);
 }
@@ -64,4 +57,3 @@ export function installStyleImageFallback(map: MapboxMap): () => void {
     }
   };
 }
-

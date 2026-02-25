@@ -119,6 +119,50 @@ export function hideNoiseLayers(map: MapboxMap): void {
   }
 }
 
+/**
+ * Algunos tokens/entornos no tienen acceso al tileset de landmarks del estilo base
+ * (`mapbox.mapbox-landmark-pois-v1`) y generan 404 continuos. Removemos esas capas/fuentes
+ * cuando aparecen para mantener la consola limpia y evitar requests repetidos.
+ */
+export function stripUnavailableLandmarkPoiTileset(map: MapboxMap): void {
+  try {
+    const style = map.getStyle();
+    if (!style?.sources) return;
+    const blockedSourceIds = Object.entries(style.sources)
+      .filter(([, source]) => {
+        if (!source || typeof source !== 'object') return false;
+        const s = source as { type?: string; url?: string };
+        return (
+          s.type === 'vector' &&
+          typeof s.url === 'string' &&
+          s.url.includes('mapbox.mapbox-landmark-pois-v1')
+        );
+      })
+      .map(([sourceId]) => sourceId);
+
+    if (blockedSourceIds.length === 0) return;
+    const layers = style.layers ?? [];
+    for (const layer of layers) {
+      if (blockedSourceIds.includes(layer.source ?? '')) {
+        try {
+          map.removeLayer(layer.id);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    for (const sourceId of blockedSourceIds) {
+      try {
+        map.removeSource(sourceId);
+      } catch {
+        // ignore
+      }
+    }
+  } catch {
+    // ignore if style/sources not ready
+  }
+}
+
 /** Activa o desactiva edificios y objetos 3D en estilo FLOWYA (Mapbox Studio). */
 export function set3DBuildingsEnabled(map: MapboxMap, enabled: boolean): void {
   try {

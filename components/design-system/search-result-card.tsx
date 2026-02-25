@@ -1,59 +1,54 @@
-/**
- * Design System: SearchResultCard.
- * Card usada en el listado de resultados de búsqueda del mapa.
- * Visualmente igual a SpotCardMapSelection pero sin botones guardar/compartir.
- * Al tocar se notifica onPress (ej. seleccionar resultado y centrar pin en el mapa).
- */
-
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 
-import type { SavePinState } from './icon-button';
-import type { SpotCardSpot } from './spot-card';
-import { SpotCardMapSelection } from './spot-card';
+import { SearchListCard } from './search-list-card';
 
 export type SearchResultCardProps = {
-  spot: SpotCardSpot;
-  savePinState?: SavePinState;
+  spot: {
+    id: string;
+    title: string;
+    address?: string | null;
+    cover_image_url?: string | null;
+  };
   onPress?: () => void;
 };
 
 export function SearchResultCard({
   spot,
-  savePinState = 'default',
   onPress,
 }: SearchResultCardProps) {
   return (
     <View style={styles.wrap}>
-      <SpotCardMapSelection
-        spot={spot}
-        savePinState={savePinState}
-        hideActions
-        onCardPress={onPress}
+      <SearchListCard
+        title={spot.title}
+        subtitle={spot.address ?? null}
+        imageUri={spot.cover_image_url}
+        onPress={onPress ?? (() => {})}
+        accessibilityLabel={`Seleccionar ${spot.title}`}
       />
     </View>
   );
 }
 
-const MOCK_SPOTS: SpotCardSpot[] = [
+const MOCK_SPOTS: SearchResultCardProps['spot'][] = [
   {
     id: 'mock-1',
     title: 'Café del centro',
-    description_short: 'Lugar tranquilo para trabajar o leer.',
+    address: 'Avenida 10, Playa del Carmen, México',
     cover_image_url: null,
   },
   {
     id: 'mock-2',
     title: 'Playa Norte',
-    description_short: 'Arena blanca y aguas calmadas.',
+    address: 'Isla Mujeres, Quintana Roo, México',
     cover_image_url: null,
   },
   {
     id: 'mock-3',
     title: 'Mirador del atardecer',
-    description_short: null,
+    address: 'Carretera Costera, Tulum, México',
     cover_image_url: null,
   },
 ];
@@ -62,11 +57,10 @@ const MOCK_SPOTS: SpotCardSpot[] = [
 export function SearchResultsShowcase() {
   return (
     <View style={styles.showcase}>
-      {MOCK_SPOTS.map((spot, i) => (
+      {MOCK_SPOTS.map((spot) => (
         <SearchResultCard
           key={spot.id}
           spot={spot}
-          savePinState={i === 0 ? 'toVisit' : i === 1 ? 'visited' : 'default'}
           onPress={() => {}}
         />
       ))}

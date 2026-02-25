@@ -119,6 +119,7 @@ Se obtuvo metadata desde `information_schema` (solo lectura):
   - `linked`: match confiable
   - `uncertain`: match ambiguo (no ocultar automáticamente)
   - `unlinked`: sin match confiable
+  - Guardrail app: para ocultar `linked+unsaved` se requiere `linked_place_id` no vacío.
 
 > Todo lo anterior se considerará **OPEN LOOP** hasta que exista evidencia (migraciones/índices/decisión en ops).
 

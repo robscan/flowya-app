@@ -1,10 +1,17 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-25 (post-merge main `555368b`)
+**Fecha:** 2026-02-25 (post-merge main `8d1ccc6`)
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
 > Los loops cerrados NO permanecen aquí (se registran en bitácora).
+
+**Actualización de sesión (cierre parcial 2026-02-25 noche):**
+- Search V2 quedó funcional para landmark/geo con adapter externo simplificado (`/forward` + fallback) y guardrail 429.
+- Regla UX aplicada: en filtros `Por visitar/Visitados` no se muestran recomendaciones externas ni CTA crear.
+- Overlay web: tap en fondo ya no cierra búsqueda.
+- Filtro superior del mapa: se mantiene en dropdown (`MapPinFilter`) por decisión de sesión.
+- Nuevo pendiente detectado: fallback visual de maki en mapa (se ve punto blanco homogéneo).
 
 ---
 
@@ -29,8 +36,8 @@ Checklist operativo único:
 - `docs/ops/plans/CHECKLIST_EXECUTION_LINKING_SEARCH_V2.md`
 
 1) **Plan maestro 1: `PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT`**
-   - Ejecutar cierre de Fase C: `ff_hide_linked_unsaved` + `ff_flowya_pin_maki_icon` con fallback.
-   - Ejecutar Fase D: hardening con QA/no-go en zonas densas.
+   - Fase C completada en `main` (`ff_hide_linked_unsaved` + `ff_flowya_pin_maki_icon` + fallback runtime).
+   - Ejecutar cierre de Fase D: QA/no-go formal en zonas densas/sin POI + validación de performance.
    - Objetivo: cerrar `OL-P0-004` sin regresiones de tap/sheet/performance.
 2) **Plan maestro 2: `PLAN_SEARCH_V2_POI_FIRST_SAFE_MIGRATION`**
    - Ejecutar Fase A-B-C: contrato + adapter externo + ranking mixto por secciones.
@@ -163,7 +170,7 @@ Checklist operativo único:
 
 ### OL-P1-004 — Search no-results: MS-E POIs aún pendiente
 
-**Estado:** ACTIVO
+**Estado:** ACTIVO (FUNCIONAL CERRADO PARCIAL; pendiente hardening visual final)
 
 **Problema:** En sin-resultados, el flujo sigue dependiendo de Geocoding/paths actuales; el plan MS-E (POIs con Search Box/fallback) no está cerrado.
 
@@ -179,6 +186,50 @@ Checklist operativo único:
 **Referencias**
 - `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-E)
 - `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md`
+- `docs/bitacora/2026/02/134-search-v2-track-b-fase-a-b-flags-adapter-poi.md`
+- `docs/bitacora/2026/02/135-search-v2-fase-c-secciones-mixtas-y-dedupe.md`
+- `docs/bitacora/2026/02/136-search-v2-fase-c-ranking-intents-y-fase-d-alineacion-create-linking.md`
+- `docs/bitacora/2026/02/137-search-v2-fase-e-rollout-metricas-runtime-y-nogo.md`
+- `docs/bitacora/2026/02/138-search-v2-intents-precedence-landmark-geo-y-sync-docs.md`
+- `docs/bitacora/2026/02/141-search-v2-simplificacion-forward-single-request-y-guardrail-429.md`
+
+**Avance ejecutado (2026-02-25):**
+- Ranking taxonómico aplicado en sugerencias externas (`poi_landmark > poi > place > address`) cuando `ff_search_mixed_ranking` está ON.
+- Create-from-search alineado con linking: `linked_place_kind` se infiere por intent y `linked_place_id` solo se persiste cuando el id externo es estable (no sintético).
+- Hardening Fase E parcial: métricas runtime expuestas en `globalThis.__flowyaSearchMetrics` para medir CTR útil, no-results, create-from-search y latencia/error de fetch externo.
+- Rollout definido por etapas de flags: adapter -> dedupe -> ranking mixto.
+- Precedencia de intents alineada a UX real: `landmark > geo > recommendation` (fix para queries de monumento como "Torre Eiffel").
+- Adapter externo simplificado: Search Box `/forward` como request principal (single request) + fallback Geocoding y cooldown ante 429.
+- Regla de filtros de usuario aplicada en Search UI:
+  - `Todos`: puede mostrar recomendaciones externas + CTA crear.
+  - `Por visitar/Visitados`: solo resultados del grupo; sin recomendaciones externas ni crear.
+
+**Pendiente para cierre definitivo del loop:**
+- Ajustar representación visual final de fallback maki (sin `+`, pero evitar punto blanco uniforme).
+
+---
+
+### OL-P1-008 — Fallback visual de iconos maki (sprites faltantes)
+
+**Estado:** ACTIVO
+
+**Problema:** cuando el sprite del estilo no contiene ciertos `maki` (ej. `beach-11`), el fallback runtime evita crash/error pero actualmente se percibe como punto blanco idéntico para muchos casos, degradando legibilidad y calidad visual.
+
+**DoD / AC**
+- Definir set visual canónico para fallback de íconos maki ausentes.
+- Mantener cero errores funcionales por `styleimagemissing`.
+- Evitar símbolo confuso/repetitivo en todos los pins.
+- No romper rendimiento del mapa ni interacción pin->sheet.
+
+**Pruebas mínimas**
+- Smoke: zonas con múltiples categorías (`beach`, `museum`, `park`, etc.) sin warnings recurrentes críticos.
+- Smoke visual: fallback distinguible y consistente sobre pines `to_visit/visited`.
+- Smoke funcional: tap en pin sigue abriendo sheet correcto.
+
+**Referencias**
+- `lib/map-core/style-image-fallback.ts`
+- `lib/map-core/spots-layer.ts`
+- `docs/bitacora/2026/02/142-search-v2-cierre-parcial-filtros-y-pendiente-fallback-maki-visual.md`
 
 ---
 
@@ -263,7 +314,7 @@ Checklist operativo único:
 
 ### OL-P0-004 — Visibilidad de spots según enlace POI/Landmark (linked/unlinked)
 
-**Estado:** ACTIVO (EN EJECUCIÓN, backend listo; falta cierre visual por flags)
+**Estado:** ACTIVO (Fase C completada; pendiente cierre QA/no-go de Fase D)
 
 **Problema:** Con mayor cobertura de POIs/Landmarks, los spots sin estado (`saved=false`, `visited=false`) generan ruido visual cuando ya existe señal de basemap para ese lugar.
 
@@ -311,12 +362,14 @@ Checklist operativo único:
 - Tap POI prioriza match por `linked_place_id`; fallback por proximidad solo para spots `linked`.
 - Create-from-POI/Search persiste `link_*` en insert para que el tap linked funcione desde creación.
 - Mitigación runtime para landmark labels/config y reducción de ruido de consola.
-- Bitácoras: `126`, `127`, `128`, `129`.
+- Ocultamiento `linked+unsaved` y maki sprite con fallback (`marker-15`) activo detrás de flags.
+- Guardrail anti-desaparición: no ocultar `linked+unsaved` si `linked_place_id` no está presente.
+- Bitácoras: `126`, `127`, `128`, `129`, `130`, `131`, `132`, `133`.
 
 **Pendiente para cierre OL-P0-004:**
-- Activar `ff_hide_linked_unsaved` y validar que nunca desaparezca el lugar (POI base visible o pin fallback).
-- Activar `ff_flowya_pin_maki_icon` con fallback visual garantizado para `maki` desconocido.
-- QA formal de no-go: densidad urbana, ambigüedad, performance y regressions de tap/sheet.
+- QA formal de no-go (matriz completa): densidad urbana, zonas sin POI, zoom alto/medio/bajo, light/dark.
+- Criterio cuantitativo: `uncertain <= 15%` en muestra QA.
+- Evidencia de performance/tap->sheet sin regresión con flags ON.
 
 ---
 

@@ -115,6 +115,7 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
         const count = getCount(opt.value, counts);
         const pillColors = isSelected ? getSelectedColors(opt.value) : getUnselectedColors();
         const label = opt.label;
+        const useAllIconSizer = opt.value === 'all' && !isSelected;
 
         const pillContent = (
           <Pressable
@@ -133,7 +134,13 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
             accessibilityState={{ checked: isSelected }}
             accessibilityLabel={`${label}${count != null ? ` ${count}` : ''}`}
           >
-            <FilterIcon value={opt.value} size={16} color={pillColors.text} />
+            {useAllIconSizer ? (
+              <View style={styles.allIconSizer}>
+                <FilterIcon value={opt.value} size={16} color={pillColors.text} />
+              </View>
+            ) : (
+              <FilterIcon value={opt.value} size={16} color={pillColors.text} />
+            )}
             {isSelected ? (
               <Text
                 style={[TypographyStyles.filterLabel, { color: pillColors.text }]}
@@ -193,6 +200,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignSelf: 'flex-start',
+  },
+  allIconSizer: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   countBadge: {
     minWidth: 22,

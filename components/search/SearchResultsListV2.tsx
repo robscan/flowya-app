@@ -95,8 +95,8 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   content: {
-    paddingBottom: Spacing.sm,
-    gap: Spacing.sm,
+    paddingBottom: Spacing.base,
+    gap: Spacing.base,
   },
   section: {
     gap: Spacing.xs,

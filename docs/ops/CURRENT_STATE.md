@@ -39,6 +39,13 @@
 - **Soft delete:** resuelto y operativo; retirado de prioridades activas/OPEN_LOOPS.
 - Evidencia de cierre/fix: bitácoras 043 (alineación auth runtime), 046 (RLS/migración) y 047 (diagnóstico P0 + fix de sesión/JWT en update).
 - **Mapa Explore:** decisión de producto confirmada: trabajar solo con estilo **FLOWYA** (Mapbox Studio). Se eliminó la bifurcación Standard vs FLOWYA en código y el toggle de versiones de mapa quedó deprecado/removido. El control 3D se mantiene operativo en FLOWYA.
+- **Search V2 (estado operativo actual):**
+  - `Search Box /forward` como request principal externo (single request) + fallback Geocoding.
+  - Ranking de intents estabilizado para casos landmark (`landmark > geo > recommendation`) con hardening para monumentos.
+  - En búsqueda con filtros `Por visitar/Visitados`: no mostrar recomendaciones externas ni CTA de crear; mensaje centrado para cambiar a `Todos`.
+  - Tap en fondo del overlay web ya no cierra búsqueda (solo blur de input cuando aplica).
+- **Mapa/filtros:** en mapa principal se mantiene **dropdown** (`MapPinFilter`) por decisión de UX de la sesión.
+- **Pendiente inmediato (open loop activo):** fallback visual de iconografía maki. Actualmente evita errores de sprite faltante, pero el fallback neutro se percibe como punto blanco homogéneo; requiere set visual canónico.
 
 ---
 

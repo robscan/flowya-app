@@ -29,6 +29,15 @@
 
 **Mapa (S5):** El mapa usa **solo** Search V2 (mode="spots"). Legacy eliminado; sin condicional ni flag. Overlay de búsqueda theme-aware. **Filtros** (Todos / Por visitar / Visitados) visibles dentro del panel Search. Sugerencias y resultados en panel tipo sheet.
 
+### Regla UX de filtros en Search (2026-02-25)
+
+- `Todos`: se permiten recomendaciones externas (Mapbox) y CTA `Crear spot aquí` en estado sin resultados.
+- `Por visitar` / `Visitados`: búsqueda restringida al grupo del usuario.
+  - No mostrar recomendaciones externas.
+  - No mostrar CTA `Crear spot aquí`.
+  - Mostrar mensaje guía centrado: cambiar a `Todos` para explorar resultados del mundo.
+- Overlay web: tap en fondo no cierra Search (solo blur del input cuando aplica).
+
 ---
 
 ## Contrato SpotsStrategy (S2) — obligatorio
@@ -112,3 +121,66 @@ UI indica contexto: "En esta zona" / "Cerca de aquí" / "En todo el mapa".
 - 030-search-v2-s3-suggestions.md — Sugerencias
 - 031-search-v2-s4-create-spot.md — Create Spot
 - 032-search-v2-s5-cleanup.md — Cleanup
+- 134-search-v2-track-b-fase-a-b-flags-adapter-poi.md — Track B Fase A-B
+- 135-search-v2-fase-c-secciones-mixtas-y-dedupe.md — Track B Fase C parcial
+- 136-search-v2-fase-c-ranking-intents-y-fase-d-alineacion-create-linking.md — Track B Fase C + D parcial
+- 137-search-v2-fase-e-rollout-metricas-runtime-y-nogo.md — Track B Fase E parcial
+- 138-search-v2-intents-precedence-landmark-geo-y-sync-docs.md — Track B hardening intents
+- 141-search-v2-simplificacion-forward-single-request-y-guardrail-429.md — Track B resiliencia + simplificación
+
+---
+
+## Track B (POI-first safe migration) — estado operativo
+
+Fase A-B (actual):
+
+- Flags disponibles:
+  - `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`
+  - `EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING`
+  - `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE`
+- Adapter externo: `lib/places/searchPlacesPOI.ts`
+  - contrato común `PlaceResultV2` (`id`, `maki`, `featureType`, `categories`, coords)
+  - Search Box `/forward` (single request) como fuente principal
+  - fallback estable a `searchPlaces` (Geocoding v6)
+  - guardrail anti-rate-limit: cooldown temporal cuando Search Box devuelve `429`
+- Integración actual:
+  - Search no-results en Explore usa adapter externo detrás de flag (`EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`)
+  - dedupe opcional detrás de `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE`
+
+Implementado en Fase C:
+
+- sección mixta en Search Overlay: spots internos + POI/direcciones externas.
+- dedupe interno/externo por `linked_place_id` y fallback de proximidad+nombre.
+- ranking taxonómico de intents en sugerencias externas (`poi_landmark > poi > place > address`).
+
+Implementado en Fase D parcial:
+
+- create-from-search mantiene snapshot mínimo externo vía create-from-POI (`name`, `lat/lng`, `linked_place_id`, `linked_place_kind`, `linked_maki`).
+- guardrail: IDs sintéticos de fallback no se persisten como `linked_place_id` para evitar enlaces falsos.
+
+Implementado en Fase E parcial:
+
+- métricas runtime mínimas para QA/no-go en `globalThis.__flowyaSearchMetrics`:
+  - CTR útil (`spotClicks + externalClicks` / `searchesStarted`),
+  - tasa de no-results (`searchNoResults / searchesStarted`),
+  - éxito create-from-search (`createFromSearchSuccessRate`),
+  - latencia/error de fetch externo (`externalFetchAvgDurationMs`, `externalFetchErrors`).
+
+Intents operativas (orden de precedencia actual):
+
+- `landmark`: monumentos/atracciones (ej. "Torre Eiffel", "Museo del Louvre").
+- `geo`: lugar geográfico/topónimo (ej. "París, Francia", "Cozumel").
+- `recommendation`: resto de queries (flujo de recomendaciones).
+
+Regla crítica:
+
+- `landmark` siempre prevalece sobre `geo` para evitar desvíos a topónimos genéricos (ej. "Torre" en otros países).
+- En `landmark`, ranking reforzado por:
+  - match exacto de nombre de consulta,
+  - cobertura completa de tokens del query,
+  - normalización de variantes/typos frecuentes (ej. `Eifel` -> `Eiffel`) para ranking,
+  - penalización de términos comerciales/ruido (ej. "fiestas", "convenciones", "replica"),
+  - penalización de resultados tipo `address/street`.
+- Guardrail canónico de landmark:
+  - boost explícito a candidato landmark canónico cuando coincide nombre + ciudad esperada (ej. `Torre Eiffel` + `Paris`).
+- En `landmark`, búsqueda externa opera en modo global (sin `bbox/proximity`) para evitar sesgo por ubicación actual del usuario.
