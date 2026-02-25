@@ -1,6 +1,6 @@
 # Plan: Integración POI/Spots y Deprecación Controlada
 
-**Estado:** Implementado (2026-02-14)
+**Estado:** DEPRECATED / ARCHIVED (implementado; movido desde `docs/ops/plans` el 2026-02-25)
 
 ## Objetivos
 

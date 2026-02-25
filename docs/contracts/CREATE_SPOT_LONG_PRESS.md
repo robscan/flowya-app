@@ -1,7 +1,7 @@
 # CREATE_SPOT_LONG_PRESS — Contrato
 
 **Estado:** ACTIVE (implementado MS-A)  
-**Relación:** OL-P0-003, `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md`
+**Relación:** OL-P0-003, `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md`
 
 ---
 

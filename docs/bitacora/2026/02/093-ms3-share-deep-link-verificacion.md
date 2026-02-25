@@ -1,7 +1,7 @@
 # Bitácora 093 (2026/02) — Micro-scope 3: Share deep link — verificación y cierre
 
 **Fecha:** 2026-02-14  
-**Micro-scope:** 3 — Share deep link (EXPLORE_UX_MICROSCOPES.md)  
+**Micro-scope:** 3 — Share deep link (strategy/EXPLORE_UX_MICROSCOPES.md)  
 **Objetivo:** Al compartir un spot, el link abre Explorar y muestra SpotSheet en el estado acordado (no SpotDetail standalone). Implementación en bitácora 090; este doc cierra AC/DoD.
 
 ---

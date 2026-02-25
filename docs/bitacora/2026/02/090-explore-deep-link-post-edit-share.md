@@ -65,4 +65,4 @@ Documentación: `docs/contracts/DEEP_LINK_SPOT.md`.
 
 ## Seguimiento
 
-- Micro-scopes UX pendientes (Search estable, una entrada crear spot, share deep link AC) en `docs/ops/EXPLORE_UX_MICROSCOPES.md`.
+- Micro-scopes UX pendientes (Search estable, una entrada crear spot, share deep link AC) en `docs/ops/strategy/EXPLORE_UX_MICROSCOPES.md`.

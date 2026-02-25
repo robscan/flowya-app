@@ -1,7 +1,7 @@
 # Bitácora 092 (2026/02) — Micro-scope 2: Una sola entrada para crear spot (map-first)
 
 **Fecha:** 2026-02-14  
-**Micro-scope:** 2 — Una sola entrada (EXPLORE_UX_MICROSCOPES.md)  
+**Micro-scope:** 2 — Una sola entrada (strategy/EXPLORE_UX_MICROSCOPES.md)  
 **Objetivo:** Todos los flujos de crear spot = **flujo mínimo** (como búsqueda sin resultados): nombre + ubicación + imagen al final; reverse geocoding una vez para dirección en DB.
 
 ---

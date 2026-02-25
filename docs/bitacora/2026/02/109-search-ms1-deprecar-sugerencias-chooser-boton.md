@@ -10,7 +10,7 @@
 ### 1. Sugerencias ES↔EN — deprecated y ocultas
 
 - `SearchOverlayWeb.tsx` y `SearchFloatingNative.tsx`: bloque de sugerencias envuelto en `{false && ...}` con comentario `@deprecated`.
-- Entrada en `docs/ops/GUARDRAILS_DEPRECACION.md`.
+- Entrada en `docs/ops/governance/GUARDRAILS_DEPRECACION.md`.
 - Contratos `SEARCH_NO_RESULTS_CREATE_CHOOSER` y `SEARCH_V2` actualizados. Reemplazo previsto: `mapPoiResults` (MS-2).
 
 ### 2. "No hay spots" condicional
@@ -29,6 +29,6 @@
 
 - `components/search/SearchOverlayWeb.tsx`
 - `components/search/SearchFloatingNative.tsx`
-- `docs/ops/GUARDRAILS_DEPRECACION.md`
+- `docs/ops/governance/GUARDRAILS_DEPRECACION.md`
 - `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md`
 - `docs/definitions/search/SEARCH_V2.md`

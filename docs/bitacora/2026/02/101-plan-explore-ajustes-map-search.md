@@ -10,7 +10,7 @@
 
 | Documento | Acción |
 |-----------|--------|
-| `docs/ops/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` | **Nuevo.** Plan con MS-A a MS-E, riesgos, mitigaciones, DoD. |
+| `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` | **Nuevo.** Plan con MS-A a MS-E, riesgos, mitigaciones, DoD. |
 | `docs/contracts/CREATE_SPOT_LONG_PRESS.md` | **Nuevo.** Contrato reglas long-press (OL-P0-003). |
 | `docs/ops/OPEN_LOOPS.md` | OL-P0-003: añadido plan de ejecución (MS-A). OL-PLAN-EXPLORE: nuevo loop con referencia al plan. |
 | `docs/ops/CURRENT_STATE.md` | Añadida referencia al plan documentado (post-P0). |

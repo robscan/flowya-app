@@ -2,7 +2,7 @@
 
 **Estado:** Documentado para retomar. No implementar aún.
 
-> Ideas discutidas 2026-02-14. Feature 1 (Galería) aquí; Feature 2 (Mi diario) en `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
+> Ideas discutidas 2026-02-14. Feature 1 (Galería) aquí; Feature 2 (Mi diario) en `docs/ops/plans/PLAN_RECORDAR_MI_DIARIO.md`.
 
 ---
 
@@ -22,7 +22,7 @@
 
 ## Feature 2: Mi diario (notas personales)
 
-> **Plan completo en:** `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`  
+> **Plan completo en:** `docs/ops/plans/PLAN_RECORDAR_MI_DIARIO.md`  
 > **Contrato entry point:** `docs/contracts/RECORDAR_ENTRY_SPOT_SHEET.md`
 
 Modelo de datos y lib siguen vigentes: `pins.notes`, `notes_updated_at`, `lib/pins` (updatePinNotes).
@@ -31,5 +31,5 @@ UI: entry desde SpotSheet (dos botones en fila: Por visitar/Visitado + Mi diario
 ---
 
 ## Orden de implementación sugerido
-1. **Mi diario:** Ver `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
+1. **Mi diario:** Ver `docs/ops/plans/PLAN_RECORDAR_MI_DIARIO.md`.
 2. **Galería:** migración spot_images + lib + SpotImageGrid + ImageFullscreenModal extendido + Create/Edit Spot.
