@@ -580,13 +580,6 @@ export function MapScreenV0() {
 
   const searchOverlayVisible = searchV2.isOpen;
 
-  const stageLabel =
-    searchV2.stage === 'viewport'
-      ? 'En esta zona'
-      : searchV2.stage === 'expanded'
-        ? 'Cerca de aquí'
-        : 'En todo el mapa';
-
   return (
     <View
       ref={mapRootRef}
@@ -793,7 +786,6 @@ export function MapScreenV0() {
                 if (isSearch && searchV2.results.length > 0) {
                   return (
                     <>
-                      <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>{stageLabel}</Text>
                       <SearchResultsListV2
                         sections={[]}
                         results={searchV2.results}

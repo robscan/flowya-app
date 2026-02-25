@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
-import { ChevronRight, MapPin } from 'lucide-react-native';
+import { CheckCircle, ChevronRight, MapPin, Pin } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Radius, Spacing } from '@/constants/theme';
+import { Colors, Radius, Spacing } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export type SearchListCardProps = {
   title: string;
@@ -12,6 +13,7 @@ export type SearchListCardProps = {
   accessibilityLabel: string;
   imageUri?: string | null;
   showChevron?: boolean;
+  pinStatus?: 'default' | 'to_visit' | 'visited';
 };
 
 export function SearchListCard({
@@ -21,16 +23,29 @@ export function SearchListCard({
   accessibilityLabel,
   imageUri,
   showChevron = true,
+  pinStatus = 'default',
 }: SearchListCardProps) {
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
   const [imageError, setImageError] = useState(false);
   const hasImage = useMemo(
     () => typeof imageUri === 'string' && imageUri.trim().length > 0 && !imageError,
     [imageUri, imageError],
   );
+  const showStatusBadge = pinStatus === 'to_visit' || pinStatus === 'visited';
+  const statusColor = pinStatus === 'visited' ? colors.stateSuccess : colors.stateToVisit;
+  const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
 
   return (
     <Pressable
-      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+      style={({ pressed }) => [
+        styles.card,
+        {
+          borderColor: colors.borderSubtle,
+          backgroundColor: colors.backgroundElevated,
+        },
+        pressed && { backgroundColor: colors.borderSubtle },
+      ]}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
@@ -45,21 +60,40 @@ export function SearchListCard({
           />
         </View>
       ) : (
-        <View style={styles.iconWrap}>
-          <MapPin size={18} color="#AAB2BF" strokeWidth={2} />
+        <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
+          <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
         </View>
       )}
       <View style={styles.content}>
-        <Text style={styles.title} numberOfLines={2}>
+        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={styles.subtitle} numberOfLines={3}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={3}>
             {subtitle}
           </Text>
         ) : null}
       </View>
-      {showChevron ? <ChevronRight size={20} color="#AAB2BF" strokeWidth={2} /> : null}
+      {showStatusBadge ? (
+        <View
+          style={[
+            styles.statusBadge,
+            {
+              backgroundColor: statusColor,
+              borderColor: statusColor,
+            },
+          ]}
+          accessibilityLabel={statusLabel}
+          accessibilityRole="image"
+        >
+          {pinStatus === 'visited' ? (
+            <CheckCircle size={14} color="#FFFFFF" strokeWidth={2.2} />
+          ) : (
+            <Pin size={14} color="#FFFFFF" strokeWidth={2.2} />
+          )}
+        </View>
+      ) : null}
+      {showChevron ? <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} /> : null}
     </Pressable>
   );
 }
@@ -71,14 +105,9 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(20,22,28,0.94)',
     paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.base,
     minHeight: 88,
-  },
-  cardPressed: {
-    backgroundColor: 'rgba(32,35,45,0.96)',
   },
   content: {
     flex: 1,
@@ -86,12 +115,10 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   title: {
-    color: '#F4F7FB',
     fontSize: 17,
     fontWeight: '600',
   },
   subtitle: {
-    color: '#AAB2BF',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -101,19 +128,28 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.09)',
   },
   imageWrap: {
     width: 88,
     height: 88,
     borderRadius: Radius.md,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   image: {
     width: '100%',
     height: '100%',
+  },
+  statusBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    zIndex: 2,
   },
 });

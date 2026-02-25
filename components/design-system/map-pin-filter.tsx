@@ -44,6 +44,8 @@ export type MapPinFilterProps = {
   onChange: (value: MapPinFilterValue) => void;
   /** Conteos opcionales (derivados del estado, sin queries extra). */
   counts?: MapPinFilterCounts;
+  pendingValue?: Exclude<MapPinFilterValue, 'all'> | null;
+  pulseNonce?: number;
 };
 
 function getLabelWithCount(
@@ -59,7 +61,8 @@ function getLabelWithCount(
 
 function getCount(optValue: MapPinFilterValue, counts?: MapPinFilterCounts): number | undefined {
   if (optValue === 'all' || !counts) return undefined;
-  return optValue === 'saved' ? counts.saved : counts.visited;
+  const value = optValue === 'saved' ? counts.saved : counts.visited;
+  return value > 0 ? value : undefined;
 }
 
 function FilterIcon({
@@ -81,11 +84,18 @@ function FilterIcon({
   }
 }
 
-export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
+export function MapPinFilter({
+  value,
+  onChange,
+  counts,
+  pendingValue = null,
+  pulseNonce = 0,
+}: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const prevValueRef = useRef(value);
+  const prevPulseNonceRef = useRef(pulseNonce);
 
   const openProgress = useSharedValue(0);
   const triggerScale = useSharedValue(1);
@@ -98,14 +108,17 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
   }, [open, openProgress]);
 
   useEffect(() => {
-    if (prevValueRef.current !== value) {
+    const valueChanged = prevValueRef.current !== value;
+    const pulseRequested = prevPulseNonceRef.current !== pulseNonce;
+    if (valueChanged || pulseRequested) {
       prevValueRef.current = value;
+      prevPulseNonceRef.current = pulseNonce;
       triggerScale.value = withSequence(
         withTiming(1.04, { duration: PULSE_DURATION_MS, easing: DROPDOWN_EASING }),
         withTiming(1, { duration: PULSE_DURATION_MS, easing: DROPDOWN_EASING })
       );
     }
-  }, [value, triggerScale]);
+  }, [value, pulseNonce, triggerScale]);
 
   const getSelectedColors = (optValue: MapPinFilterValue) => {
     switch (optValue) {
@@ -189,6 +202,9 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
               </Text>
             </View>
           ) : null}
+          {value === 'all' && pendingValue ? (
+            <View style={[styles.pendingDot, { backgroundColor: colors.stateError }]} />
+          ) : null}
           {open ? (
             <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
           ) : (
@@ -219,19 +235,26 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
         >
           {OPTIONS.map((opt) => {
             const count = getCount(opt.value, counts);
+            const isDisabled =
+              opt.value !== 'all' &&
+              counts != null &&
+              ((opt.value === 'saved' && counts.saved === 0) ||
+                (opt.value === 'visited' && counts.visited === 0));
             return (
               <Pressable
                   key={opt.value}
                   style={({ pressed }) => [
                     styles.menuOption,
                     {
-                      backgroundColor: pressed ? colors.borderSubtle : 'transparent',
+                      backgroundColor: pressed && !isDisabled ? colors.borderSubtle : 'transparent',
+                      opacity: isDisabled ? 0.45 : 1,
                     },
                     Platform.OS === 'web' && { cursor: 'pointer' },
                   ]}
+                  disabled={isDisabled}
                   onPress={() => handleSelect(opt.value)}
                   accessibilityRole="menuitem"
-                  accessibilityState={{ selected: value === opt.value }}
+                  accessibilityState={{ selected: value === opt.value, disabled: isDisabled }}
                   accessibilityLabel={getLabelWithCount(opt.value, opt.label, counts)}
                 >
                   <FilterIcon
@@ -266,6 +289,9 @@ export function MapPinFilter({ value, onChange, counts }: MapPinFilterProps) {
                         {count}
                       </Text>
                     </View>
+                  ) : null}
+                  {pendingValue === opt.value ? (
+                    <View style={[styles.pendingDot, styles.menuPendingDot, { backgroundColor: colors.stateError }]} />
                   ) : null}
                 </Pressable>
               );
@@ -336,5 +362,13 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  pendingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  menuPendingDot: {
+    marginLeft: Spacing.xs,
   },
 });

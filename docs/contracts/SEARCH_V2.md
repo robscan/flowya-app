@@ -58,6 +58,12 @@ Regla adicional por filtro activo:
   - mostrar mensaje centrado orientando a cambiar a `Todos`.
 - Si filtro es `all` (`Todos`): comportamiento normal de recomendaciones + chooser.
 
+Reglas QA agregadas (2026-02-25):
+
+- Selección explícita de POI externo en chooser/search: no bloquear creación por anti-duplicado.
+- Si el filtro activo (`saved`/`visited`) queda sin resultados visibles en viewport, reencuadrar al conjunto del filtro en el mundo.
+- Si el filtro activo sí tiene resultados visibles en viewport, mantener cámara actual (sin saltos).
+
 ---
 
 ## 6) Flags de migración Search V2 POI-first
@@ -102,3 +108,9 @@ Estado actual (Fase E parcial):
 
 - Rollout por flags en secuencia controlada: adapter -> dedupe -> ranking mixto.
 - Métricas runtime de Search disponibles para QA/no-go en `globalThis.__flowyaSearchMetrics` (sin backend obligatorio en esta fase).
+
+## 7) UX de filtros (dropdown) — pendientes QA
+
+- Si el usuario está en `Todos` y cambia estado de un spot desde sheet a `Por visitar`/`Visitados`, el dropdown puede mostrar badge de "pendiente de lectura".
+- El badge se limpia al abrir/aplicar el filtro destino.
+- Opciones de filtro sin resultados deben verse deshabilitadas y sin contador.

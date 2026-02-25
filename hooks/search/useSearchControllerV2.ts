@@ -56,6 +56,36 @@ function cacheKey(
   return `${mode}:${stage}:${f}:${b}:${normalizedQuery}:${cursor ?? ''}`;
 }
 
+function resolvePinFilter(filters: unknown): 'all' | 'saved' | 'visited' {
+  if (filters === 'all' || filters === 'saved' || filters === 'visited') return filters;
+  if (typeof filters === 'object' && filters !== null && 'pinFilter' in filters) {
+    const value = (filters as { pinFilter?: unknown }).pinFilter;
+    if (value === 'all' || value === 'saved' || value === 'visited') return value;
+  }
+  return 'all';
+}
+
+function hasPinnedItems<T>(items: T[]): boolean {
+  return items.some((item) => {
+    const pinStatus = (item as { pinStatus?: string }).pinStatus;
+    return pinStatus === 'to_visit' || pinStatus === 'visited';
+  });
+}
+
+function hasVisitedItems<T>(items: T[]): boolean {
+  return items.some((item) => {
+    const pinStatus = (item as { pinStatus?: string }).pinStatus;
+    return pinStatus === 'visited';
+  });
+}
+
+function hasVisitedPool(filters: unknown): boolean {
+  if (typeof filters === 'object' && filters !== null && 'hasVisited' in filters) {
+    return Boolean((filters as { hasVisited?: unknown }).hasVisited);
+  }
+  return false;
+}
+
 
 export type UseSearchControllerV2Options<T> = {
   mode: 'spots' | 'places';
@@ -198,18 +228,38 @@ export function useSearchControllerV2<T>({
         setSections([]);
 
         // Guardrail: stage solo avanza en search() inicial (cursor null, !append). fetchMore no dispara expanded/global.
-        if (!append && cur === null && out.items.length === 0 && mode === 'spots') {
-          if (st === 'viewport') {
+        if (!append && cur === null && mode === 'spots') {
+          const pinFilter = resolvePinFilter(filters);
+          const forceGlobalForPinFilter = pinFilter === 'saved' || pinFilter === 'visited';
+          if (forceGlobalForPinFilter && st !== 'global') {
             chaining = true;
-            setStage('expanded');
-            await runSearch(q, 'expanded', null, false);
-            return;
-          }
-          if (st === 'expanded') {
-            chaining = true;
+            if (st === 'viewport') {
+              setStage('expanded');
+              await runSearch(q, 'expanded', null, false);
+              return;
+            }
             setStage('global');
             await runSearch(q, 'global', null, false);
             return;
+          }
+
+          const noItems = out.items.length === 0;
+          const allFilterNeedsPinned = pinFilter === 'all' && !hasPinnedItems(out.items);
+          const allFilterMissingVisited =
+            pinFilter === 'all' && hasVisitedPool(filters) && !hasVisitedItems(out.items);
+          if (noItems || allFilterNeedsPinned || allFilterMissingVisited) {
+            if (st === 'viewport') {
+              chaining = true;
+              setStage('expanded');
+              await runSearch(q, 'expanded', null, false);
+              return;
+            }
+            if (st === 'expanded') {
+              chaining = true;
+              setStage('global');
+              await runSearch(q, 'global', null, false);
+              return;
+            }
           }
         }
       } finally {

@@ -2,6 +2,7 @@ import type { MapPinFilterCounts, MapPinFilterValue } from '@/components/design-
 import type { UseSearchControllerV2Return } from '@/hooks/search/useSearchControllerV2';
 import type { PlaceResult } from '@/lib/places/searchPlaces';
 import type { ReactNode } from 'react';
+import type { SearchSection } from './SearchResultsListV2';
 
 export type SearchFloatingProps<T> = {
   /** Controller de Search V2 (useSearchControllerV2); el padre configura setOnSelect/setOnCreate. */
@@ -16,6 +17,10 @@ export type SearchFloatingProps<T> = {
   renderItem: (item: T) => ReactNode;
   /** Etiqueta de etapa cuando hay resultados (ej. "En esta zona"). */
   stageLabel: string;
+  /** Resultados renderizados en UI (override opcional sobre controller.results). */
+  resultsOverride?: T[];
+  /** Secciones opcionales para resultados (ej. cercanos vs en todo el mapa). */
+  resultSections?: SearchSection<T>[];
   /** Mensaje cuando no hay items cercanos (query vacía). */
   emptyMessage?: string;
   /** Texto del CTA crear cuando no hay resultados (query >= 3). */

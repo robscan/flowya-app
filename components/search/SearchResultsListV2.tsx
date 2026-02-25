@@ -28,6 +28,8 @@ export type SearchResultsListV2Props<T> = {
   keyboardDismissMode?: 'none' | 'on-drag' | 'interactive';
   /** Web: llamado al hacer scroll para cerrar teclado (blur). Recibe contentOffset.y para throttling. */
   onScrollDismissKeyboard?: (contentOffsetY: number) => void;
+  /** Contenido opcional al final del listado (misma columna/scroll). */
+  footer?: React.ReactNode;
 };
 
 export function SearchResultsListV2<T>({
@@ -41,6 +43,7 @@ export function SearchResultsListV2<T>({
   keyboardShouldPersistTaps = 'handled',
   keyboardDismissMode = 'on-drag',
   onScrollDismissKeyboard,
+  footer,
 }: SearchResultsListV2Props<T>) {
   const showSections = sections.length > 0;
   const showFlat = !showSections && results.length > 0;
@@ -85,6 +88,7 @@ export function SearchResultsListV2<T>({
             {renderItem(item)}
           </View>
         ))}
+      {footer ? <View style={styles.footerWrap}>{footer}</View> : null}
     </ScrollView>
   );
 }
@@ -105,6 +109,9 @@ const styles = StyleSheet.create({
     minHeight: 24,
   },
   itemWrap: {
+    width: '100%',
+  },
+  footerWrap: {
     width: '100%',
   },
 });

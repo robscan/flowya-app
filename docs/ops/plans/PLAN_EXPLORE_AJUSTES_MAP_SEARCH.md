@@ -204,3 +204,18 @@
 2. **Un PR por MS:** Facilita rollback y trazabilidad.
 3. **Fallbacks:** MS-E debe tener fallback a Geocoding; MS-C/D deben ser reversibles.
 4. **No mezclar scope:** Cada MS es autocontenido; evitar "ya que tocamos X, arreglemos Y".
+
+---
+
+## 7. Addendum QA (2026-02-25)
+
+Hallazgos incorporados para ejecución futura:
+
+1. Landmarks base relevantes deben mantenerse visibles (validar capa/estilo antes de aplicar hide condicional de pines).
+2. Selección de POI nuevo debe forzar encuadre canónico con sheet y suprimir control competitivo "Ver todo el mundo".
+3. `MapPinFilter`:
+   - badge de pendiente cuando el usuario está en `Todos` y cambia estado desde sheet;
+   - limpieza de badge al consumir el filtro destino;
+   - filtros sin resultados deshabilitados y sin contador;
+   - reencuadre condicional si no hay resultados visibles del filtro en viewport.
+4. Simplificación técnica: evaluar reglas custom existentes contra capacidades nativas Mapbox/Search Box y eliminar redundancias.

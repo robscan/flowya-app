@@ -28,6 +28,25 @@ export type CreateSpotsStrategyOptions = {
   getZoom: () => number;
 };
 
+function isPinnedStatus(pinStatus: SpotPinStatus | undefined): boolean {
+  return pinStatus === 'to_visit' || pinStatus === 'visited';
+}
+
+function resolvePinFilter(filters: unknown): 'all' | 'saved' | 'visited' {
+  if (filters === 'saved' || filters === 'visited' || filters === 'all') return filters;
+  if (
+    typeof filters === 'object' &&
+    filters !== null &&
+    'pinFilter' in filters &&
+    ((filters as { pinFilter?: unknown }).pinFilter === 'saved' ||
+      (filters as { pinFilter?: unknown }).pinFilter === 'visited' ||
+      (filters as { pinFilter?: unknown }).pinFilter === 'all')
+  ) {
+    return (filters as { pinFilter: 'all' | 'saved' | 'visited' }).pinFilter;
+  }
+  return 'all';
+}
+
 function centerOfBbox(bbox: BBox): { lat: number; lng: number } {
   return {
     lat: (bbox.south + bbox.north) / 2,
@@ -43,7 +62,7 @@ export function createSpotsStrategy({
   params: SearchStrategyParams
 ) => Promise<SearchStrategyResult<SpotForSearch>> {
   return async (params: SearchStrategyParams): Promise<SearchStrategyResult<SpotForSearch>> => {
-    const { query, stage, bbox, cursor } = params;
+    const { query, stage, bbox, filters, cursor } = params;
     if (bbox == null && stage !== 'global') {
       return { items: [], nextCursor: null, hasMore: false };
     }
@@ -72,12 +91,24 @@ export function createSpotsStrategy({
       list = list.filter((s) => normalizeQuery(s.title ?? '').includes(q));
     }
 
-    const center = bboxFilter ? centerOfBbox(bboxFilter) : { lat: 0, lng: 0 };
-    const sorted = [...list].sort(
-      (a, b) =>
+    const pinFilter = resolvePinFilter(filters);
+    const center =
+      pinFilter === 'all' && stage === 'global'
+        ? { lat: 0, lng: 0 }
+        : bbox
+          ? centerOfBbox(stableBBox(bbox, zoom))
+          : { lat: 0, lng: 0 };
+    const sorted = [...list].sort((a, b) => {
+      if (pinFilter === 'all') {
+        const rankA = isPinnedStatus(a.pinStatus) ? 0 : 1;
+        const rankB = isPinnedStatus(b.pinStatus) ? 0 : 1;
+        if (rankA !== rankB) return rankA - rankB;
+      }
+      return (
         distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
         distanceKm(center.lat, center.lng, b.latitude, b.longitude)
-    );
+      );
+    });
 
     const offset = cursor ? Math.max(0, parseInt(cursor, 10)) : 0;
     const items = sorted.slice(offset, offset + LIMIT_PER_BATCH);

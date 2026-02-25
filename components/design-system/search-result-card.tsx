@@ -11,6 +11,7 @@ export type SearchResultCardProps = {
     title: string;
     address?: string | null;
     cover_image_url?: string | null;
+    pinStatus?: 'default' | 'to_visit' | 'visited';
   };
   onPress?: () => void;
 };
@@ -25,6 +26,7 @@ export function SearchResultCard({
         title={spot.title}
         subtitle={spot.address ?? null}
         imageUri={spot.cover_image_url}
+        pinStatus={spot.pinStatus}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
       />

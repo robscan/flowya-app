@@ -1,6 +1,6 @@
 # Plan: Search V2 → POI-first (migración segura, sin romper contratos)
 
-**Estado:** Propuesto para discusión previa (no ejecutar aún).  
+**Estado:** Activo para cierre de hardening y simplificación controlada por flags.  
 **Prioridad:** Alta (afecta descubrimiento, creación, linking, mapa).  
 **Última actualización:** 2026-02-25
 
@@ -198,3 +198,20 @@ Reglas:
 - `docs/ops/OPEN_LOOPS.md`
 - `docs/bitacora/2026/02/NNN-*.md`
 
+---
+
+## 12) Addendum QA (2026-02-25)
+
+Hallazgos a incorporar en cierre de Fase D-E:
+
+1. Selección POI explícita desde search/chooser: validación anti-duplicado no bloqueante.
+2. Selección POI no guardado debe activar encuadre canónico de spot con sheet (sin control competitivo "Ver todo el mundo").
+3. Simplificación Mapbox-first:
+   - evitar reglas custom que dupliquen comportamiento nativo del stack Search Box/map interactions;
+   - conservar solo guardrails con evidencia de valor (429 cooldown, ranking landmark, dedupe estable).
+
+DoD adicional del addendum:
+
+- [ ] QA confirma que create-from-POI no muestra bloqueo por duplicado.
+- [ ] QA confirma encuadre/sheet consistentes para POI no existente en Flowya.
+- [ ] Documento de simplificación `mantener/simplificar/eliminar` aprobado antes de nuevos hardenings.
