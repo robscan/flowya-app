@@ -13,6 +13,14 @@
 - Filtro superior del mapa: se mantiene en dropdown (`MapPinFilter`) por decisión de sesión.
 - Nuevo pendiente detectado: fallback visual de maki en mapa (se ve punto blanco homogéneo).
 
+**Ingreso QA (2026-02-25, pendiente de cierre):**
+- Regresión visual: landmarks base valiosos dejaron de verse en mapa en escenarios donde deberían persistir.
+- Regla anti-duplicados está bloqueando creación desde selección POI de planificación (no debe bloquear ese flujo).
+- Selección POI no guardado: no entra siempre en modo encuadre de spot con sheet y permanece visible el control "Ver todo el mundo".
+- `MapPinFilter` necesita estado "pendiente de lectura" con badge y animación contextual al cambiar saved/visited desde sheet.
+- Filtros sin resultados deben mostrarse deshabilitados (sin contador) y el reencuadre debe ser contextual según visibilidad de resultados.
+- Solicitud de simplificación: reducir reglas custom en Search V2 + mapa cuando Mapbox ya provee comportamiento canónico.
+
 ---
 
 ## Siguiente sprint (prioridad)
@@ -25,11 +33,11 @@
 ---
 
 ## Prioridades (orden fijo)
-1) **Resolver Create Spot: siempre desde creador mínimo**  
-2) **Rediseñar Edit Spot**  
+1) **Cerrar temas críticos de mapa (landmarks/encuadre/visibilidad/filtros)**  
+2) **Cerrar temas críticos de buscador Search V2 (POI-first + UX filtros + simplificación Mapbox-first)**  
 3) **Implementar System Status Bar (reemplazo de toast)**  
-4) **Completar Search MS-E (POIs en sin-resultados)**  
-5) Resolver bugs restantes detectados en pruebas
+4) **Resolver Create Spot: siempre desde creador mínimo** *(pospuesto temporalmente)*  
+5) **Rediseñar Edit Spot** *(pospuesto temporalmente)*
 
 ## Ejecución inmediata recomendada (ordenada por riesgo)
 Checklist operativo único:
@@ -203,6 +211,40 @@ Checklist operativo único:
 - Regla de filtros de usuario aplicada en Search UI:
   - `Todos`: puede mostrar recomendaciones externas + CTA crear.
   - `Por visitar/Visitados`: solo resultados del grupo; sin recomendaciones externas ni crear.
+- Guardrail QA aplicado: al cambiar filtro en Search V2 con query activa, se fuerza refresh de resultados para evitar mezcla cross-filter (`Visitados` mostrando `Por visitar`).
+- UI QA aplicado: badge de estado en cards usa fondo por estado (`stateToVisit/stateSuccess`) con icono blanco.
+- Ajuste QA `Todos`: Search V2 prioriza `guardados/visitados` antes de `creados` y promueve stage (`viewport->expanded->global`) cuando una etapa trae solo creados para no ocultar guardados relevantes.
+- Referencia: `docs/bitacora/2026/02/151-search-v2-todos-prioriza-guardados-antes-creados.md`.
+- Ajuste QA adicional: en `Todos`, si existen visitados en pool y la etapa actual no devuelve ninguno, Search V2 promueve etapa para incluirlos; títulos por filtro fijados (`Visitados = Cerca de aquí`, `Por visitar = En esta zona`).
+- Referencia: `docs/bitacora/2026/02/152-search-v2-todos-incluye-visitados-y-titulos-por-filtro.md`.
+- Ajuste UX mapa/search: alternancia `saved <-> visited` fuerza reencuadre al conjunto destino (ciclo estable); se conserva reencuadre condicional cuando no hay pines visibles por filtro.
+- Referencia: `docs/bitacora/2026/02/153-filtros-saved-visited-reencuadre-ciclico.md`.
+- Ajuste UX Search filtros: resultados separados por secciones (`Spots cercanos` en viewport actual + `En todo el mapa` fuera de viewport) para `Por visitar/Visitados`.
+- Referencia: `docs/bitacora/2026/02/154-search-filtros-secciones-cercanos-vs-mapa.md`.
+- Ajuste copy Search: placeholder unificado a `Buscar spots` (web/native/default input).
+- Referencia: `docs/bitacora/2026/02/155-search-placeholder-buscar-spots.md`.
+- Hardening Search filtros: en `saved/visited` se consolida etapa global para habilitar secciones `Spots cercanos` y `En todo el mapa` de forma consistente.
+- Referencia: `docs/bitacora/2026/02/156-search-filtros-consolidan-global-para-subdivision.md`.
+- Simplificación UX aplicada: en filtros `Por visitar/Visitados` se ocultan títulos de resultados y se mantiene orden por distancia.
+- Referencia: `docs/bitacora/2026/02/157-search-filtros-sin-titulos-de-resultados.md`.
+- Ajuste de ranking por viewport: al navegar mapa (`moveend`) con búsqueda activa, se refrescan resultados según bbox actual; stage global ordena por centro de viewport vigente.
+- Referencia: `docs/bitacora/2026/02/158-search-reorden-por-viewport-al-navegar-mapa.md`.
+- Scope fix: reorden por viewport queda activo solo para filtros `Por visitar/Visitados`; en `Todos` se mantiene ranking previo.
+- Referencia: `docs/bitacora/2026/02/159-search-viewport-reorder-solo-filtros-saved-visited.md`.
+- Hardening de render Search: orden/segmentación se aplica sobre el arreglo final pintado (`resultsOverride`) para asegurar impacto visible en UI.
+- Referencia: `docs/bitacora/2026/02/160-search-results-override-render-list-correcta.md`.
+- Fix QA: empty state en filtros `Por visitar/Visitados` deja de entrar en loop (guard por `viewportNonce` para evitar refresh repetido).
+- Referencia: `docs/bitacora/2026/02/162-search-empty-state-loop-filtros-fixed.md`.
+- Fix render: reorden por viewport en filtros `Por visitar/Visitados` recalcula sobre `viewportNonce` en la capa de listado visible.
+- Referencia: `docs/bitacora/2026/02/163-search-reorder-viewportnonce-render-fix.md`.
+- Simplificación UX adicional: resultados de Search se muestran sin títulos de etapa/sección para evitar ambigüedad visual.
+- Referencia: `docs/bitacora/2026/02/164-search-resultados-sin-titulos-global.md`.
+- Paridad de ruta legacy: se remueve también `stageLabel` en `MapScreenV0` para evitar discrepancias entre objetos de render.
+- Referencia: `docs/bitacora/2026/02/165-search-remove-titles-v0-parity.md`.
+- Fix adicional por evidencia QA: en query vacía + filtros `Por visitar/Visitados` se oculta header `Spots cercanos`.
+- Referencia: `docs/bitacora/2026/02/166-search-empty-query-hide-spots-cercanos-in-filters.md`.
+- Revisión posterior acordada: ejecutar protocolo de diagnóstico de caché para validar discrepancias visuales antes de abrir bug runtime.
+- Referencia: `docs/ops/analysis/SEARCH_UI_CACHE_POST_REVIEW.md`.
 
 **Pendiente para cierre definitivo del loop:**
 - Ajustar representación visual final de fallback maki (sin `+`, pero evitar punto blanco uniforme).
@@ -249,6 +291,12 @@ Checklist operativo único:
 - Smoke: abrir link compartido (`sheet=medium`) con sesión y sin sesión → mapa encuadra spot compartido.
 - Smoke: post-edit (`sheet=extended`) sigue encuadrando spot editado (no usuario).
 - Smoke: sin `spotId` en URL, flujo normal puede centrar en usuario.
+
+**Avance 2026-02-25 (fix técnico aplicado):**
+- Se agrega guard dinámico para `tryCenterOnUser` y lock de deep link para bloquear auto-center tardío al usuario.
+- Intake de deep link (`spotId` y `created`) ahora encola/ejecuta foco explícito en coordenadas del spot compartido.
+- Si `mapInstance` aún no está listo, el foco queda pendiente y se aplica al montar mapa.
+- Referencia: `docs/bitacora/2026/02/161-deeplink-share-prioriza-encuadre-spot-vs-user-center.md`.
 
 **Referencias**
 - `docs/contracts/DEEP_LINK_SPOT.md`
@@ -366,10 +414,143 @@ Checklist operativo único:
 - Guardrail anti-desaparición: no ocultar `linked+unsaved` si `linked_place_id` no está presente.
 - Bitácoras: `126`, `127`, `128`, `129`, `130`, `131`, `132`, `133`.
 
+**Avance 2026-02-25 (hardening QA landmarks visibilidad):**
+- Se agrega guardrail adicional: ocultamiento `linked+unsaved` solo permitido cuando landmarks base están habilitados (`ff_map_landmark_labels` + `ff_hide_linked_unsaved`).
+- `useMapCore` preserva `poi-label` cuando landmarks están activos y reaplica config en `styledata` para reducir drift visual de estilo.
+- Referencia: `docs/bitacora/2026/02/143-guardrail-landmarks-visibilidad-linked-unsaved.md`.
+
 **Pendiente para cierre OL-P0-004:**
 - QA formal de no-go (matriz completa): densidad urbana, zonas sin POI, zoom alto/medio/bajo, light/dark.
 - Criterio cuantitativo: `uncertain <= 15%` en muestra QA.
 - Evidencia de performance/tap->sheet sin regresión con flags ON.
+- Landmarks base prioritarios visibles de forma consistente (sin perder puntos turísticos relevantes por estilo/capa).
+
+---
+
+### OL-P1-009 — Anti-duplicado no bloqueante en selección POI de planificación
+
+**Estado:** ACTIVO (nuevo QA 2026-02-25)
+
+**Problema:** En selección explícita de POI externo (search/preview), el usuario está en modo planificación y no percibe que esté "creando manualmente". El guardrail anti-duplicado actual bloquea inserción y rompe expectativa.
+
+**DoD / AC**
+- En flujos `create-from-POI`/`create-from-search` la validación de duplicado no bloquea inserción.
+- No mostrar modal "spot muy parecido" en selección POI explícita.
+- Guardrail anti-duplicado bloqueante se mantiene para creación manual/draft libre.
+- Contratos alineados: `ANTI_DUPLICATE_SPOT_RULES` y chooser/search.
+
+**Pruebas mínimas**
+- Smoke: seleccionar POI externo con spots similares existentes -> crea spot sin bloqueo.
+- Smoke: crear spot manual/draft similar -> mantiene bloqueo/modal anti-duplicado.
+
+**Avance 2026-02-25 (implementación técnica):**
+- `handleCreateSpotFromPoi` y `handleCreateSpotFromPoiAndShare` dejan de bloquear creación por `checkDuplicateSpot`.
+- Se mantiene bloqueo anti-duplicado en creación manual/draft (`handleCreateSpotFromDraft`).
+- Referencia: `docs/bitacora/2026/02/145-poi-create-sin-bloqueo-anti-duplicado.md`.
+
+**Referencias**
+- `docs/contracts/ANTI_DUPLICATE_SPOT_RULES.md`
+- `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md`
+- `docs/contracts/SEARCH_V2.md`
+
+---
+
+### OL-P1-010 — Selección POI: encuadre con sheet y gobernanza del control "Ver todo el mundo"
+
+**Estado:** ACTIVO (nuevo QA 2026-02-25)
+
+**Problema:** Al seleccionar un POI no existente en Flowya, en algunos casos no se aplica el modo de encuadre de spot con sheet desplegada y continúa visible el control "Ver todo el mundo".
+
+**DoD / AC**
+- Selección POI (guardado o no guardado) activa encuadre de spot y sheet en estado canónico.
+- Cuando hay spot/POI seleccionado con sheet activa, ocultar o despriorizar "Ver todo el mundo" según contrato de overlays.
+- Sin regresión en selección de spot interno ni en deep-link.
+
+**Pruebas mínimas**
+- Smoke: POI nuevo desde search -> flyTo/encuadre + sheet medium + sin "Ver todo el mundo" competitivo.
+- Smoke: spot interno existente -> comportamiento actual se mantiene.
+
+**Avance 2026-02-25 (implementación técnica):**
+- `MapControls` pasa a usar selección contextual (spot real o POI activo) para gobernar controles.
+- Con `poiTapped` activo, se oculta "Ver todo el mundo" y se habilita encuadre contextual.
+- Se agregan handlers de reencuadre para POI (simple y POI+usuario con `fitBounds`).
+- Referencia: `docs/bitacora/2026/02/144-poi-selection-encuadre-contextual-y-control-world.md`.
+
+**Referencias**
+- `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`
+- `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md`
+- `docs/contracts/MAP_PINS_CONTRACT.md`
+
+---
+
+### OL-P1-011 — MapPinFilter: badge de pendiente + animación contextual + vacíos de filtro
+
+**Estado:** ACTIVO (nuevo QA 2026-02-25)
+
+**Problema:** Falta semántica de estado para cambios de `Por visitar/Visitados` desde sheet y no está cerrada la UX de filtros vacíos/reencuadre.
+
+**DoD / AC**
+- Si usuario está en `Todos` y desde sheet cambia a `Por visitar/Visitados`, mostrar badge pequeño "pendiente de lectura" en el dropdown.
+- El badge migra al filtro destino al abrir dropdown y se limpia al seleccionar ese filtro.
+- Si usuario ya está en el mismo filtro (`Por visitar` o `Visitados`) y repite acción desde sheet: animación de confirmación, sin badge.
+- Opciones de filtro sin resultados se muestran deshabilitadas y sin contador.
+- Si el filtro activo queda sin resultados visibles en viewport, reencuadrar a resultados del filtro en el mundo.
+- Si el filtro activo sí tiene resultados visibles, mantener cámara actual (sin jump).
+
+**Pruebas mínimas**
+- Smoke: mutaciones desde sheet en `Todos` -> badge aparece/migra/limpia.
+- Smoke: mutaciones desde sheet dentro del mismo filtro -> solo animación confirmatoria.
+- Smoke: filtro sin resultados -> deshabilitado, sin número.
+- Smoke: cambio de filtro con 0 visibles en viewport -> reencuadre; con visibles -> sin reencuadre.
+
+**Avance 2026-02-25 (implementación técnica):**
+- `MapPinFilter` agrega `pendingValue` (punto rojo) y `pulseNonce` (animación contextual sin cambio de valor).
+- Filtros `Por visitar/Visitados` se deshabilitan cuando count=0 y no muestran número en cero.
+- `MapScreenVNext` implementa reencuadre condicional por viewport al cambiar filtro.
+- Referencia: `docs/bitacora/2026/02/146-mappinfilter-badge-vacios-y-reencuadre-contextual.md`.
+
+**Referencias**
+- `docs/contracts/SEARCH_V2.md`
+- `docs/contracts/MAP_PINS_CONTRACT.md`
+- `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md`
+
+---
+
+### OL-P1-012 — Simplificación Search V2 + mapa con enfoque Mapbox-first
+
+**Estado:** ACTIVO (nuevo QA 2026-02-25)
+
+**Problema:** Hay señales de sobre-regulación en reglas custom de Search/Map que compiten con comportamientos nativos de Mapbox y elevan riesgo de inconsistencias.
+
+Hallazgo QA adicional (2026-02-25):
+- La zona de resultados de búsqueda quedó con estilos "en duro" (cards oscuras) y no respeta modo Light en web.
+
+**DoD / AC**
+- Auditoría de reglas custom vigentes vs capacidades nativas de Mapbox usadas actualmente.
+- Identificar reglas redundantes y proponer eliminación o degradación por flag.
+- Definir baseline simplificado con menor branching y sin perder guardrails críticos.
+- Registrar matriz `mantener / simplificar / eliminar` con impacto y riesgo.
+
+**Pruebas mínimas**
+- Comparativa A/B: baseline actual vs baseline simplificado en casos QA críticos.
+- Sin regresión en ranking landmark, create-from-search, tap->sheet, y performance percibida.
+- Smoke tema: Search results en `light` y `dark` usan tokens DS (sin hardcode oscuro en light).
+
+**Avance 2026-02-25 (consultoría técnica inicial):**
+- Se crea matriz inicial `mantener / simplificar / eliminar` para Search+Map con enfoque QA-first.
+- Documento base: `docs/ops/analysis/SEARCH_MAPBOX_SIMPLIFICATION_MATRIX.md`.
+- Siguiente paso: ejecutar simplificaciones de bajo riesgo una por una con smoke A/B.
+- Se agrega hallazgo QA de theming: resultados de búsqueda hardcoded oscuros no adaptan a Light.
+- Bitácora: `docs/bitacora/2026/02/147-search-results-theme-hardcoded-no-light.md`.
+- Ajuste implementado: `SearchListCard` migra a tokens DS por tema (light/dark), eliminando hardcode oscuro.
+- Bitácora: `docs/bitacora/2026/02/148-search-results-theme-light-tokens-ds.md`.
+- Ajuste implementado: badge flotante de estado en resultados internos (`to_visit` / `visited`) usando iconos y color DS.
+- Bitácora: `docs/bitacora/2026/02/149-search-results-status-badge-saved-visited.md`.
+
+**Referencias**
+- `docs/ops/plans/PLAN_SEARCH_V2_POI_FIRST_SAFE_MIGRATION.md`
+- `docs/ops/plans/PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT.md`
+- `docs/contracts/SEARCH_V2.md`
 
 ---
 

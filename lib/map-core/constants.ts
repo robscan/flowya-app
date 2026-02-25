@@ -105,11 +105,17 @@ export const MAPBOX_LABEL_STYLE_DARK: MapboxLabelStyle = {
 /** Capas a ocultar (POIs comerciales, negocios). */
 const HIDE_LAYER_IDS = ['poi-label'];
 
-export function hideNoiseLayers(map: MapboxMap): void {
+type HideNoiseLayersOptions = {
+  preservePoiLabels?: boolean;
+};
+
+export function hideNoiseLayers(map: MapboxMap, options: HideNoiseLayersOptions = {}): void {
   try {
     const style = map.getStyle();
     if (!style?.layers) return;
+    const { preservePoiLabels = false } = options;
     for (const layer of style.layers) {
+      if (preservePoiLabels && layer.id === 'poi-label') continue;
       if (HIDE_LAYER_IDS.includes(layer.id)) {
         map.setLayoutProperty(layer.id, 'visibility', 'none');
       }
@@ -204,7 +210,8 @@ export type UserCoords = { latitude: number; longitude: number } | null;
 /** Centra el mapa en la ubicación del usuario al cargar; llama onCoords con las coords. */
 export function tryCenterOnUser(
   map: MapboxMap,
-  onCoords: (coords: UserCoords) => void
+  onCoords: (coords: UserCoords) => void,
+  shouldCenter: () => boolean = () => true,
 ): void {
   if (typeof navigator === 'undefined' || !navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
@@ -214,6 +221,7 @@ export function tryCenterOnUser(
         longitude: pos.coords.longitude,
       };
       onCoords(coords);
+      if (!shouldCenter()) return;
       map.flyTo({
         center: [coords.longitude, coords.latitude],
         zoom: 14,

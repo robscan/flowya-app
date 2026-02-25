@@ -29,6 +29,7 @@ En vez de "Crear <query>" único, mostrar:
 ### B) Listado de lugares (Mapbox, con coordenadas)
 
 - Lista de 3–8 sugerencias con coords (searchPlaces, limit 6–8). Cada item: **Nombre** + **Dirección/contexto** (fullName). Tap = crear spot con esas coords. Prohibido CTA único que resuelva texto sin mostrar dirección.
+- Si existe spot similar, no bloquear creación con modal anti-duplicado en este flujo de selección POI explícita (planificación).
 
 ### C) Crear spot aquí (UGC, sin resolver texto)
 
@@ -55,6 +56,8 @@ CTA: **"Crear spot aquí"** — botón pill (tint), subtítulo: Centro del mapa 
 - **Al seleccionar sugerencia de lugar (B):**
   - FlyTo a las coordenadas del lugar.
   - Pin de preview en el mapa en esa posición, label = nombre del lugar.
+  - Activar modo de encuadre de selección (sheet spot/POI en estado canónico).
+  - Evitar controles competitivos de navegación global (ej. "Ver todo el mundo") durante selección activa.
   - Cierra buscador y abre SpotSheet/POISheet según corresponda.
 
 ---

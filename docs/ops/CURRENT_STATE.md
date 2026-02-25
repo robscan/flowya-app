@@ -15,9 +15,9 @@
 - **UI actual:** legacy (SpotSheet Reanimated + overlays existentes).
 - **Core:** `core/shared/search/*` + `core/explore/*` (Search como shared capability).
 - **Foco inmediato (P0→P2):**
-  1) Create Spot **siempre** desde creador mínimo (una sola ruta)  
-  2) Rediseño de Edit Spot  
-  3) Bugs detectados en pruebas (ver `docs/ops/OPEN_LOOPS.md`)
+  1) Cierre de QA crítico en **mapa + buscador** (landmarks, encuadre POI, filtros, simplificación Mapbox-first)
+  2) Implementar System Status Bar (reemplazo de toast)
+  3) Create Spot mínimo + Rediseño Edit Spot (pospuestos temporalmente)
 
 ---
 

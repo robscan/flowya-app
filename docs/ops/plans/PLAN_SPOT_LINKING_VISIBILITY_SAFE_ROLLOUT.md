@@ -1,6 +1,6 @@
 # Plan: Spot Linking + Visibilidad Condicional + Maki (rollout seguro)
 
-**Estado:** Documentado, pendiente de dependencia previa (no ejecutar aún).  
+**Estado:** Activo para hardening/QA de cierre (Fase D en ejecución controlada).  
 **Prioridad:** Alta (impacta mapa, creación, edición, percepción visual).  
 **Última actualización:** 2026-02-25
 
@@ -208,3 +208,17 @@ Sin estas 3 definiciones, no se ejecuta implementación.
 - `docs/contracts/MAP_PINS_CONTRACT.md`
 - `docs/ops/OPEN_LOOPS.md`
 - `docs/bitacora/2026/02/NNN-*.md`
+
+---
+
+## 14) Addendum QA (2026-02-25)
+
+Hallazgos críticos de validación funcional:
+
+1. Landmarks base prioritarios no pueden desaparecer en escenarios `linked+unsaved`; si se pierde visibilidad base, rollback de hide condicional.
+2. Selección de POI nuevo debe entrar en modo encuadre con sheet y suprimir controles globales competitivos.
+3. Reglas de visibilidad deben mantenerse legibles en combinación con filtros y cambios de estado desde SpotSheet.
+
+No-go adicional:
+
+- Si QA reporta landmarks turísticos relevantes invisibles de forma reproducible, no continuar despliegue de reglas `hide linked+unsaved`.

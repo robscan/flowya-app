@@ -7,9 +7,18 @@
 ---
 
 ## 0) Secuencia de ejecución (obligatoria)
-1. Cerrar `PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT` (Fase C-D pendiente).
-2. Ejecutar `PLAN_SEARCH_V2_POI_FIRST_SAFE_MIGRATION` (Fase A-E).
-3. Hacer hardening transversal (deep link, address post-create, system status bar).
+1. Cerrar `OL-P0-004` (landmarks/visibilidad) bajo `PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT`.
+2. Cerrar `OL-P1-010` (encuadre POI + gobernanza de control global).
+3. Cerrar `OL-P1-009` (anti-duplicado no bloqueante en POI explícito).
+4. Cerrar `OL-P1-011` (MapPinFilter badge + filtros vacíos + reencuadre contextual).
+5. Ejecutar `OL-P1-012` (simplificación Search+Map Mapbox-first) bajo `PLAN_SEARCH_V2_POI_FIRST_SAFE_MIGRATION`.
+6. Luego retomar hardening transversal (deep link, address post-create, system status bar).
+
+Reglas de operación:
+- Un solo OL activo a la vez (sin trabajo paralelo).
+- Un PR por OL.
+- No cerrar OL sin contrato + bitácora + smoke mínimo.
+- Si aparece contradicción documental, detener ejecución y corregir docs antes de código.
 
 ---
 
@@ -43,6 +52,19 @@
   - zoom alto/medio/bajo,
   - tema light/dark.
 - [ ] Confirmar que no hay desaparición de lugar (POI base o pin FLOWYA).
+
+#### Matriz QA obligatoria (OL-P0-004)
+
+| Caso | Setup | Acción | Esperado | Bloquea release |
+|------|-------|--------|----------|-----------------|
+| A | `ff_hide_linked_unsaved=ON` | Abrir zona densa turística | Landmarks base visibles + no desaparición de lugar | Sí |
+| B | `ff_hide_linked_unsaved=ON` | Abrir zona sin POI | Spots `unlinked/uncertain` siguen visibles | Sí |
+| C | `ff_hide_linked_unsaved=ON` | Tap en POI linked | Match correcto + sheet correcto | Sí |
+| D | `ff_flowya_pin_maki_icon=ON` | Múltiples categorías maki | Sin sprite-crash; fallback distinguible | No (si solo visual menor) |
+| E | Flags ON | Navegar zoom alto/medio/bajo | Sin salto/regresión grave de performance | Sí |
+
+Rollback inmediato:
+- Si falla A/B/C o hay desaparición reproducible de lugar: apagar `ff_hide_linked_unsaved` y documentar incidente.
 
 **Criterios de bloqueo (no-go)**
 - `uncertain > 15%` en muestra QA.
@@ -132,6 +154,13 @@
     - `Torre Eiffel` (debe priorizar landmark),
     - `París, Francia` (debe priorizar geo),
     - query comercial (debe quedar en recommendation).
+
+### B6. Secuencia QA-first para OL nuevos
+
+- [ ] `OL-P1-010`: selección POI no existente en Flowya entra en encuadre/sheet canónico y elimina competencia con "Ver todo el mundo".
+- [ ] `OL-P1-009`: create-from-POI/search no bloqueado por anti-duplicado; creación manual mantiene bloqueo.
+- [ ] `OL-P1-011`: badge pendiente, filtros vacíos deshabilitados sin count, reencuadre contextual.
+- [ ] `OL-P1-012`: matriz `mantener/simplificar/eliminar` validada antes de tocar lógica.
 
 ---
 

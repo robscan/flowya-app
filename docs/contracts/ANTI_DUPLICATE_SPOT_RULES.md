@@ -20,7 +20,12 @@ Implementación: `lib/spot-duplicate-check.ts` — `checkDuplicateSpot(title, la
 
 ## Obligación
 
-Todo path de creación de spot **debe** llamar a `checkDuplicateSpot` **antes** del INSERT. Si `duplicate: true`, no insertar y mostrar alerta al usuario.
+Todo path de creación de spot **debe** llamar a `checkDuplicateSpot` **antes** del INSERT.
+
+- Creación manual/draft libre: si `duplicate: true`, **bloquear inserción** y mostrar alerta/modal.
+- Selección explícita de POI externo (search/preview): la validación corre como señal informativa, pero **no bloquea inserción**.
+
+Motivo: en selección POI de planificación el usuario no percibe creación manual; bloquear rompe expectativa de flujo.
 
 ---
 
@@ -29,8 +34,8 @@ Todo path de creación de spot **debe** llamar a `checkDuplicateSpot` **antes** 
 | Entry point | Archivo | Handler |
 |-------------|---------|---------|
 | Wizard Create Spot | `app/create-spot/index.web.tsx` | Antes de INSERT |
-| Crear desde POI (Por visitar) | `components/explorar/MapScreenVNext.tsx` | `handleCreateSpotFromPoi` |
-| Crear desde POI (Compartir) | `components/explorar/MapScreenVNext.tsx` | `handleCreateSpotFromPoiAndShare` |
+| Crear desde POI (Por visitar) | `components/explorar/MapScreenVNext.tsx` | `handleCreateSpotFromPoi` (no bloqueante) |
+| Crear desde POI (Compartir) | `components/explorar/MapScreenVNext.tsx` | `handleCreateSpotFromPoiAndShare` (no bloqueante) |
 | Crear desde draft inline | `components/explorar/MapScreenVNext.tsx` | `handleCreateSpotFromDraft` |
 
 Cualquier nuevo path de creación debe añadirse a esta lista y cumplir el contrato.
@@ -44,6 +49,10 @@ Cualquier nuevo path de creación debe añadirse a esta lista y cumplir el contr
 - Mensaje: citar el nombre existente; ofrecer opciones.
 - Botones: **Cancelar** (no crear), **Cambiar nombre** (volver a editar), **Mover ubicación** (ajustar coords).
 - No insertar el spot.
+
+Excepción:
+
+- En selección POI externa explícita no se muestra modal de bloqueo; el flujo continúa y crea spot.
 
 ---
 

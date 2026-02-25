@@ -51,7 +51,9 @@ export function SearchFloatingNative<T>({
   recentQueries,
   recentViewedItems,
   renderItem,
-  stageLabel,
+  stageLabel: _stageLabel,
+  resultsOverride,
+  resultSections = [],
   emptyMessage = 'No hay spots cercanos. Busca en el mapa o crea uno nuevo.',
   onCreateLabel = 'Crear nuevo spot',
   getItemKey,
@@ -65,6 +67,13 @@ export function SearchFloatingNative<T>({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
+  const sectionHeaderGlowColor =
+    colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
+  const sectionHeaderGlowStyle = {
+    textShadowColor: sectionHeaderGlowColor,
+    textShadowRadius: 6,
+    textShadowOffset: { width: 0, height: 1 } as const,
+  };
   const screenHeight = Dimensions.get('window').height;
 
   const translateYShared = useSharedValue(screenHeight);
@@ -138,10 +147,12 @@ export function SearchFloatingNative<T>({
   const isEmpty = len === 0;
   const isPreSearch = len > 0 && len < 3;
   const isSearch = len >= 3;
+  const displayResults = resultsOverride ?? controller.results;
   const showPlaceRecommendations = pinFilter == null || pinFilter === 'all';
   const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
+  const hideListTitles = isFilteredPinSearch;
   /** Estado "Sin resultados" (contrato SEARCH_NO_RESULTS_CREATE_CHOOSER): query >= threshold, results vacío, no loading. */
-  const isNoResults = isSearch && controller.results.length === 0 && !controller.isLoading;
+  const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
 
   if (!controller.isOpen) return null;
 
@@ -199,7 +210,7 @@ export function SearchFloatingNative<T>({
                       value={controller.query}
                       onChangeText={controller.setQuery}
                       onClear={controller.clear}
-                      placeholder="Buscar en esta zona del mapa…"
+                      placeholder="Buscar spots"
                       autoFocus
                       embedded
                     />
@@ -220,7 +231,11 @@ export function SearchFloatingNative<T>({
                     keyboardDismissMode="on-drag"
                     showsVerticalScrollIndicator
                   >
-                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>Spots cercanos</Text>
+                    {!hideListTitles ? (
+                      <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                        Spots cercanos
+                      </Text>
+                    ) : null}
                     {defaultItems.map((item, idx) => (
                       <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
                         {renderItem(item)}
@@ -238,7 +253,7 @@ export function SearchFloatingNative<T>({
                   >
                     {recentQueries.length > 0 && (
                       <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
+                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                           Búsquedas recientes
                         </Text>
                         {recentQueries.slice(0, 5).map((queryItem) => (
@@ -254,7 +269,7 @@ export function SearchFloatingNative<T>({
                     )}
                     {recentViewedItems.length > 0 && (
                       <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
+                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                           Vistos recientemente
                         </Text>
                         <View style={styles.recentListWrap}>
@@ -266,34 +281,36 @@ export function SearchFloatingNative<T>({
                     )}
                   </ScrollView>
                 )}
-                {isSearch && controller.results.length > 0 && (
+                {isSearch && displayResults.length > 0 && (
                   <>
-                    {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
-                      <View style={styles.suggestionsSection}>
-                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
-                          Recomendaciones
-                        </Text>
-                        <View style={styles.cardsList}>
-                          {placeSuggestions.slice(0, 3).map((place) => (
-                            <SearchListCard
-                              key={place.id}
-                              title={place.name}
-                              subtitle={place.fullName}
-                              onPress={() => onCreateFromPlace(place)}
-                              accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
-                            />
-                          ))}
-                        </View>
-                      </View>
-                    ) : null}
-                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>{stageLabel}</Text>
                     <SearchResultsListV2
-                      sections={[]}
-                      results={controller.results}
+                      sections={resultSections}
+                      results={displayResults}
                       renderItem={renderItem}
+                      renderSectionHeader={() => null}
                       onEndReached={controller.fetchMore}
                       hasMore={controller.hasMore}
                       isLoading={controller.isLoading}
+                      footer={
+                        showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
+                          <View style={styles.suggestionsSection}>
+                            <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                              Recomendaciones
+                            </Text>
+                            <View style={styles.cardsList}>
+                              {placeSuggestions.slice(0, 3).map((place) => (
+                                <SearchListCard
+                                  key={place.id}
+                                  title={place.name}
+                                  subtitle={place.fullName}
+                                  onPress={() => onCreateFromPlace(place)}
+                                  accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
+                                />
+                              ))}
+                            </View>
+                          </View>
+                        ) : null
+                      }
                     />
                   </>
                 )}
@@ -320,7 +337,7 @@ export function SearchFloatingNative<T>({
                       {/** @deprecated Sugerencias ES↔EN sin criterio útil; eliminar cuando mapPoiResults esté estable. Ver GUARDRAILS_DEPRECACION. */}
                       {false && controller.suggestions.length > 0 && (
                         <View style={styles.suggestionsSection}>
-                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }]}>
+                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }, sectionHeaderGlowStyle]}>
                             Sugerencias
                           </Text>
                           {controller.suggestions.map((s) => (
@@ -341,7 +358,7 @@ export function SearchFloatingNative<T>({
                       )}
                       {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
                         <View style={styles.suggestionsSection}>
-                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }]}>
+                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                             Lugares recomendados
                           </Text>
                           <View style={styles.cardsList}>
@@ -459,9 +476,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: Spacing.sm,
     marginBottom: Spacing.xs,
-    textShadowColor: 'rgba(0,0,0,0.55)',
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 1 },
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
   noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },

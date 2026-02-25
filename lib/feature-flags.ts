@@ -13,6 +13,7 @@ export const featureFlags = {
   linkOnEditSave: envEnabled('EXPO_PUBLIC_FF_LINK_ON_EDIT_SAVE'),
   hideLinkedUnsaved: envEnabled('EXPO_PUBLIC_FF_HIDE_LINKED_UNSAVED', true),
   flowyaPinMakiIcon: envEnabled('EXPO_PUBLIC_FF_FLOWYA_PIN_MAKI_ICON', true),
+  mapLandmarkLabels: envEnabled('EXPO_PUBLIC_FF_MAP_LANDMARK_LABELS', true),
   searchExternalPoiResults: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS'),
   searchMixedRanking: envEnabled('EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING'),
   searchExternalDedupe: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE'),

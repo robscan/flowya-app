@@ -76,6 +76,7 @@ Estado visual temporal:
 ## 6) Reglas de visibilidad linking (Track A)
 
 - Si `link_status=linked` y `saved=false` y `visited=false`, el pin FLOWYA puede ocultarse detrás de flag.
+- Guardrail QA 2026-02-25: ocultamiento `linked+unsaved` solo aplica si landmarks base están habilitados (`ff_map_landmark_labels=ON`).
 - `uncertain` y `unlinked` nunca se ocultan automáticamente.
 - Guardrail de seguridad: no ocultar un spot `linked+unsaved` si no existe `linked_place_id` válido.
 - Cuando hay `saved` o `visited`, el pin FLOWYA siempre se mantiene visible.

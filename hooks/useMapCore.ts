@@ -37,6 +37,8 @@ export type UseMapCoreOptions = {
   onLongPress: (coords: { lat: number; lng: number }) => void;
   /** Si true, no se llama tryCenterOnUser en onMapLoad (ej. cuando params.created). */
   skipCenterOnUser?: boolean;
+  /** Guard dinámico evaluado cuando geoloc resuelve; permite bloquear auto-center tardío. */
+  shouldCenterOnUser?: () => boolean;
   /** Llamado cuando el usuario inicia pan/zoom (no programático). */
   onUserMapGestureStart?: () => void;
   /** Si true, activa showLandmarkIcons/showLandmarkIconLabels (estilo FLOWYA/Standard). */
@@ -92,6 +94,7 @@ export function useMapCore(
   const {
     onLongPress,
     skipCenterOnUser = false,
+    shouldCenterOnUser,
     onUserMapGestureStart,
     enableLandmarkLabels = false,
     isDarkStyle = false,
@@ -123,6 +126,7 @@ export function useMapCore(
   const [userCoords, setUserCoords] = useState<UserCoords>(null);
   const [zoom, setZoom] = useState(10);
   const [activeMapControl, setActiveMapControl] = useState<ActiveMapControl>(null);
+  const [viewportNonce, setViewportNonce] = useState(0);
   const [selectedPinScreenPos, setSelectedPinScreenPos] = useState<{
     x: number;
     y: number;
@@ -164,31 +168,36 @@ export function useMapCore(
       const map = e.target;
       setMapInstance(map);
       setZoom(map.getZoom());
-      stripUnavailableLandmarkPoiTileset(map);
+      if (!enableLandmarkLabels) {
+        stripUnavailableLandmarkPoiTileset(map);
+      }
       applyGlobeAndAtmosphere(map);
-      hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
+      hideNoiseLayers(map, { preservePoiLabels: enableLandmarkLabels });
       setLandmarkLabelsEnabled(map, enableLandmarkLabels);
       if (!skipCenterOnUser) {
         tryCenterOnUser(map, (coords) => {
           if (mountedRef.current) setUserCoords(coords);
-        });
+        }, () => shouldCenterOnUser?.() ?? true);
       }
     },
-    [skipCenterOnUser, enableLandmarkLabels]
+    [skipCenterOnUser, enableLandmarkLabels, shouldCenterOnUser]
   );
 
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
     const reapply = () => {
-      stripUnavailableLandmarkPoiTileset(map);
-      hideNoiseLayers(map);
+      if (!enableLandmarkLabels) {
+        stripUnavailableLandmarkPoiTileset(map);
+      }
+      hideNoiseLayers(map, { preservePoiLabels: enableLandmarkLabels });
+      setLandmarkLabelsEnabled(map, enableLandmarkLabels);
     };
     map.on('styledata', reapply);
     return () => {
       map.off('styledata', reapply);
     };
-  }, [mapInstance]);
+  }, [mapInstance, enableLandmarkLabels]);
 
   useEffect(() => {
     const map = mapInstance;
@@ -365,6 +374,7 @@ export function useMapCore(
         setActiveMapControl(null);
       }
       setZoom(map.getZoom());
+      setViewportNonce((prev) => prev + 1);
       if (selectedSpot) {
         try {
           const pt = map.project([selectedSpot.longitude, selectedSpot.latitude]);
@@ -442,6 +452,7 @@ export function useMapCore(
     mapInstance,
     userCoords,
     zoom,
+    viewportNonce,
     activeMapControl,
     selectedPinScreenPos,
     mapRootRef,
