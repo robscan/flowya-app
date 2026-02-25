@@ -274,6 +274,11 @@
 - Scaffolding de resolver + feature flags agregado (default OFF).
 - Hook pasivo en Edit Spot web para persistir `link_*` solo con `ff_link_on_edit_save=true`.
 
+**Avance 2026-02-25 (Phase B iniciado):**
+- `resolveSpotLink` implementado con scoring real (nombre + distancia) y umbrales `linked/uncertain/unlinked`.
+- Integración mantiene guardrail de flag (`ff_link_on_edit_save`), sin activar reglas visuales de hide en esta fase.
+- Bitácora de fase B: `docs/bitacora/2026/02/124-phase-b-resolver-scoring-linking.md`.
+
 ---
 
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)

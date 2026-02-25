@@ -13,6 +13,9 @@ export type PlaceResult = {
   lat: number;
   lng: number;
   source: 'mapbox';
+  maki?: string;
+  featureType?: string;
+  categories?: string[];
 };
 
 type ForwardFeature = {
@@ -23,6 +26,9 @@ type ForwardFeature = {
     name?: string;
     place_formatted?: string;
     full_address?: string;
+    feature_type?: string;
+    maki?: string;
+    poi_category?: string[] | string;
   };
 };
 
@@ -91,6 +97,18 @@ export async function searchPlaces(
         lat,
         lng,
         source: 'mapbox',
+        maki: f.properties?.maki?.trim() || undefined,
+        featureType: f.properties?.feature_type?.trim() || undefined,
+        categories:
+          Array.isArray(f.properties?.poi_category)
+            ? f.properties?.poi_category.filter(
+                (c): c is string =>
+                  typeof c === 'string' && c.trim().length > 0
+              )
+            : typeof f.properties?.poi_category === 'string' &&
+                f.properties.poi_category.trim().length > 0
+              ? [f.properties.poi_category.trim()]
+              : undefined,
       });
     }
     return out;
