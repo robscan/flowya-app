@@ -58,6 +58,6 @@ En cada sesión o al retomar trabajo:
 
 ## 5. Referencias
 
-- **Deprecados eliminados (V3):** `docs/ops/DEPRECATED_V3_CLEANUP.md`
+- **Deprecados eliminados (V3):** `docs/ops/strategy/DEPRECATED_V3_CLEANUP.md`
 - **Contratos:** `docs/contracts/INDEX.md` — marcar como DEPRECATED (fecha) cuando aplique
 - **OPEN_LOOPS:** OL-DEPREC-001 en `docs/ops/OPEN_LOOPS.md`

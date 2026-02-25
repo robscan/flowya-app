@@ -85,5 +85,5 @@ Se verificó:
 ## Referencias
 
 - `docs/definitions/contracts/DATA_MODEL_CURRENT.md`
-- `docs/ops/GUARDRAILS.md`
-- `docs/ops/DECISIONS.md`
+- `docs/ops/governance/GUARDRAILS.md`
+- `docs/ops/governance/DECISIONS.md`

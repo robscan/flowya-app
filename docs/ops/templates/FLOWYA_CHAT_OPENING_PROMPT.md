@@ -15,8 +15,8 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 ## Sprint activo (obligatorio)
 **Sprint:** Explore V1 Strangler (core-first + UI replaceable)
 
-**Doc raíz del plan:** `docs/ops/PLAN_EXPLORE_V1_STRANGLER.md`  
-**Último análisis:** `docs/ops/EXPLORE_PHASE0_ANALYSIS.md`
+**Doc raíz del plan:** `docs/ops/plans/PLAN_EXPLORE_V1_STRANGLER.md`  
+**Último análisis:** `docs/ops/analysis/EXPLORE_PHASE0_ANALYSIS.md`
 
 **Contratos canónicos (Phase 1):**
 - `contracts/shared/SEARCH_STATE.md`
@@ -32,7 +32,7 @@ Actúa como **Arquitecto / Consultor** para FLOWYA.
 
 ## Gates por fase (no saltar)
 - **Gate A:** No tocar código hasta que existan Plan + Phase0 + Contracts Phase1 ✅
-- **Gate B:** Fase 2 = extracción quirúrgica de core (sin cambiar UX). ✅ *(core retenido; ver `docs/ops/DEPRECATED_V3_CLEANUP.md`)*
+- **Gate B:** Fase 2 = extracción quirúrgica de core (sin cambiar UX). ✅ *(core retenido; ver `docs/ops/strategy/DEPRECATED_V3_CLEANUP.md`)*
 - **Gate C:** Fase 3 = Explore V3 (UI nueva con Radix/shadcn). **PAUSADO** — fuera del sprint actual; no empujar migración V3.
 - **Gate D:** Fase 4 = Cutover + Delete Sprint (borrar legacy sin piedad).
 

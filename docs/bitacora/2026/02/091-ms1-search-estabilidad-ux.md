@@ -1,7 +1,7 @@
 # Bitácora 091 (2026/02) — Micro-scope 1: SEARCH estabilidad + UX (web móvil + sheet)
 
 **Fecha:** 2026-02-14  
-**Micro-scope:** 1 — SEARCH (EXPLORE_UX_MICROSCOPES.md)  
+**Micro-scope:** 1 — SEARCH (strategy/EXPLORE_UX_MICROSCOPES.md)  
 **Objetivo:** Buscador estable con teclado, sin saltos; patrón cerrar/abrir tipo Apple Maps.
 
 ---

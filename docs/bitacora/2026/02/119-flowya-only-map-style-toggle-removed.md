@@ -22,7 +22,7 @@ El toggle de versiones de mapa (Standard vs FLOWYA) quedó deprecado y se removi
 
 - `docs/ops/CURRENT_STATE.md`: decisión FLOWYA-only agregada.
 - `docs/ops/OPEN_LOOPS.md`: nota de decisión vigente agregada.
-- `docs/ops/plans/PLAN_POI_TAP_MAPBOX_STANDARD_3D.md`: marcado como `DEPRECATED` (histórico).
+- `docs/_archive/ops/2026/02/PLAN_POI_TAP_MAPBOX_STANDARD_3D.md`: plan archivado (histórico/deprecated).
 - `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md`: referencias ajustadas para FLOWYA-only.
 
 ## Verificación

@@ -56,7 +56,7 @@ Desalineación **UI ↔ RLS**: el frontend no respetaba el contrato ya definido 
 | `components/design-system/spot-detail.tsx` | `onEdit` opcional; botón Editar solo cuando `onEdit` está definido. |
 | `app/(tabs)/index.web.tsx` | `onSavePin={isAuthUser ? () => handleSavePin(selectedSpot) : undefined}` en SpotCard. |
 | `components/ui/flowya-beta-modal.tsx` | Antes de enviar feedback: si no hay usuario, abrir modal de login y no llamar a la API. |
-| `docs/ops/DECISIONS.md` | Nueva decisión: mutaciones requieren auth; soft delete; lectura pública; precisión sobre warnings Supabase (auth_allow_anonymous_sign_ins). |
+| `docs/ops/governance/DECISIONS.md` | Nueva decisión: mutaciones requieren auth; soft delete; lectura pública; precisión sobre warnings Supabase (auth_allow_anonymous_sign_ins). |
 | `docs/ops/CURRENT_STATE.md` | Párrafo de alineación UI–RLS, estado de seguridad, riesgos aceptados. |
 
 ---

@@ -69,7 +69,7 @@ Reglas:
 
 **Salida:** Explorar funciona igual (legacy), pero consumiendo core.
 
-> Referencia: `docs/ops/DEPRECATED_V3_CLEANUP.md` (V3 eliminado; core retenido).
+> Referencia: `docs/ops/strategy/DEPRECATED_V3_CLEANUP.md` (V3 eliminado; core retenido).
 
 ---
 

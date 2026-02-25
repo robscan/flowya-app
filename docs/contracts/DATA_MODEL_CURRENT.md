@@ -120,6 +120,6 @@ Se obtuvo metadata desde `information_schema` (solo lectura):
 
 ## Referencias (ops)
 
-- `docs/ops/SYSTEM_MAP.md`
-- `docs/ops/DECISIONS.md`
-- `docs/ops/GUARDRAILS.md`
+- `docs/ops/strategy/SYSTEM_MAP.md`
+- `docs/ops/governance/DECISIONS.md`
+- `docs/ops/governance/GUARDRAILS.md`

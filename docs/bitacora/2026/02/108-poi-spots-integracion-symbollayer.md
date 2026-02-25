@@ -1,7 +1,7 @@
 # Bitácora 108 — Integración POI/Spots con SymbolLayer
 
 **Fecha:** 2026-02-14  
-**Plan:** docs/ops/PLAN_POI_SPOTS_INTEGRACION.md
+**Plan:** docs/_archive/ops/2026/02/PLAN_POI_SPOTS_INTEGRACION.md
 
 ## Cambios
 
@@ -37,5 +37,5 @@
 - `components/explorar/MapCoreView.tsx` — sin Markers para spots
 - `components/explorar/POISheetMedium.tsx` — Nuevo
 - `components/explorar/MapScreenVNext.tsx` — POISheetMedium, tap unificado, handleCreateSpotFromPoiAndShare
-- `docs/ops/GUARDRAILS_DEPRECACION.md` — registro deprecados
-- `docs/ops/PLAN_POI_SPOTS_INTEGRACION.md` — Nuevo
+- `docs/ops/governance/GUARDRAILS_DEPRECACION.md` — registro deprecados
+- `docs/_archive/ops/2026/02/PLAN_POI_SPOTS_INTEGRACION.md` — Plan archivado (implementado)

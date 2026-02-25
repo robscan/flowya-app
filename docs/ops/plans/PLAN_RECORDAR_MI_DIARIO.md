@@ -89,8 +89,8 @@
 ## 5. Referencias cruzadas
 
 - **Contrato entry point:** `docs/contracts/RECORDAR_ENTRY_SPOT_SHEET.md`
-- **JTBD base:** `docs/ops/JTBD.md` (JTBD-03)
-- **Galería (futuro):** `docs/ops/PLAN_SPOT_GALLERY_MI_DIARIO.md` (Feature 1; independiente)
+- **JTBD base:** `docs/ops/analysis/JTBD.md` (JTBD-03)
+- **Galería (futuro):** `docs/ops/plans/PLAN_SPOT_GALLERY_MI_DIARIO.md` (Feature 1; independiente)
 - **OPEN_LOOPS:** OL-RECORDAR-001 en `docs/ops/OPEN_LOOPS.md`
 
 ---

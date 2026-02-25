@@ -36,8 +36,8 @@
 | components/search/index.ts | Export SearchFloatingProps desde types. |
 | components/search/types.ts | **Nuevo.** SearchFloatingProps + insets. |
 | components/ui/toast.tsx | Ajuste menor. |
-| docs/ops/GUARDRAILS.md | Actualización. |
-| docs/ops/SYSTEM_MAP.md | Referencia módulos. |
+| docs/ops/governance/GUARDRAILS.md | Actualización. |
+| docs/ops/strategy/SYSTEM_MAP.md | Referencia módulos. |
 | hooks/useMapCore.ts | onUserMapGestureStart en movestart (!programático). |
 | lib/pins.ts | PinState, getPinsForSpots, setSaved, setVisited, getPinsForSpotsLegacy. |
 | supabase/migrations/011_pins_saved_visited.sql | **Nuevo.** saved/visited en pins + backfill idempotente. |

@@ -1,5 +1,7 @@
 # Entregable final — OL-056 a OL-061 + QA + estilo
 
+**Estado:** DEPRECATED / ARCHIVED (entregable histórico; movido desde `docs/ops/deliverables` el 2026-02-25)
+
 **Fecha:** 2026-02-11  
 **Rama:** `fix/ol-056-to-ol-061-spot-sheet-search`
 
@@ -51,7 +53,7 @@ dca4dda fix(spot): OL-056 spot selection state machine + 3er spot visible
 | **docs/ops/OPEN_LOOPS.md** | Sección “Cerrados hoy (OL-056..061)” con notas. |
 | **docs/ops/CURRENT_STATE.md** | “Ahora mismo” + historial OL-056..061. |
 | **docs/bitacora/2026/02/080-ol-056-a-ol-061-spot-sheet-search.md** | Resumen por OL, commits, pruebas. |
-| **docs/ops/PR_DRAFT_ol-056-061.md** | Título y descripción listos para abrir PR. |
+| **docs/_archive/ops/2026/02/PR_DRAFT_ol-056-061.md** | Título y descripción listos para abrir PR. |
 
 ---
 
@@ -69,7 +71,7 @@ dca4dda fix(spot): OL-056 spot selection state machine + 3er spot visible
 ### Qué NO (guardrails)
 
 - **No incluir en este PR:** OL-050 (shrink/glitch), OL-053 (drag vs scroll), OL-054 (layering contract), OL-055 (deploy). Tratarlos en PRs o sesiones aparte.
-- **No abrir PR** hasta que decidas; el draft está en `docs/ops/PR_DRAFT_ol-056-061.md`.
+- **No abrir PR** hasta que decidas; el draft está en `docs/_archive/ops/2026/02/PR_DRAFT_ol-056-061.md`.
 - **Regla de commits:** Incluir en el mismo commit todos los archivos de un mismo cambio lógico (p. ej. QA OL-057/058 juntos; estilo pill en otro).
 
 ---

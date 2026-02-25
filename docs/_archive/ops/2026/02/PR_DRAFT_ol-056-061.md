@@ -1,5 +1,7 @@
 # PR (listo para abrir cuando se indique)
 
+**Estado:** DEPRECATED / ARCHIVED (draft histórico; movido desde `docs/ops/deliverables` el 2026-02-25)
+
 **Rama:** `fix/ol-056-to-ol-061-spot-sheet-search` → `main`
 
 ---

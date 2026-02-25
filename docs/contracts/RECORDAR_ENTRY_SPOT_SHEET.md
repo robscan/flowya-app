@@ -4,7 +4,7 @@
 **Owner:** Explore + Recordar  
 **Última actualización:** 2026-02-14
 
-> Entry point de "Mi diario" (Recordar) desde SpotSheet. Plan completo en `docs/ops/PLAN_RECORDAR_MI_DIARIO.md`.
+> Entry point de "Mi diario" (Recordar) desde SpotSheet. Plan completo en `docs/ops/plans/PLAN_RECORDAR_MI_DIARIO.md`.
 
 ---
 
