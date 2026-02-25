@@ -23,6 +23,25 @@
 
 ---
 
+## 2.1 Spot linking metadata (Fase A)
+
+Cuando el sistema evalúa enlace spot↔POI/Landmark (por ejemplo al guardar nueva ubicación), se persisten campos operativos en `spots`:
+
+- `link_status`: `linked | uncertain | unlinked`
+- `link_score`: score numérico de confianza (si existe)
+- `linked_place_id`: id externo del lugar enlazado
+- `linked_place_kind`: `poi | landmark`
+- `linked_maki`: maki detectado/enlazado
+- `linked_at`: timestamp del enlace
+- `link_version`: versión del algoritmo
+
+Regla de seguridad:
+
+- `uncertain` no debe tratarse como `linked` para ocultamiento automático.
+- Si falla resolución de enlace, el guardado de ubicación no se bloquea; fallback seguro = `unlinked`.
+
+---
+
 ## 3) Campos que NO se importan por ahora
 
 No se importan datos "vivos" o poco fiables para la creación mínima:

@@ -1,7 +1,7 @@
 # DATA_MODEL_CURRENT
 
 **Estado:** CURRENT (verificado por introspección SQL)
-**Última verificación:** 2026-02-08
+**Última verificación:** 2026-02-25
 **Fuente de verdad:** `docs/definitions/contracts/DATA_MODEL_CURRENT.md`
 
 ## Evidencia (SQL introspección — Supabase SQL Editor)
@@ -39,10 +39,19 @@ Se obtuvo metadata desde `information_schema` (solo lectura):
 - `created_at` (timestamptz, NOT NULL, default `now()`)
 - `updated_at` (timestamptz, NOT NULL, default `now()`)
 - `address` (text, NULL)
+- `link_status` (text, NOT NULL, default `'unlinked'`)
+- `link_score` (numeric, NULL)
+- `linked_place_id` (text, NULL)
+- `linked_place_kind` (text, NULL)
+- `linked_maki` (text, NULL)
+- `linked_at` (timestamptz, NULL)
+- `link_version` (text, NULL)
 
 **Constraints**
 
 - PRIMARY KEY: `spots_pkey` (`id`)
+- CHECK: `spots_link_status_check` (`link_status` in `linked|uncertain|unlinked`)
+- CHECK: `spots_linked_place_kind_check` (`linked_place_kind` null o `poi|landmark`)
 - CHECK (not null internos): presentes (ver “Evidencia”)
 
 **Notas operativas**
@@ -106,6 +115,10 @@ Se obtuvo metadata desde `information_schema` (solo lectura):
 - Unicidad “nombre + proximidad”: **NO verificado** (no aparece como UNIQUE/INDEX aquí).
 - Hard delete real vs soft delete: **NO verificado** (no hay columnas tipo `deleted_at` en estas 3 tablas; pero no prueba nada por sí solo).
 - Slugs/IDs compartibles: **NO verificado**.
+- Linking de spot (Fase A): `link_status` es la salida operativa de enlace con POI/Landmark.
+  - `linked`: match confiable
+  - `uncertain`: match ambiguo (no ocultar automáticamente)
+  - `unlinked`: sin match confiable
 
 > Todo lo anterior se considerará **OPEN LOOP** hasta que exista evidencia (migraciones/índices/decisión en ops).
 

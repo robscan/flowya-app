@@ -266,6 +266,13 @@
 - `docs/contracts/DATA_MODEL_CURRENT.md`
 - `docs/ops/plans/PLAN_POI_TOURISM_DB_SUPABASE_MIGRATION.md`
 - `docs/bitacora/2026/02/121-poi-landmark-visual-state-and-retry-toasts.md`
+- `docs/ops/plans/PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT.md`
+- `docs/bitacora/2026/02/122-phase-a-spot-linking-schema-scaffold.md`
+
+**Avance 2026-02-25 (Phase A iniciado):**
+- Migración `spots.link_*` creada (`015_spots_linking_fields.sql`).
+- Scaffolding de resolver + feature flags agregado (default OFF).
+- Hook pasivo en Edit Spot web para persistir `link_*` solo con `ff_link_on_edit_save=true`.
 
 ---
 

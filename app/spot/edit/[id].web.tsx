@@ -35,6 +35,8 @@ import {
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
+import { featureFlags } from "@/lib/feature-flags";
+import { resolveSpotLink } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
 import { supabase } from "@/lib/supabase";
@@ -341,6 +343,20 @@ export default function EditSpotScreenWeb() {
       updates.latitude = locationDraft.latitude;
       updates.longitude = locationDraft.longitude;
       updates.address = locationDraft.address;
+      if (featureFlags.linkOnEditSave) {
+        const link = await resolveSpotLink({
+          title: title.trim(),
+          lat: locationDraft.latitude,
+          lng: locationDraft.longitude,
+        });
+        updates.link_status = link.linkStatus;
+        updates.link_score = link.linkScore;
+        updates.linked_place_id = link.linkedPlaceId;
+        updates.linked_place_kind = link.linkedPlaceKind;
+        updates.linked_maki = link.linkedMaki;
+        updates.linked_at = link.linkedAt;
+        updates.link_version = link.linkVersion;
+      }
     }
     const { error } = await supabase
       .from("spots")
