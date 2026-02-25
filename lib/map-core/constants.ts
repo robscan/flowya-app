@@ -13,20 +13,10 @@ export const FLOWYA_MAP_STYLE_LIGHT =
 export const FLOWYA_MAP_STYLE_DARK =
   "mapbox://styles/robscan/cmlyfk2g1000i01rzcgy0d8cl";
 
-/** Mapbox Standard (basemap configurable). Para Explore.
- * light-v11/dark-v11 son clásicos sin basemap; Standard permite showLandmarkIcons, hideCommercialPOIs, etc. */
-export const MAP_STYLE_STANDARD = "mapbox://styles/mapbox/standard";
-
-/** Mapbox Standard + 3D para Explore. Toggle centralizado aquí; cambiar a false para usar FLOWYA Studio. */
-export const USE_CORE_MAP_STYLES = true;
-
-/** Theme del basemap Standard: "default" (alto contraste) | "faded" (suavizado). Rollback: cambiar a "default". */
-export const MAP_BASEMAP_THEME: "default" | "faded" = "faded";
-
 /** Fallback cuando geolocalización está denegada o no disponible (Riviera Maya). */
 export const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
 
-/** Pitch y bearing iniciales para Mapbox Standard (navegación 3D). */
+/** Pitch y bearing iniciales para estilo FLOWYA (navegación 3D). */
 export const INITIAL_PITCH = 45;
 export const INITIAL_BEARING = 0;
 
@@ -53,7 +43,7 @@ export const SPOT_FOCUS_PADDING_BOTTOM = 220;
 export const LONG_PRESS_MS = 3000;
 export const LONG_PRESS_DRAG_THRESHOLD_PX = 10;
 
-/** Layer IDs o prefijos para filtrar features POI/place en queryRenderedFeatures (Mapbox Standard). */
+/** Layer IDs o prefijos para filtrar features POI/place en queryRenderedFeatures. */
 export const POI_LAYER_PREFIXES = ['poi', 'place', 'symbol'];
 
 /** IDs de capa donde insertar flowya-spots (debajo de POIs). Primera coincidencia. */
@@ -129,26 +119,7 @@ export function hideNoiseLayers(map: MapboxMap): void {
   }
 }
 
-/** Oculta POIs comerciales vía basemap config (light-v11/dark-v11). En vez de hideNoiseLayers para no ocultar landmarks. */
-export function hideCommercialPOIsViaConfig(map: MapboxMap): void {
-  try {
-    map.setConfigProperty('basemap', 'showPointOfInterestLabels', false);
-  } catch {
-    // ignore if style has no basemap
-  }
-}
-
-/** Habilita 3D buildings y objetos en Mapbox Standard. */
-export function enable3DBuildingsAndObjects(map: MapboxMap): void {
-  try {
-    map.setConfigProperty('basemap', 'show3dBuildings', true);
-    map.setConfigProperty('basemap', 'show3dObjects', true);
-  } catch {
-    // ignore if style has no basemap
-  }
-}
-
-/** Activa o desactiva edificios y objetos 3D en Mapbox Standard. */
+/** Activa o desactiva edificios y objetos 3D en estilo FLOWYA (Mapbox Studio). */
 export function set3DBuildingsEnabled(map: MapboxMap, enabled: boolean): void {
   try {
     map.setConfigProperty('basemap', 'show3dBuildings', enabled);
@@ -158,31 +129,13 @@ export function set3DBuildingsEnabled(map: MapboxMap, enabled: boolean): void {
   }
 }
 
-/** Activa iconos y labels de landmarks (Mapbox Standard basemap). Museos, plazas, parques; sin POIs comerciales. */
+/** Activa iconos y labels de landmarks en estilo FLOWYA (Mapbox Studio). */
 export function showLandmarkLabels(map: MapboxMap): void {
   try {
     map.setConfigProperty('basemap', 'showLandmarkIcons', true);
     map.setConfigProperty('basemap', 'showLandmarkIconLabels', true);
   } catch {
     // ignore if style has no basemap import
-  }
-}
-
-/** Colores más intensos para agua y zonas verdes (light-v11/dark-v11). Solo estilos con basemap. */
-export function applyWaterAndGreenspaceColors(
-  map: MapboxMap,
-  isDark: boolean
-): void {
-  try {
-    if (isDark) {
-      map.setConfigProperty('basemap', 'colorWater', '#4a7ba7');
-      map.setConfigProperty('basemap', 'colorGreenspace', '#4a7a4a');
-    } else {
-      map.setConfigProperty('basemap', 'colorWater', '#7eb8da');
-      map.setConfigProperty('basemap', 'colorGreenspace', '#6fa86f');
-    }
-  } catch {
-    // ignore if style has no basemap
   }
 }
 

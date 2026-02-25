@@ -59,11 +59,8 @@ import {
     FLOWYA_MAP_STYLE_LIGHT,
     INITIAL_BEARING,
     INITIAL_PITCH,
-    MAP_BASEMAP_THEME,
-    MAP_STYLE_STANDARD,
     SPOT_FOCUS_ZOOM,
     SPOT_POI_MATCH_TOLERANCE_KM,
-    USE_CORE_MAP_STYLES,
 } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
@@ -148,7 +145,8 @@ export function MapScreenVNext() {
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
-  const [is3DEnabled, setIs3DEnabled] = useState(USE_CORE_MAP_STYLES);
+  /** 3D debe poder usarse también con estilo FLOWYA (no solo Mapbox Standard). */
+  const [is3DEnabled, setIs3DEnabled] = useState(true);
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
   const [poiTapped, setPoiTapped] = useState<{
     name: string;
@@ -293,7 +291,6 @@ export function MapScreenVNext() {
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => setSheetState("peek"),
     enableLandmarkLabels: true,
-    useCoreMapStyles: USE_CORE_MAP_STYLES,
     isDarkStyle: colorScheme === "dark",
     spots: displayedSpots
       .filter((s) => !s.id.startsWith("draft_"))
@@ -1329,21 +1326,10 @@ export function MapScreenVNext() {
     );
   }
 
-  const mapStyle = USE_CORE_MAP_STYLES
-    ? MAP_STYLE_STANDARD
-    : colorScheme === "dark"
-      ? FLOWYA_MAP_STYLE_DARK
-      : FLOWYA_MAP_STYLE_LIGHT;
-  const mapConfig = USE_CORE_MAP_STYLES
-    ? {
-        basemap: {
-          lightPreset: colorScheme === "dark" ? "night" : "day",
-          ...(MAP_BASEMAP_THEME !== "default" && { theme: MAP_BASEMAP_THEME }),
-        },
-      }
-    : undefined;
+  const mapStyle =
+    colorScheme === "dark" ? FLOWYA_MAP_STYLE_DARK : FLOWYA_MAP_STYLE_LIGHT;
 
-  const initialViewState = USE_CORE_MAP_STYLES
+  const initialViewState = is3DEnabled
     ? { ...FALLBACK_VIEW, pitch: INITIAL_PITCH, bearing: INITIAL_BEARING }
     : FALLBACK_VIEW;
 
@@ -1358,7 +1344,6 @@ export function MapScreenVNext() {
       <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
-        mapConfig={mapConfig}
         initialViewState={initialViewState}
         onLoad={onMapLoad}
         onPointerDown={handleMapPointerDown}
@@ -1503,7 +1488,7 @@ export function MapScreenVNext() {
             hasUserLocation={userCoords != null}
             onViewWorld={handleViewWorld}
             activeMapControl={activeMapControl}
-            show3DToggle={USE_CORE_MAP_STYLES}
+            show3DToggle
             is3DEnabled={is3DEnabled}
             onToggle3D={handleToggle3DPress}
           />
