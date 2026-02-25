@@ -8,7 +8,6 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
 
-import MapboxLanguage from '@mapbox/mapbox-gl-language';
 import {
   setupSpotsLayer,
   updateSpotsLayerData,
@@ -161,12 +160,6 @@ export function useMapCore(
       setMapInstance(map);
       setZoom(map.getZoom());
       applyGlobeAndAtmosphere(map);
-      // Plugin de idioma para etiquetas base del estilo FLOWYA.
-      try {
-        map.addControl(new MapboxLanguage());
-      } catch {
-        /* ignore */
-      }
       hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
       if (enableLandmarkLabels) {
         showLandmarkLabels(map);

@@ -172,9 +172,9 @@ export const Fonts = Platform.select({
     mono: 'monospace',
   },
   web: {
-    sans: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+    sans: "'Noto Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
     serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', -apple-system, sans-serif",
+    rounded: "'Noto Sans', 'SF Pro Rounded', -apple-system, sans-serif",
     mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace",
   },
 });

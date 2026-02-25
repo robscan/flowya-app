@@ -108,7 +108,7 @@ export function DuplicateSpotModal({
                   style={[styles.message, { color: colors.textSecondary }]}
                   numberOfLines={2}
                 >
-                  Ya existe "{existingTitle}" cerca de aquí.
+                  Ya existe &quot;{existingTitle}&quot; cerca de aquí.
                 </Text>
                 <View style={styles.buttonsColumn}>
                   <Pressable

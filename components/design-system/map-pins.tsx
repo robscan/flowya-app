@@ -16,7 +16,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const PIN_SELECT_DURATION_MS = 200;
@@ -230,6 +230,7 @@ export function MapPinSpot({
               color: labelColor,
               opacity: 1,
               fontWeight: labelWeight,
+              fontFamily: Fonts.sans,
               fontSize: labelFontSize,
               lineHeight: labelFontSize + 2,
               textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
@@ -304,6 +305,7 @@ export function MapPinCreating({
             {
               color: colors.text,
               fontWeight: '600',
+              fontFamily: Fonts.sans,
               textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
               textShadowOffset: { width: 0, height: 0 },
               textShadowRadius: 2,
@@ -367,6 +369,7 @@ export function MapPinExisting({
             styles.existingPinLabel,
             {
               color: colors.text,
+              fontFamily: Fonts.sans,
               textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
               textShadowOffset: { width: 0, height: 0 },
               textShadowRadius: 2,
@@ -460,6 +463,7 @@ const styles = StyleSheet.create({
     gap: Spacing.xs,
   },
   showcaseLabel: {
+    fontFamily: Fonts.sans,
     fontSize: 12,
   },
   modeBox: {
@@ -468,6 +472,7 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.base,
   },
   modeTitle: {
+    fontFamily: Fonts.sans,
     fontSize: 13,
     fontWeight: '600',
     marginBottom: Spacing.md,

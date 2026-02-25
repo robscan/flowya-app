@@ -5,7 +5,7 @@
 
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function TypographyShowcase() {
@@ -28,34 +28,40 @@ export function TypographyShowcase() {
 /** Estilos canónicos para uso en otros componentes. */
 export const TypographyStyles = StyleSheet.create({
   heading1: {
+    fontFamily: Fonts.sans,
     fontSize: 40,
     fontWeight: '600',
     letterSpacing: -0.5,
     lineHeight: 48,
   },
   heading2: {
+    fontFamily: Fonts.sans,
     fontSize: 28,
     fontWeight: '600',
     letterSpacing: -0.3,
     lineHeight: 34,
   },
   heading3: {
+    fontFamily: Fonts.sans,
     fontSize: 22,
     fontWeight: '600',
     lineHeight: 28,
   },
   body: {
+    fontFamily: Fonts.sans,
     fontSize: 17,
     fontWeight: '400',
     lineHeight: 26,
   },
   caption: {
+    fontFamily: Fonts.sans,
     fontSize: 14,
     fontWeight: '400',
     lineHeight: 20,
   },
   /** Apple Maps style: labels de filtro (más grande y delgado). */
   filterLabel: {
+    fontFamily: Fonts.sans,
     fontSize: 17,
     fontWeight: '300',
     lineHeight: 22,

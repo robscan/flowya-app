@@ -290,7 +290,8 @@ export function MapScreenVNext() {
     skipCenterOnUser,
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => setSheetState("peek"),
-    enableLandmarkLabels: true,
+    // Desactivado temporalmente: en FLOWYA custom style dispara warnings de selector y 404 de tileset landmark.
+    enableLandmarkLabels: false,
     isDarkStyle: colorScheme === "dark",
     spots: displayedSpots
       .filter((s) => !s.id.startsWith("draft_"))
@@ -372,7 +373,7 @@ export function MapScreenVNext() {
     if (fresh && fresh !== selectedSpot) {
       setSelectedSpot(fresh);
     }
-  }, [filteredSpots, selectedSpot?.id]);
+  }, [filteredSpots, selectedSpot]);
 
   const spotsProvider = useMemo(
     () =>
@@ -965,7 +966,7 @@ export function MapScreenVNext() {
           });
       });
     },
-    [poiTapped, requireAuthOrModal, refetchSpots, setDuplicateModal],
+    [poiTapped, requireAuthOrModal, refetchSpots, setDuplicateModal, toast],
   );
 
   /** Crear spot desde POI y compartir. skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
