@@ -390,7 +390,9 @@
 
 **Acción:** Al actualizar mapbox-gl o el estilo del mapa, verificar si desaparecen o requieren ajustes.
 
-**Bitácora:** `docs/bitacora/2026/02/106-consola-warnings-fix-mapbox-doc.md`
+**Bitácora:**
+- `docs/bitacora/2026/02/106-consola-warnings-fix-mapbox-doc.md`
+- `docs/bitacora/2026/02/120-mapbox-warning-place-labels-persistente.md`
 
 ---
 

@@ -11,7 +11,15 @@ import type {
   MapTouchEvent,
   ViewStateChangeEvent,
 } from 'react-map-gl/mapbox-legacy';
+import mapboxgl from 'mapbox-gl';
 import { Map, Marker } from 'react-map-gl/mapbox-legacy';
+
+try {
+  // Evita ruido de warnings internos del style/featuresets; mantiene errores visibles.
+  mapboxgl.setLogLevel('error');
+} catch {
+  // ignore
+}
 
 export type MapCoreSpot = {
   id: string;

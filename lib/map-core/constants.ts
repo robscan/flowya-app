@@ -90,7 +90,7 @@ export const MAPBOX_LABEL_STYLE_LIGHT: MapboxLabelStyle = {
   textColor: '#1d1d1f',
   textHaloColor: 'rgba(255,255,255,0.9)',
   textHaloWidth: 2,
-  textFont: ['DIN Offc Pro Medium', 'Arial Unicode MS Regular'],
+  textFont: ['Noto Sans Regular', 'Arial Unicode MS Regular'],
 };
 
 /** Estilo de labels para modo dark. */
@@ -99,7 +99,7 @@ export const MAPBOX_LABEL_STYLE_DARK: MapboxLabelStyle = {
   textColor: '#f5f5f7',
   textHaloColor: 'rgba(0,0,0,0.8)',
   textHaloWidth: 2.5,
-  textFont: ['DIN Offc Pro Medium', 'Arial Unicode MS Regular'],
+  textFont: ['Noto Sans Regular', 'Arial Unicode MS Regular'],
 };
 
 /** Capas a ocultar (POIs comerciales, negocios). */
