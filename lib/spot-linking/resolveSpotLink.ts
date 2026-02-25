@@ -1,16 +1,21 @@
 import { distanceKm } from '@/lib/geo-utils';
 import { searchPlaces } from '@/lib/places/searchPlaces';
 import { normalizeQuery } from '@/lib/search/normalize';
+import { recordSpotLinkMetric } from './metrics';
 import type { ResolveSpotLinkInput, SpotLinkPayload } from './types';
 
-export const SPOT_LINK_VERSION = 'v1-phase-b';
+export const SPOT_LINK_VERSION = 'v1-phase-c-calibrated';
 
-const SEARCH_RADIUS_KM = 0.6;
-const HARD_DISTANCE_CUTOFF_KM = 0.8;
-const LINKED_THRESHOLD = 0.78;
-const UNCERTAIN_THRESHOLD = 0.55;
+const SEARCH_RADIUS_KM = 0.45;
+const HARD_DISTANCE_CUTOFF_KM = 0.6;
+const LINKED_THRESHOLD = 0.82;
+const UNCERTAIN_THRESHOLD = 0.58;
 const DISTANCE_WEIGHT = 0.35;
 const NAME_WEIGHT = 0.65;
+const LINKED_MAX_DISTANCE_KM = 0.18;
+const UNCERTAIN_MAX_DISTANCE_KM = 0.35;
+const MIN_LINKED_NAME_SCORE = 0.72;
+const AMBIGUITY_DELTA = 0.06;
 
 const LANDMARK_TOKENS = [
   'cathedral',
@@ -101,8 +106,18 @@ function fallbackUnlinked(): SpotLinkPayload {
  * If confidence is low or lookup fails, returns `unlinked`.
  */
 export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<SpotLinkPayload> {
+  const startedAt = Date.now();
   const title = input.title?.trim() ?? '';
-  if (!title) return fallbackUnlinked();
+  if (!title) {
+    const output = fallbackUnlinked();
+    recordSpotLinkMetric({
+      status: output.linkStatus,
+      score: null,
+      durationMs: Date.now() - startedAt,
+      reason: 'empty_title',
+    });
+    return output;
+  }
 
   const latDelta = 0.008;
   const lngDelta = 0.008;
@@ -117,19 +132,27 @@ export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<Spot
         north: input.lat + latDelta,
       },
     });
-    if (candidates.length === 0) return fallbackUnlinked();
+    if (candidates.length === 0) {
+      const output = fallbackUnlinked();
+      recordSpotLinkMetric({
+        status: output.linkStatus,
+        score: null,
+        durationMs: Date.now() - startedAt,
+        reason: 'no_candidates',
+      });
+      return output;
+    }
 
-    let best:
-      | {
-          id: string;
-          name: string;
-          maki?: string;
-          featureType?: string;
-          categories?: string[];
-          score: number;
-          distance: number;
-        }
-      | null = null;
+    const ranked: {
+      id: string;
+      name: string;
+      maki?: string;
+      featureType?: string;
+      categories?: string[];
+      score: number;
+      distance: number;
+      nameScore: number;
+    }[] = [];
 
     for (const c of candidates) {
       const km = distanceKm(input.lat, input.lng, c.lat, c.lng);
@@ -137,20 +160,35 @@ export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<Spot
       const nameScore = scoreNameSimilarity(title, c.name);
       const distScore = scoreDistance(km);
       const totalScore = nameScore * NAME_WEIGHT + distScore * DISTANCE_WEIGHT;
-      if (!best || totalScore > best.score) {
-        best = {
-          id: c.id,
-          name: c.name,
-          maki: c.maki,
-          featureType: c.featureType,
-          categories: c.categories,
-          score: totalScore,
-          distance: km,
-        };
-      }
+      ranked.push({
+        id: c.id,
+        name: c.name,
+        maki: c.maki,
+        featureType: c.featureType,
+        categories: c.categories,
+        score: totalScore,
+        distance: km,
+        nameScore,
+      });
     }
 
-    if (!best) return fallbackUnlinked();
+    ranked.sort((a, b) => b.score - a.score);
+    const best = ranked[0];
+    if (!best) {
+      const output = fallbackUnlinked();
+      recordSpotLinkMetric({
+        status: output.linkStatus,
+        score: null,
+        durationMs: Date.now() - startedAt,
+        reason: 'no_candidates_after_distance_cutoff',
+      });
+      return output;
+    }
+    const second = ranked[1];
+    const isAmbiguous =
+      second != null &&
+      best.score >= UNCERTAIN_THRESHOLD &&
+      best.score - second.score <= AMBIGUITY_DELTA;
 
     const kind = classifyPlaceKind({
       featureType: best.featureType,
@@ -161,8 +199,13 @@ export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<Spot
     const linkedAt = new Date().toISOString();
     const roundedScore = Number(best.score.toFixed(4));
 
-    if (best.score >= LINKED_THRESHOLD) {
-      return {
+    if (
+      !isAmbiguous &&
+      best.score >= LINKED_THRESHOLD &&
+      best.distance <= LINKED_MAX_DISTANCE_KM &&
+      best.nameScore >= MIN_LINKED_NAME_SCORE
+    ) {
+      const output: SpotLinkPayload = {
         linkStatus: 'linked',
         linkScore: roundedScore,
         linkedPlaceId: best.id,
@@ -171,10 +214,17 @@ export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<Spot
         linkedAt,
         linkVersion: SPOT_LINK_VERSION,
       };
+      recordSpotLinkMetric({
+        status: output.linkStatus,
+        score: roundedScore,
+        durationMs: Date.now() - startedAt,
+        reason: 'linked_high_confidence',
+      });
+      return output;
     }
 
-    if (best.score >= UNCERTAIN_THRESHOLD) {
-      return {
+    if (best.score >= UNCERTAIN_THRESHOLD && best.distance <= UNCERTAIN_MAX_DISTANCE_KM) {
+      const output: SpotLinkPayload = {
         linkStatus: 'uncertain',
         linkScore: roundedScore,
         linkedPlaceId: best.id,
@@ -183,10 +233,32 @@ export async function resolveSpotLink(input: ResolveSpotLinkInput): Promise<Spot
         linkedAt,
         linkVersion: SPOT_LINK_VERSION,
       };
+      recordSpotLinkMetric({
+        status: output.linkStatus,
+        score: roundedScore,
+        durationMs: Date.now() - startedAt,
+        reason: isAmbiguous ? 'uncertain_ambiguous_top_candidates' : 'uncertain_low_confidence',
+      });
+      return output;
     }
 
-    return fallbackUnlinked();
+    const output = fallbackUnlinked();
+    recordSpotLinkMetric({
+      status: output.linkStatus,
+      score: roundedScore,
+      durationMs: Date.now() - startedAt,
+      reason: 'unlinked_below_threshold',
+    });
+    return output;
   } catch {
-    return fallbackUnlinked();
+    const output = fallbackUnlinked();
+    recordSpotLinkMetric({
+      status: output.linkStatus,
+      score: null,
+      durationMs: Date.now() - startedAt,
+      reason: 'resolver_error',
+      isError: true,
+    });
+    return output;
   }
 }

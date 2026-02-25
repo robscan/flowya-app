@@ -279,6 +279,12 @@
 - Integración mantiene guardrail de flag (`ff_link_on_edit_save`), sin activar reglas visuales de hide en esta fase.
 - Bitácora de fase B: `docs/bitacora/2026/02/124-phase-b-resolver-scoring-linking.md`.
 
+**Avance 2026-02-25 (Phase C iniciado):**
+- calibración de thresholds del resolver (más conservador para reducir falsos positivos).
+- detección de ambigüedad top-1 vs top-2 para forzar `uncertain`.
+- telemetría local de calidad de resolución (`linked/uncertain/unlinked`, errores, razón).
+- Bitácora de fase C: `docs/bitacora/2026/02/125-phase-c-thresholds-metrics-calibration.md`.
+
 ---
 
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)

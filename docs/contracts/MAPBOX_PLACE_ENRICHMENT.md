@@ -40,13 +40,15 @@ Regla de seguridad:
 - `uncertain` no debe tratarse como `linked` para ocultamiento automático.
 - Si falla resolución de enlace, el guardado de ubicación no se bloquea; fallback seguro = `unlinked`.
 
-Parámetros operativos iniciales (v1-phase-b):
+Parámetros operativos calibrados (v1-phase-c-calibrated):
 
 - scoring combinado nombre + distancia (ponderado)
 - thresholds:
-  - `linked` >= 0.78
-  - `uncertain` >= 0.55
+  - `linked` >= 0.82 (más filtros de distancia y nombre)
+  - `uncertain` >= 0.58
   - menor a eso => `unlinked`
+- guardrail de ambigüedad: si top-1 y top-2 quedan demasiado cerca (delta score pequeño), forzar `uncertain`.
+- telemetría local de resolución: contador de `linked/uncertain/unlinked`, errores y último motivo.
 
 Estos umbrales son calibrables y deben versionarse en `link_version`.
 
