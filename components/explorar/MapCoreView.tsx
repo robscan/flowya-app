@@ -24,8 +24,6 @@ export type MapCoreSpot = {
 export type MapCoreViewProps = {
   mapboxAccessToken: string;
   mapStyle: string;
-  /** Config para Mapbox Standard (basemap lightPreset, etc.). */
-  mapConfig?: { basemap?: Record<string, unknown> };
   initialViewState: { longitude: number; latitude: number; zoom: number; pitch?: number; bearing?: number };
   onLoad: (e: import('react-map-gl/mapbox-legacy').MapEvent) => void;
   onPointerDown: (e: MapMouseEvent | MapTouchEvent) => void;
@@ -53,7 +51,6 @@ export type MapCoreViewProps = {
 export function MapCoreView({
   mapboxAccessToken,
   mapStyle,
-  mapConfig,
   initialViewState,
   onLoad,
   onPointerDown,
@@ -72,10 +69,9 @@ export function MapCoreView({
 }: MapCoreViewProps) {
   return (
     <Map
-        key={mapConfig ? `${mapStyle}-${JSON.stringify(mapConfig)}` : mapStyle}
+        key={mapStyle}
         mapboxAccessToken={mapboxAccessToken}
         mapStyle={mapStyle}
-        {...(mapConfig && { config: mapConfig })}
         projection="globe"
         initialViewState={initialViewState}
         style={styleMap}

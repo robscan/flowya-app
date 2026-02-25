@@ -16,10 +16,7 @@ import {
 } from '@/lib/map-core/spots-layer';
 import {
   applyGlobeAndAtmosphere,
-  applyWaterAndGreenspaceColors,
-  enable3DBuildingsAndObjects,
   FIT_BOUNDS_DURATION_MS,
-  hideCommercialPOIsViaConfig,
   hideNoiseLayers,
   INITIAL_PITCH,
   LONG_PRESS_DRAG_THRESHOLD_PX,
@@ -43,9 +40,7 @@ export type UseMapCoreOptions = {
   onUserMapGestureStart?: () => void;
   /** Si true, activa showLandmarkIcons/showLandmarkIconLabels (estilo FLOWYA/Standard). */
   enableLandmarkLabels?: boolean;
-  /** Si true, usa light-v11/dark-v11 y aplica plugin idioma + colores agua/naturaleza. */
-  useCoreMapStyles?: boolean;
-  /** true = modo oscuro (para colores agua/greenspace). */
+  /** true = modo oscuro (para estilo visual de capa Flowya: pins/labels). */
   isDarkStyle?: boolean;
   /** Spots a dibujar como capa nativa debajo de POI. */
   spots?: SpotForLayer[];
@@ -96,7 +91,6 @@ export function useMapCore(
     skipCenterOnUser = false,
     onUserMapGestureStart,
     enableLandmarkLabels = false,
-    useCoreMapStyles = false,
     isDarkStyle = false,
     spots = [],
     selectedSpotId = null,
@@ -167,19 +161,13 @@ export function useMapCore(
       setMapInstance(map);
       setZoom(map.getZoom());
       applyGlobeAndAtmosphere(map);
-      // Plugin de idioma: funciona con FLOWYA (Standard basemap) y Mapbox Standard
+      // Plugin de idioma para etiquetas base del estilo FLOWYA.
       try {
         map.addControl(new MapboxLanguage());
       } catch {
         /* ignore */
       }
-      if (useCoreMapStyles) {
-        enable3DBuildingsAndObjects(map);
-        applyWaterAndGreenspaceColors(map, isDarkStyle);
-        hideCommercialPOIsViaConfig(map); // POIs comerciales vía config; no hideNoiseLayers (oculta landmarks)
-      } else {
-        hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
-      }
+      hideNoiseLayers(map); // FLOWYA: oculta poi-label por capa
       if (enableLandmarkLabels) {
         showLandmarkLabels(map);
       }
@@ -189,7 +177,7 @@ export function useMapCore(
         });
       }
     },
-    [skipCenterOnUser, enableLandmarkLabels, useCoreMapStyles, isDarkStyle]
+    [skipCenterOnUser, enableLandmarkLabels]
   );
 
   useEffect(() => {
