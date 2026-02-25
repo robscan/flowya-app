@@ -45,6 +45,7 @@ import { useSearchHistory } from "@/hooks/search/useSearchHistory";
 import { Colors, Spacing, WebTouchManipulation } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useMapCore } from "@/hooks/useMapCore";
+import { featureFlags } from "@/lib/feature-flags";
 import {
     blurActiveElement,
     saveFocusBeforeNavigate,
@@ -96,6 +97,7 @@ type Spot = {
   link_status?: "linked" | "uncertain" | "unlinked" | null;
   linked_place_id?: string | null;
   linked_place_kind?: "poi" | "landmark" | null;
+  linked_maki?: string | null;
   /** Derivado de saved/visited para map-pins (visited > saved > default). */
   pinStatus?: SpotPinStatus;
 };
@@ -154,6 +156,10 @@ function getTappedFeatureMaki(props?: Record<string, unknown> | null): string | 
     if (typeof value === "string" && value.trim()) return value.trim();
   }
   return null;
+}
+
+function isLinkedUnsavedSpot(spot: Spot): boolean {
+  return spot.link_status === "linked" && !spot.saved && !spot.visited;
 }
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
@@ -255,7 +261,7 @@ export function MapScreenVNext() {
     const { data } = await supabase
       .from("spots")
       .select(
-        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind",
+        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki",
       )
       .eq("is_hidden", false);
     const list = (data ?? []) as Omit<
@@ -320,13 +326,23 @@ export function MapScreenVNext() {
     if (isPlacingDraftSpot && selectedSpot?.id.startsWith("draft_")) {
       return [selectedSpot];
     }
+    const visibilityFiltered = featureFlags.hideLinkedUnsaved
+      ? filteredSpots.filter((s) => !isLinkedUnsavedSpot(s))
+      : filteredSpots;
     const base =
-      filteredSpots.length > MAP_PIN_CAP
-        ? filteredSpots.slice(0, MAP_PIN_CAP)
-        : filteredSpots;
+      visibilityFiltered.length > MAP_PIN_CAP
+        ? visibilityFiltered.slice(0, MAP_PIN_CAP)
+        : visibilityFiltered;
     if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
-    /** POI match: spot puede estar filtrado (ej. Visitados pero spot Por visitar). Incluir selectedSpot para mostrar pin y coherencia sheet↔mapa. */
-    if (selectedSpot && !base.some((s) => s.id === selectedSpot.id)) {
+    /**
+     * POI match: incluir selectedSpot si está fuera de filtro.
+     * Guardrail: no reinsertar selectedSpot si está oculto por regla linked+unsaved.
+     */
+    if (
+      selectedSpot &&
+      !(featureFlags.hideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
+      !base.some((s) => s.id === selectedSpot.id)
+    ) {
       return [...base, selectedSpot];
     }
     return base;
@@ -357,10 +373,12 @@ export function MapScreenVNext() {
         latitude: s.latitude,
         longitude: s.longitude,
         pinStatus: s.pinStatus,
+        linkedMaki: s.linked_maki ?? null,
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
     is3DEnabled,
+    showMakiIcon: featureFlags.flowyaPinMakiIcon,
   });
   const {
     mapInstance,
@@ -1038,7 +1056,9 @@ export function MapScreenVNext() {
         const { data: inserted, error: insertError } = await supabase
           .from("spots")
           .insert(insertPayload)
-          .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
+          .select(
+            "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki",
+          )
           .single();
         if (insertError) {
           toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
@@ -1140,7 +1160,7 @@ export function MapScreenVNext() {
         const { data: inserted, error: insertError } = await supabase
           .from("spots")
           .insert(insertPayload)
-          .select("id, title")
+          .select("id, title, link_status, linked_place_id, linked_place_kind, linked_maki")
           .single();
         if (insertError) {
           toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
@@ -1164,6 +1184,11 @@ export function MapScreenVNext() {
           address: null,
           latitude: poi.lat,
           longitude: poi.lng,
+          link_status: (inserted?.link_status as Spot["link_status"]) ?? (poi.placeId ? "linked" : "unlinked"),
+          linked_place_id: inserted?.linked_place_id ?? poi.placeId,
+          linked_place_kind:
+            (inserted?.linked_place_kind as Spot["linked_place_kind"]) ?? (poi.placeId ? poi.kind : null),
+          linked_maki: inserted?.linked_maki ?? poi.maki ?? null,
           saved: state?.saved ?? false,
           visited: state?.visited ?? false,
           pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",

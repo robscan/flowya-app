@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-25
+**Fecha:** 2026-02-25 (post-merge main `555368b`)
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
@@ -23,6 +23,23 @@
 3) **Implementar System Status Bar (reemplazo de toast)**  
 4) **Completar Search MS-E (POIs en sin-resultados)**  
 5) Resolver bugs restantes detectados en pruebas
+
+## Ejecución inmediata recomendada (ordenada por riesgo)
+Checklist operativo único:
+- `docs/ops/plans/CHECKLIST_EXECUTION_LINKING_SEARCH_V2.md`
+
+1) **Plan maestro 1: `PLAN_SPOT_LINKING_VISIBILITY_SAFE_ROLLOUT`**
+   - Ejecutar cierre de Fase C: `ff_hide_linked_unsaved` + `ff_flowya_pin_maki_icon` con fallback.
+   - Ejecutar Fase D: hardening con QA/no-go en zonas densas.
+   - Objetivo: cerrar `OL-P0-004` sin regresiones de tap/sheet/performance.
+2) **Plan maestro 2: `PLAN_SEARCH_V2_POI_FIRST_SAFE_MIGRATION`**
+   - Ejecutar Fase A-B-C: contrato + adapter externo + ranking mixto por secciones.
+   - Ejecutar Fase D-E: integración create/linking + rollout por flags y métricas.
+   - Objetivo: cerrar `OL-P1-004` con POI-first real sin romper chooser.
+3) **Después de ambos planes: estabilización transversal**
+   - `OL-P1-005` deep link (centrado en spot, no usuario).
+   - `OL-P1-001` address post-create con retry/estado de sistema.
+   - `OL-P1-003` migración System Status Bar y deprecación toast.
 
 > Decisión vigente (2026-02-25): Explore usa solo estilo **FLOWYA** (Mapbox Studio).  
 > La bifurcación/toggle Standard vs FLOWYA queda deprecada/removida.
@@ -191,7 +208,7 @@
 
 ### OL-P1-006 — Integrar datos POI turístico en DB + migración Supabase (maki/categorías)
 
-**Estado:** ACTIVO (planificado, no ejecutar ahora)
+**Estado:** ACTIVO (PARCIAL: base de linking ya aplicada)
 
 **Problema:** Actualmente no está cerrada la integración canónica de señales de POI turístico (incluyendo `maki` y categorías) en el modelo de datos; sin esto no hay base sólida para filtros/ranking turístico y trazabilidad.
 
@@ -206,6 +223,11 @@
 - Smoke: crear spot desde POI y verificar persistencia de campos turísticos.
 - Smoke: spot sin señales turísticas sigue creando sin error (fallback seguro).
 - Validación de migración: sin regresión en lectura/escritura de spots actuales.
+
+**Avance ejecutado (2026-02-25):**
+- `spots.link_*` en producción (`link_status`, `linked_place_id`, `linked_place_kind`, `linked_maki`, `linked_at`, `link_version`, `link_score`).
+- Create-from-POI/Search persiste `link_*` al insertar (nace `linked` cuando hay `placeId`).
+- Edit Spot (con flag) reevalúa y persiste `link_*` al guardar ubicación.
 
 **Referencias**
 - `docs/ops/plans/PLAN_POI_TOURISM_DB_SUPABASE_MIGRATION.md`
@@ -241,7 +263,7 @@
 
 ### OL-P0-004 — Visibilidad de spots según enlace POI/Landmark (linked/unlinked)
 
-**Estado:** ACTIVO
+**Estado:** ACTIVO (EN EJECUCIÓN, backend listo; falta cierre visual por flags)
 
 **Problema:** Con mayor cobertura de POIs/Landmarks, los spots sin estado (`saved=false`, `visited=false`) generan ruido visual cuando ya existe señal de basemap para ese lugar.
 
@@ -284,6 +306,17 @@
 - detección de ambigüedad top-1 vs top-2 para forzar `uncertain`.
 - telemetría local de calidad de resolución (`linked/uncertain/unlinked`, errores, razón).
 - Bitácora de fase C: `docs/bitacora/2026/02/125-phase-c-thresholds-metrics-calibration.md`.
+
+**Avance 2026-02-25 (post-Phase C, merge a main):**
+- Tap POI prioriza match por `linked_place_id`; fallback por proximidad solo para spots `linked`.
+- Create-from-POI/Search persiste `link_*` en insert para que el tap linked funcione desde creación.
+- Mitigación runtime para landmark labels/config y reducción de ruido de consola.
+- Bitácoras: `126`, `127`, `128`, `129`.
+
+**Pendiente para cierre OL-P0-004:**
+- Activar `ff_hide_linked_unsaved` y validar que nunca desaparezca el lugar (POI base visible o pin fallback).
+- Activar `ff_flowya_pin_maki_icon` con fallback visual garantizado para `maki` desconocido.
+- QA formal de no-go: densidad urbana, ambigüedad, performance y regressions de tap/sheet.
 
 ---
 

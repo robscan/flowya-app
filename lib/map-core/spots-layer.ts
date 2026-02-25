@@ -18,17 +18,39 @@ export type SpotForLayer = {
   latitude: number;
   longitude: number;
   pinStatus?: 'default' | 'to_visit' | 'visited';
+  linkedMaki?: string | null;
 };
 
 const SOURCE_ID = 'flowya-spots';
 const CIRCLES_LAYER_ID = 'flowya-spots-circles';
+const MAKIS_LAYER_ID = 'flowya-spots-makis';
 const LABELS_LAYER_ID = 'flowya-spots-labels';
+
+function makiToGlyph(maki?: string | null): string {
+  const normalized = (maki ?? '').trim().toLowerCase();
+  if (!normalized) return '+';
+  if (normalized.includes('museum')) return 'M';
+  if (normalized.includes('park') || normalized.includes('garden')) return 'P';
+  if (normalized.includes('beach') || normalized.includes('water')) return 'W';
+  if (normalized.includes('restaurant') || normalized.includes('food')) return 'F';
+  if (normalized.includes('religious') || normalized.includes('church') || normalized.includes('temple'))
+    return 'R';
+  if (normalized.includes('monument') || normalized.includes('landmark')) return 'L';
+  if (normalized.includes('hotel') || normalized.includes('lodging')) return 'H';
+  if (normalized.includes('shopping') || normalized.includes('shop')) return 'S';
+  if (normalized.includes('airport') || normalized.includes('bus') || normalized.includes('rail'))
+    return 'T';
+  return normalized.charAt(0).toUpperCase() || '+';
+}
 
 function spotsToGeoJSON(
   spots: SpotForLayer[],
   selectedSpotId: string | null,
   zoom: number
-): GeoJSON.FeatureCollection<GeoJSON.Point, { id: string; title: string; pinStatus: string; selected: boolean }> {
+): GeoJSON.FeatureCollection<
+  GeoJSON.Point,
+  { id: string; title: string; pinStatus: string; selected: boolean; makiGlyph: string }
+> {
   return {
     type: 'FeatureCollection',
     features: spots.map((s) => ({
@@ -42,6 +64,7 @@ function spotsToGeoJSON(
         title: s.title ?? '',
         pinStatus: s.pinStatus ?? 'default',
         selected: s.id === selectedSpotId,
+        makiGlyph: makiToGlyph(s.linkedMaki),
       },
     })),
   };
@@ -77,6 +100,7 @@ export function setupSpotsLayer(
   selectedSpotId: string | null,
   zoom: number,
   isDark: boolean,
+  showMakiIcon: boolean,
   onPinClickBySpotId: (spotId: string) => void
 ): void {
   try {
@@ -131,6 +155,34 @@ export function setupSpotsLayer(
       map.on('mouseleave', CIRCLES_LAYER_ID, () => {
         map.getCanvas().style.cursor = '';
       });
+    }
+
+    if (showMakiIcon) {
+      if (!map.getLayer(MAKIS_LAYER_ID)) {
+        map.addLayer(
+          {
+            id: MAKIS_LAYER_ID,
+            type: 'symbol',
+            source: SOURCE_ID,
+            layout: {
+              'text-field': ['get', 'makiGlyph'],
+              'text-font': ['Noto Sans Bold', 'Arial Unicode MS Bold'],
+              'text-size': 10,
+              'text-anchor': 'center',
+              'text-allow-overlap': true,
+            },
+            paint: {
+              'text-color': '#ffffff',
+              'text-halo-color': isDark ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.15)',
+              'text-halo-width': 1,
+            },
+            filter: ['in', ['get', 'pinStatus'], ['literal', ['to_visit', 'visited']]],
+          },
+          beforeId
+        );
+      }
+    } else if (map.getLayer(MAKIS_LAYER_ID)) {
+      map.removeLayer(MAKIS_LAYER_ID);
     }
 
     const labelStyle = isDark ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;

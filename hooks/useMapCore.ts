@@ -49,6 +49,8 @@ export type UseMapCoreOptions = {
   onPinClick?: (spot: SpotForLayer) => void;
   /** Si true, flyTo usa pitch 3D y padding para sheet. Si false, flyTo 2D (respeta preferencia usuario). */
   is3DEnabled?: boolean;
+  /** Si true, muestra iconografía derivada de maki en pins guardados/visitados. */
+  showMakiIcon?: boolean;
 };
 
 const GEO_OPTIONS: PositionOptions = {
@@ -95,6 +97,7 @@ export function useMapCore(
     selectedSpotId = null,
     onPinClick,
     is3DEnabled = false,
+    showMakiIcon = false,
   } = options;
 
   const flyToOptions = useMemo(
@@ -180,12 +183,13 @@ export function useMapCore(
       selectedSpotId,
       zoom,
       isDarkStyle,
+      showMakiIcon,
       (spotId) => {
         const s = spotsRef.current.find((sp) => sp.id === spotId);
         if (s) onPinClickRef.current?.(s);
       }
     );
-  }, [mapInstance, onPinClick, isDarkStyle]);
+  }, [mapInstance, onPinClick, isDarkStyle, showMakiIcon]);
 
   useEffect(() => {
     const map = mapInstance;
