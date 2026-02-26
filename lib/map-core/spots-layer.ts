@@ -26,38 +26,81 @@ const CIRCLES_LAYER_ID = 'flowya-spots-circles';
 const MAKIS_LAYER_ID = 'flowya-spots-makis';
 const LABELS_LAYER_ID = 'flowya-spots-labels';
 
-function makiToIconName(maki?: string | null): string {
+function buildMakiIconCandidates(maki?: string | null): {
+  primary: string;
+  alternate: string;
+  fallback: string;
+} {
   const normalized = (maki ?? '').trim().toLowerCase();
-  if (!normalized) return 'marker-15';
-  // Maki sprite names usually use -11 / -15 suffix.
-  if (/-\d{1,2}$/.test(normalized)) return normalized;
-  return `${normalized}-11`;
+  if (!normalized) {
+    return {
+      primary: 'marker-15',
+      alternate: 'marker-15',
+      fallback: 'flowya-fallback-generic',
+    };
+  }
+  const base = normalized.replace(/-(11|15)$/i, '');
+  const hasSuffix = /-(11|15)$/i.test(normalized);
+  if (hasSuffix) {
+    const primary = normalized;
+    const alternate = normalized.endsWith('-11') ? `${base}-15` : `${base}-11`;
+    return {
+      primary,
+      alternate,
+      fallback: `flowya-fallback-${base}`,
+    };
+  }
+  return {
+    primary: `${base}-15`,
+    alternate: `${base}-11`,
+    fallback: `flowya-fallback-${base}`,
+  };
+}
+
+function resolveMakiIcon(
+  maki?: string | null,
+  availableImageIds?: Set<string>
+): string {
+  const candidates = buildMakiIconCandidates(maki);
+  if (availableImageIds?.has(candidates.primary)) return candidates.primary;
+  if (availableImageIds?.has(candidates.alternate)) return candidates.alternate;
+  return candidates.fallback;
 }
 
 function spotsToGeoJSON(
   spots: SpotForLayer[],
   selectedSpotId: string | null,
-  zoom: number
+  zoom: number,
+  availableImageIds?: Set<string>
 ): GeoJSON.FeatureCollection<
   GeoJSON.Point,
-  { id: string; title: string; pinStatus: string; selected: boolean; makiIcon: string }
+  {
+    id: string;
+    title: string;
+    pinStatus: string;
+    selected: boolean;
+    makiIcon: string;
+  }
 > {
   return {
     type: 'FeatureCollection',
-    features: spots.map((s) => ({
-      type: 'Feature' as const,
-      geometry: {
-        type: 'Point' as const,
-        coordinates: [s.longitude, s.latitude],
-      },
-      properties: {
-        id: s.id,
-        title: s.title ?? '',
-        pinStatus: s.pinStatus ?? 'default',
-        selected: s.id === selectedSpotId,
-        makiIcon: makiToIconName(s.linkedMaki),
-      },
-    })),
+    features: spots.map((s) => {
+      const makiIcon = resolveMakiIcon(s.linkedMaki, availableImageIds);
+      return {
+        type: 'Feature' as const,
+        geometry: {
+          type: 'Point' as const,
+          coordinates: [s.longitude, s.latitude],
+        },
+        properties: {
+          id: s.id,
+          title: s.title ?? '',
+          pinStatus: s.pinStatus ?? 'default',
+          selected: s.id === selectedSpotId,
+          makiIcon,
+        },
+      };
+    }),
   };
 }
 
@@ -95,7 +138,8 @@ export function setupSpotsLayer(
   onPinClickBySpotId: (spotId: string) => void
 ): void {
   try {
-    const data = spotsToGeoJSON(spots, selectedSpotId, zoom);
+    const availableImageIds = new Set(map.listImages());
+    const data = spotsToGeoJSON(spots, selectedSpotId, zoom, availableImageIds);
     const beforeId = getPoiLayerBeforeId(map);
 
     if (!map.getSource(SOURCE_ID)) {
@@ -156,12 +200,8 @@ export function setupSpotsLayer(
             type: 'symbol',
             source: SOURCE_ID,
             layout: {
-              // If maki icon is unavailable in current sprite, fallback to marker-15.
-              'icon-image': [
-                'coalesce',
-                ['image', ['get', 'makiIcon']],
-                ['image', 'marker-15'],
-              ],
+              // Resolved icon id (real sprite if available, otherwise flowya fallback id).
+              'icon-image': ['get', 'makiIcon'],
               'icon-size': [
                 'case',
                 ['get', 'selected'],
@@ -223,7 +263,8 @@ export function updateSpotsLayerData(
   try {
     const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
     if (source) {
-      source.setData(spotsToGeoJSON(spots, selectedSpotId, zoom));
+      const availableImageIds = new Set(map.listImages());
+      source.setData(spotsToGeoJSON(spots, selectedSpotId, zoom, availableImageIds));
     }
   } catch {
     // ignore

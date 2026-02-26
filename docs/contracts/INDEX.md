@@ -21,6 +21,7 @@
 - **SPOT_SHEET_CONTENT_RULES.md** — Sheet única para spots existentes; campos condicionales (mostrar si hay datos, ocultar si no).
 - **ANTI_DUPLICATE_SPOT_RULES.md** — Prevención de duplicados: todo path de creación debe llamar checkDuplicateSpot antes del INSERT.
 - **SYSTEM_STATUS_BAR.md** — Comunicación sistema-usuario: mensajes de estado, cola hasta 3 líneas, tono asistente de viaje; sustituye toast.
+- **explore/EXPLORE_RUNTIME_RULES_INDEX.md** — Índice modular runtime de Explore (mapa, filtros, controles, buscador) para reconstrucción/reuso cross-platform.
 
 ## Search
 
