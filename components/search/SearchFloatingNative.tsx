@@ -287,7 +287,13 @@ export function SearchFloatingNative<T>({
                       sections={resultSections}
                       results={displayResults}
                       renderItem={renderItem}
-                      renderSectionHeader={() => null}
+                      renderSectionHeader={(section) =>
+                        isFilteredPinSearch ? (
+                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                            {section.title}
+                          </Text>
+                        ) : null
+                      }
                       onEndReached={controller.fetchMore}
                       hasMore={controller.hasMore}
                       isLoading={controller.isLoading}

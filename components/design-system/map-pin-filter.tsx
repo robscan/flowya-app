@@ -44,7 +44,7 @@ export type MapPinFilterProps = {
   onChange: (value: MapPinFilterValue) => void;
   /** Conteos opcionales (derivados del estado, sin queries extra). */
   counts?: MapPinFilterCounts;
-  pendingValue?: Exclude<MapPinFilterValue, 'all'> | null;
+  pendingValues?: Partial<Record<Exclude<MapPinFilterValue, 'all'>, boolean>>;
   pulseNonce?: number;
 };
 
@@ -88,7 +88,7 @@ export function MapPinFilter({
   value,
   onChange,
   counts,
-  pendingValue = null,
+  pendingValues = {},
   pulseNonce = 0,
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
@@ -134,10 +134,18 @@ export function MapPinFilter({
   const selectedColors = getSelectedColors(value);
   const currentLabel = OPTIONS.find((o) => o.value === value)!.label;
   const triggerCount = getCount(value, counts);
+  const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
 
   const handleSelect = (optValue: MapPinFilterValue) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onChange(optValue);
+    setOpen(false);
+  };
+
+  const handleResetToAll = () => {
+    if (value === 'all') return;
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    onChange('all');
     setOpen(false);
   };
 
@@ -202,15 +210,39 @@ export function MapPinFilter({
               </Text>
             </View>
           ) : null}
-          {value === 'all' && pendingValue ? (
-            <View style={[styles.pendingDot, { backgroundColor: colors.stateError }]} />
+          {value === 'all' && hasPendingAny ? (
+            <View
+              style={[
+                styles.pendingDot,
+                styles.triggerPendingDotFloating,
+                {
+                  backgroundColor: colors.stateToVisit,
+                  borderColor: selectedColors.bg,
+                },
+              ]}
+            />
           ) : null}
-          {open ? (
-            <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
+          {value === 'all' ? (
+            open ? (
+              <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
+            )
           ) : (
-            <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
+            <View style={styles.resetButton} pointerEvents="none">
+              <Text style={[styles.resetButtonText, { color: selectedColors.text }]}>×</Text>
+            </View>
           )}
         </Pressable>
+        {value !== 'all' ? (
+          <Pressable
+            style={[styles.resetButtonOverlay, Platform.OS === 'web' && { cursor: 'pointer' }]}
+            onPress={handleResetToAll}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Volver a Todos"
+          />
+        ) : null}
       </Animated.View>
 
       <Animated.View
@@ -271,27 +303,38 @@ export function MapPinFilter({
                     {opt.label}
                   </Text>
                   {count != null ? (
-                    <View
-                      style={[
-                        styles.countBadge,
-                        {
-                          backgroundColor: colors.text,
-                        },
-                      ]}
-                    >
-                      <Text
+                    <View style={styles.menuCountSlot}>
+                      <View
                         style={[
-                          styles.countBadgeText,
-                          { color: colors.background },
+                          styles.countBadge,
+                          {
+                            backgroundColor: colors.text,
+                          },
                         ]}
-                        numberOfLines={1}
                       >
-                        {count}
-                      </Text>
+                        <Text
+                          style={[
+                            styles.countBadgeText,
+                            { color: colors.background },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {count}
+                        </Text>
+                      </View>
+                      {opt.value !== 'all' && pendingValues[opt.value] ? (
+                        <View
+                          style={[
+                            styles.pendingDot,
+                            styles.menuPendingDotFloating,
+                            {
+                              backgroundColor: colors.stateToVisit,
+                              borderColor: colors.text,
+                            },
+                          ]}
+                        />
+                      ) : null}
                     </View>
-                  ) : null}
-                  {pendingValue === opt.value ? (
-                    <View style={[styles.pendingDot, styles.menuPendingDot, { backgroundColor: colors.stateError }]} />
                   ) : null}
                 </Pressable>
               );
@@ -367,8 +410,46 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
+    borderWidth: 1.5,
   },
-  menuPendingDot: {
-    marginLeft: Spacing.xs,
+  triggerPendingDotFloating: {
+    position: 'absolute',
+    right: 30,
+    top: 10,
+  },
+  menuCountSlot: {
+    marginLeft: 'auto',
+    width: 28,
+    height: 28,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuPendingDotFloating: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+  },
+  resetButton: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resetButtonOverlay: {
+    position: 'absolute',
+    right: Spacing.md,
+    top: '50%',
+    width: 22,
+    height: 22,
+    marginTop: -11,
+    borderRadius: 11,
+  },
+  resetButtonText: {
+    fontSize: 20,
+    lineHeight: 20,
+    fontWeight: '500',
+    marginTop: -1,
   },
 });

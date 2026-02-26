@@ -96,6 +96,10 @@ import {
     addRecentViewedSpotId,
     getRecentViewedSpotIds,
 } from "@/lib/storage/recentViewedSpots";
+import {
+  getMapPinPendingBadges,
+  setMapPinPendingBadges,
+} from "@/lib/storage/mapPinPendingBadges";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -400,7 +404,25 @@ export function MapScreenVNext() {
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [pinFilter, setPinFilter] = useState<MapPinFilterValue>("all");
-  const [pendingFilterBadge, setPendingFilterBadge] = useState<Exclude<MapPinFilterValue, "all"> | null>(null);
+  const [pendingFilterBadges, setPendingFilterBadges] = useState<{
+    saved: boolean;
+    visited: boolean;
+  }>(() => getMapPinPendingBadges());
+  const updatePendingFilterBadges = useCallback(
+    (
+      updater: (prev: { saved: boolean; visited: boolean }) => {
+        saved: boolean;
+        visited: boolean;
+      },
+    ) => {
+      setPendingFilterBadges((prev) => {
+        const next = updater(prev);
+        setMapPinPendingBadges(next);
+        return next;
+      });
+    },
+    [],
+  );
   const [pinFilterPulseNonce, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
@@ -413,6 +435,14 @@ export function MapScreenVNext() {
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
+  const pendingFilterReframeRef = useRef<Exclude<MapPinFilterValue, "all"> | null>(null);
+  const lastStatusSpotIdRef = useRef<{
+    saved: string | null;
+    visited: string | null;
+  }>({
+    saved: null,
+    visited: null,
+  });
   const searchFilterRefreshRef = useRef<MapPinFilterValue>(pinFilter);
   const lastSearchStartKeyRef = useRef<string | null>(null);
   const lastNoResultsKeyRef = useRef<string | null>(null);
@@ -732,62 +762,111 @@ export function MapScreenVNext() {
     [spots],
   );
 
+  useEffect(() => {
+    updatePendingFilterBadges((prev) => {
+      let next = prev;
+      if (prev.saved && pinCounts.saved === 0) {
+        lastStatusSpotIdRef.current.saved = null;
+        next = { ...next, saved: false };
+      }
+      if (prev.visited && pinCounts.visited === 0) {
+        lastStatusSpotIdRef.current.visited = null;
+        next = { ...next, visited: false };
+      }
+      return next;
+    });
+  }, [pinCounts.saved, pinCounts.visited, updatePendingFilterBadges]);
+
   const handlePinFilterChange = useCallback(
     (nextFilter: MapPinFilterValue, options?: { reframe?: boolean }) => {
-      const previousFilter = pinFilter;
+      const pendingForTarget =
+        nextFilter !== "all" ? pendingFilterBadges[nextFilter] : false;
+      const pendingSpotId =
+        nextFilter === "saved" || nextFilter === "visited"
+          ? lastStatusSpotIdRef.current[nextFilter]
+          : null;
       setPinFilter(nextFilter);
-      if (pendingFilterBadge) setPendingFilterBadge(null);
+      if (nextFilter === "all") {
+        pendingFilterReframeRef.current = null;
+      }
+      if (pendingForTarget && nextFilter !== "all") {
+        updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
+      }
 
       const shouldReframe = options?.reframe ?? true;
       if (!shouldReframe) return;
       if (nextFilter === "all") return;
-      if (!mapInstance) return;
-
       const target = spots.filter((s) => (nextFilter === "saved" ? s.saved : s.visited));
-      if (target.length === 0) return;
 
-      const reframeToTarget = () => {
-        if (target.length === 1) {
-          const only = target[0];
+      const pendingSpot =
+        target.length > 0 && pendingForTarget && pendingSpotId
+          ? target.find((s) => s.id === pendingSpotId) ?? null
+          : null;
+      if (pendingSpot) {
+        pendingFilterReframeRef.current = null;
+        setSelectedSpot(pendingSpot);
+        setSheetState("medium");
+        if (mapInstance) {
           programmaticFlyTo(
-            { lng: only.longitude, lat: only.latitude },
+            { lng: pendingSpot.longitude, lat: pendingSpot.latitude },
             { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
           );
-          return;
         }
-        const lats = target.map((s) => s.latitude);
-        const lngs = target.map((s) => s.longitude);
-        mapInstance.fitBounds(
-          [
-            [Math.min(...lngs), Math.min(...lats)],
-            [Math.max(...lngs), Math.max(...lats)],
-          ],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-        );
-      };
-
-      try {
-        const isCrossStatusToggle =
-          (previousFilter === "saved" || previousFilter === "visited") &&
-          (nextFilter === "saved" || nextFilter === "visited") &&
-          previousFilter !== nextFilter;
-        if (isCrossStatusToggle) {
-          reframeToTarget();
-          return;
-        }
-
-        const bounds = mapInstance.getBounds();
-        const hasVisibleInViewport = target.some((s) =>
-          bounds.contains([s.longitude, s.latitude]),
-        );
-        if (hasVisibleInViewport) return;
-        reframeToTarget();
-      } catch {
-        // ignore map bounds errors
+        return;
       }
+      // Guardrail QA: decidir reencuadre cuando el nuevo filtro ya esté cargado/renderizado.
+      pendingFilterReframeRef.current = nextFilter;
     },
-    [pinFilter, pendingFilterBadge, mapInstance, spots, programmaticFlyTo],
+    [
+      pendingFilterBadges,
+      mapInstance,
+      spots,
+      programmaticFlyTo,
+      updatePendingFilterBadges,
+    ],
   );
+
+  useEffect(() => {
+    const pendingFilter = pendingFilterReframeRef.current;
+    if (!pendingFilter) return;
+    if (pinFilter !== pendingFilter) return;
+    if (!mapInstance) return;
+    if (filteredSpots.length === 0) return;
+
+    const reframeToTarget = (target: Spot[]) => {
+      if (target.length === 1) {
+        const only = target[0];
+        programmaticFlyTo(
+          { lng: only.longitude, lat: only.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+        );
+        return;
+      }
+      const lats = target.map((s) => s.latitude);
+      const lngs = target.map((s) => s.longitude);
+      mapInstance.fitBounds(
+        [
+          [Math.min(...lngs), Math.min(...lats)],
+          [Math.max(...lngs), Math.max(...lats)],
+        ],
+        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
+      );
+    };
+
+    try {
+      const bounds = mapInstance.getBounds();
+      const hasVisibleInViewport = filteredSpots.some((s) =>
+        bounds.contains([s.longitude, s.latitude]),
+      );
+      if (!hasVisibleInViewport) {
+        reframeToTarget(filteredSpots);
+      }
+      pendingFilterReframeRef.current = null;
+    } catch {
+      // ignore map bounds errors
+      pendingFilterReframeRef.current = null;
+    }
+  }, [pinFilter, filteredSpots, mapInstance, programmaticFlyTo]);
 
   const defaultSpots = useMemo(() => {
     const ref = userCoords ?? {
@@ -1808,10 +1887,10 @@ export function MapScreenVNext() {
       );
       const sections: SearchSection<Spot>[] = [];
       if (nearby.length > 0) {
-        sections.push({ id: "nearby", title: "Spots cercanos", items: nearby });
+        sections.push({ id: "nearby", title: "Cercanos", items: nearby });
       }
       if (inWorld.length > 0) {
-        sections.push({ id: "world", title: "En todo el mapa", items: inWorld });
+        sections.push({ id: "world", title: "En el mapa", items: inWorld });
       }
       return sections;
     } catch {
@@ -1935,6 +2014,13 @@ export function MapScreenVNext() {
       if (current === "visited") {
         const ok = await removePin(spot.id);
         if (ok) {
+          if (lastStatusSpotIdRef.current.saved === spot.id) {
+            lastStatusSpotIdRef.current.saved = null;
+          }
+          if (lastStatusSpotIdRef.current.visited === spot.id) {
+            lastStatusSpotIdRef.current.visited = null;
+          }
+          updatePendingFilterBadges((prev) => ({ ...prev, visited: false }));
           updateSpotPinState(spot.id, { saved: false, visited: false });
           toast.show("Pin quitado", { type: "success" });
         }
@@ -1948,12 +2034,33 @@ export function MapScreenVNext() {
               : { saved: false, visited: true };
           const destinationFilter: Exclude<MapPinFilterValue, "all"> =
             newStatus === "to_visit" ? "saved" : "visited";
+          lastStatusSpotIdRef.current[destinationFilter] = spot.id;
+          if (destinationFilter === "visited") {
+            // Al subir de "Por visitar" a "Visitado", ya no es candidato del filtro saved.
+            if (lastStatusSpotIdRef.current.saved === spot.id) {
+              lastStatusSpotIdRef.current.saved = null;
+            }
+          }
           if (pinFilter === "all") {
-            setPendingFilterBadge(destinationFilter);
+            updatePendingFilterBadges((prev) => ({
+              ...prev,
+              [destinationFilter]: true,
+            }));
+          } else if (pinFilter !== destinationFilter) {
+            // Caso puntual de transición entre filtros:
+            // no hacer zoom-out global; mantener continuidad enfocando el spot mutado.
+            setPinFilter(destinationFilter);
+            if (mapInstance) {
+              programmaticFlyTo(
+                { lng: spot.longitude, lat: spot.latitude },
+                { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+              );
+            }
           } else if (pinFilter === destinationFilter) {
             setPinFilterPulseNonce((n) => n + 1);
           }
           updateSpotPinState(spot.id, nextState);
+          setSheetState("medium");
           toast.show(
             newStatus === "to_visit" ? "Por visitar" : "Visitado",
             { type: "success" },
@@ -1961,7 +2068,15 @@ export function MapScreenVNext() {
         }
       }
     },
-    [toast, openAuthModal, updateSpotPinState, pinFilter],
+    [
+      toast,
+      openAuthModal,
+      updateSpotPinState,
+      pinFilter,
+      mapInstance,
+      programmaticFlyTo,
+      updatePendingFilterBadges,
+    ],
   );
 
   useFocusEffect(
@@ -2069,7 +2184,7 @@ export function MapScreenVNext() {
               value={pinFilter}
               onChange={(next) => handlePinFilterChange(next, { reframe: true })}
               counts={pinCounts}
-              pendingValue={pendingFilterBadge}
+              pendingValues={pendingFilterBadges}
               pulseNonce={pinFilterPulseNonce}
             />
           </View>
