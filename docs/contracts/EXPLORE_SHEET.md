@@ -221,7 +221,7 @@ Orden recomendado (top → bottom):
 4. Seleccionar spot → sheet modo spot.
 5. Pan/zoom mapa con spot seleccionado → sheet colapsa a header.
 6. Segundo tap pin/hit-area → navegación a `/spot/[id]` (no se rompe).
-7. Fallback `/mapaV0` intacto.
+7. Ruta legacy removida: `/` es el único entrypoint de Explore en runtime activo.
 
 ---
 

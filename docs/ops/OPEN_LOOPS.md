@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-26 (higiene final de foco operativo)
+**Fecha:** 2026-02-27 (higiene operativa + repriorización)
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
@@ -8,11 +8,18 @@
 
 ---
 
-## Foco inmediato (P2/P3 activos)
+## Foco inmediato (P2/P3)
+
+**Orden sugerido (siguiente ciclo)**
+1. `OL-P2-004` (autoFocus + keyboard-safe QA)
+2. `OL-P2-002` (cierre QA teclado on scroll/tap)
+3. `OL-WOW-F2-001` (single search surface, Gate F1 ya cerrado)
+4. `OL-WOW-F2-003` (filtros como intención)
+5. `OL-WOW-F2-005` (cámara/foco mini QA secuencial)
 
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)
 
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Primera línea: filtros + cerrar buscador.
@@ -22,11 +29,14 @@
 **Pruebas mínimas**
 - Smoke: cambiar filtro afecta resultados/pins según contrato Search/Explore.
 
+**Referencia**
+- Bitácora `205`.
+
 ---
 
 ### OL-P2-002 — En buscador: teclado desaparece al hacer scroll o interactuar
 
-**Estado:** ACTIVO
+**Estado:** EN VALIDACIÓN QA
 
 **DoD / AC**
 - Scroll/tap fuera del input cierra teclado (sin cerrar Search).
@@ -39,7 +49,7 @@
 
 ### OL-P2-003 — Color de pines cuando filtro “Guardados” está activo
 
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **Problema**
 - Con filtro Guardados, pines visitados conservan color de visitados y confunden.
@@ -51,6 +61,9 @@
 
 **Pruebas mínimas**
 - Smoke: alternar filtros y validar consistencia visual.
+
+**Referencia**
+- Bitácora `205`.
 
 ---
 
@@ -73,7 +86,7 @@
 
 ### OL-P2-005 — Inventario DS canónico de Explore no cerrado
 
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Definir inventario mínimo canónico (componentes + variantes permitidas).
@@ -84,6 +97,7 @@
 
 **Referencia**
 - `docs/contracts/DESIGN_SYSTEM_USAGE.md`
+- Bitácora `196`.
 
 ---
 
@@ -137,7 +151,7 @@
 ### Fase 1 — Fundación Clara y Estable
 
 #### OL-WOW-F1-001 — Blueprint único de selección dominante (mapa/pines/POI)
-**Estado:** EN CURSO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Contrato único de selección documentado y aplicado en runtime activo.
@@ -147,12 +161,18 @@
 **Pruebas mínimas**
 - Smoke: selección default y to_visit en POI/spot sin traslapes.
 - Smoke: pan/zoom + selección mantiene feedback inequívoco.
+- Smoke: tap en POI ya existente abre spot persistido correcto (no sheet POI en estado incorrecto).
+- Smoke: tipografía/estilo de labels en selección no compite visualmente con labels base de mapa.
 
 **Dependencia**
 - Ninguna (entrypoint fase 1).
 
+**Referencia**
+- `docs/contracts/explore/SELECTION_DOMINANCE_RULES.md`
+- Bitácoras `192`, `194`, `195`, `196`, `198`.
+
 #### OL-WOW-F1-002 — Contrato de estados interactivos cross-platform
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Matriz `default/hover/pressed/focus-visible/selected/disabled/loading` cerrada.
@@ -165,8 +185,16 @@
 **Dependencia**
 - `OL-WOW-F1-001`.
 
+**Avance**
+- Matriz canónica v1 documentada en `docs/contracts/DESIGN_SYSTEM_USAGE.md` (componentes críticos + reglas de mapeo + checklist).
+- Implementación v1 aplicada en runtime DS de componentes críticos (`IconButton`, `ActionButton`, `SearchListCard`) con tokens de estado compartidos.
+- Sección `/design-system` expandida con showcase explícito de estados (`selected/disabled/loading`) y retiro de artefactos legacy (`mapaV0`, `MapScreenV0`, `map-ui`).
+
+**Referencia**
+- Bitácoras `197`, `199`, `200`, `205`.
+
 #### OL-WOW-F1-003 — Naming DS canónico para listados (`ListView` + `ResultRow`)
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Naming canónico adoptado en contratos/guías.
@@ -179,8 +207,12 @@
 **Dependencia**
 - `OL-WOW-F1-002`.
 
+**Referencia**
+- `docs/contracts/DESIGN_SYSTEM_USAGE.md`
+- Bitácora `201`.
+
 #### OL-WOW-F1-004 — Activity Summary Fase A (visited/pending)
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Contrato `ACTIVITY_SUMMARY` aterrizado a implementación fase A.
@@ -194,16 +226,29 @@
 **Dependencia**
 - `OL-WOW-F1-002`.
 
+**Avance**
+- Componente `ActivitySummary` integrado en Search web/native.
+- Visibilidad condicionada a auth.
+- Métricas activas: `visitedPlacesCount` (visited), `pendingPlacesCount` (to_visit).
+- `visitedCountriesCount` habilitado en modo heurístico (`address`) con guardrail de cobertura mínima; fallback a `—` cuando la calidad no alcanza umbral.
+
+**Referencia**
+- `docs/contracts/ACTIVITY_SUMMARY.md`
+- Bitácoras `202`, `203`, `204`.
+
 ### Gate Fase 1
 **Criterio de paso**
 - `OL-WOW-F1-001..004` cerrados + 3 ciclos smoke sin regresión P0.
+
+**Estado gate**
+- CERRADO (2026-02-27).
 
 ---
 
 ### Fase 2 — Interacción WOW (Intención y Flujo)
 
 #### OL-WOW-F2-001 — Single Search Surface (contenido unificado)
-**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Árbol de contenido de búsqueda unificado; adapters por plataforma mínimos.
@@ -217,7 +262,7 @@
 - Gate Fase 1.
 
 #### OL-WOW-F2-002 — Ranking explicable (micro-señales)
-**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Señales discretas de porqué del resultado (`cerca`, `guardado`, `landmark`).
@@ -230,7 +275,7 @@
 - `OL-WOW-F2-001`.
 
 #### OL-WOW-F2-003 — Filtros como vistas de trabajo
-**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - `Todos/Por visitar/Visitados` comunicados como intención, no switch técnico.
@@ -243,7 +288,7 @@
 - `OL-WOW-F2-001`.
 
 #### OL-WOW-F2-004 — Sheet intent model (`peek/medium/expanded`)
-**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Cada estado tiene objetivo explícito (awareness/decision/detail).
@@ -256,7 +301,7 @@
 - `OL-WOW-F2-003`.
 
 #### OL-WOW-F2-005 — Cámara/foco por intención (`discover/inspect/act`) con mini QA secuencial
-**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Definir comportamiento determinista por modo:
@@ -339,6 +384,18 @@
 
 ---
 
+### OL-P3-002 — Países interactivo + mapa mundial shareable (postergado)
+
+**Estado:** ACTIVO (POSTERGADO)
+
+**DoD / AC (cuando se retome)**
+- El círculo de países en mapa pasa a accionable (selected en tap).
+- Tap abre vista/mapa mundial por filtro activo (`saved/visited`).
+- Generación de composición imagen para compartir en redes.
+- Sin duplicar métricas ya visibles en filtros (`visitados`/`pendientes`).
+
+---
+
 ## Postergados estratégicos (no ejecutar ahora)
 
 ### OL-P0-002 — Create Spot canónico
@@ -357,4 +414,5 @@
 
 ## Cierres recientes (trazabilidad)
 
+- `OL-WOW-F1-002`, `OL-WOW-F1-004`, `OL-P2-001`, `OL-P2-003`: ver bitácoras 201–205.
 - `OL-P0-004`, `OL-P1-004`, `OL-P1-008`, `OL-P1-009`, `OL-P1-010`, `OL-P1-011`, `OL-P1-012`, `OL-P1-002`, `OL-P2-007`, `OL-P2-008`: ver bitácoras 143–190 y cierres de sesión 2026-02-26.

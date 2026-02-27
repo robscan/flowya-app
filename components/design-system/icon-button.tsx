@@ -10,7 +10,7 @@
 
 import React, { Children, cloneElement, forwardRef, isValidElement, useState } from 'react';
 import type { View } from 'react-native';
-import { Platform, Pressable, ViewStyle } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ViewStyle } from 'react-native';
 
 import { Colors, Shadow, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -36,6 +36,8 @@ export type IconButtonProps = {
   size?: number;
   /** Estado selected (persistente): mismo aspecto que pressed — bg primary, icono blanco. */
   selected?: boolean;
+  /** Estado loading opcional para acciones async. */
+  loading?: boolean;
   testID?: string;
 };
 
@@ -50,6 +52,7 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     savePinState = 'default',
     size = SIZE_DEFAULT,
     selected = false,
+    loading = false,
     testID,
   },
   ref
@@ -57,6 +60,8 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const interactiveDisabled = disabled || loading;
 
   const restingBackgroundColor =
     variant === 'primary'
@@ -78,10 +83,7 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
           outlineWidth: 0 as const,
           outlineStyle: 'none' as const,
           ...(focused && {
-            boxShadow:
-              colorScheme === 'dark'
-                ? '0 0 0 2px rgba(41,151,255,0.35)'
-                : '0 0 0 2px rgba(0,113,227,0.35)',
+            boxShadow: `0 0 0 2px ${colors.stateFocusRing}`,
           }),
         }
       : {};
@@ -90,8 +92,10 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     <Pressable
       ref={ref}
       testID={testID}
-      style={({ pressed }) => [
-        {
+      style={({ pressed }) => {
+        const active = !interactiveDisabled && (pressed || selected || (Platform.OS === 'web' && hovered));
+        return [
+          {
           width: size,
           height: size,
           borderRadius: size / 2,
@@ -99,28 +103,37 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
           justifyContent: 'center',
           borderWidth: 1,
           ...Shadow.subtle,
-          backgroundColor:
-            disabled
-              ? restingBackgroundColor
-              : pressed || selected
-                ? colors.primary
-                : restingBackgroundColor,
-          borderColor: (pressed || selected) && !disabled ? 'transparent' : restingBorderColor,
-          opacity: disabled ? 0.5 : 1,
+          backgroundColor: active ? colors.primary : restingBackgroundColor,
+          borderColor: active ? 'transparent' : restingBorderColor,
+          opacity: interactiveDisabled ? 0.5 : 1,
+          transform: [{ scale: pressed && !interactiveDisabled ? 0.98 : 1 }],
         } as ViewStyle,
-        WebTouchManipulation,
-        focusStyle,
-      ]}
+          WebTouchManipulation,
+          focusStyle,
+        ];
+      }}
       onPress={onPress}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
-      disabled={disabled}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      disabled={interactiveDisabled}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole={accessibilityRole}
+      accessibilityState={{ disabled: interactiveDisabled, busy: loading, selected }}
     >
       {({ pressed }) => {
+        const active = !interactiveDisabled && (pressed || selected || (Platform.OS === 'web' && hovered));
         const iconColor =
-          (pressed || selected) && !disabled ? PRESSED_ICON_COLOR : undefined;
+          active ? PRESSED_ICON_COLOR : undefined;
+        if (loading) {
+          return (
+            <ActivityIndicator
+              size="small"
+              color={active ? PRESSED_ICON_COLOR : colors.textSecondary}
+            />
+          );
+        }
         return Children.map(children, (child) =>
           isValidElement(child) && iconColor != null
             ? cloneElement(child as React.ReactElement<{ color?: string }>, { color: iconColor })
@@ -130,4 +143,3 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
     </Pressable>
   );
 });
-

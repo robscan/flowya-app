@@ -45,6 +45,7 @@ Al salir de selección:
 - Una entidad seleccionada no puede mostrar labels competitivos simultáneos.
 - Si se renderiza label Flowya de selección, el label externo equivalente debe quedar suprimido.
 - Si no se puede suprimir externamente, se desactiva label Flowya para ese caso y se registra como gap.
+- En selección POI: prioridad a legibilidad y no duplicidad; el sistema puede ocultar labels Flowya de spots mientras exista `poiTapped`.
 
 ---
 
@@ -80,10 +81,11 @@ Acción obligatoria:
 
 ## 8) Smoke mínimo
 
-1. Selección POI `default` => pin/label Flowya dominante, sin duplicidad competitiva.
+1. Selección POI `default` => pin seleccionado claro, sin duplicidad competitiva de texto.
 2. Selección POI `to_visit` => mismo comportamiento sin traslape.
 3. Selección spot oculto por regla de visibilidad => overlay Flowya consistente.
 4. Al cerrar selección => capas externas restauradas.
+5. Tap en POI ya existente => abre spot persistido correcto (sin sheet POI en estado incorrecto).
 
 ---
 

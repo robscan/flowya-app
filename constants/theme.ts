@@ -8,6 +8,7 @@ import { Platform, type ViewStyle } from 'react-native';
 
 // — Paleta Light (valores únicos; pines y UI referencian estas claves)
 const primaryLight = '#0071e3';
+const primaryPressedLight = '#005bb7';
 const secondaryLight = '#6e6e73';
 const textLight = '#1d1d1f';
 const textSecondaryLight = '#6e6e73';
@@ -19,6 +20,9 @@ const surfaceMutedLight = '#e8e8ed';
 const stateSuccessLight = '#34c759';
 const stateErrorLight = '#ff3b30';
 const stateToVisitLight = '#e6862b';
+const stateFocusRingLight = 'rgba(0,113,227,0.35)';
+const stateSurfaceHoverLight = 'rgba(0, 0, 0, 0.04)';
+const stateSurfacePressedLight = 'rgba(0, 0, 0, 0.08)';
 const surfaceOnMapLight = '#ffffff';
 const overlayScrimLight = 'rgba(255, 255, 255, 0.32)';
 
@@ -31,6 +35,7 @@ const locationPrimaryLight = '#007AFF';
 
 // — Paleta Dark
 const primaryDark = '#2997ff';
+const primaryPressedDark = '#0a84ff';
 const secondaryDark = '#a1a1a6';
 const textDark = '#f5f5f7';
 const textSecondaryDark = '#a1a1a6';
@@ -42,6 +47,9 @@ const surfaceMutedDark = '#2c2c2e';
 const stateSuccessDark = '#30d158';
 const stateErrorDark = '#ff453a';
 const stateToVisitDark = '#ff9f0a';
+const stateFocusRingDark = 'rgba(41,151,255,0.35)';
+const stateSurfaceHoverDark = 'rgba(255, 255, 255, 0.08)';
+const stateSurfacePressedDark = 'rgba(255, 255, 255, 0.14)';
 const surfaceOnMapDark = 'rgba(255, 255, 255, 0.9)';
 const overlayScrimDark = 'rgba(0, 0, 0, 0.32)';
 
@@ -55,6 +63,7 @@ const locationPrimaryDark = '#0a84ff';
 export const Colors = {
   light: {
     primary: primaryLight,
+    tintPressed: primaryPressedLight,
     secondary: secondaryLight,
     text: textLight,
     textSecondary: textSecondaryLight,
@@ -66,6 +75,9 @@ export const Colors = {
     stateSuccess: stateSuccessLight,
     stateError: stateErrorLight,
     stateToVisit: stateToVisitLight,
+    stateFocusRing: stateFocusRingLight,
+    stateSurfaceHover: stateSurfaceHoverLight,
+    stateSurfacePressed: stateSurfacePressedLight,
     surfaceOnMap: surfaceOnMapLight,
     overlayScrim: overlayScrimLight,
     tint: primaryLight,
@@ -89,6 +101,7 @@ export const Colors = {
   },
   dark: {
     primary: primaryDark,
+    tintPressed: primaryPressedDark,
     secondary: secondaryDark,
     text: textDark,
     textSecondary: textSecondaryDark,
@@ -100,6 +113,9 @@ export const Colors = {
     stateSuccess: stateSuccessDark,
     stateError: stateErrorDark,
     stateToVisit: stateToVisitDark,
+    stateFocusRing: stateFocusRingDark,
+    stateSurfaceHover: stateSurfaceHoverDark,
+    stateSurfacePressed: stateSurfacePressedDark,
     surfaceOnMap: surfaceOnMapDark,
     overlayScrim: overlayScrimDark,
     tint: primaryDark,

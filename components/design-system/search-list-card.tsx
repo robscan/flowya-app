@@ -1,7 +1,7 @@
 import { Image } from 'expo-image';
 import { CheckCircle, ChevronRight, MapPin, Pin } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -14,7 +14,11 @@ export type SearchListCardProps = {
   imageUri?: string | null;
   showChevron?: boolean;
   pinStatus?: 'default' | 'to_visit' | 'visited';
+  selected?: boolean;
+  disabled?: boolean;
 };
+/** Alias canónico DS para item visual de listados. */
+export type ResultRowProps = SearchListCardProps;
 
 export function SearchListCard({
   title,
@@ -24,10 +28,14 @@ export function SearchListCard({
   imageUri,
   showChevron = true,
   pinStatus = 'default',
+  selected = false,
+  disabled = false,
 }: SearchListCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [imageError, setImageError] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const hasImage = useMemo(
     () => typeof imageUri === 'string' && imageUri.trim().length > 0 && !imageError,
     [imageUri, imageError],
@@ -41,14 +49,27 @@ export function SearchListCard({
       style={({ pressed }) => [
         styles.card,
         {
-          borderColor: colors.borderSubtle,
-          backgroundColor: colors.backgroundElevated,
+          borderColor: selected ? colors.primary : colors.borderSubtle,
+          backgroundColor: selected
+            ? colors.stateSurfaceHover
+            : pressed && !disabled
+              ? colors.stateSurfacePressed
+              : hovered && Platform.OS === 'web'
+                ? colors.stateSurfaceHover
+                : colors.backgroundElevated,
+          opacity: disabled ? 0.55 : 1,
         },
-        pressed && { backgroundColor: colors.borderSubtle },
+        focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
       ]}
       onPress={onPress}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ selected, disabled }}
     >
       {hasImage ? (
         <View style={styles.imageWrap}>
@@ -97,6 +118,9 @@ export function SearchListCard({
     </Pressable>
   );
 }
+
+/** Alias canónico DS para migración progresiva sin ruptura. */
+export const ResultRow = SearchListCard;
 
 const styles = StyleSheet.create({
   card: {

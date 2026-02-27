@@ -23,18 +23,20 @@ Reglas runtime del mapa en Explorar.
 - No usar `fitBounds` global en este caso (evitar zoom-out de todo el filtro).
 
 3. **Reencuadre por cambio de filtro (regla general)**
-- Al cambiar filtro a `saved/visited`, decidir reencuadre en diferido (después de aplicar filtro y actualizar lista).
-- Si hay pines visibles del nuevo filtro en viewport, no mover cámara.
-- Si no hay visibles, reencuadrar a todos los pines del filtro.
+- Al cambiar filtro a `saved/visited`, no mover cámara automáticamente.
+- Reencuadre solo por intención explícita del usuario (controles de reframe) o por transición dirigida a spot concreto.
+- Guardrail: prohibido `fitBounds` global automático en cambio manual de filtro.
 
 4. **Selección POI externo**
 - Al seleccionar POI, aplicar encuadre contextual con sheet activa.
 - Control “Ver todo el mundo” no debe competir con selección activa de POI/spot.
+- Si el POI ya corresponde a un spot persistido, resolver a `selectedSpot` (no mantener sheet de POI nuevo).
 
 5. **Estado visual de selección en POI (feedback obligatorio)**
 - Un POI seleccionado debe verse distinto al POI no seleccionado, incluso cuando su estado base sea `default`.
 - La capa de `selected` no reemplaza semántica de color (`saved/visited`), la complementa.
 - Al deseleccionar (tap fuera/cierre sheet), debe volver al estado base no seleccionado.
+- Durante selección POI, evitar doble jerarquía textual (labels Flowya competitivos vs labels base del mapa).
 
 ## Core puro recomendado
 

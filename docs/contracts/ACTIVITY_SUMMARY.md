@@ -1,7 +1,7 @@
 # ACTIVITY_SUMMARY — Contrato de resumen de actividad (Explore)
 
 **Fecha:** 2026-02-26  
-**Estado:** PROPOSED (listo para implementación por fases)
+**Estado:** ACTIVE (Fase A implementada)
 
 ## Objetivo
 
@@ -120,11 +120,18 @@ Regla: recomputar incrementalmente cuando sea posible; fallback a recompute comp
 
 ---
 
-## 8) Fases recomendadas (implementación futura)
+## 8) Fases recomendadas
 
 ### Fase A (rápida, segura)
 - Implementar `visitedPlacesCount` + `pendingPlacesCount`.
 - `visitedCountriesCount` en `null` (no visible o `—`).
+
+Estado 2026-02-27:
+- Implementado en runtime Search web/native mediante `ActivitySummary`.
+- Render condicionado a usuario autenticado.
+- `visitedPlacesCount` y `pendingPlacesCount` derivados de estado de pins en memoria (sin polling).
+- `visitedCountriesCount` con heurística inicial desde `spot.address` (último token) + guardrail de cobertura mínima.
+- Si la cobertura de país en spots visitados es baja, se mantiene `—` (`null`).
 
 ### Fase B
 - Incorporar `visitedCountriesCount` con fuente confiable y deduplicación canónica.

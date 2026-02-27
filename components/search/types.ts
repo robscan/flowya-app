@@ -39,4 +39,12 @@ export type SearchFloatingProps<T> = {
   placeSuggestions?: PlaceResult[];
   /** Callback al seleccionar un lugar de placeSuggestions. */
   onCreateFromPlace?: (place: PlaceResult) => void;
+  /** Resumen de actividad (Fase A). Se muestra solo si viene visible desde el padre. */
+  activitySummary?: {
+    isVisible: boolean;
+    visitedPlacesCount: number;
+    pendingPlacesCount: number;
+    visitedCountriesCount: number | null;
+    isLoading?: boolean;
+  };
 };

@@ -20,6 +20,16 @@
   2) Implementar System Status Bar (reemplazo de toast)
   3) Create Spot mínimo + Rediseño Edit Spot (pospuestos temporalmente)
 
+## Actualización (2026-02-27)
+
+- **Fase 1 WOW:** cerrada operativamente (`F1-001`, `F1-002`, `F1-003`, `F1-004`).
+- **Fase 2 WOW:** desbloqueada para ejecución (`F2-001..005` activos).
+- **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`) adoptado con alias legacy.
+- **Deprecados retirados:** `mapaV0`, `MapScreenV0`, `map-ui` fuera del runtime activo.
+- **Activity Summary Fase A:** implementado y validado QA; países con heurística + guardrail de cobertura.
+- **Ajuste UX vigente:** indicador circular de países en mapa, visible solo con filtros `saved/visited`, no interactivo por ahora.
+- **Mejora diferida acordada:** interacción del círculo para abrir mapa mundial shareable (postergado).
+
 ---
 
 ## Hoy (2026-02-22)

@@ -25,6 +25,7 @@ const SOURCE_ID = 'flowya-spots';
 const CIRCLES_LAYER_ID = 'flowya-spots-circles';
 const MAKIS_LAYER_ID = 'flowya-spots-makis';
 const LABELS_LAYER_ID = 'flowya-spots-labels';
+const LABEL_FONT_STACK_STRONG = ['Open Sans Bold', 'Arial Unicode MS Bold'];
 
 function buildMakiIconCandidates(maki?: string | null): {
   primary: string;
@@ -135,6 +136,7 @@ export function setupSpotsLayer(
   zoom: number,
   isDark: boolean,
   showMakiIcon: boolean,
+  showLabels: boolean,
   onPinClickBySpotId: (spotId: string) => void
 ): void {
   try {
@@ -159,18 +161,14 @@ export function setupSpotsLayer(
               'case',
               ['get', 'selected'],
               12,
-              ['in', ['get', 'pinStatus'], ['literal', ['to_visit', 'visited']]],
               8,
-              5,
             ],
             'circle-color': isDark ? circleColorExpressionDark : circleColorExpression,
             'circle-stroke-width': [
               'case',
               ['get', 'selected'],
               2.5,
-              ['in', ['get', 'pinStatus'], ['literal', ['to_visit', 'visited']]],
               1.5,
-              1,
             ],
             'circle-stroke-color': isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.95)',
             'circle-emissive-strength': 1,
@@ -223,6 +221,32 @@ export function setupSpotsLayer(
     }
 
     const labelStyle = isDark ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;
+    const strongLabelHaloColor = isDark ? 'rgba(0,0,0,0.34)' : 'rgba(255,255,255,0.55)';
+    const textSizeExpression: [string, ...unknown[]] = [
+      'case',
+      ['get', 'selected'],
+      labelStyle.textSize + 1,
+      labelStyle.textSize,
+    ];
+    // Pin seleccionado crece; el offset acompaña para mantener separación visual estable.
+    const textOffsetExpression: [string, ...unknown[]] = [
+      'case',
+      ['get', 'selected'],
+      ['literal', [0, 1.08]],
+      ['literal', [0, 0.94]],
+    ];
+    const textFontExpression: [string, ...unknown[]] = [
+      'literal',
+      LABEL_FONT_STACK_STRONG,
+    ];
+    const textHaloColorExpression: [string, ...unknown[]] = [
+      'literal',
+      strongLabelHaloColor,
+    ];
+    const textHaloWidthExpression: [string, ...unknown[]] = [
+      'literal',
+      1.15,
+    ];
     if (!map.getLayer(LABELS_LAYER_ID)) {
       map.addLayer(
         {
@@ -232,22 +256,28 @@ export function setupSpotsLayer(
           minzoom: LABEL_MIN_ZOOM,
           layout: {
             'text-field': ['get', 'title'],
-            'text-size': labelStyle.textSize,
+            'text-size': textSizeExpression,
             'text-anchor': 'top',
-            'text-offset': [0, 0.8],
+            'text-offset': textOffsetExpression,
             'text-max-width': 10,
-            'text-font': labelStyle.textFont,
+            'text-font': textFontExpression,
+            visibility: showLabels ? 'visible' : 'none',
           },
           paint: {
             'text-color': labelStyle.textColor,
-            'text-halo-color': labelStyle.textHaloColor,
-            'text-halo-width': labelStyle.textHaloWidth,
+            'text-halo-color': textHaloColorExpression,
+            'text-halo-width': textHaloWidthExpression,
           },
         },
         beforeId
       );
     } else {
-      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(data);
+      map.setLayoutProperty(LABELS_LAYER_ID, 'text-size', textSizeExpression);
+      map.setLayoutProperty(LABELS_LAYER_ID, 'text-offset', textOffsetExpression);
+      map.setLayoutProperty(LABELS_LAYER_ID, 'text-font', textFontExpression);
+      map.setPaintProperty(LABELS_LAYER_ID, 'text-halo-color', textHaloColorExpression);
+      map.setPaintProperty(LABELS_LAYER_ID, 'text-halo-width', textHaloWidthExpression);
+      map.setLayoutProperty(LABELS_LAYER_ID, 'visibility', showLabels ? 'visible' : 'none');
     }
   } catch {
     // ignore style/layer errors
@@ -258,13 +288,17 @@ export function updateSpotsLayerData(
   map: MapboxMap,
   spots: SpotForLayer[],
   selectedSpotId: string | null,
-  zoom: number
+  zoom: number,
+  showLabels: boolean
 ): void {
   try {
     const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
     if (source) {
       const availableImageIds = new Set(map.listImages());
       source.setData(spotsToGeoJSON(spots, selectedSpotId, zoom, availableImageIds));
+    }
+    if (map.getLayer(LABELS_LAYER_ID)) {
+      map.setLayoutProperty(LABELS_LAYER_ID, 'visibility', showLabels ? 'visible' : 'none');
     }
   } catch {
     // ignore

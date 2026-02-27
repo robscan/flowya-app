@@ -31,6 +31,8 @@ export type SearchResultsListV2Props<T> = {
   /** Contenido opcional al final del listado (misma columna/scroll). */
   footer?: React.ReactNode;
 };
+/** Alias canónico DS para infra de listados. */
+export type ListViewProps<T> = SearchResultsListV2Props<T>;
 
 export function SearchResultsListV2<T>({
   sections,
@@ -92,6 +94,9 @@ export function SearchResultsListV2<T>({
     </ScrollView>
   );
 }
+
+/** Alias canónico DS para migración progresiva sin ruptura. */
+export const ListView = SearchResultsListV2;
 
 const styles = StyleSheet.create({
   scroll: {
