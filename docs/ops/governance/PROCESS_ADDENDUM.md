@@ -14,5 +14,4 @@
 **Guardrails:**
 - Aplica **solo** a cambios en `docs/ops/*`.
 - Si el cambio toca **código de app** o `docs/definitions/*` (contratos), vuelve a **1 PR por micro-scope**.
-- El PR batch debe incluir en el último commit el cierre de estado: `CURRENT_STATE.md` + `OPEN_LOOPS.md` (snapshot + evidencias).
-
+- El PR batch debe incluir en el último commit el cierre de estado: `OPEN_LOOPS.md` + bitácora del día (evidencias). `CURRENT_STATE.md` solo cuando cambie el marco estratégico.

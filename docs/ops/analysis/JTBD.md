@@ -1,6 +1,6 @@
 # JTBD — Base (Flowya)
 
-**Última actualización:** 2026-02-09
+**Última actualización:** 2026-02-26
 
 > Documento vivo: conforme avancemos, cuestionamos JTBD, proponemos ajustes y lo registramos en bitácora.
 
@@ -63,15 +63,15 @@
 
 ---
 
-## JTBD del sistema (producto/tech)
+## Objetivos de sistema (no JTBD de usuario)
 
-### JTBD-S1 — UI estable, sin glitches
+### S1 — UI estable, sin glitches
 
 **Cuando** interactúo con Explore,
 **quiero** transiciones suaves y layout estable (sin overlays rotos, sin white-space bugs),
 **para** confiar en el producto.
 
-### JTBD-S2 — Librería limpia (Design System)
+### S2 — Librería limpia (Design System)
 
 **Cuando** construimos UI nueva,
 **queremos** reutilizar componentes y evitar duplicados,
@@ -84,3 +84,33 @@
 - ¿“Saved” y “Visited” cubren el modelo mental o falta un matiz real?
 - ¿Qué señales definen “relevancia” en Explore?
 - ¿Qué evidencia necesitamos antes de invertir en Flows a fondo?
+
+---
+
+## Addendum propuesto (2026-02-26, pendiente de adopción)
+
+### JTBD-06 — Decidir con confianza inmediata
+
+**Cuando** selecciono un lugar en mapa/búsqueda,  
+**quiero** entender en menos de 1 segundo qué está activo y qué puedo hacer,  
+**para** avanzar sin dudas ni re-taps.
+
+### S3 — Una sola fuente visual por intención
+
+**Cuando** el sistema muestra selección/estado,  
+**queremos** evitar señales duplicadas o competitivas,  
+**para** mantener claridad, confianza y control.
+
+### S4 — Interacciones consistentes cross-platform
+
+**Cuando** un componente interactivo cambia de estado,  
+**queremos** que el lenguaje visual sea equivalente en web y mobile,  
+**para** que la experiencia se sienta coherente y premium.
+
+### Estado de cumplimiento (resumen)
+
+- JTBD-01: parcial.
+- JTBD-02: cumplido con oportunidades.
+- JTBD-03: parcial.
+- S1: parcial.
+- S2: parcial.

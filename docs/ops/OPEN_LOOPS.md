@@ -108,6 +108,226 @@
 
 ---
 
+### OL-P2-008 — Descomposición de roadmap WOW (3 fases) a OL operables
+
+**Estado:** CERRADO
+
+**DoD / AC**
+- Traducir `PLAN_WOW_ROADMAP_3_FASES.md` a OL accionables por fase.
+- Cada OL debe incluir:
+  - objetivo concreto,
+  - DoD/AC verificable,
+  - pruebas mínimas,
+  - dependencia/gate de fase.
+- Priorizar secuencia de ejecución para iniciar operación sin ambigüedad.
+
+**Pruebas mínimas**
+- Checklist de trazabilidad: cada iniciativa estratégica del roadmap mapeada a al menos un OL.
+- Validación de que no hay OL duplicados/contradictorios con loops activos.
+
+**Referencia**
+- `docs/ops/plans/PLAN_WOW_ROADMAP_3_FASES.md`
+
+---
+
+## Roadmap WOW — OL operables por fase
+
+> Gate global: no ejecutar Fase 2/3 hasta cerrar gates de Fase 1.
+
+### Fase 1 — Fundación Clara y Estable
+
+#### OL-WOW-F1-001 — Blueprint único de selección dominante (mapa/pines/POI)
+**Estado:** EN CURSO
+
+**DoD / AC**
+- Contrato único de selección documentado y aplicado en runtime activo.
+- Cero doble fuente visual (pin/label/layer externo) durante selección.
+- Política explícita de restauración al salir de selección.
+
+**Pruebas mínimas**
+- Smoke: selección default y to_visit en POI/spot sin traslapes.
+- Smoke: pan/zoom + selección mantiene feedback inequívoco.
+
+**Dependencia**
+- Ninguna (entrypoint fase 1).
+
+#### OL-WOW-F1-002 — Contrato de estados interactivos cross-platform
+**Estado:** ACTIVO
+
+**DoD / AC**
+- Matriz `default/hover/pressed/focus-visible/selected/disabled/loading` cerrada.
+- `pressed` mobile comunica la misma intención visual que `hover` web.
+- Tokens de estado definidos y referenciados desde DS contract.
+
+**Pruebas mínimas**
+- Checklist visual web/mobile en componentes críticos (botones, icon-buttons, rows).
+
+**Dependencia**
+- `OL-WOW-F1-001`.
+
+#### OL-WOW-F1-003 — Naming DS canónico para listados (`ListView` + `ResultRow`)
+**Estado:** ACTIVO
+
+**DoD / AC**
+- Naming canónico adoptado en contratos/guías.
+- Alias transitorios definidos para migración sin ruptura.
+- Regla de separación lista/item explícita y estable.
+
+**Pruebas mínimas**
+- Checklist de rutas de uso en Explore/Search/Edit Spot sin contradicciones de naming.
+
+**Dependencia**
+- `OL-WOW-F1-002`.
+
+#### OL-WOW-F1-004 — Activity Summary Fase A (visited/pending)
+**Estado:** ACTIVO
+
+**DoD / AC**
+- Contrato `ACTIVITY_SUMMARY` aterrizado a implementación fase A.
+- Métricas visibles: `visitedPlacesCount`, `pendingPlacesCount`.
+- `visitedCountriesCount` bloqueado/partial hasta fuente confiable.
+
+**Pruebas mínimas**
+- Smoke: cambios de pin actualizan resumen sin polling agresivo.
+- Smoke: no auth no filtra datos privados.
+
+**Dependencia**
+- `OL-WOW-F1-002`.
+
+### Gate Fase 1
+**Criterio de paso**
+- `OL-WOW-F1-001..004` cerrados + 3 ciclos smoke sin regresión P0.
+
+---
+
+### Fase 2 — Interacción WOW (Intención y Flujo)
+
+#### OL-WOW-F2-001 — Single Search Surface (contenido unificado)
+**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+
+**DoD / AC**
+- Árbol de contenido de búsqueda unificado; adapters por plataforma mínimos.
+- Paridad funcional web/native en estados `isEmpty/isPreSearch/isSearch/isNoResults`.
+- Principio `Mapbox-first`: priorizar capacidades nativas de Mapbox; lógica custom solo si hay limitación demostrada o necesidad de acceso/acción sobre spots.
+
+**Pruebas mínimas**
+- Smoke comparativo web/native por estado de búsqueda.
+
+**Dependencia**
+- Gate Fase 1.
+
+#### OL-WOW-F2-002 — Ranking explicable (micro-señales)
+**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+
+**DoD / AC**
+- Señales discretas de porqué del resultado (`cerca`, `guardado`, `landmark`).
+- Sin sobrecargar UI ni romper jerarquía visual.
+
+**Pruebas mínimas**
+- QA cualitativa: comprensión del ranking en primera lectura.
+
+**Dependencia**
+- `OL-WOW-F2-001`.
+
+#### OL-WOW-F2-003 — Filtros como vistas de trabajo
+**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+
+**DoD / AC**
+- `Todos/Por visitar/Visitados` comunicados como intención, no switch técnico.
+- Pending-first navigation estable y predecible.
+
+**Pruebas mínimas**
+- Smoke: cambio de filtro conserva contexto útil y evita desorientación.
+
+**Dependencia**
+- `OL-WOW-F2-001`.
+
+#### OL-WOW-F2-004 — Sheet intent model (`peek/medium/expanded`)
+**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+
+**DoD / AC**
+- Cada estado tiene objetivo explícito (awareness/decision/detail).
+- CTA principal contextual visible en `medium`.
+
+**Pruebas mínimas**
+- QA de recorrido: menos cambios manuales de estado por confusión.
+
+**Dependencia**
+- `OL-WOW-F2-003`.
+
+#### OL-WOW-F2-005 — Cámara/foco por intención (`discover/inspect/act`) con mini QA secuencial
+**Estado:** ACTIVO (BLOQUEADO POR GATE F1)
+
+**DoD / AC**
+- Definir comportamiento determinista por modo:
+  - `discover`: estabilidad de viewport, sin auto-movimientos agresivos.
+  - `inspect`: centrar selección solo si no está legible/visible.
+  - `act`: congelar recuadres automáticos durante la acción principal.
+- Anti-jitter explícito: prohibido encadenar `flyTo + fitBounds` para el mismo evento.
+- Cada modo se implementa y valida por separado (no bundle).
+
+**Pruebas mínimas**
+- Mini QA 1: `discover` (accept/reject UX).
+- Mini QA 2: `inspect` (accept/reject UX).
+- Mini QA 3: `act` (accept/reject UX).
+- Si un mini QA falla, se revierte ese modo y no se avanza al siguiente.
+
+**Dependencia**
+- `OL-WOW-F2-004`.
+
+### Gate Fase 2
+**Criterio de paso**
+- `OL-WOW-F2-001..005` cerrados + mejora percibida de claridad y decisión en QA.
+
+---
+
+### Fase 3 — Escala Operativa y Producto Vivo
+
+#### OL-WOW-F3-001 — Extracción progresiva a runtime modular
+**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+
+**DoD / AC**
+- Dominio Explore separado en módulos puros (`state/intents/reducer/invariants`).
+- Reducción tangible de acoplamiento en contenedores críticos.
+
+**Pruebas mínimas**
+- Smoke de regresión transversal mapa/search/sheet.
+
+**Dependencia**
+- Gate Fase 2.
+
+#### OL-WOW-F3-002 — Activity Summary Fase B/C (países confiables + interacciones)
+**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+
+**DoD / AC**
+- `visitedCountriesCount` habilitado solo con fuente canónica confiable.
+- Interacción tap en métrica abre vista filtrada correspondiente (si aplica C).
+
+**Pruebas mínimas**
+- QA de calidad de datos de país (no mostrar conteos dudosos).
+
+**Dependencia**
+- `OL-WOW-F1-004` y Gate Fase 2.
+
+#### OL-WOW-F3-003 — Observabilidad mínima de decisiones UX
+**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+
+**DoD / AC**
+- Eventos mínimos para medir tiempo a decisión y claridad de selección.
+- Sin sobreinstrumentación ni impacto de performance.
+
+**Pruebas mínimas**
+- Validación de payloads y costo de logging en recorridos base.
+
+**Dependencia**
+- `OL-WOW-F3-001`.
+
+### Gate Fase 3
+**Criterio de cierre**
+- Arquitectura y UX escalan con menor tasa de regresión y ciclos de entrega más predecibles.
+
+---
+
 ### OL-P3-001 — Web sheets `max-width: 720px` + alineación derecha (postergado)
 
 **Estado:** ACTIVO (prioridad baja; no ejecutar ahora)
@@ -137,4 +357,4 @@
 
 ## Cierres recientes (trazabilidad)
 
-- `OL-P0-004`, `OL-P1-004`, `OL-P1-008`, `OL-P1-009`, `OL-P1-010`, `OL-P1-011`, `OL-P1-012`, `OL-P1-002`: ver bitácoras 143–180 y cierres de sesión 2026-02-26.
+- `OL-P0-004`, `OL-P1-004`, `OL-P1-008`, `OL-P1-009`, `OL-P1-010`, `OL-P1-011`, `OL-P1-012`, `OL-P1-002`, `OL-P2-007`, `OL-P2-008`: ver bitácoras 143–190 y cierres de sesión 2026-02-26.
