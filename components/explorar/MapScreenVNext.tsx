@@ -189,6 +189,49 @@ function isLinkedUnsavedSpot(spot: Spot): boolean {
   );
 }
 
+function hasLinkedPlaceId(spot: Spot | null): boolean {
+  if (!spot) return false;
+  return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
+}
+
+function resolveTappedSpotMatch(
+  spots: Spot[],
+  tapped: { lat: number; lng: number; name: string; placeId: string | null },
+): Spot | null {
+  const stableSpots = spots.filter((s) => !s.id.startsWith("draft_"));
+
+  if (tapped.placeId) {
+    const linkedById = stableSpots.find(
+      (s) =>
+        s.link_status === "linked" &&
+        typeof s.linked_place_id === "string" &&
+        s.linked_place_id === tapped.placeId,
+    );
+    if (linkedById) return linkedById;
+  }
+
+  const linkedByDistance = stableSpots.find(
+    (s) =>
+      s.link_status === "linked" &&
+      distanceKm(s.latitude, s.longitude, tapped.lat, tapped.lng) <=
+        LINKED_TAP_FALLBACK_TOLERANCE_KM,
+  );
+  if (linkedByDistance) return linkedByDistance;
+
+  const tappedName = normalizeText(tapped.name);
+  const closestSemantic = stableSpots
+    .map((s) => ({
+      spot: s,
+      km: distanceKm(s.latitude, s.longitude, tapped.lat, tapped.lng),
+      sameName: normalizeText(s.title) === tappedName,
+    }))
+    .filter(({ km, sameName }) => sameName && km <= 0.03)
+    .sort((a, b) => a.km - b.km)[0];
+  if (closestSemantic) return closestSemantic.spot;
+
+  return null;
+}
+
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
@@ -241,6 +284,44 @@ function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+const COUNTRY_MIN_COVERAGE_RATIO = 0.4;
+const NON_COUNTRY_ADDRESS_TOKENS = new Set([
+  "centro",
+  "downtown",
+  "unknown",
+  "sin direccion",
+  "sin dirección",
+  "n/a",
+  "na",
+]);
+
+function extractCountryFromAddress(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const parts = address
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  const raw = parts[parts.length - 1];
+  const normalized = normalizeText(raw);
+  if (!normalized) return null;
+  if (NON_COUNTRY_ADDRESS_TOKENS.has(normalized)) return null;
+  if (/\d/.test(normalized)) return null;
+  if (normalized.length < 2) return null;
+  return raw;
+}
+
+function computeCountriesCountForSpots(spots: Spot[]): number | null {
+  if (spots.length === 0) return 0;
+  const countries = spots
+    .map((spot) => extractCountryFromAddress(spot.address))
+    .filter((value): value is string => Boolean(value));
+  if (countries.length === 0) return null;
+  const coverage = countries.length / spots.length;
+  if (coverage < COUNTRY_MIN_COVERAGE_RATIO) return null;
+  return new Set(countries.map((country) => normalizeText(country))).size;
 }
 
 function dedupeExternalPlacesAgainstSpots(
@@ -435,7 +516,6 @@ export function MapScreenVNext() {
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
-  const pendingFilterReframeRef = useRef<Exclude<MapPinFilterValue, "all"> | null>(null);
   const lastStatusSpotIdRef = useRef<{
     saved: string | null;
     visited: string | null;
@@ -626,10 +706,27 @@ export function MapScreenVNext() {
     return base;
   }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter]);
 
+  const isSelectedSpotHiddenOnMap = Boolean(
+    selectedSpot &&
+      !selectedSpot.id.startsWith("draft_") &&
+      !displayedSpots.some((s) => s.id === selectedSpot.id),
+  );
+
   const onLongPressHandlerRef = useRef<
     (coords: { lat: number; lng: number }) => void
   >(() => {});
   const onPinClickHandlerRef = useRef<(spot: Spot) => void>(() => {});
+  const hasLinkedSelection = hasLinkedPlaceId(selectedSpot);
+  const shouldSuppressMapboxPoiLabels = Boolean(poiTapped || hasLinkedSelection || isSelectedSpotHiddenOnMap);
+  const shouldShowFlowyaSpotLabels = selectedSpot == null && poiTapped == null;
+  const resolveEffectivePinStatus = useCallback(
+    (status: SpotPinStatus | undefined): SpotPinStatus => {
+      if (pinFilter === "saved") return "to_visit";
+      if (pinFilter === "visited") return "visited";
+      return status ?? "default";
+    },
+    [pinFilter],
+  );
   /** No centrar en usuario durante intake de deep link (incluye geoloc tardía). */
   const skipCenterOnUser = deepLinkCenterLockRef.current;
 
@@ -639,7 +736,8 @@ export function MapScreenVNext() {
     shouldCenterOnUser: () => !deepLinkCenterLockRef.current,
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => setSheetState("peek"),
-    enableLandmarkLabels: featureFlags.mapLandmarkLabels,
+    enableLandmarkLabels:
+      featureFlags.mapLandmarkLabels && !shouldSuppressMapboxPoiLabels,
     isDarkStyle: colorScheme === "dark",
     spots: displayedSpots
       .filter((s) => !s.id.startsWith("draft_"))
@@ -648,13 +746,14 @@ export function MapScreenVNext() {
         title: s.title,
         latitude: s.latitude,
         longitude: s.longitude,
-        pinStatus: s.pinStatus,
+        pinStatus: resolveEffectivePinStatus(s.pinStatus),
         linkedMaki: s.linked_maki ?? null,
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
     is3DEnabled,
     showMakiIcon: featureFlags.flowyaPinMakiIcon,
+    showSpotLabels: shouldShowFlowyaSpotLabels,
   });
   const {
     mapInstance,
@@ -762,6 +861,21 @@ export function MapScreenVNext() {
     [spots],
   );
 
+  const countriesCountByFilter = useMemo(() => {
+    const toVisitSpots = spots.filter((s) => s.pinStatus === "to_visit");
+    const visitedSpots = spots.filter((s) => s.pinStatus === "visited");
+    return {
+      saved: computeCountriesCountForSpots(toVisitSpots),
+      visited: computeCountriesCountForSpots(visitedSpots),
+    };
+  }, [spots]);
+
+  const countriesCountForActiveFilter = useMemo(() => {
+    if (pinFilter === "saved") return countriesCountByFilter.saved;
+    if (pinFilter === "visited") return countriesCountByFilter.visited;
+    return null;
+  }, [pinFilter, countriesCountByFilter.saved, countriesCountByFilter.visited]);
+
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
       let next = prev;
@@ -786,15 +900,11 @@ export function MapScreenVNext() {
           ? lastStatusSpotIdRef.current[nextFilter]
           : null;
       setPinFilter(nextFilter);
-      if (nextFilter === "all") {
-        pendingFilterReframeRef.current = null;
-      }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
       }
 
-      const shouldReframe = options?.reframe ?? true;
-      if (!shouldReframe) return;
+      if (options?.reframe === false) return;
       if (nextFilter === "all") return;
       const target = spots.filter((s) => (nextFilter === "saved" ? s.saved : s.visited));
 
@@ -803,7 +913,6 @@ export function MapScreenVNext() {
           ? target.find((s) => s.id === pendingSpotId) ?? null
           : null;
       if (pendingSpot) {
-        pendingFilterReframeRef.current = null;
         setSelectedSpot(pendingSpot);
         setSheetState("medium");
         if (mapInstance) {
@@ -814,8 +923,7 @@ export function MapScreenVNext() {
         }
         return;
       }
-      // Guardrail QA: decidir reencuadre cuando el nuevo filtro ya esté cargado/renderizado.
-      pendingFilterReframeRef.current = nextFilter;
+      // Cambio manual de filtro: no mover cámara automáticamente (evita zoom-out inesperado).
     },
     [
       pendingFilterBadges,
@@ -825,48 +933,6 @@ export function MapScreenVNext() {
       updatePendingFilterBadges,
     ],
   );
-
-  useEffect(() => {
-    const pendingFilter = pendingFilterReframeRef.current;
-    if (!pendingFilter) return;
-    if (pinFilter !== pendingFilter) return;
-    if (!mapInstance) return;
-    if (filteredSpots.length === 0) return;
-
-    const reframeToTarget = (target: Spot[]) => {
-      if (target.length === 1) {
-        const only = target[0];
-        programmaticFlyTo(
-          { lng: only.longitude, lat: only.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-        );
-        return;
-      }
-      const lats = target.map((s) => s.latitude);
-      const lngs = target.map((s) => s.longitude);
-      mapInstance.fitBounds(
-        [
-          [Math.min(...lngs), Math.min(...lats)],
-          [Math.max(...lngs), Math.max(...lats)],
-        ],
-        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-      );
-    };
-
-    try {
-      const bounds = mapInstance.getBounds();
-      const hasVisibleInViewport = filteredSpots.some((s) =>
-        bounds.contains([s.longitude, s.latitude]),
-      );
-      if (!hasVisibleInViewport) {
-        reframeToTarget(filteredSpots);
-      }
-      pendingFilterReframeRef.current = null;
-    } catch {
-      // ignore map bounds errors
-      pendingFilterReframeRef.current = null;
-    }
-  }, [pinFilter, filteredSpots, mapInstance, programmaticFlyTo]);
 
   const defaultSpots = useMemo(() => {
     const ref = userCoords ?? {
@@ -1302,6 +1368,22 @@ export function MapScreenVNext() {
     (place: PlaceResult) => {
       const stablePlaceId = getStablePlaceId(place);
       searchV2.setOpen(false);
+      const existingSpot = resolveTappedSpotMatch(spots, {
+        lat: place.lat,
+        lng: place.lng,
+        name: place.name,
+        placeId: stablePlaceId,
+      });
+      if (existingSpot) {
+        setSelectedSpot(existingSpot);
+        setPoiTapped(null);
+        setSheetState("medium");
+        programmaticFlyTo(
+          { lng: existingSpot.longitude, lat: existingSpot.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
+        );
+        return;
+      }
       setSelectedSpot(null);
       recordSearchExternalClick();
       setPoiTapped({
@@ -1320,7 +1402,7 @@ export function MapScreenVNext() {
         { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
       );
     },
-    [searchV2, programmaticFlyTo],
+    [searchV2, spots, programmaticFlyTo],
   );
 
   /** Tap en mapa: draft placement (mover pin) o detección de POI (SpotSheet si ya existe, SpotSheet modo POI si no). */
@@ -1354,24 +1436,12 @@ export function MapScreenVNext() {
             f.id,
             props as Record<string, unknown>,
           );
-          const strictMatch = tappedFeatureId
-            ? spots.find(
-                (s) =>
-                  !s.id.startsWith("draft_") &&
-                  s.link_status === "linked" &&
-                  typeof s.linked_place_id === "string" &&
-                  s.linked_place_id === tappedFeatureId,
-              )
-            : undefined;
-          const proximityLinkedFallback =
-            strictMatch ??
-            spots.find(
-              (s) =>
-                !s.id.startsWith("draft_") &&
-                s.link_status === "linked" &&
-                distanceKm(s.latitude, s.longitude, lat, lng) <= LINKED_TAP_FALLBACK_TOLERANCE_KM,
-            );
-          const match = proximityLinkedFallback;
+          const match = resolveTappedSpotMatch(spots, {
+            lat,
+            lng,
+            name: name.trim(),
+            placeId: tappedFeatureId,
+          });
           if (match) {
             setSelectedSpot(match);
             setSheetState("medium");
@@ -2113,6 +2183,12 @@ export function MapScreenVNext() {
     : FALLBACK_VIEW;
 
   const dockBottomOffset = 12;
+  const selectedSpotOverlayState: "default" | "to_visit" | "visited" =
+    resolveEffectivePinStatus(selectedSpot?.pinStatus) === "visited"
+      ? "visited"
+      : resolveEffectivePinStatus(selectedSpot?.pinStatus) === "to_visit"
+        ? "to_visit"
+        : "default";
 
   return (
     <View
@@ -2140,26 +2216,29 @@ export function MapScreenVNext() {
             ? { lat: selectedSpot.latitude, lng: selectedSpot.longitude }
             : createSpotNameOverlayOpen && createSpotPendingCoords
               ? createSpotPendingCoords
-              : poiTapped != null && selectedSpot == null
-                ? { lat: poiTapped.lat, lng: poiTapped.lng }
+              : isSelectedSpotHiddenOnMap && selectedSpot != null
+                ? { lat: selectedSpot.latitude, lng: selectedSpot.longitude }
+                : poiTapped != null && selectedSpot == null
+                  ? { lat: poiTapped.lat, lng: poiTapped.lng }
                 : null
         }
-        previewPinKind={
-          selectedSpot?.id.startsWith("draft_") || (createSpotNameOverlayOpen && createSpotPendingCoords)
-            ? "spot"
-            : poiTapped?.kind
-        }
         previewPinState={
-          poiTapped != null && selectedSpot == null ? poiTapped.visualState : "default"
+          isSelectedSpotHiddenOnMap && selectedSpot != null
+            ? selectedSpotOverlayState
+            : poiTapped != null && selectedSpot == null
+              ? poiTapped.visualState
+              : "default"
         }
         previewPinLabel={
           selectedSpot?.id.startsWith("draft_")
             ? selectedSpot.title ?? null
             : createSpotNameOverlayOpen
               ? createSpotNameValue
-              : poiTapped != null && selectedSpot == null
-                ? poiTapped.name
-                : null
+              : isSelectedSpotHiddenOnMap && selectedSpot != null
+                ? null
+                : poiTapped != null && selectedSpot == null
+                  ? null
+                  : null
         }
       />
       {selectedSpot && selectedPinScreenPos ? (
@@ -2201,17 +2280,19 @@ export function MapScreenVNext() {
             { pointerEvents: "box-none" },
           ]}
         >
-          <IconButton
-            variant="default"
-            onPress={handleProfilePress}
-            accessibilityLabel="Cuenta"
-          >
-            <User
-              size={24}
-              color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
-              strokeWidth={2}
-            />
-          </IconButton>
+          <View style={styles.profileTopRow}>
+            <IconButton
+              variant="default"
+              onPress={handleProfilePress}
+              accessibilityLabel="Cuenta"
+            >
+              <User
+                size={24}
+                color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
+                strokeWidth={2}
+              />
+            </IconButton>
+          </View>
           {showLogoutOption && isAuthUser ? (
             <View style={styles.logoutButtonWrap}>
               <Pressable
@@ -2227,6 +2308,48 @@ export function MapScreenVNext() {
               </Pressable>
             </View>
           ) : null}
+        </View>
+      ) : null}
+      {!createSpotNameOverlayOpen &&
+      !searchV2.isOpen &&
+      isAuthUser &&
+      (pinFilter === "saved" || pinFilter === "visited") ? (
+        <View
+          style={[
+            styles.countriesOverlay,
+            { left: TOP_OVERLAY_INSET + insets.left },
+          ]}
+          pointerEvents="none"
+        >
+          <View
+            style={[
+              styles.countriesCircle,
+              {
+                backgroundColor:
+                  colorScheme === "dark"
+                    ? "rgba(29,29,31,0.78)"
+                    : "rgba(255,255,255,0.78)",
+                borderColor: Colors[colorScheme ?? "light"].borderSubtle,
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.countriesValue,
+                {
+                  color:
+                    pinFilter === "saved"
+                      ? Colors[colorScheme ?? "light"].stateToVisit
+                      : Colors[colorScheme ?? "light"].stateSuccess,
+                },
+              ]}
+            >
+              {countriesCountForActiveFilter == null ? "—" : String(countriesCountForActiveFilter)}
+            </Text>
+            <Text style={[styles.countriesLabel, { color: Colors[colorScheme ?? "light"].textSecondary }]}>
+              Países
+            </Text>
+          </View>
         </View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
@@ -2343,6 +2466,13 @@ export function MapScreenVNext() {
         resultSections={searchResultSections}
         placeSuggestions={placeSuggestions}
         onCreateFromPlace={handleCreateFromPlace}
+        activitySummary={{
+          isVisible: false,
+          visitedPlacesCount: pinCounts.visited,
+          pendingPlacesCount: pinCounts.saved,
+          visitedCountriesCount: countriesCountByFilter.visited,
+          isLoading: false,
+        }}
         renderItem={(spot) => (
           <SearchResultCard
             spot={spot}
@@ -2483,6 +2613,16 @@ const styles = StyleSheet.create({
     left: TOP_OVERLAY_INSET,
     zIndex: 12,
   },
+  profileTopRow: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+  },
+  countriesOverlay: {
+    position: "absolute",
+    top: "50%",
+    transform: [{ translateY: -32 }],
+    zIndex: 6,
+  },
   createSpotOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
@@ -2512,6 +2652,33 @@ const styles = StyleSheet.create({
     zIndex: 5,
     alignSelf: "flex-start",
     padding: 8,
+  },
+  countriesCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      web: {
+        boxShadow: "0 4px 12px rgba(0,0,0,0.18)",
+      },
+      default: {},
+    }),
+  },
+  countriesValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  countriesLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    lineHeight: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginTop: 2,
   },
   placeholder: {
     flex: 1,

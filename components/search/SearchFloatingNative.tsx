@@ -5,7 +5,8 @@
 
 import { IconButton } from '@/components/design-system/icon-button';
 import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
-import { SearchListCard } from '@/components/design-system/search-list-card';
+import { ResultRow } from '@/components/design-system/search-list-card';
+import { ActivitySummary } from '@/components/design-system/activity-summary';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -30,7 +31,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
-import { SearchResultsListV2 } from './SearchResultsListV2';
+import { ListView } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
 
 const SEARCH_PANEL_PADDING = 16;
@@ -62,6 +63,7 @@ export function SearchFloatingNative<T>({
   onPinFilterChange,
   placeSuggestions = [],
   onCreateFromPlace,
+  activitySummary,
 }: SearchFloatingProps<T>) {
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
@@ -216,6 +218,17 @@ export function SearchFloatingNative<T>({
                     />
                   </View>
                 </View>
+                {activitySummary?.isVisible ? (
+                  <View style={styles.activitySummaryWrap}>
+                    <ActivitySummary
+                      visitedPlacesCount={activitySummary.visitedPlacesCount}
+                      pendingPlacesCount={activitySummary.pendingPlacesCount}
+                      visitedCountriesCount={activitySummary.visitedCountriesCount}
+                      isLoading={activitySummary.isLoading}
+                      mode="countries-only"
+                    />
+                  </View>
+                ) : null}
               </View>
             </GestureDetector>
             <KeyboardAvoidingView
@@ -283,7 +296,7 @@ export function SearchFloatingNative<T>({
                 )}
                 {isSearch && displayResults.length > 0 && (
                   <>
-                    <SearchResultsListV2
+                    <ListView
                       sections={resultSections}
                       results={displayResults}
                       renderItem={renderItem}
@@ -305,7 +318,7 @@ export function SearchFloatingNative<T>({
                             </Text>
                             <View style={styles.cardsList}>
                               {placeSuggestions.slice(0, 3).map((place) => (
-                                <SearchListCard
+                                <ResultRow
                                   key={place.id}
                                   title={place.name}
                                   subtitle={place.fullName}
@@ -369,13 +382,13 @@ export function SearchFloatingNative<T>({
                           </Text>
                           <View style={styles.cardsList}>
                             {placeSuggestions.map((place) => (
-                              <SearchListCard
+                              <ResultRow
                                 key={place.id}
                                 title={place.name}
                                 subtitle={place.fullName}
                                 onPress={() => onCreateFromPlace(place)}
                                 accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
-                              />
+                    />
                             ))}
                           </View>
                         </View>
@@ -454,6 +467,7 @@ const styles = StyleSheet.create({
   },
   filterRow: { flex: 1, minWidth: 0 },
   searchRow: { marginBottom: Spacing.sm },
+  activitySummaryWrap: { marginBottom: Spacing.sm },
   searchPill: {
     width: '100%',
     flexDirection: 'row',

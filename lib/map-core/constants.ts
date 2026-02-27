@@ -115,8 +115,9 @@ export function hideNoiseLayers(map: MapboxMap, options: HideNoiseLayersOptions 
     if (!style?.layers) return;
     const { preservePoiLabels = false } = options;
     for (const layer of style.layers) {
-      if (preservePoiLabels && layer.id === 'poi-label') continue;
-      if (HIDE_LAYER_IDS.includes(layer.id)) {
+      const shouldHideLayer = HIDE_LAYER_IDS.includes(layer.id);
+      if (preservePoiLabels && shouldHideLayer) continue;
+      if (shouldHideLayer) {
         map.setLayoutProperty(layer.id, 'visibility', 'none');
       }
     }

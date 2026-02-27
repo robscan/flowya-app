@@ -55,6 +55,8 @@ export type UseMapCoreOptions = {
   is3DEnabled?: boolean;
   /** Si true, muestra iconografía derivada de maki en pins guardados/visitados. */
   showMakiIcon?: boolean;
+  /** Si false, oculta labels de spots Flowya para evitar competencia visual con labels externas. */
+  showSpotLabels?: boolean;
 };
 
 const GEO_OPTIONS: PositionOptions = {
@@ -103,6 +105,7 @@ export function useMapCore(
     onPinClick,
     is3DEnabled = false,
     showMakiIcon = false,
+    showSpotLabels = true,
   } = options;
 
   const flyToOptions = useMemo(
@@ -215,18 +218,19 @@ export function useMapCore(
       zoom,
       isDarkStyle,
       showMakiIcon,
+      showSpotLabels,
       (spotId) => {
         const s = spotsRef.current.find((sp) => sp.id === spotId);
         if (s) onPinClickRef.current?.(s);
       }
     );
-  }, [mapInstance, onPinClick, isDarkStyle, showMakiIcon]);
+  }, [mapInstance, onPinClick, isDarkStyle, showMakiIcon, showSpotLabels]);
 
   useEffect(() => {
     const map = mapInstance;
     if (!map || !map.getSource('flowya-spots')) return;
-    updateSpotsLayerData(map, spots, selectedSpotId, zoom);
-  }, [mapInstance, spots, selectedSpotId, zoom]);
+    updateSpotsLayerData(map, spots, selectedSpotId, zoom, showSpotLabels);
+  }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels]);
 
   const handleLocate = useCallback(() => {
     if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;

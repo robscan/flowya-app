@@ -6,7 +6,7 @@
  * Status visual: puede derivarse de saved/visited (visited > to_visit > default).
  */
 
-import { Pin } from 'lucide-react-native';
+import { Check, Pin } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -18,6 +18,7 @@ import Animated, {
 
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { MAPBOX_LABEL_STYLE_DARK, MAPBOX_LABEL_STYLE_LIGHT } from '@/lib/map-core/constants';
 
 const PIN_SELECT_DURATION_MS = 200;
 const PIN_HOVER_PRESS_DURATION_MS = 100;
@@ -31,9 +32,8 @@ const SPOT_PIN_SELECTED_SIZE = 32;
 const SPOT_PIN_STROKE = 2;
 const SPOT_PIN_SELECTED_STROKE = 3;
 const SPOT_PIN_ICON_SIZE = 18;
-const PIN_LABEL_FONT_SIZE = 13;
-const PIN_LABEL_FONT_SIZE_SELECTED = 14;
-const PIN_LABEL_GAP = 3;
+const PIN_LABEL_FONT_SIZE = 12;
+const PIN_LABEL_GAP = 7;
 const PIN_LABEL_MAX_WIDTH = 90;
 const EXISTING_PIN_LABEL_FONT_SIZE = 10;
 const EXISTING_PIN_LABEL_GAP = 3;
@@ -119,11 +119,21 @@ export function MapPinSpot({
   const colors = Colors[colorScheme];
   const fill = getSpotPinFillColor(colors, status);
   const outline = getSpotPinOutlineColor(colors);
-  const labelColor = colors.text;
-  const labelWeight = selected ? '600' : '500';
-  const labelFontSize = selected ? PIN_LABEL_FONT_SIZE_SELECTED : PIN_LABEL_FONT_SIZE;
+  const mapboxLabelStyle =
+    colorScheme === 'dark' ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;
+  const labelColor = mapboxLabelStyle.textColor;
+  const labelWeight = '600';
+  const labelFontSize = PIN_LABEL_FONT_SIZE;
 
-  const isSavedPin = status === 'to_visit' || status === 'visited';
+  const hasStatusIcon = status === 'to_visit' || status === 'visited';
+  const savedLabelShadowStyle = hasStatusIcon
+    ? {
+        textShadowColor:
+          colorScheme === 'dark' ? 'rgba(0,0,0,0.34)' : 'rgba(255,255,255,0.55)',
+        textShadowOffset: { width: 0, height: 0 },
+        textShadowRadius: 1.25,
+      }
+    : null;
 
   const selectedProgress = useSharedValue(selected ? 1 : 0);
   const hoverProgress = useSharedValue(0);
@@ -181,8 +191,8 @@ export function MapPinSpot({
   }, []);
 
   const iconOpacityStyle = useAnimatedStyle(
-    () => ({ opacity: isSavedPin ? selectedProgress.value : 0 }),
-    [isSavedPin]
+    () => ({ opacity: hasStatusIcon ? selectedProgress.value : 0 }),
+    [hasStatusIcon]
   );
 
   return (
@@ -210,14 +220,23 @@ export function MapPinSpot({
             innerAnimatedStyle,
           ]}
         >
-          {isSavedPin ? (
+          {hasStatusIcon ? (
             <Animated.View style={[StyleSheet.absoluteFill, iconOpacityStyle, styles.spotPinIconWrap]}>
-              <Pin
-                size={SPOT_PIN_ICON_SIZE}
-                color="#ffffff"
-                strokeWidth={2}
-                style={styles.spotPinIcon}
-              />
+              {status === 'visited' ? (
+                <Check
+                  size={SPOT_PIN_ICON_SIZE}
+                  color="#ffffff"
+                  strokeWidth={2.5}
+                  style={styles.spotPinIcon}
+                />
+              ) : (
+                <Pin
+                  size={SPOT_PIN_ICON_SIZE}
+                  color="#ffffff"
+                  strokeWidth={2}
+                  style={styles.spotPinIcon}
+                />
+              )}
             </Animated.View>
           ) : null}
         </Animated.View>
@@ -233,9 +252,7 @@ export function MapPinSpot({
               fontFamily: Fonts.sans,
               fontSize: labelFontSize,
               lineHeight: labelFontSize + 2,
-              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
-              textShadowOffset: { width: 0, height: 0 },
-              textShadowRadius: 2,
+              ...(savedLabelShadowStyle ?? {}),
             },
           ]}
           numberOfLines={2}

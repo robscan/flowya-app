@@ -5,7 +5,8 @@
  * Web: touch-action manipulation evita zoom por doble tap.
  */
 
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -14,6 +15,7 @@ export type ButtonPrimaryProps = {
   children: React.ReactNode;
   onPress?: () => void;
   disabled?: boolean;
+  loading?: boolean;
   accessibilityLabel?: string;
 };
 
@@ -21,24 +23,44 @@ export function ButtonPrimary({
   children,
   onPress,
   disabled = false,
+  loading = false,
   accessibilityLabel,
 }: ButtonPrimaryProps) {
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const colors = Colors[useColorScheme() ?? 'light'];
+  const interactiveDisabled = disabled || loading;
   return (
     <Pressable
       style={({ pressed }) => [
         styles.primary,
         {
-          backgroundColor: disabled ? colors.primary : pressed ? colors.text : colors.primary,
+          backgroundColor: interactiveDisabled
+            ? colors.primary
+            : pressed
+              ? colors.tintPressed
+              : hovered && Platform.OS === 'web'
+                ? colors.tintPressed
+                : colors.primary,
+          opacity: interactiveDisabled ? 0.6 : 1,
         },
+        focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
         WebTouchManipulation,
       ]}
       onPress={onPress}
-      disabled={disabled}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      disabled={interactiveDisabled}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      accessibilityState={{ disabled: interactiveDisabled, busy: loading }}
     >
-      <Text style={styles.primaryLabel}>{children}</Text>
+      <View style={styles.inner}>
+        {loading ? <ActivityIndicator size="small" color="#fff" /> : null}
+        <Text style={styles.primaryLabel}>{children}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -47,6 +69,7 @@ export type ButtonSecondaryProps = {
   children: React.ReactNode;
   onPress?: () => void;
   disabled?: boolean;
+  loading?: boolean;
   accessibilityLabel?: string;
 };
 
@@ -54,25 +77,43 @@ export function ButtonSecondary({
   children,
   onPress,
   disabled = false,
+  loading = false,
   accessibilityLabel,
 }: ButtonSecondaryProps) {
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
   const colors = Colors[useColorScheme() ?? 'light'];
+  const interactiveDisabled = disabled || loading;
   return (
     <Pressable
       style={({ pressed }) => [
         styles.secondary,
         {
           borderColor: colors.border,
-          backgroundColor: pressed && !disabled ? colors.backgroundElevated : 'transparent',
+          backgroundColor: pressed && !interactiveDisabled
+            ? colors.stateSurfacePressed
+            : hovered && Platform.OS === 'web'
+              ? colors.stateSurfaceHover
+              : 'transparent',
+          opacity: interactiveDisabled ? 0.6 : 1,
         },
+        focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
         WebTouchManipulation,
       ]}
       onPress={onPress}
-      disabled={disabled}
+      onHoverIn={() => setHovered(true)}
+      onHoverOut={() => setHovered(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      disabled={interactiveDisabled}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
+      accessibilityState={{ disabled: interactiveDisabled, busy: loading }}
     >
-      <Text style={[styles.secondaryLabel, { color: colors.text }]}>{children}</Text>
+      <View style={styles.inner}>
+        {loading ? <ActivityIndicator size="small" color={colors.text} /> : null}
+        <Text style={[styles.secondaryLabel, { color: colors.text }]}>{children}</Text>
+      </View>
     </Pressable>
   );
 }
@@ -102,6 +143,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignItems: 'center',
+  },
+  inner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
   },
   primaryLabel: {
     color: '#fff',

@@ -58,6 +58,12 @@ No se fusionan en un único componente monolítico.
 
 Objetivo: usar nomenclatura genérica DS para escalar a futuros listados sin acoplar al dominio Search.
 
+Estado de adopción (2026-02-27):
+- Alias canónicos habilitados en código:
+  - `ListView` (alias de `SearchResultsListV2`)
+  - `ResultRow` (alias de `SearchListCard`)
+- Runtime Search web/native actualizado a alias canónicos, manteniendo compatibilidad legacy.
+
 ---
 
 ## 3) Reglas UX/arquitectura (Apple Maps-like)
@@ -82,6 +88,51 @@ Todo primitivo interactivo debe cubrir:
 Regla visual solicitada:
 - En mobile, `pressed` debe comunicar la misma intención visual que `hover` en web (misma familia de feedback, adaptada por plataforma).
 
+### Matriz canónica v1 (F1-002)
+
+Componentes críticos para cierre inicial:
+- `IconButton`
+- `ActionButton` (Primary/Secondary en `components/design-system/buttons.tsx`)
+- `SearchListCard`
+
+Estados obligatorios por componente:
+- `default`
+- `hover` (web)
+- `pressed` (web + mobile)
+- `focus-visible` (web)
+- `selected` (si aplica)
+- `disabled`
+- `loading` (si aplica)
+
+Reglas de mapeo visual:
+- `IconButton`
+  - `default`: fondo `backgroundElevated`, borde `border`.
+  - `hover/pressed`: fondo `primary` (o semántico `stateToVisit/stateSuccess` según `semantic`), ícono blanco.
+  - `selected`: mismo lenguaje visual de `pressed` persistente.
+  - `disabled`: opacidad reducida + sin cambios de interacción.
+- `ActionButton Primary`
+  - `default`: fondo `primary`, texto blanco.
+  - `pressed` (web/mobile): fondo `text` (contraste alto) manteniendo jerarquía de CTA.
+  - `disabled`: tono base atenuado.
+- `ActionButton Secondary`
+  - `default`: fondo transparente, borde `border`.
+  - `hover/pressed`: fondo `backgroundElevated` para feedback sutil.
+  - `disabled`: opacidad reducida.
+- `SearchListCard`
+  - `default`: fondo `background`.
+  - `hover/pressed`: fondo `borderSubtle`.
+  - `focus-visible`: borde/enfoque visible en web sin romper jerarquía tipográfica.
+
+Checklist de cierre F1-002 (v1):
+- Evidencia visual web: default/hover/pressed/focus-visible en componentes críticos.
+- Evidencia visual mobile: default/pressed/disabled en componentes críticos.
+- Confirmación de tokens (sin hardcodes nuevos fuera de `constants/theme.ts`).
+
+Estado de implementación (2026-02-27):
+- `IconButton`: `hover/pressed/focus-visible/selected/disabled/loading`.
+- `ActionButton` primary/secondary: `hover/pressed/focus-visible/disabled/loading`.
+- `SearchListCard`: `hover/pressed/focus-visible/selected/disabled`.
+
 ### Primitivos base a consolidar
 
 - `ActionButton`
@@ -96,13 +147,15 @@ Estos primitivos deben consumir tokens del tema y funcionar de forma nativa en `
 
 ---
 
-## 4) Candidatos a deprecación (pre-eliminación)
+## 4) Retiro de deprecados (2026-02-27)
 
+Elementos retirados del runtime/codebase:
 - `components/explorar/MapScreenV0.tsx`
 - `app/mapaV0.tsx`
 - `app/mapaV0.web.tsx`
-- `components/design-system/map-ui.tsx` (placeholder no usado por runtime)
-- Secciones legacy/no operativas en `/design-system` que no correspondan a Explore/Edit Spot.
+- `components/design-system/map-ui.tsx`
+
+También se removieron secciones legacy de `/design-system` asociadas a esos artefactos.
 
 ---
 
