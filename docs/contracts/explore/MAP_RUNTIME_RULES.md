@@ -31,6 +31,11 @@ Reglas runtime del mapa en Explorar.
 - Al seleccionar POI, aplicar encuadre contextual con sheet activa.
 - Control “Ver todo el mundo” no debe competir con selección activa de POI/spot.
 
+5. **Estado visual de selección en POI (feedback obligatorio)**
+- Un POI seleccionado debe verse distinto al POI no seleccionado, incluso cuando su estado base sea `default`.
+- La capa de `selected` no reemplaza semántica de color (`saved/visited`), la complementa.
+- Al deseleccionar (tap fuera/cierre sheet), debe volver al estado base no seleccionado.
+
 ## Core puro recomendado
 
 - `shouldReframeToAll({ visibleCount, totalCount }) => boolean`
@@ -47,6 +52,7 @@ Reglas runtime del mapa en Explorar.
 
 - `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`
 - `docs/contracts/EXPLORE_SHEET.md`
+- `docs/contracts/explore/SELECTION_DOMINANCE_RULES.md`
 - `docs/bitacora/2026/02/153-filtros-saved-visited-reencuadre-ciclico.md`
 - `docs/bitacora/2026/02/176-pin-status-cross-filter-auto-switch-continuity.md`
 - `docs/bitacora/2026/02/179-filter-reframe-deferred-after-load.md`

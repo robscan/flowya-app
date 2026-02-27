@@ -4,8 +4,9 @@ Este directorio se reorganizó para mantener la raíz limpia.
 
 ## Documentos principales (siempre primero)
 
-- `CURRENT_STATE.md`
-- `OPEN_LOOPS.md`
+- `OPEN_LOOPS.md` (fuente diaria de ejecución)
+- `docs/bitacora/*` (últimas entradas del día)
+- `CURRENT_STATE.md` (snapshot de contexto, no bloqueante)
 
 ## Carpetas
 
@@ -18,6 +19,7 @@ Este directorio se reorganizó para mantener la raíz limpia.
 
 ## Regla rápida
 
-1. Revisar `CURRENT_STATE.md`
-2. Revisar `OPEN_LOOPS.md`
-3. Ejecutar trabajo usando los planes/contratos de subcarpetas
+1. Revisar `OPEN_LOOPS.md`
+2. Revisar bitácora reciente (últimas entradas del día activo)
+3. Usar `CURRENT_STATE.md` solo como contexto de alto nivel
+4. Ejecutar trabajo usando planes/contratos de subcarpetas

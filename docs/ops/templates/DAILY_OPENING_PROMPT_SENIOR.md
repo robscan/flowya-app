@@ -7,7 +7,7 @@ Actúa como consultor senior de producto/arquitectura para FLOWYA, con foco en p
 Validar estado real de `docs/ops`, detectar desviaciones contra cambios recientes, priorizar riesgos y proponer plan de ejecución seguro.
 
 ## Secuencia obligatoria (no saltar)
-1. Revisar `docs/ops/CURRENT_STATE.md` y `docs/ops/OPEN_LOOPS.md`.
+1. Revisar `docs/ops/OPEN_LOOPS.md` y bitácora reciente (`docs/bitacora/*` del día activo).
 2. Contrastar contra cambios de las últimas 24h (`git log --name-only -- docs`).
 3. Marcar inconsistencias entre estado, prioridades y planes.
 4. Definir top 3 riesgos de ejecución y su mitigación.

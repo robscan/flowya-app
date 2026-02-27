@@ -1,27 +1,118 @@
-# DESIGN_SYSTEM_USAGE — Contrato mínimo (Explore vNext)
+# DESIGN_SYSTEM_USAGE — Canon operativo (Explore + Edit Spot)
 
-**Fuentes de verdad:** `docs/ops/strategy/EXPLORE_UX_MICROSCOPES.md`, `docs/definitions/UI/COMPONENT_LIBRARY_POLICY.md`, `docs/ops/CURRENT_STATE.md`.
+**Fecha:** 2026-02-26
 
----
-
-## 1) Principio (ops)
-
-- Explore vNext debe usar **componentes canónicos del Design System**. No crear variantes duplicadas (chips, search input, sheet). _Referencia: decisión de hygiene/DS en ops._
-
----
-
-## 2) Componentes DS mencionados en ops/definitions para Explore vNext
-
-- **Chips / filtros:** Border radius y estados (active/inactive/pressed) deben venir de tokens del sistema; consistencia con design system. Bordes totalmente redondeados (pill): usar `Radius.pill`. _Fuente: EXPLORE_UX_MICROSCOPES / CURRENT_STATE._
-- **Search input:** Top bar tipo Apple Maps (input + close en una línea; clear "x" dentro del input; focus = fondo del contenedor, no línea azul). _Fuente: EXPLORE_UX_MICROSCOPES, definitions/EXPLORE_SHEET._
-- **IconButton, Botones, SpotCard, etc.:** Reglas generales en COMPONENT_LIBRARY_POLICY (estados, deprecación controlada, contract primero).
-- **SheetHandle (canónico):** Affordance de arrastre para sheets. `components/design-system/sheet-handle.tsx`. Usado en SpotSheet y SearchFloating (Explore vNext). Web: hover/active con cambio sutil de opacidad (sin sombras ni blur). OL-044.
+**Fuentes de verdad:**
+- Runtime Explore: `components/explorar/MapScreenVNext.tsx`
+- Runtime Edit Spot: `app/spot/edit/[id].web.tsx`
+- Contratos Explore runtime: `docs/contracts/explore/*_RUNTIME_RULES.md`
+- Política de librería: `docs/definitions/UI/COMPONENT_LIBRARY_POLICY.md`
 
 ---
 
-## 3) Inventario canónico explícito
+## 1) Alcance activo
 
-- **OPEN LOOP:** No existe en ops un inventario cerrado de "lista de componentes DS canónicos que Explore vNext debe usar". CURRENT_STATE y EXPLORE_UX_MICROSCOPES mencionan chips, top bar, sheet, pero no un catálogo único.
-- **TBD:** Hasta que ops o definitions definan un inventario mínimo (p.ej. en OPEN_LOOPS o en un doc de DS), este contrato se limita a: usar componentes de librería; chips/filtros con tokens; no duplicar variantes. Cualquier ampliación debe documentarse en ops primero.
-- **Map pins:** Ver `MAP_PINS_CONTRACT.md` para tamaños, jerarquía de capas y animaciones.
-- **SearchPill:** Entry point para abrir búsqueda en Explore. `components/design-system/search-pill.tsx`. Pill blanco con icono y texto. En BottomDock pillOnly: solo el pill flotante (sin contenedor envolvente). `variant=onDark` para contraste sobre mapa. Props: `label`, `onPress`, `fill`, `variant`.
+El diseño canónico actual cubre solo:
+- Ventana **Explorar** (map/filter/controls/search/sheet).
+- Ventana **Edit Spot** (formulario + mapa de ubicación + acciones).
+
+Cualquier UI fuera de ese alcance se considera candidata a deprecación hasta nueva decisión de producto.
+
+---
+
+## 2) Inventario canónico mínimo (obligatorio)
+
+### Explore
+- `IconButton`
+- `MapControls`
+- `MapPinFilter`
+- `MapPinFilterInline`
+- `MapPinSpot` / `MapPinLocation`
+- `SearchInputV2`
+- `SearchResultsListV2`
+- `SearchListCard`
+- `SheetHandle`
+- `SpotSheet`
+
+### Edit Spot
+- `IconButton`
+- `SpotImage`
+- `ImagePlaceholder`
+- `MapLocationPicker`
+- `ConfirmModal`
+
+Regla: si un flujo activo necesita un nuevo patrón, primero se extiende este inventario y luego se implementa.
+
+### Nota de arquitectura (listas)
+
+Se mantiene separación obligatoria entre:
+- **Infra de listado** (scroll, secciones, paginación, keyboard-safe): hoy `SearchResultsListV2`.
+- **Elemento de listado** (presentación visual de item): hoy `SearchListCard`.
+
+No se fusionan en un único componente monolítico.
+
+### Naming canónico propuesto (sin implementación en este scope)
+
+- `SearchResultsListV2` -> `ListView` (alias transitorio permitido: `SearchResultsListV2`).
+- `SearchListCard` -> `ResultRow` (alias transitorio permitido: `SearchListCard`).
+
+Objetivo: usar nomenclatura genérica DS para escalar a futuros listados sin acoplar al dominio Search.
+
+---
+
+## 3) Reglas UX/arquitectura (Apple Maps-like)
+
+- Top bar de búsqueda simple: 1 fila de filtros + cerrar, 1 fila de input ancho completo.
+- Un solo patrón de "result row" para búsqueda (evitar variantes de card paralelas).
+- Controles de mapa con prioridad contextual: `world` solo sin selección activa.
+- Sheet y mapa no compiten por foco: una interacción debe tener una respuesta dominante.
+- Sin sobre-anidaciones: componentes de DS con responsabilidad única y APIs acotadas.
+
+### Estados de interacción (cross-platform)
+
+Todo primitivo interactivo debe cubrir:
+- `default`
+- `hover` (web)
+- `pressed` (web + mobile)
+- `focus-visible` (web)
+- `selected` (si aplica)
+- `disabled`
+- `loading` (si aplica)
+
+Regla visual solicitada:
+- En mobile, `pressed` debe comunicar la misma intención visual que `hover` en web (misma familia de feedback, adaptada por plataforma).
+
+### Primitivos base a consolidar
+
+- `ActionButton`
+- `IconButton`
+- `TextField` (input/textarea + estados)
+- `ListView` (infra)
+- `ResultRow` (item visual)
+- `SurfaceCard`
+- `SheetHandle`
+
+Estos primitivos deben consumir tokens del tema y funcionar de forma nativa en `light` y `dark` sin hardcodes de color.
+
+---
+
+## 4) Candidatos a deprecación (pre-eliminación)
+
+- `components/explorar/MapScreenV0.tsx`
+- `app/mapaV0.tsx`
+- `app/mapaV0.web.tsx`
+- `components/design-system/map-ui.tsx` (placeholder no usado por runtime)
+- Secciones legacy/no operativas en `/design-system` que no correspondan a Explore/Edit Spot.
+
+---
+
+## 5) Guardrails de implementación
+
+- No crear componentes "one-off" dentro de pantallas activas.
+- Si una estructura aparece 2+ veces, crear template canónico en `components/design-system/`.
+- Evitar componentes > 300 líneas; si se excede, separar en subcomponentes por dominio.
+- Estados visuales deben salir de tokens (`constants/theme.ts`), no de colores inline por componente.
+- Todo deprecado debe tener:
+  - etiqueta `@deprecated`,
+  - reemplazo recomendado,
+  - fecha objetivo de retiro.

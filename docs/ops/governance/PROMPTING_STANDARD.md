@@ -9,8 +9,8 @@
 
 Si no está en:
 
-- `docs/ops/CURRENT_STATE.md`
 - `docs/ops/OPEN_LOOPS.md`
+- bitácora reciente (`docs/bitacora/*`)
 
 **no existe.**
 
@@ -35,11 +35,13 @@ Si no está en:
 
 Cuando un prompt implique cambios en estado operativo:
 
-- **CURRENT_STATE.md**
-  - Debe actualizarse con **archivo completo final**
 - **OPEN_LOOPS.md**
   - Debe actualizarse con **archivo completo final**
   - SOLO loops activos
+- **Bitácora del día**
+  - Debe registrar evidencia de cierre (cambio + validación mínima)
+- **CURRENT_STATE.md**
+  - Es snapshot de contexto y se actualiza cuando cambia dirección estratégica, no en cada micro-cambio diario.
 
 Nunca entregar bloques sueltos ni instrucciones parciales.
 

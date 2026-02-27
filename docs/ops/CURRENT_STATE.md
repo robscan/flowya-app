@@ -4,7 +4,8 @@
 > Snapshot operativo + memoria resumida.
 > No es backlog ni planeación.
 >
-> 🔒 Regla: ningún chat/sprint se considera cerrado si este archivo no se actualiza.
+> Nota operativa (2026-02-26): este archivo se mantiene como snapshot de contexto.
+> El cierre diario obligatorio vive en `OPEN_LOOPS.md` + bitácora del día.
 
 ---
 
