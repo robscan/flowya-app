@@ -28,6 +28,7 @@ import {
     type MapPinFilterValue,
 } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
+import { ResultRow } from "@/components/design-system/search-list-card";
 import { SearchResultCard } from "@/components/design-system/search-result-card";
 import { TypographyStyles } from "@/components/design-system/typography";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
@@ -59,6 +60,7 @@ import {
   searchPlacesPOI,
   type PlaceResultV2,
 } from "@/lib/places/searchPlacesPOI";
+import { searchPlacesByCategory } from "@/lib/places/searchPlacesCategory";
 import {
     FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
@@ -68,6 +70,7 @@ import {
     INITIAL_BEARING,
     INITIAL_PITCH,
     SPOT_FOCUS_ZOOM,
+    SPOTS_ZONA_RADIUS_KM,
 } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
@@ -476,6 +479,39 @@ function inferTappedKindFromPlace(place: PlaceResult): TappedMapFeatureKind {
   return inferExternalIntent(place) === "poi_landmark" ? "landmark" : "poi";
 }
 
+/** OL-WOW-F2-001-SEARCH: merge spots + places en lista unificada ordenada por atractivo/interés. */
+function mergeSearchResults(
+  spots: Spot[],
+  places: PlaceResult[],
+  query: string,
+): (Spot | PlaceResult)[] {
+  const deduped = dedupeExternalPlacesAgainstSpots(places, spots);
+  const rankedPlaces = rankExternalPlacesByIntent(deduped, query);
+
+  type Entry = { item: Spot | PlaceResult; score: number };
+  const entries: Entry[] = [];
+
+  // Spots: pinStatus primero, luego por índice
+  spots.forEach((spot, idx) => {
+    const hasPin = spot.pinStatus === "to_visit" || spot.pinStatus === "visited";
+    const base = hasPin ? 0 : 60;
+    entries.push({ item: spot, score: base + idx * 0.001 });
+  });
+
+  // Places: poi_landmark > place > poi; comercial penalizado
+  rankedPlaces.forEach((place, idx) => {
+    const intent = inferExternalIntent(place);
+    const commercial = isCommercialSuggestion(place);
+    let base = 40;
+    if (intent === "poi_landmark") base = 10;
+    else if (intent === "place") base = 20;
+    else if (intent === "poi") base = commercial ? 50 : 30;
+    entries.push({ item: place, score: base + idx * 0.001 });
+  });
+
+  return entries.sort((a, b) => a.score - b.score).map((e) => e.item);
+}
+
 export function MapScreenVNext() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -543,6 +579,8 @@ export function MapScreenVNext() {
   /** Valor actual del input en Paso 0 (para label del pin de preview). */
   const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
+  /** OL-WOW-F2-001-EMPTY: POIs por categoría cuando isEmpty (query vacía, pinFilter=all). */
+  const [nearbyPlacesEmpty, setNearbyPlacesEmpty] = useState<PlaceResult[]>([]);
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
@@ -1017,16 +1055,85 @@ export function MapScreenVNext() {
     getFilters: () => ({ pinFilter, hasVisited: pinCounts.visited > 0 }),
   });
 
+  /** isEmpty: spots dentro de SPOTS_ZONA_RADIUS_KM del centro del mapa (independiente del zoom). */
+  const defaultSpotsForEmpty = useMemo(() => {
+    if (!searchV2.isOpen || !mapInstance) return defaultSpots;
+    try {
+      const center = mapInstance.getCenter();
+      const inZona = filteredSpots
+        .filter(
+          (s) =>
+            distanceKm(center.lat, center.lng, s.latitude, s.longitude) <= SPOTS_ZONA_RADIUS_KM,
+        )
+        .sort(
+          (a, b) =>
+            distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
+            distanceKm(center.lat, center.lng, b.latitude, b.longitude),
+        )
+        .slice(0, 10);
+      return inZona;
+    } catch {
+      return defaultSpots;
+    }
+  }, [
+    searchV2.isOpen,
+    mapInstance,
+    filteredSpots,
+    defaultSpots,
+  ]);
+
+  /** OL-WOW-F2-001-EMPTY: isEmpty merge spots + POIs por categoría cuando pinFilter=all. */
+  const defaultItemsForEmpty = useMemo<(Spot | PlaceResult)[]>(() => {
+    if (pinFilter !== "all") return defaultSpotsForEmpty;
+    return mergeSearchResults(defaultSpotsForEmpty, nearbyPlacesEmpty, "");
+  }, [pinFilter, defaultSpotsForEmpty, nearbyPlacesEmpty]);
+
+  /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
+  const defaultSectionsForEmpty = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
+    if (pinFilter !== "saved" && pinFilter !== "visited") return [];
+    if (!mapInstance || filteredSpots.length === 0) return [];
+    try {
+      const center = mapInstance.getCenter();
+      const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
+      const nearby = filteredSpots
+        .filter(
+          (s) =>
+            distanceKm(center.lat, center.lng, s.latitude, s.longitude) <= SPOTS_ZONA_RADIUS_KM,
+        )
+        .sort(
+          (a, b) =>
+            distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
+            distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
+        );
+      const inWorld = filteredSpots
+        .filter(
+          (s) =>
+            distanceKm(center.lat, center.lng, s.latitude, s.longitude) > SPOTS_ZONA_RADIUS_KM,
+        )
+        .sort(
+          (a, b) =>
+            distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
+            distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
+        );
+      const sections: SearchSection<Spot | PlaceResult>[] = [];
+      if (nearby.length > 0) sections.push({ id: "nearby", title: "Spots en la zona", items: nearby });
+      if (inWorld.length > 0) sections.push({ id: "world", title: "Spots en el mapa", items: inWorld });
+      return sections;
+    } catch {
+      return [];
+    }
+  }, [pinFilter, mapInstance, filteredSpots, userCoords]);
+
   const searchHistory = useSearchHistory();
 
-  /** Sugerencias Mapbox cuando isNoResults y query >= 3 (para crear spot en lugar con contexto visible). */
+  /** OL-WOW-F2-001-SEARCH: fetch placeSuggestions siempre cuando query >= 3 y pinFilter=all. */
   useEffect(() => {
     const q = searchV2.query.trim();
     const shouldFetchExternal =
       searchV2.isOpen &&
       q.length >= 3 &&
-      !searchV2.isLoading &&
-      (searchV2.results.length === 0 || featureFlags.searchMixedRanking);
+      pinFilter === "all" &&
+      !searchV2.isLoading;
     if (!shouldFetchExternal) {
       setPlaceSuggestions([]);
       return;
@@ -1096,10 +1203,72 @@ export function MapScreenVNext() {
   }, [
     searchV2.isOpen,
     searchV2.query,
-    searchV2.results,
     searchV2.isLoading,
+    searchV2.results,
+    pinFilter,
     mapInstance,
   ]);
+
+  /**
+   * OL-WOW-F2-001-EMPTY: fetch POIs SOLO al abrir search (isEmpty, pinFilter=all).
+   * NO en pan/zoom: evita muchas consultas. Usuario cierra search → ve mapa → abre search → fetch.
+   */
+  useEffect(() => {
+    const q = searchV2.query.trim();
+    const shouldFetchEmpty =
+      searchV2.isOpen && q.length === 0 && pinFilter === "all";
+    if (!shouldFetchEmpty) {
+      setNearbyPlacesEmpty([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const baseOpts: {
+          limit: number;
+          proximity?: { lat: number; lng: number };
+          bbox?: { west: number; south: number; east: number; north: number };
+        } = { limit: 8 };
+        if (mapInstance) {
+          try {
+            const c = mapInstance.getCenter();
+            const b = mapInstance.getBounds();
+            baseOpts.proximity = { lat: c.lat, lng: c.lng };
+            baseOpts.bbox = b
+              ? {
+                  west: b.getWest(),
+                  south: b.getSouth(),
+                  east: b.getEast(),
+                  north: b.getNorth(),
+                }
+              : undefined;
+          } catch {
+            /* fallback: global search */
+          }
+        }
+        // attraction + museum en paralelo para más landmarks (monumentos, museos, etc.)
+        const [attractionResults, museumResults] = await Promise.all([
+          searchPlacesByCategory("attraction", baseOpts),
+          searchPlacesByCategory("museum", { ...baseOpts, limit: 6 }),
+        ]);
+        if (cancelled) return;
+        const seen = new Set<string>();
+        const merged: PlaceResult[] = [];
+        for (const p of [...attractionResults, ...museumResults]) {
+          if (seen.has(p.id)) continue;
+          seen.add(p.id);
+          merged.push(p);
+        }
+        const deduped = dedupeExternalPlacesAgainstSpots(merged, filteredSpots);
+        setNearbyPlacesEmpty(deduped);
+      } catch {
+        if (!cancelled) setNearbyPlacesEmpty([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchV2.isOpen, searchV2.query, pinFilter, mapInstance, filteredSpots]);
 
   useEffect(() => {
     const q = searchV2.query.trim().toLowerCase();
@@ -1924,10 +2093,13 @@ export function MapScreenVNext() {
   const searchIsOpen = searchV2.isOpen;
   const searchQuery = searchV2.query;
   const setSearchQuery = searchV2.setQuery;
-  const searchDisplayResults = useMemo<Spot[]>(() => {
+  /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
+  const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
     const viewportTick = viewportNonce;
+    if (pinFilter === "all") {
+      return mergeSearchResults(searchV2.results, placeSuggestions, searchV2.query);
+    }
     if (viewportTick < 0) return searchV2.results;
-    if (pinFilter !== "saved" && pinFilter !== "visited") return searchV2.results;
     if (!mapInstance) return searchV2.results;
     if (searchV2.results.length <= 1) return searchV2.results;
     try {
@@ -1940,7 +2112,7 @@ export function MapScreenVNext() {
     } catch {
       return searchV2.results;
     }
-  }, [pinFilter, searchV2.results, mapInstance, viewportNonce]);
+  }, [pinFilter, searchV2.results, searchV2.query, placeSuggestions, mapInstance, viewportNonce]);
   const searchResultSections = useMemo<SearchSection<Spot>[]>(() => {
     const viewportTick = viewportNonce;
     if (viewportTick < 0) return [];
@@ -1948,19 +2120,23 @@ export function MapScreenVNext() {
     if (searchDisplayResults.length === 0) return [];
     if (!mapInstance) return [];
     try {
-      const bounds = mapInstance.getBounds();
-      const nearby = searchDisplayResults.filter((spot) =>
-        bounds.contains([spot.longitude, spot.latitude]),
-      );
-      const inWorld = searchDisplayResults.filter(
-        (spot) => !bounds.contains([spot.longitude, spot.latitude]),
-      );
+      const center = mapInstance.getCenter();
+      const nearby = searchDisplayResults.filter((spot) => {
+        const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
+        const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
+        return distanceKm(center.lat, center.lng, lat, lng) <= SPOTS_ZONA_RADIUS_KM;
+      });
+      const inWorld = searchDisplayResults.filter((spot) => {
+        const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
+        const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
+        return distanceKm(center.lat, center.lng, lat, lng) > SPOTS_ZONA_RADIUS_KM;
+      });
       const sections: SearchSection<Spot>[] = [];
       if (nearby.length > 0) {
-        sections.push({ id: "nearby", title: "Cercanos", items: nearby });
+        sections.push({ id: "nearby", title: "Spots en la zona", items: nearby });
       }
       if (inWorld.length > 0) {
-        sections.push({ id: "world", title: "En el mapa", items: inWorld });
+        sections.push({ id: "world", title: "Spots en el mapa", items: inWorld });
       }
       return sections;
     } catch {
@@ -2453,9 +2629,10 @@ export function MapScreenVNext() {
         onValueChange={setCreateSpotNameValue}
       />
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
-      <SearchFloating<Spot>
+      <SearchFloating<Spot | PlaceResult>
         controller={searchV2}
-        defaultItems={defaultSpots}
+        defaultItems={defaultItemsForEmpty}
+        defaultItemSections={defaultSectionsForEmpty}
         recentQueries={searchHistory.recentQueries}
         recentViewedItems={recentViewedSpots}
         insets={{ top: insets.top, bottom: insets.bottom }}
@@ -2464,7 +2641,7 @@ export function MapScreenVNext() {
         onPinFilterChange={(next) => handlePinFilterChange(next, { reframe: false })}
         resultsOverride={searchDisplayResults}
         resultSections={searchResultSections}
-        placeSuggestions={placeSuggestions}
+        placeSuggestions={pinFilter === "all" ? [] : placeSuggestions}
         onCreateFromPlace={handleCreateFromPlace}
         activitySummary={{
           isVisible: false,
@@ -2473,15 +2650,31 @@ export function MapScreenVNext() {
           visitedCountriesCount: countriesCountByFilter.visited,
           isLoading: false,
         }}
-        renderItem={(spot) => (
-          <SearchResultCard
-            spot={spot}
-            onPress={() => searchV2.onSelect(spot)}
-          />
-        )}
+        renderItem={(item: Spot | PlaceResult) => {
+          if ("title" in item && "latitude" in item) {
+            return (
+              <SearchResultCard
+                spot={item}
+                onPress={() => searchV2.onSelect(item)}
+              />
+            );
+          }
+          return (
+            <ResultRow
+              title={(item as PlaceResult).name}
+              subtitle={(item as PlaceResult).fullName}
+              onPress={() => handleCreateFromPlace(item as PlaceResult)}
+              accessibilityLabel={`Ver: ${(item as PlaceResult).name}`}
+            />
+          );
+        }}
         stageLabel={stageLabel}
         scope="explorar"
-        getItemKey={(s) => s.id}
+        getItemKey={(item) => {
+          if ("id" in item && typeof (item as Spot).id === "string") return (item as Spot).id;
+          const p = item as PlaceResult;
+          return p.id ?? `place-${p.lat}-${p.lng}`;
+        }}
       />
       {/* CONTRATO: Sheet disabled while search open; ocultar cuando flujo de creación (CreateSpotNameOverlay) activo */}
       {(selectedSpot != null || poiTapped != null) &&

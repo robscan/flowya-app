@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-27 (higiene operativa + repriorización)
+**Fecha:** 2026-02-28
 
 > Este archivo define el alcance diario del chat.
 > El objetivo es **vaciar esta lista** para dar por cerrada la sesión.
@@ -11,11 +11,8 @@
 ## Foco inmediato (P2/P3)
 
 **Orden sugerido (siguiente ciclo)**
-1. `OL-P2-004` (autoFocus + keyboard-safe QA)
-2. `OL-P2-002` (cierre QA teclado on scroll/tap)
-3. `OL-WOW-F2-001` (single search surface, Gate F1 ya cerrado)
-4. `OL-WOW-F2-003` (filtros como intención)
-5. `OL-WOW-F2-005` (cámara/foco mini QA secuencial)
+1. `OL-WOW-F2-003` (filtros como intención)
+4. `OL-WOW-F2-005` (cámara/foco mini QA secuencial)
 
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)
 
@@ -36,7 +33,7 @@
 
 ### OL-P2-002 — En buscador: teclado desaparece al hacer scroll o interactuar
 
-**Estado:** EN VALIDACIÓN QA
+**Estado:** CERRADO
 
 **DoD / AC**
 - Scroll/tap fuera del input cierra teclado (sin cerrar Search).
@@ -69,7 +66,7 @@
 
 ### OL-P2-004 — KEYBOARD_AND_TEXT_INPUTS Fase 9 (autoFocus) pendiente de verificación
 
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Verificar y documentar autoFocus en flows acordados (web/native) sin romper keyboard-safe.
@@ -103,7 +100,7 @@
 
 ### OL-P2-006 — Optimización integral de pantalla Explorar (análisis + reestructura)
 
-**Estado:** ACTIVO (solo definición de actividad; no ejecutar implementación aún)
+**Estado:** ACTIVO — completar conforme se avanzan y definen o descartan nuevos elementos.
 
 **Entregable esperado**
 - Diagnóstico por áreas (estado actual, deuda, riesgos, impacto).
@@ -248,18 +245,71 @@
 ### Fase 2 — Interacción WOW (Intención y Flujo)
 
 #### OL-WOW-F2-001 — Single Search Surface (contenido unificado)
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Árbol de contenido de búsqueda unificado; adapters por plataforma mínimos.
 - Paridad funcional web/native en estados `isEmpty/isPreSearch/isSearch/isNoResults`.
 - Principio `Mapbox-first`: priorizar capacidades nativas de Mapbox; lógica custom solo si hay limitación demostrada o necesidad de acceso/acción sobre spots.
+- SearchSurface con `renderItem` genérico compatible con union `Spot | PlaceResult` para OL posteriores.
 
 **Pruebas mínimas**
 - Smoke comparativo web/native por estado de búsqueda.
 
 **Dependencia**
 - Gate Fase 1.
+
+**Referencia**
+- Bitácora `206`.
+- `docs/ops/proposals/PROPOSAL_SEARCH_POIS_LANDMARKS_IN_LIST.md` (principio: usuario ve solo spots, sin distinguir DB vs externo).
+
+---
+
+#### OL-WOW-F2-001-SEARCH — Lista unificada isSearch (spots + POIs/landmarks)
+**Estado:** CERRADO
+
+**DoD / AC**
+- Lista principal de resultados en `isSearch` fusiona Flowya spots + POIs/landmarks Mapbox en un único listado.
+- Orden por atractivo/interés (landmarks, cercanía, relevancia de query); el usuario no distingue origen.
+- Misma fila visual para Spot y PlaceResult; tap en POI abre flujo Crear spot (transparente).
+- En filtros `saved/visited` solo Flowya spots (operativo).
+
+**Pruebas mínimas**
+- Smoke: query >= 3, pinFilter=all → lista con spots DB + POIs/landmarks.
+- Smoke: tap en spot DB → ficha; tap en POI → Crear spot.
+- Smoke: filtro saved/visited → solo spots Flowya.
+
+**Dependencia**
+- OL-WOW-F2-001.
+
+**Referencia**
+- Bitácora `207`.
+- `docs/ops/proposals/PROPOSAL_SEARCH_POIS_LANDMARKS_IN_LIST.md` (Fase 1).
+
+---
+
+#### OL-WOW-F2-001-EMPTY — Lista unificada isEmpty (Flowya + POIs categoría)
+**Estado:** CERRADO
+
+**DoD / AC**
+- Lista en `isEmpty` fusiona Flowya spots cercanos + POIs por categoría Mapbox (Category API) en un único listado.
+- Sin etiquetas "Spots cercanos" vs "Lugares cercanos"; el usuario ve un único listado de spots.
+- Orden por atractivo/cercanía.
+- `lib/places/searchPlacesCategory.ts` (nuevo) con categoría `attraction` o `landmark`.
+
+**Pruebas mínimas**
+- Smoke: query vacía, Search abierto → lista única con spots Flowya + POIs Mapbox.
+- Smoke: tap en spot DB → ficha; tap en POI → Crear spot.
+
+**Dependencia**
+- OL-WOW-F2-001.
+
+**Referencia**
+- Bitácora `208`.
+- Plan: `docs/ops/plans/PLAN_OL_WOW_F2_001_EMPTY_LISTA_UNIFICADA_ISEMPTY.md`
+- `docs/ops/proposals/PROPOSAL_SEARCH_POIS_LANDMARKS_IN_LIST.md` (Fase 2)
+
+---
 
 #### OL-WOW-F2-002 — Ranking explicable (micro-señales)
 **Estado:** ACTIVO

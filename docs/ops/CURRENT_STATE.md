@@ -20,12 +20,17 @@
   2) Implementar System Status Bar (reemplazo de toast)
   3) Create Spot mínimo + Rediseño Edit Spot (pospuestos temporalmente)
 
-## Actualización (2026-02-27)
+## Actualización (2026-02-28)
 
 - **Fase 1 WOW:** cerrada operativamente (`F1-001`, `F1-002`, `F1-003`, `F1-004`).
 - **Fase 2 WOW:** desbloqueada para ejecución (`F2-001..005` activos).
-- **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`) adoptado con alias legacy.
-- **Deprecados retirados:** `mapaV0`, `MapScreenV0`, `map-ui` fuera del runtime activo.
+- **OL-WOW-F2-001** (Single Search Surface): CERRADO. SearchSurface unifica contenido web/native; adapters mínimos (SearchOverlayWeb, SearchFloatingNative). Bitácora `206`.
+- **OL-WOW-F2-001-SEARCH** (Lista unificada isSearch): CERRADO. Merge spots + POIs/landmarks en lista principal cuando pinFilter=all; tap en POI abre Crear spot. Bitácora `207`.
+- **OL-WOW-F2-001-EMPTY** (Lista unificada isEmpty): CERRADO. Merge spots + POIs por categoría en isEmpty. searchPlacesCategory.ts, defaultItemsForEmpty. Bitácora `208`.
+- **OL-P2-002** (teclado desaparece al scroll/tap): CERRADO con evidencia.
+- **OL-P2-004** (autoFocus + keyboard-safe): CERRADO con evidencia.
+- **OL-P2-006** (Optimización Explore): ACTIVO — completar conforme se avanzan y definen o descartan nuevos elementos.
+- **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`).
 - **Activity Summary Fase A:** implementado y validado QA; países con heurística + guardrail de cobertura.
 - **Ajuste UX vigente:** indicador circular de países en mapa, visible solo con filtros `saved/visited`, no interactivo por ahora.
 - **Mejora diferida acordada:** interacción del círculo para abrir mapa mundial shareable (postergado).

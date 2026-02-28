@@ -9,6 +9,8 @@ export type SearchFloatingProps<T> = {
   controller: UseSearchControllerV2Return<T>;
   /** Items a mostrar cuando la query está vacía (ej. "Cercanos"). */
   defaultItems: T[];
+  /** Secciones para isEmpty cuando pinFilter saved/visited (Spots en la zona, Spots en el mapa). */
+  defaultItemSections?: SearchSection<T>[];
   /** Queries recientes para estado pre-búsqueda. */
   recentQueries: string[];
   /** Items vistos recientemente (por id). */

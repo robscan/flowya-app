@@ -32,6 +32,9 @@ export const LABEL_MIN_ZOOM = 12;
 /** Tolerancia en km para considerar que un spot coincide con un POI tocado (~25 m). */
 export const SPOT_POI_MATCH_TOLERANCE_KM = 0.025;
 
+/** Radio en km para "Spots en la zona" (independiente del zoom del mapa). */
+export const SPOTS_ZONA_RADIUS_KM = 10;
+
 export const FIT_BOUNDS_PADDING = 64;
 export const FIT_BOUNDS_DURATION_MS = 1200;
 /** Zoom al encuadrar spot (card búsqueda, control encuadrar). 17 = nivel edificio. */

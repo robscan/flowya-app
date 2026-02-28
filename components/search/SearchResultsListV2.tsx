@@ -104,11 +104,12 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   content: {
-    paddingBottom: Spacing.base,
-    gap: Spacing.base,
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
   section: {
-    gap: Spacing.xs,
+    gap: Spacing.sm,
   },
   sectionHeaderPlaceholder: {
     minHeight: 24,
