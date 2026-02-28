@@ -14,7 +14,8 @@ export const featureFlags = {
   hideLinkedUnsaved: envEnabled('EXPO_PUBLIC_FF_HIDE_LINKED_UNSAVED', true),
   flowyaPinMakiIcon: envEnabled('EXPO_PUBLIC_FF_FLOWYA_PIN_MAKI_ICON', true),
   mapLandmarkLabels: envEnabled('EXPO_PUBLIC_FF_MAP_LANDMARK_LABELS', true),
-  searchExternalPoiResults: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS'),
+  /** ON por defecto: Search Box API devuelve POIs/landmarks; Geocoding v6 solo direcciones. */
+  searchExternalPoiResults: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS', true),
   searchMixedRanking: envEnabled('EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING'),
   searchExternalDedupe: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE'),
 } as const;

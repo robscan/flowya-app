@@ -1,24 +1,18 @@
 /**
  * SearchFloatingNative — Sheet de búsqueda con drag-to-dismiss (solo Native).
  * No body overflow ni visualViewport; solo iOS/Android.
+ * OL-WOW-F2-001: contenido unificado en SearchSurface.
  */
 
-import { IconButton } from '@/components/design-system/icon-button';
-import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
-import { ResultRow } from '@/components/design-system/search-list-card';
-import { ActivitySummary } from '@/components/design-system/activity-summary';
 import { SheetHandle } from '@/components/design-system/sheet-handle';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useCallback, useEffect } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
-  ScrollView,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -29,15 +23,11 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { Search, X } from 'lucide-react-native';
-import { SearchInputV2 } from './SearchInputV2';
-import { ListView } from './SearchResultsListV2';
+import { SearchSurface } from './SearchSurface';
 import type { SearchFloatingProps } from './types';
 
 const SEARCH_PANEL_PADDING = 16;
 const SHEET_BORDER_RADIUS = 24;
-const HEADER_PILL_RADIUS = 22;
-const HEADER_ROW_HEIGHT = 44;
 const HEADER_TOP_PADDING = 16;
 const SEARCH_DURATION_MS = 300;
 const SEARCH_EASING = Easing.bezier(0.4, 0, 0.2, 1);
@@ -49,14 +39,13 @@ const SEARCH_SNAP_BACK_MS = 220;
 export function SearchFloatingNative<T>({
   controller,
   defaultItems,
+  defaultItemSections = [],
   recentQueries,
   recentViewedItems,
   renderItem,
   stageLabel: _stageLabel,
   resultsOverride,
   resultSections = [],
-  emptyMessage = 'No hay spots cercanos. Busca en el mapa o crea uno nuevo.',
-  onCreateLabel = 'Crear nuevo spot',
   getItemKey,
   pinFilter,
   pinCounts,
@@ -65,17 +54,8 @@ export function SearchFloatingNative<T>({
   onCreateFromPlace,
   activitySummary,
 }: SearchFloatingProps<T>) {
-  const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
-  const sectionHeaderGlowColor =
-    colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-  const sectionHeaderGlowStyle = {
-    textShadowColor: sectionHeaderGlowColor,
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 1 } as const,
-  };
   const screenHeight = Dimensions.get('window').height;
 
   const translateYShared = useSharedValue(screenHeight);
@@ -144,18 +124,6 @@ export function SearchFloatingNative<T>({
       }
     });
 
-  const q = controller.query.trim();
-  const len = q.length;
-  const isEmpty = len === 0;
-  const isPreSearch = len > 0 && len < 3;
-  const isSearch = len >= 3;
-  const displayResults = resultsOverride ?? controller.results;
-  const showPlaceRecommendations = pinFilter == null || pinFilter === 'all';
-  const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
-  const hideListTitles = isFilteredPinSearch;
-  /** Estado "Sin resultados" (contrato SEARCH_NO_RESULTS_CREATE_CHOOSER): query >= threshold, results vacío, no loading. */
-  const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
-
   if (!controller.isOpen) return null;
 
   return (
@@ -178,244 +146,33 @@ export function SearchFloatingNative<T>({
                 <View style={styles.handleRow}>
                   <SheetHandle />
                 </View>
-                <View style={[styles.topRow, { paddingTop: HEADER_TOP_PADDING }]}>
-                  <View style={styles.filterRow}>
-                    {pinFilter != null && onPinFilterChange != null ? (
-                      <MapPinFilterInline
-                        value={pinFilter}
-                        onChange={onPinFilterChange}
-                        counts={pinCounts}
-                      />
-                    ) : null}
-                  </View>
-                  <IconButton
-                    variant="default"
-                    selected
-                    onPress={requestClose}
-                    accessibilityLabel="Cerrar búsqueda"
-                  >
-                    <X size={24} color={colors.text} strokeWidth={2} />
-                  </IconButton>
-                </View>
-                <View style={styles.searchRow}>
-                  <View
-                    style={[
-                      styles.searchPill,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.borderSubtle,
-                      },
-                    ]}
-                  >
-                    <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-                    <SearchInputV2
-                      value={controller.query}
-                      onChangeText={controller.setQuery}
-                      onClear={controller.clear}
-                      placeholder="Buscar spots"
-                      autoFocus
-                      embedded
-                    />
-                  </View>
-                </View>
-                {activitySummary?.isVisible ? (
-                  <View style={styles.activitySummaryWrap}>
-                    <ActivitySummary
-                      visitedPlacesCount={activitySummary.visitedPlacesCount}
-                      pendingPlacesCount={activitySummary.pendingPlacesCount}
-                      visitedCountriesCount={activitySummary.visitedCountriesCount}
-                      isLoading={activitySummary.isLoading}
-                      mode="countries-only"
-                    />
-                  </View>
-                ) : null}
+                <KeyboardAvoidingView
+                  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                  style={[styles.keyboardAvoid, { paddingTop: HEADER_TOP_PADDING }]}
+                >
+                  <SearchSurface
+                    controller={controller}
+                    defaultItems={defaultItems}
+                    defaultItemSections={defaultItemSections}
+                    recentQueries={recentQueries}
+                    recentViewedItems={recentViewedItems}
+                    renderItem={renderItem}
+                    stageLabel=""
+                    resultsOverride={resultsOverride}
+                    resultSections={resultSections}
+                    getItemKey={getItemKey}
+                    pinFilter={pinFilter}
+                    pinCounts={pinCounts}
+                    onPinFilterChange={onPinFilterChange}
+                    placeSuggestions={placeSuggestions}
+                    onCreateFromPlace={onCreateFromPlace}
+                    activitySummary={activitySummary}
+                    onClosePress={requestClose}
+                    scrollViewKeyboardDismissMode="on-drag"
+                  />
+                </KeyboardAvoidingView>
               </View>
             </GestureDetector>
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-              style={styles.keyboardAvoid}
-            >
-              <View style={styles.resultsArea}>
-                {isEmpty && defaultItems.length > 0 && (
-                  <ScrollView
-                    style={styles.resultsScroll}
-                    contentContainerStyle={styles.resultsContent}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                    showsVerticalScrollIndicator
-                  >
-                    {!hideListTitles ? (
-                      <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                        Spots cercanos
-                      </Text>
-                    ) : null}
-                    {defaultItems.map((item, idx) => (
-                      <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
-                        {renderItem(item)}
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-                {isPreSearch && (recentQueries.length > 0 || recentViewedItems.length > 0) && (
-                  <ScrollView
-                    style={styles.resultsScroll}
-                    contentContainerStyle={styles.resultsContent}
-                    keyboardShouldPersistTaps="handled"
-                    keyboardDismissMode="on-drag"
-                    showsVerticalScrollIndicator
-                  >
-                    {recentQueries.length > 0 && (
-                      <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                          Búsquedas recientes
-                        </Text>
-                        {recentQueries.slice(0, 5).map((queryItem) => (
-                          <Pressable
-                            key={queryItem}
-                            style={styles.historyItem}
-                            onPress={() => controller.setQuery(queryItem)}
-                          >
-                            <Text style={{ color: colors.text }}>{queryItem}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                    )}
-                    {recentViewedItems.length > 0 && (
-                      <View style={styles.resultItemWrap}>
-                        <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                          Vistos recientemente
-                        </Text>
-                        <View style={styles.recentListWrap}>
-                          {recentViewedItems.slice(0, 10).map((item, idx) => (
-                            <View key={keyFor(item, idx)}>{renderItem(item)}</View>
-                          ))}
-                        </View>
-                      </View>
-                    )}
-                  </ScrollView>
-                )}
-                {isSearch && displayResults.length > 0 && (
-                  <>
-                    <ListView
-                      sections={resultSections}
-                      results={displayResults}
-                      renderItem={renderItem}
-                      renderSectionHeader={(section) =>
-                        isFilteredPinSearch ? (
-                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                            {section.title}
-                          </Text>
-                        ) : null
-                      }
-                      onEndReached={controller.fetchMore}
-                      hasMore={controller.hasMore}
-                      isLoading={controller.isLoading}
-                      footer={
-                        showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
-                          <View style={styles.suggestionsSection}>
-                            <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                              Recomendaciones
-                            </Text>
-                            <View style={styles.cardsList}>
-                              {placeSuggestions.slice(0, 3).map((place) => (
-                                <ResultRow
-                                  key={place.id}
-                                  title={place.name}
-                                  subtitle={place.fullName}
-                                  onPress={() => onCreateFromPlace(place)}
-                                  accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
-                                />
-                              ))}
-                            </View>
-                          </View>
-                        ) : null
-                      }
-                    />
-                  </>
-                )}
-                {isNoResults && (
-                  <View style={styles.noResultsWrap}>
-                    <ScrollView
-                      style={styles.noResultsScroll}
-                      contentContainerStyle={styles.resultsContent}
-                      keyboardShouldPersistTaps="handled"
-                      keyboardDismissMode="on-drag"
-                      showsVerticalScrollIndicator
-                    >
-                      {(() => {
-                        const showNoSpotsMessage =
-                          isFilteredPinSearch || placeSuggestions.length === 0;
-                        return showNoSpotsMessage ? (
-                          <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
-                            {isFilteredPinSearch
-                              ? 'No encontramos resultados en este filtro. Para ver recomendaciones del mundo, cambia a Todos.'
-                              : 'No encontramos ese lugar en tus spots.'}
-                          </Text>
-                        ) : null;
-                      })()}
-                      {/** @deprecated Sugerencias ES↔EN sin criterio útil; eliminar cuando mapPoiResults esté estable. Ver GUARDRAILS_DEPRECACION. */}
-                      {false && controller.suggestions.length > 0 && (
-                        <View style={styles.suggestionsSection}>
-                          <Text style={[styles.sectionHeader, { color: colors.textSecondary }, sectionHeaderGlowStyle]}>
-                            Sugerencias
-                          </Text>
-                          {controller.suggestions.map((s) => (
-                            <Pressable
-                              key={s}
-                              style={({ pressed }) => [
-                                styles.suggestionRow,
-                                { backgroundColor: pressed ? colors.borderSubtle : 'transparent' },
-                              ]}
-                              onPress={() => controller.onSuggestionTap(s)}
-                              accessibilityLabel={`Buscar: ${s}`}
-                              accessibilityRole="button"
-                            >
-                              <Text style={{ color: colors.text, fontSize: 16 }}>{s}</Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                      )}
-                      {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
-                        <View style={styles.suggestionsSection}>
-                          <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                            Lugares recomendados
-                          </Text>
-                          <View style={styles.cardsList}>
-                            {placeSuggestions.map((place) => (
-                              <ResultRow
-                                key={place.id}
-                                title={place.name}
-                                subtitle={place.fullName}
-                                onPress={() => onCreateFromPlace(place)}
-                                accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
-                    />
-                            ))}
-                          </View>
-                        </View>
-                      ) : null}
-                      {!isFilteredPinSearch ? (
-                        <View style={styles.chooserSection}>
-                          <Pressable
-                            style={({ pressed }) => [
-                              styles.chooserButton,
-                              { backgroundColor: pressed ? colors.tintPressed ?? colors.tint : colors.tint },
-                            ]}
-                            onPress={controller.onCreate}
-                            accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
-                            accessibilityRole="button"
-                          >
-                            <View style={styles.chooserButtonContent}>
-                              <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
-                              <Text style={styles.chooserButtonSubtitle}>Centro del mapa o tu ubicación</Text>
-                            </View>
-                          </Pressable>
-                        </View>
-                      ) : null}
-                    </ScrollView>
-                  </View>
-                )}
-              </View>
-            </KeyboardAvoidingView>
           </Animated.View>
         </View>
       </View>
@@ -457,74 +214,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: SEARCH_PANEL_PADDING,
     paddingBottom: SEARCH_PANEL_PADDING,
   },
-  dragArea: { flexShrink: 0 },
+  dragArea: { flex: 1, minHeight: 0 },
   handleRow: { paddingTop: 8, marginBottom: 4 },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.sm,
-  },
-  filterRow: { flex: 1, minWidth: 0 },
-  searchRow: { marginBottom: Spacing.sm },
-  activitySummaryWrap: { marginBottom: Spacing.sm },
-  searchPill: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: HEADER_ROW_HEIGHT,
-    paddingLeft: Spacing.base,
-    paddingRight: Spacing.sm,
-    gap: Spacing.sm,
-    borderRadius: HEADER_PILL_RADIUS,
-    borderWidth: 1,
-    minWidth: 0,
-  },
   keyboardAvoid: { flex: 1, minHeight: 0 },
-  resultsArea: { flex: 1, minHeight: 0, marginTop: Spacing.sm },
-  noResultsWrap: { flex: 1, minHeight: 0 },
-  noResultsScroll: {},
-  tapToCloseMapArea: { minHeight: 0 },
-  resultsScroll: { flex: 1, minHeight: 0 },
-  resultsContent: { paddingBottom: Spacing.sm, gap: Spacing.sm },
-  resultItemWrap: { width: '100%' },
-  recentListWrap: { gap: Spacing.sm, width: '100%' },
-  sectionHeader: {
-    fontSize: 13,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
-  },
-  historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
-  noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
-  suggestionsSection: { marginBottom: Spacing.base },
-  cardsList: { gap: Spacing.sm },
-  suggestionRow: {
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.base,
-    borderRadius: Radius.sm,
-  },
-  chooserSection: { marginTop: Spacing.sm },
-  placeRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  placeRowContent: { flex: 1, minWidth: 0, gap: 2 },
-  placeRowSubtitle: { fontSize: 14, color: '#AAB2BF' },
-  chooserRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  chooserRowContent: { gap: 2, flex: 1, minWidth: 0 },
-  chooserRowTitle: { fontSize: 16, fontWeight: '600' },
-  chooserRowSubtitle: { fontSize: 13 },
-  chooserButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.pill,
-    marginTop: 4,
-  },
-  chooserButtonContent: { gap: 2, alignItems: 'center' },
-  chooserButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  chooserButtonSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13 },
-  emptyText: { fontSize: 15, textAlign: 'center' },
 });
