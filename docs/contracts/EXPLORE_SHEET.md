@@ -46,6 +46,26 @@
 - `medium`
 - `expanded`
 
+### 3.1) Modelo de intención (OL-WOW-F2-004)
+
+Cada estado tiene un objetivo explícito:
+
+- **`collapsed` (peek) — Awareness:** Usuario percibe que hay algo seleccionado sin comprometerse. Vista previa mínima (título, share, close).
+- **`medium` — Decision:** Usuario puede decidir qué hacer. **CTA principal contextual visible** (Ver detalle, Por visitar, Compartir). Resumen suficiente para tomar acción.
+- **`expanded` — Detail:** Contenido completo para leer/editar. Acciones secundarias (Editar, Eliminar).
+
+**Regla:** El CTA principal debe ser visible en `medium` sin scroll obligatorio.
+
+**CTA contextual por filtro y estado del lugar (OL-WOW-F2-004):**
+
+- Sin marcar + Filtro Todos: Por visitar + Visitado (dos pills)
+- Sin marcar + Filtro Por visitar: solo Por visitar
+- Sin marcar + Filtro Visitados: solo Visitado
+- Por visitar: Marcar visitado
+- Visitado: Visitado (tocar para quitar)
+
+Permite marcar Visitado directamente desde filtro Todos o Visitados sin pasar por Por visitar.
+
 ### Reglas por estado
 
 #### `collapsed`

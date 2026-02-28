@@ -14,11 +14,14 @@ export type SearchResultCardProps = {
     pinStatus?: 'default' | 'to_visit' | 'visited';
   };
   onPress?: () => void;
+  /** Señal "cerca": ej. "1.2 km". OL-WOW-F2-002. */
+  distanceText?: string | null;
 };
 
 export function SearchResultCard({
   spot,
   onPress,
+  distanceText = null,
 }: SearchResultCardProps) {
   return (
     <View style={styles.wrap}>
@@ -27,6 +30,7 @@ export function SearchResultCard({
         subtitle={spot.address ?? null}
         imageUri={spot.cover_image_url}
         pinStatus={spot.pinStatus}
+        distanceText={distanceText}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
       />

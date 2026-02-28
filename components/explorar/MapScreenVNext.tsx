@@ -53,7 +53,7 @@ import {
     blurActiveElement,
     saveFocusBeforeNavigate,
 } from "@/lib/focus-management";
-import { distanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
+import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import {
@@ -81,6 +81,7 @@ import {
     removePin,
     setPinStatus,
     setSaved,
+    setVisited,
 } from "@/lib/pins";
 import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spotsStrategyProvider";
 import { onlyVisible } from "@/core/shared/visibility-softdelete";
@@ -258,6 +259,18 @@ function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
     out.push(item);
   }
   return out;
+}
+
+/** OL-WOW-F2-002: inferir landmark desde maki/categories/featureType. */
+function isPlaceLandmark(place: PlaceResult): boolean {
+  const maki = (place.maki ?? "").toLowerCase();
+  const ft = (place.featureType ?? "").toLowerCase();
+  const cats = (place.categories ?? []).map((c) => String(c).toLowerCase());
+  const landmarkTokens = ["landmark", "monument", "museum", "religious", "historic"];
+  if (ft.includes("landmark")) return true;
+  if (landmarkTokens.some((t) => maki.includes(t))) return true;
+  if (cats.some((c) => landmarkTokens.some((t) => c.includes(t)))) return true;
+  return false;
 }
 
 const TOURISM_KEYWORDS = [
@@ -948,7 +961,12 @@ export function MapScreenVNext() {
       setPinFilter(nextFilter);
       /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
       if (!searchIsOpenRef.current) {
-        toast.show(INTENTION_BY_FILTER[nextFilter], { type: "success" });
+        const filterToast: Record<MapPinFilterValue, string> = {
+          all: "Explorando todo",
+          saved: "Planificando lo próximo",
+          visited: "Recordando lo vivido",
+        };
+        toast.show(filterToast[nextFilter], { type: "success" });
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -1703,7 +1721,7 @@ export function MapScreenVNext() {
       .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
       .single();
     if (insertError) {
-      toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
+      toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
       return;
     }
     const newId = inserted?.id;
@@ -1778,7 +1796,7 @@ export function MapScreenVNext() {
   /** Crear spot desde POI tocado (tap en mapa). Flujo de planificación: no bloquea por anti-duplicado. */
   const handleCreateSpotFromPoi = useCallback(
     async (
-      asToVisit: boolean,
+      initialStatus?: "to_visit" | "visited",
       targetSheetState: "medium" | "expanded" = "medium",
     ) => {
       const poi = poiTapped;
@@ -1787,7 +1805,7 @@ export function MapScreenVNext() {
       let didAttemptPersist = false;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       let created = false;
-      if (asToVisit) {
+      if (initialStatus === "to_visit") {
         setPoiTapped((prev) =>
           prev
             ? {
@@ -1829,19 +1847,26 @@ export function MapScreenVNext() {
           .single();
         if (insertError) {
           if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
-          toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
+          toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
           return;
         }
         const newId = inserted?.id;
         if (!newId) {
           if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
-          toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+          toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
           return;
         }
-        if (asToVisit) {
+        if (initialStatus === "to_visit") {
           const savedState = await setSaved(newId, true);
           if (savedState == null) {
-            toast.show("Se creó el lugar, pero no se pudo marcar como Por visitar. Intenta de nuevo.", {
+            toast.show("Se creó el lugar, pero no se pudo agregar a Por visitar. Prueba otra vez.", {
+              type: "error",
+            });
+          }
+        } else if (initialStatus === "visited") {
+          const visitedState = await setVisited(newId, true);
+          if (visitedState == null) {
+            toast.show("Se creó el lugar, pero no se pudo marcar como visitado. Prueba otra vez.", {
               type: "error",
             });
           }
@@ -1880,10 +1905,10 @@ export function MapScreenVNext() {
         if (shouldTrackCreateFromSearch && didAttemptPersist) {
           recordCreateFromSearchResult(false);
         }
-        toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+        toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
-        if (asToVisit && !created) {
+        if (initialStatus === "to_visit" && !created) {
           resetPoiTappedVisualState(poi);
         }
       }
@@ -1925,16 +1950,16 @@ export function MapScreenVNext() {
           .select("id, title, link_status, linked_place_id, linked_place_kind, linked_maki")
           .single();
         if (insertError) {
-          toast.show(insertError.message ?? "No se pudo crear el spot", { type: "error" });
+          toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
           return;
         }
         const newId = inserted?.id;
         if (!newId) {
-          toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+          toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
           return;
         }
         const result = await shareSpot(newId, poi.name);
-        if (result.copied) toast.show("Link copiado", { type: "success" });
+        if (result.copied) toast.show("Enlace copiado", { type: "success" });
         const pinMap = await getPinsForSpots([newId]);
         const state = pinMap.get(newId);
         const created: Spot = {
@@ -1961,7 +1986,7 @@ export function MapScreenVNext() {
         setSheetState("medium");
         refetchSpots();
       } catch {
-        toast.show("No se pudo guardar el lugar. Intenta de nuevo.", { type: "error" });
+        toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
       }
@@ -2265,13 +2290,13 @@ export function MapScreenVNext() {
   );
 
   const handleSavePin = useCallback(
-    async (spot: Spot) => {
+    async (spot: Spot, targetStatus?: "to_visit" | "visited") => {
       if (spot.id.startsWith("draft_")) return;
       const userId = await getCurrentUserId();
       if (!userId) {
         openAuthModal({
           message: AUTH_MODAL_MESSAGES.savePin,
-          onSuccess: () => handleSavePin(spot),
+          onSuccess: () => handleSavePin(spot, targetStatus),
         });
         return;
       }
@@ -2290,10 +2315,11 @@ export function MapScreenVNext() {
           }
           updatePendingFilterBadges((prev) => ({ ...prev, visited: false }));
           updateSpotPinState(spot.id, { saved: false, visited: false });
-          toast.show("Pin quitado", { type: "success" });
+          toast.show("Listo, ya no está en tu lista", { type: "success" });
         }
       } else {
-        const next = nextPinStatus(current);
+        const next =
+          targetStatus != null ? targetStatus : nextPinStatus(current);
         const newStatus = await setPinStatus(spot.id, next);
         if (newStatus) {
           const nextState =
@@ -2331,7 +2357,7 @@ export function MapScreenVNext() {
           updateSpotPinState(spot.id, nextState);
           setSheetState("medium");
           toast.show(
-            newStatus === "to_visit" ? "Por visitar" : "Visitado",
+            newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!",
             { type: "success" },
           );
         }
@@ -2662,20 +2688,31 @@ export function MapScreenVNext() {
           isLoading: false,
         }}
         renderItem={(item: Spot | PlaceResult) => {
+          const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
           if ("title" in item && "latitude" in item) {
+            const spot = item as Spot;
+            const km = distanceKm(ref.latitude, ref.longitude, spot.latitude, spot.longitude);
+            const distanceText = formatDistanceKm(km);
             return (
               <SearchResultCard
                 spot={item}
                 onPress={() => searchV2.onSelect(item)}
+                distanceText={distanceText}
               />
             );
           }
+          const place = item as PlaceResult;
+          const km = distanceKm(ref.latitude, ref.longitude, place.lat, place.lng);
+          const distanceText = formatDistanceKm(km);
+          const isLandmark = isPlaceLandmark(place);
           return (
             <ResultRow
-              title={(item as PlaceResult).name}
-              subtitle={(item as PlaceResult).fullName}
-              onPress={() => handleCreateFromPlace(item as PlaceResult)}
-              accessibilityLabel={`Ver: ${(item as PlaceResult).name}`}
+              title={place.name}
+              subtitle={place.fullName}
+              distanceText={distanceText}
+              isLandmark={isLandmark}
+              onPress={() => handleCreateFromPlace(place)}
+              accessibilityLabel={`Ver: ${place.name}`}
             />
           );
         }}
@@ -2706,7 +2743,12 @@ export function MapScreenVNext() {
           state={sheetState}
           onSheetHeightChange={setSheetHeight}
           onShare={selectedSpot ? () => handleShare(selectedSpot) : undefined}
-          onSavePin={selectedSpot ? () => handleSavePin(selectedSpot) : undefined}
+          onSavePin={
+            selectedSpot
+              ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
+              : undefined
+          }
+          pinFilter={pinFilter}
           userCoords={userCoords ?? undefined}
           isAuthUser={isAuthUser}
           onDirections={
@@ -2726,7 +2768,8 @@ export function MapScreenVNext() {
           draftCoverUri={draftCoverUri}
           onDraftCoverChange={setDraftCoverUri}
           onCreateSpot={handleCreateSpotFromDraft}
-          onPoiPorVisitar={() => handleCreateSpotFromPoi(true)}
+          onPoiPorVisitar={() => handleCreateSpotFromPoi("to_visit")}
+          onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
           onPoiShare={handleCreateSpotFromPoiAndShare}
           poiLoading={poiSheetLoading}
           onStateChange={(newState) => {
@@ -2737,7 +2780,7 @@ export function MapScreenVNext() {
               !poiSheetLoading
             ) {
               setSheetState("expanded");
-              void handleCreateSpotFromPoi(false, "expanded");
+              void handleCreateSpotFromPoi(undefined, "expanded");
             } else {
               setSheetState(newState);
             }

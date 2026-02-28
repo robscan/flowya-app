@@ -3,6 +3,9 @@
  * 3 estados: PEEK (solo header), MEDIUM (header + resumen), EXPANDED (header + resumen con más espacio).
  * Drag + snap según docs/contracts/MOTION_SHEET.md (translateY, anchors, 25% + velocity).
  *
+ * Modelo de intención (OL-WOW-F2-004): peek=awareness, medium=decision, expanded=detail.
+ * CTA principal (Ver detalle, Por visitar, Crear spot) visible en medium sin scroll obligatorio.
+ *
  * CONTRATOS (EXPLORE_SHEET, MOTION_SHEET):
  * - X dismiss: onClose llamado al tap X (parent setSelectedSpot(null) → unmount)
  * - map->peek: parent useMapCore onUserMapGestureStart → setSheetState("peek")
@@ -133,7 +136,7 @@ export type SpotSheetProps = {
   state: SheetState;
   onStateChange: (state: SheetState) => void;
   onShare?: () => void;
-  onSavePin?: () => void;
+  onSavePin?: (targetStatus?: "to_visit" | "visited") => void;
   userCoords?: { latitude: number; longitude: number } | null;
   isAuthUser?: boolean;
   onDirections?: (spot: SpotSheetSpot) => void;
@@ -156,7 +159,10 @@ export type SpotSheetProps = {
   onCreateSpot?: () => void;
   /** Modo POI no agregado: mismo sheet, animación y gestos. Sustituye POISheetMedium. */
   poi?: { name: string; lat: number; lng: number } | null;
+  /** Filtro activo (Todos/Por visitar/Visitados) para CTA contextual. */
+  pinFilter?: "all" | "saved" | "visited";
   onPoiPorVisitar?: () => void | Promise<void>;
+  onPoiVisitado?: () => void | Promise<void>;
   onPoiShare?: () => void | Promise<void>;
   poiLoading?: boolean;
 };
@@ -174,7 +180,7 @@ type BodyContentProps = {
   colors: (typeof Colors)["light"];
   colorScheme: "light" | "dark" | null;
   onOpenDetail: () => void;
-  handleSavePin: () => void;
+  handleSavePin: (targetStatus?: "to_visit" | "visited") => void;
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
@@ -191,6 +197,7 @@ function MediumBodyContent({
   colors,
   colorScheme,
   handleSavePin,
+  pinFilter = "all",
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -201,7 +208,11 @@ function MediumBodyContent({
   | "colors"
   | "colorScheme"
   | "handleSavePin"
-> & { isDraft?: boolean }) {
+> & { isDraft?: boolean; pinFilter?: "all" | "saved" | "visited" }) {
+  const showBothPills = !isSaved && !isVisited && pinFilter === "all";
+  const showOnlyPorVisitar = !isSaved && !isVisited && pinFilter === "saved";
+  const showOnlyVisitado = !isSaved && !isVisited && pinFilter === "visited";
+
   return (
     <>
       {hasDesc ? (
@@ -228,51 +239,128 @@ function MediumBodyContent({
       ) : null}
       {!isDraft ? (
         <View style={styles.actionRow}>
-          <Pressable
-            style={[
-              styles.actionPill,
-              {
-                backgroundColor: isVisited
-                  ? colors.stateSuccess
-                  : isSaved
-                    ? colors.stateToVisit
-                    : colors.backgroundElevated,
-                borderColor: colors.borderSubtle,
-                borderWidth: isSaved || isVisited ? 0 : 1,
-              },
-            ]}
-            onPress={handleSavePin}
-            accessibilityLabel={
-              isVisited ? "Visitado (tocar para quitar)" : isSaved ? "Por visitar (tocar para marcar visitado)" : "Por visitar"
-            }
-            accessibilityRole="button"
-            accessibilityState={{ selected: isSaved || isVisited }}
-          >
-            {isVisited ? (
-              <CheckCircle
-                size={ACTION_ICON_SIZE}
-                color={isVisited ? "#ffffff" : colors.text}
-                strokeWidth={2}
-              />
-            ) : (
-              <Pin
-                size={ACTION_ICON_SIZE}
-                color={isSaved ? "#ffffff" : colors.text}
-                strokeWidth={2}
-              />
-            )}
-            <Text
+          {isVisited ? (
+            <Pressable
               style={[
-                styles.actionPillText,
+                styles.actionPill,
                 {
-                  color: isSaved || isVisited ? "#ffffff" : colors.text,
+                  backgroundColor: colors.stateSuccess,
+                  borderColor: colors.borderSubtle,
+                  borderWidth: 0,
                 },
               ]}
-              numberOfLines={1}
+              onPress={() => handleSavePin()}
+              accessibilityLabel="Visitado (tocar para quitar)"
+              accessibilityRole="button"
+              accessibilityState={{ selected: true }}
             >
-              {isVisited ? "Visitado" : "Por visitar"}
-            </Text>
-          </Pressable>
+              <CheckCircle size={ACTION_ICON_SIZE} color="#ffffff" strokeWidth={2} />
+              <Text style={[styles.actionPillText, { color: "#ffffff" }]} numberOfLines={1}>
+                Visitado
+              </Text>
+            </Pressable>
+          ) : isSaved ? (
+            <Pressable
+              style={[
+                styles.actionPill,
+                {
+                  backgroundColor: colors.stateToVisit,
+                  borderColor: colors.borderSubtle,
+                  borderWidth: 0,
+                },
+              ]}
+              onPress={() => handleSavePin()}
+              accessibilityLabel="Por visitar (tocar para marcar visitado)"
+              accessibilityRole="button"
+              accessibilityState={{ selected: true }}
+            >
+              <Pin size={ACTION_ICON_SIZE} color="#ffffff" strokeWidth={2} />
+              <Text style={[styles.actionPillText, { color: "#ffffff" }]} numberOfLines={1}>
+                Por visitar
+              </Text>
+            </Pressable>
+          ) : showBothPills ? (
+            <>
+              <Pressable
+                style={[
+                  styles.actionPill,
+                  {
+                    backgroundColor: colors.backgroundElevated,
+                    borderColor: colors.borderSubtle,
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={() => handleSavePin("to_visit")}
+                accessibilityLabel="Por visitar"
+                accessibilityRole="button"
+                accessibilityState={{ selected: false }}
+              >
+                <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+                <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+                  Por visitar
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.actionPill,
+                  {
+                    backgroundColor: colors.backgroundElevated,
+                    borderColor: colors.borderSubtle,
+                    borderWidth: 1,
+                  },
+                ]}
+                onPress={() => handleSavePin("visited")}
+                accessibilityLabel="Visitado"
+                accessibilityRole="button"
+                accessibilityState={{ selected: false }}
+              >
+                <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+                <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+                  Visitado
+                </Text>
+              </Pressable>
+            </>
+          ) : showOnlyPorVisitar ? (
+            <Pressable
+              style={[
+                styles.actionPill,
+                {
+                  backgroundColor: colors.backgroundElevated,
+                  borderColor: colors.borderSubtle,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => handleSavePin("to_visit")}
+              accessibilityLabel="Por visitar"
+              accessibilityRole="button"
+              accessibilityState={{ selected: false }}
+            >
+              <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+              <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+                Por visitar
+              </Text>
+            </Pressable>
+          ) : showOnlyVisitado ? (
+            <Pressable
+              style={[
+                styles.actionPill,
+                {
+                  backgroundColor: colors.backgroundElevated,
+                  borderColor: colors.borderSubtle,
+                  borderWidth: 1,
+                },
+              ]}
+              onPress={() => handleSavePin("visited")}
+              accessibilityLabel="Visitado"
+              accessibilityRole="button"
+              accessibilityState={{ selected: false }}
+            >
+              <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+              <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+                Visitado
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </>
@@ -456,13 +544,17 @@ function DraftInlineEditor({
   );
 }
 
-/** Modo POI no agregado: botón Por visitar o estado de carga mientras se crea el spot. */
+/** Modo POI no agregado: botón(es) contextual según pinFilter (Por visitar / Visitado). */
 function PoiBodyContent({
   onPorVisitar,
+  onVisitado,
+  pinFilter = "all",
   loading,
   colors,
 }: {
   onPorVisitar: () => void | Promise<void>;
+  onVisitado?: () => void | Promise<void>;
+  pinFilter?: "all" | "saved" | "visited";
   loading: boolean;
   colors: (typeof Colors)["light"];
 }) {
@@ -476,27 +568,54 @@ function PoiBodyContent({
       </View>
     );
   }
+  const showPorVisitar = pinFilter === "saved" || pinFilter === "all";
+  const showVisitado =
+    (pinFilter === "all" || pinFilter === "visited") && onVisitado;
+
   return (
     <View style={[styles.actionRow, { marginTop: Spacing.md }]}>
-      <Pressable
-        style={[
-          styles.actionPill,
-          {
-            backgroundColor: colors.backgroundElevated,
-            borderColor: colors.borderSubtle,
-            borderWidth: 1,
-          },
-        ]}
-        onPress={onPorVisitar}
-        accessibilityLabel="Por visitar"
-        accessibilityRole="button"
-        accessibilityState={{ selected: false }}
-      >
-        <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-        <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-          Por visitar
-        </Text>
-      </Pressable>
+      {showPorVisitar && (
+        <Pressable
+          style={[
+            styles.actionPill,
+            {
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              borderWidth: 1,
+            },
+          ]}
+          onPress={onPorVisitar}
+          accessibilityLabel="Por visitar"
+          accessibilityRole="button"
+          accessibilityState={{ selected: false }}
+        >
+          <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+          <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+            Por visitar
+          </Text>
+        </Pressable>
+      )}
+      {showVisitado && (
+        <Pressable
+          style={[
+            styles.actionPill,
+            {
+              backgroundColor: colors.backgroundElevated,
+              borderColor: colors.borderSubtle,
+              borderWidth: 1,
+            },
+          ]}
+          onPress={onVisitado}
+          accessibilityLabel="Visitado"
+          accessibilityRole="button"
+          accessibilityState={{ selected: false }}
+        >
+          <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+          <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+            Visitado
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -576,7 +695,9 @@ export function SpotSheet({
   onDraftCoverChange,
   onCreateSpot,
   poi = null,
+  pinFilter = "all",
   onPoiPorVisitar,
+  onPoiVisitado,
   onPoiShare,
   poiLoading = false,
 }: SpotSheetProps) {
@@ -932,8 +1053,8 @@ export function SpotSheet({
     else if (__DEV__ && spot) console.log("[SpotSheet] Share stub", spot.id);
   };
 
-  const handleSavePin = () => {
-    if (onSavePin) onSavePin();
+  const handleSavePin = (targetStatus?: "to_visit" | "visited") => {
+    if (onSavePin) onSavePin(targetStatus);
   };
 
   const handleDirections = () => {
@@ -1079,7 +1200,9 @@ export function SpotSheet({
               {isPoiMode ? (
                 onPoiPorVisitar ? (
                   <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar}
+                    onPorVisitar={onPoiPorVisitar!}
+                    onVisitado={onPoiVisitado}
+                    pinFilter={pinFilter}
                     loading={poiLoading}
                     colors={colors}
                   />
@@ -1102,6 +1225,7 @@ export function SpotSheet({
                     colors={colors}
                     colorScheme={colorScheme}
                     handleSavePin={handleSavePin}
+                    pinFilter={pinFilter}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1122,7 +1246,9 @@ export function SpotSheet({
               {isPoiMode ? (
                 onPoiPorVisitar ? (
                   <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar}
+                    onPorVisitar={onPoiPorVisitar!}
+                    onVisitado={onPoiVisitado}
+                    pinFilter={pinFilter}
                     loading={poiLoading}
                     colors={colors}
                   />
@@ -1145,6 +1271,7 @@ export function SpotSheet({
                     colors={colors}
                     colorScheme={colorScheme}
                     handleSavePin={handleSavePin}
+                    pinFilter={pinFilter}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1174,7 +1301,9 @@ export function SpotSheet({
               {isPoiMode ? (
                 onPoiPorVisitar ? (
                   <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar}
+                    onPorVisitar={onPoiPorVisitar!}
+                    onVisitado={onPoiVisitado}
+                    pinFilter={pinFilter}
                     loading={poiLoading}
                     colors={colors}
                   />
@@ -1197,6 +1326,7 @@ export function SpotSheet({
                     colors={colors}
                     colorScheme={colorScheme}
                     handleSavePin={handleSavePin}
+                    pinFilter={pinFilter}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
@@ -1228,7 +1358,9 @@ export function SpotSheet({
               {isPoiMode ? (
                 onPoiPorVisitar ? (
                   <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar}
+                    onPorVisitar={onPoiPorVisitar!}
+                    onVisitado={onPoiVisitado}
+                    pinFilter={pinFilter}
                     loading={poiLoading}
                     colors={colors}
                   />
@@ -1251,6 +1383,7 @@ export function SpotSheet({
                     colors={colors}
                     colorScheme={colorScheme}
                     handleSavePin={handleSavePin}
+                    pinFilter={pinFilter}
                   />
                   {isDraft ? (
                     <DraftInlineEditor
