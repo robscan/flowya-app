@@ -34,6 +34,13 @@ const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'visited', label: 'Visitados' },
 ];
 
+/** OL-WOW-F2-003: intención explícita por filtro (a11y, toast). */
+export const INTENTION_BY_FILTER: Record<MapPinFilterValue, string> = {
+  all: 'Explora y decide',
+  saved: 'Planifica lo próximo',
+  visited: 'Recuerda lo vivido',
+};
+
 export type MapPinFilterCounts = {
   saved: number;
   visited: number;
@@ -180,7 +187,7 @@ export function MapPinFilter({
           onPress={() => setOpen((o) => !o)}
           accessibilityRole="button"
           accessibilityState={{ expanded: open }}
-          accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
+          accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
         >
           <FilterIcon value={value} size={18} color={selectedColors.text} />
           <Text

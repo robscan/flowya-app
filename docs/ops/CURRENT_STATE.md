@@ -29,6 +29,7 @@
 - **OL-WOW-F2-001-EMPTY** (Lista unificada isEmpty): CERRADO. Merge spots + POIs por categoría en isEmpty. searchPlacesCategory.ts, defaultItemsForEmpty. Bitácora `208`.
 - **OL-P2-002** (teclado desaparece al scroll/tap): CERRADO con evidencia.
 - **OL-P2-004** (autoFocus + keyboard-safe): CERRADO con evidencia.
+- **OL-WOW-F2-005** (Cámara/foco por intención): CERRADO. Modos discover/inspect/act; anti-jitter; refactor controles (Globe toggle zoom, 3D siempre, Location 3 estados, ocultar MapPinPlus flotante). Bitácora `210`.
 - **OL-P2-006** (Optimización Explore): ACTIVO — completar conforme se avanzan y definen o descartan nuevos elementos.
 - **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`).
 - **Activity Summary Fase A:** implementado y validado QA; países con heurística + guardrail de cobertura.

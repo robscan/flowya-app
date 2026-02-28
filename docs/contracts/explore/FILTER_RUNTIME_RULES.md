@@ -11,11 +11,22 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
 ## Reglas canónicas
 
+0. **Intención explícita (OL-WOW-F2-003)**
+- Filtros comunicados como guía, no switch técnico: intención por filtro.
+- `Todos`: "Explora y decide"; `Por visitar`: "Planifica lo próximo"; `Visitados`: "Recuerda lo vivido".
+- Al seleccionar filtro en dropdown del mapa: toast con mensaje de intención.
+- MapPinFilterInline (buscador): sin subtítulos para no saturar.
+- MapPinFilter: a11y incluye intención; en futuro se evaluará comportamiento adaptativo.
+
 1. **Filtros disponibles**
 - `all`, `saved`, `visited`.
 - Si `saved`/`visited` tienen `count=0`, opción deshabilitada y sin número.
 
-2. **Pendientes de lectura**
+2. **Pending-first navigation (OL-WOW-F2-003)**
+- Si hay badge pendiente en `saved` o `visited`, al entrar a ese filtro: seleccionar ese spot, abrir sheet `medium`, centrar mapa.
+- Comportamiento estable y predecible; usuario evita buscar manualmente. Referencia: bitácora `175`.
+
+3. **Pendientes de lectura**
 - El estado pendiente es por filtro (no monovalor): `saved` y `visited` pueden coexistir.
 - Si usuario está en `Todos` y muta estado desde sheet:
   - activar pendiente en filtro destino.
@@ -25,11 +36,11 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
   - usuario selecciona ese filtro, o
   - el count de ese filtro llega a `0`.
 
-3. **Persistencia local**
+4. **Persistencia local**
 - Pendientes se guardan localmente y sobreviven recarga/sesión local.
 - Persistencia por objeto completo `{ saved, visited }` para evitar sobrescritura parcial.
 
-4. **Acción de reset**
+5. **Acción de reset**
 - En `saved/visited`, trigger muestra `X` para volver a `Todos`.
 - En web no se permite `button` dentro de `button` (overlay táctil hermano).
 
