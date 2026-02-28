@@ -400,7 +400,7 @@ function SpotDetailScreenContent({
   const handleShare = useCallback(async () => {
     if (!spot?.id) return;
     const result = await shareSpot(spot.id, spot.title);
-    if (result.copied) toast.show("Link copiado", { type: "success" });
+    if (result.copied) toast.show("Enlace copiado", { type: "success" });
   }, [spot?.id, spot?.title, toast]);
 
   const handleSavePin = useCallback(async () => {
@@ -413,7 +413,7 @@ function SpotDetailScreenContent({
       const ok = await removePin(spot.id);
       if (ok) {
         setSpot((prev) => (prev ? { ...prev, pinStatus: undefined } : null));
-        toast.show("Pin quitado", { type: "success" });
+        toast.show("Listo, ya no está en tu lista", { type: "success" });
       }
     } else {
       const userId = await getCurrentUserId();
@@ -428,7 +428,7 @@ function SpotDetailScreenContent({
       const newStatus = await setPinStatus(spot.id, next);
       if (newStatus !== null) {
         setSpot((prev) => (prev ? { ...prev, pinStatus: newStatus } : null));
-        toast.show(newStatus === "to_visit" ? "Por visitar" : "Visitado", {
+        toast.show(newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!", {
           type: "success",
         });
       }

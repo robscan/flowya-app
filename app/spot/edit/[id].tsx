@@ -85,7 +85,7 @@ export default function EditSpotScreen() {
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
-      toast.show("El título es obligatorio", { type: "error" });
+      toast.show("Necesitamos un título para el spot", { type: "error" });
       return;
     }
     const {
@@ -107,10 +107,10 @@ export default function EditSpotScreen() {
       .eq("id", spot.id);
     setSaving(false);
     if (error) {
-      toast.show(error.message ?? "No se pudo guardar", { type: "error" });
+      toast.show(error.message ?? "No se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       return;
     }
-    toast.show("Cambios guardados", { type: "success" });
+    toast.show("Cambios guardados correctamente", { type: "success" });
     router.back();
   }, [spot?.id, title, shortDesc, longDesc, toast, openAuthModal, router]);
 

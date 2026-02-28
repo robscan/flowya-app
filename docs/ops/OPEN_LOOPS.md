@@ -11,8 +11,8 @@
 ## Foco inmediato (P2/P3)
 
 **Orden sugerido (siguiente ciclo)**
-1. `OL-WOW-F2-003` (filtros como intención)
-4. `OL-WOW-F2-005` (cámara/foco mini QA secuencial)
+1. `OL-WOW-F3-001` (extracción a runtime modular Explore)
+2. `OL-P2-006` (optimización integral pantalla Explorar)
 
 ### OL-P2-001 — Filtros “Todos / Guardados / Visitados” en buscador (layout)
 
@@ -312,7 +312,7 @@
 ---
 
 #### OL-WOW-F2-002 — Ranking explicable (micro-señales)
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Señales discretas de porqué del resultado (`cerca`, `guardado`, `landmark`).
@@ -323,6 +323,9 @@
 
 **Dependencia**
 - `OL-WOW-F2-001`.
+
+**Referencia**
+- Bitácora `211`.
 
 #### OL-WOW-F2-003 — Filtros como vistas de trabajo
 **Estado:** CERRADO
@@ -341,17 +344,20 @@
 - Bitácora `209`.
 
 #### OL-WOW-F2-004 — Sheet intent model (`peek/medium/expanded`)
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Cada estado tiene objetivo explícito (awareness/decision/detail).
-- CTA principal contextual visible en `medium`.
+- CTA principal contextual visible en `medium` según filtro y estado del lugar.
 
 **Pruebas mínimas**
 - QA de recorrido: menos cambios manuales de estado por confusión.
 
 **Dependencia**
 - `OL-WOW-F2-003`.
+
+**Referencia**
+- Bitácora `212`.
 
 #### OL-WOW-F2-005 — Cámara/foco por intención (`discover/inspect/act`) con mini QA secuencial
 **Estado:** CERRADO
@@ -374,15 +380,20 @@
 - `OL-WOW-F2-004`.
 
 ### Gate Fase 2
+**Estado:** CERRADO (2026-02-28)
+
 **Criterio de paso**
 - `OL-WOW-F2-001..005` cerrados + mejora percibida de claridad y decisión en QA.
+
+**Referencia**
+- Bitácora `213`.
 
 ---
 
 ### Fase 3 — Escala Operativa y Producto Vivo
 
 #### OL-WOW-F3-001 — Extracción progresiva a runtime modular
-**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Dominio Explore separado en módulos puros (`state/intents/reducer/invariants`).
@@ -395,7 +406,7 @@
 - Gate Fase 2.
 
 #### OL-WOW-F3-002 — Activity Summary Fase B/C (países confiables + interacciones)
-**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - `visitedCountriesCount` habilitado solo con fuente canónica confiable.
@@ -408,7 +419,7 @@
 - `OL-WOW-F1-004` y Gate Fase 2.
 
 #### OL-WOW-F3-003 — Observabilidad mínima de decisiones UX
-**Estado:** ACTIVO (BLOQUEADO POR GATE F2)
+**Estado:** ACTIVO
 
 **DoD / AC**
 - Eventos mínimos para medir tiempo a decisión y claridad de selección.
@@ -467,6 +478,7 @@
 
 ## Cierres recientes (trazabilidad)
 
+- `OL-WOW-F2-002`, `OL-WOW-F2-004`, Gate Fase 2: ver bitácoras `211`, `212`, `213`.
 - `OL-WOW-F2-003`: ver bitácora `209`.
 - `OL-WOW-F1-002`, `OL-WOW-F1-004`, `OL-P2-001`, `OL-P2-003`: ver bitácoras 201–205.
 - `OL-P0-004`, `OL-P1-004`, `OL-P1-008`, `OL-P1-009`, `OL-P1-010`, `OL-P1-011`, `OL-P1-012`, `OL-P1-002`, `OL-P2-007`, `OL-P2-008`: ver bitácoras 143–190 y cierres de sesión 2026-02-26.

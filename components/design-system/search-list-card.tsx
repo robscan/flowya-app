@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { CheckCircle, ChevronRight, MapPin, Pin } from 'lucide-react-native';
+import { CheckCircle, ChevronRight, Landmark, MapPin, Pin } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -16,6 +16,10 @@ export type SearchListCardProps = {
   pinStatus?: 'default' | 'to_visit' | 'visited';
   selected?: boolean;
   disabled?: boolean;
+  /** Señal "cerca": ej. "A 1.2 km". Discreta, no sobrecarga. */
+  distanceText?: string | null;
+  /** Señal "landmark": POI destacado. */
+  isLandmark?: boolean;
 };
 /** Alias canónico DS para item visual de listados. */
 export type ResultRowProps = SearchListCardProps;
@@ -30,6 +34,8 @@ export function SearchListCard({
   pinStatus = 'default',
   selected = false,
   disabled = false,
+  distanceText = null,
+  isLandmark = false,
 }: SearchListCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -40,9 +46,10 @@ export function SearchListCard({
     () => typeof imageUri === 'string' && imageUri.trim().length > 0 && !imageError,
     [imageUri, imageError],
   );
-  const showStatusBadge = pinStatus === 'to_visit' || pinStatus === 'visited';
+  const showPinStatusChip = pinStatus === 'to_visit' || pinStatus === 'visited';
   const statusColor = pinStatus === 'visited' ? colors.stateSuccess : colors.stateToVisit;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
+  const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
 
   return (
     <Pressable
@@ -94,26 +101,36 @@ export function SearchListCard({
             {subtitle}
           </Text>
         ) : null}
+        {showRankingSignals ? (
+          <View style={styles.rankingSignals}>
+            {distanceText != null ? (
+              <Text style={[styles.rankingSignal, { color: colors.textSecondary }]}>
+                A {distanceText}
+              </Text>
+            ) : null}
+            {showPinStatusChip ? (
+              <View
+                style={[styles.rankingChip, { backgroundColor: statusColor }]}
+                accessibilityLabel={statusLabel}
+                accessibilityRole="image"
+              >
+                {pinStatus === 'visited' ? (
+                  <CheckCircle size={12} color="#FFFFFF" strokeWidth={2.2} />
+                ) : (
+                  <Pin size={12} color="#FFFFFF" strokeWidth={2} />
+                )}
+                <Text style={styles.rankingChipLabel}>{(statusLabel as string)}</Text>
+              </View>
+            ) : null}
+            {isLandmark ? (
+              <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
+                <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
+                <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-      {showStatusBadge ? (
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: statusColor,
-              borderColor: statusColor,
-            },
-          ]}
-          accessibilityLabel={statusLabel}
-          accessibilityRole="image"
-        >
-          {pinStatus === 'visited' ? (
-            <CheckCircle size={14} color="#FFFFFF" strokeWidth={2.2} />
-          ) : (
-            <Pin size={14} color="#FFFFFF" strokeWidth={2.2} />
-          )}
-        </View>
-      ) : null}
       {showChevron ? <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} /> : null}
     </Pressable>
   );
@@ -164,16 +181,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  statusBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  rankingSignals: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    zIndex: 2,
+    gap: Spacing.xs,
+    marginTop: 2,
+  },
+  rankingSignal: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  rankingChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.sm,
+  },
+  rankingChipLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#FFFFFF',
   },
 });

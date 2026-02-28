@@ -325,7 +325,7 @@ export default function EditSpotScreenWeb() {
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
-      toast.show("El título es obligatorio", { type: "error" });
+      toast.show("Necesitamos un título para el spot", { type: "error" });
       return;
     }
     if (!isAuthenticated) {
@@ -364,11 +364,11 @@ export default function EditSpotScreenWeb() {
       .eq("id", spot.id);
     setSaving(false);
     if (error) {
-      toast.show(error.message ?? "No se pudo guardar", { type: "error" });
+      toast.show(error.message ?? "No se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       return;
     }
     await verifySpotInDb(spot.id, "save");
-    toast.show("Cambios guardados", { type: "success" });
+    toast.show("Cambios guardados correctamente", { type: "success" });
     (router.replace as (href: string) => void)(getMapSpotDeepLink(spot.id));
   }, [
     spot?.id,
@@ -402,24 +402,24 @@ export default function EditSpotScreenWeb() {
         return;
       }
     } catch {
-      toast.show("No se pudo verificar la sesión. Reintenta.", { type: "error" });
+      toast.show("No se pudo verificar la sesión. ¿Reintentamos?", { type: "error" });
       return;
     }
 
     const { data, error } = await supabase.rpc("hide_spot", { p_spot_id: spotId });
 
     if (error) {
-      toast.show(error.message ?? "No se pudo eliminar. Reintenta.", { type: "error" });
+      toast.show(error.message ?? "No se pudo eliminar. Prueba otra vez.", { type: "error" });
       return;
     }
 
     const row = data as { id?: string; is_hidden?: boolean; updated_at?: string } | null;
     if (!row || row.is_hidden !== true) {
-      toast.show("El spot no se marcó como eliminado. Reintenta.", { type: "error" });
+      toast.show("El spot no se marcó como eliminado. Prueba otra vez.", { type: "error" });
       return;
     }
 
-    toast.show("Spot eliminado", { type: "success" });
+    toast.show("Spot eliminado. Ya no aparecerá en tu lista.", { type: "success" });
     (router.replace as (href: string) => void)("/(tabs)");
   }, [spot?.id, isAuthenticated, openAuthModal, toast, router]);
 

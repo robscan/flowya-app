@@ -23,13 +23,17 @@
 ## Actualización (2026-02-28)
 
 - **Fase 1 WOW:** cerrada operativamente (`F1-001`, `F1-002`, `F1-003`, `F1-004`).
-- **Fase 2 WOW:** desbloqueada para ejecución (`F2-001..005` activos).
-- **OL-WOW-F2-001** (Single Search Surface): CERRADO. SearchSurface unifica contenido web/native; adapters mínimos (SearchOverlayWeb, SearchFloatingNative). Bitácora `206`.
-- **OL-WOW-F2-001-SEARCH** (Lista unificada isSearch): CERRADO. Merge spots + POIs/landmarks en lista principal cuando pinFilter=all; tap en POI abre Crear spot. Bitácora `207`.
-- **OL-WOW-F2-001-EMPTY** (Lista unificada isEmpty): CERRADO. Merge spots + POIs por categoría en isEmpty. searchPlacesCategory.ts, defaultItemsForEmpty. Bitácora `208`.
+- **Fase 2 WOW:** Gate cerrado. `F2-001..005` todos CERRADOS. Bitácoras `206`–`213`.
+- **OL-WOW-F2-001** (Single Search Surface): CERRADO. SearchSurface unifica contenido web/native; adapters mínimos. Bitácora `206`.
+- **OL-WOW-F2-001-SEARCH** (Lista unificada isSearch): CERRADO. Merge spots + POIs/landmarks en lista principal. Bitácora `207`.
+- **OL-WOW-F2-001-EMPTY** (Lista unificada isEmpty): CERRADO. Merge spots + POIs por categoría en isEmpty. Bitácora `208`.
+- **OL-WOW-F2-002** (Ranking explicable): CERRADO. Micro-señales (distanceText, isLandmark, chips Por visitar/Visitado) en SearchListCard. Bitácora `211`.
+- **OL-WOW-F2-003** (Filtros como vistas de trabajo): CERRADO. INTENTION_BY_FILTER, pending-first. Bitácora `209`.
+- **OL-WOW-F2-004** (Sheet intent model): CERRADO. CTA contextual por filtro y estado del lugar; toasts conversacionales. Bitácora `212`.
+- **OL-WOW-F2-005** (Cámara/foco por intención): CERRADO. Modos discover/inspect/act; anti-jitter; refactor controles. Bitácora `210`.
+- **Gate Fase 2:** CERRADO. Fase 3 desbloqueada (F3-001, F3-002, F3-003). Bitácora `213`.
 - **OL-P2-002** (teclado desaparece al scroll/tap): CERRADO con evidencia.
 - **OL-P2-004** (autoFocus + keyboard-safe): CERRADO con evidencia.
-- **OL-WOW-F2-005** (Cámara/foco por intención): CERRADO. Modos discover/inspect/act; anti-jitter; refactor controles (Globe toggle zoom, 3D siempre, Location 3 estados, ocultar MapPinPlus flotante). Bitácora `210`.
 - **OL-P2-006** (Optimización Explore): ACTIVO — completar conforme se avanzan y definen o descartan nuevos elementos.
 - **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`).
 - **Activity Summary Fase A:** implementado y validado QA; países con heurística + guardrail de cobertura.
