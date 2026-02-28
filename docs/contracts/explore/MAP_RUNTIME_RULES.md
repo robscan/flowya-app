@@ -10,6 +10,12 @@ Reglas runtime del mapa en Explorar.
 
 ## Reglas canónicas
 
+0. **Cámara por intención (OL-WOW-F2-005)**
+- **discover** (sin selección): estabilidad de viewport. No auto-moves agresivos. tryCenterOnUser en load aceptable.
+- **inspect** (selección activa): centrar solo si spot no legible/visible en viewport (`isPointVisibleInViewport`).
+- **act** (createSpotNameOverlayOpen, isPlacingDraftSpot): no programmaticFlyTo. Wrapper `flyToUnlessActMode` omite flyTo cuando act mode.
+- Anti-jitter: no encadenar `flyTo` + `fitBounds` para el mismo evento. Auditoría: cada handler usa solo flyTo O fitBounds, nunca ambos encadenados.
+
 1. **Selección de spot interno**
 - Seleccionar spot enfoca spot.
 - Sheet abre en `medium` (o estado definido por contrato de selección).

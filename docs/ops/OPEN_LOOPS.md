@@ -325,7 +325,7 @@
 - `OL-WOW-F2-001`.
 
 #### OL-WOW-F2-003 — Filtros como vistas de trabajo
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - `Todos/Por visitar/Visitados` comunicados como intención, no switch técnico.
@@ -336,6 +336,9 @@
 
 **Dependencia**
 - `OL-WOW-F2-001`.
+
+**Referencia**
+- Bitácora `209`.
 
 #### OL-WOW-F2-004 — Sheet intent model (`peek/medium/expanded`)
 **Estado:** ACTIVO
@@ -351,7 +354,7 @@
 - `OL-WOW-F2-003`.
 
 #### OL-WOW-F2-005 — Cámara/foco por intención (`discover/inspect/act`) con mini QA secuencial
-**Estado:** ACTIVO
+**Estado:** CERRADO
 
 **DoD / AC**
 - Definir comportamiento determinista por modo:
@@ -464,5 +467,6 @@
 
 ## Cierres recientes (trazabilidad)
 
+- `OL-WOW-F2-003`: ver bitácora `209`.
 - `OL-WOW-F1-002`, `OL-WOW-F1-004`, `OL-P2-001`, `OL-P2-003`: ver bitácoras 201–205.
 - `OL-P0-004`, `OL-P1-004`, `OL-P1-008`, `OL-P1-009`, `OL-P1-010`, `OL-P1-011`, `OL-P1-012`, `OL-P1-002`, `OL-P2-007`, `OL-P2-008`: ver bitácoras 143–190 y cierres de sesión 2026-02-26.

@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LogOut, MapPinPlus, Search, User } from "lucide-react-native";
+import { LogOut, Search, User } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     Linking,
@@ -24,6 +24,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton } from "@/components/design-system/icon-button";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
+    INTENTION_BY_FILTER,
     MapPinFilter,
     type MapPinFilterValue,
 } from "@/components/design-system/map-pin-filter";
@@ -71,6 +72,7 @@ import {
     INITIAL_PITCH,
     SPOT_FOCUS_ZOOM,
     SPOTS_ZONA_RADIUS_KM,
+    isPointVisibleInViewport,
 } from "@/lib/map-core/constants";
 import {
     getCurrentUserId,
@@ -560,6 +562,8 @@ export function MapScreenVNext() {
     visited: null,
   });
   const searchFilterRefreshRef = useRef<MapPinFilterValue>(pinFilter);
+  /** OL-WOW-F2-003: ref para evitar acceder a searchV2 antes de inicialización. */
+  const searchIsOpenRef = useRef(false);
   const lastSearchStartKeyRef = useRef<string | null>(null);
   const lastNoResultsKeyRef = useRef<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
@@ -584,8 +588,8 @@ export function MapScreenVNext() {
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
-  /** 3D debe poder usarse también con estilo FLOWYA (no solo Mapbox Standard). */
-  const [is3DEnabled, setIs3DEnabled] = useState(true);
+  /** 3D siempre activo (sin toggle). */
+  const is3DEnabled = true;
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
   const [poiTapped, setPoiTapped] = useState<TappedMapFeature | null>(null);
   /** Modal duplicado: Ver spot | Crear otro | Cerrar (2 pasos). */
@@ -806,36 +810,45 @@ export function MapScreenVNext() {
     handleReframeSpot,
     handleReframeSpotAndUser,
     handleViewWorld,
-    handleToggle3D,
     programmaticFlyTo,
     handleMapPointerDown,
     handleMapPointerMove,
     handleMapPointerUp,
   } = mapCore;
+
+  /** OL-WOW-F2-005 act: no programmaticFlyTo durante create/edit/placing. */
+  const flyToUnlessActMode = useCallback(
+    (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => {
+      if (createSpotNameOverlayOpen || isPlacingDraftSpot) return;
+      programmaticFlyTo(center, options);
+    },
+    [createSpotNameOverlayOpen, isPlacingDraftSpot, programmaticFlyTo],
+  );
+
   const queueDeepLinkFocus = useCallback(
     (spot: Spot) => {
       const payload = { id: spot.id, lng: spot.longitude, lat: spot.latitude };
       pendingDeepLinkFocusRef.current = payload;
       if (!mapInstance) return;
-      programmaticFlyTo(
+      flyToUnlessActMode(
         { lng: payload.lng, lat: payload.lat },
         { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
       );
       pendingDeepLinkFocusRef.current = null;
     },
-    [mapInstance, programmaticFlyTo],
+    [mapInstance, flyToUnlessActMode],
   );
 
   useEffect(() => {
     if (!mapInstance) return;
     const pending = pendingDeepLinkFocusRef.current;
     if (!pending) return;
-    programmaticFlyTo(
+    flyToUnlessActMode(
       { lng: pending.lng, lat: pending.lat },
       { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
     );
     pendingDeepLinkFocusRef.current = null;
-  }, [mapInstance, programmaticFlyTo]);
+  }, [mapInstance, flyToUnlessActMode]);
 
   const contextualSelection = useMemo<{ id: string } | null>(() => {
     if (selectedSpot) return { id: selectedSpot.id };
@@ -849,11 +862,11 @@ export function MapScreenVNext() {
       return;
     }
     if (!poiTapped) return;
-    programmaticFlyTo(
+    flyToUnlessActMode(
       { lng: poiTapped.lng, lat: poiTapped.lat },
       { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
     );
-  }, [selectedSpot, handleReframeSpot, poiTapped, programmaticFlyTo]);
+  }, [selectedSpot, handleReframeSpot, poiTapped, flyToUnlessActMode]);
 
   const handleReframeContextualAndUser = useCallback(() => {
     if (selectedSpot) {
@@ -885,11 +898,6 @@ export function MapScreenVNext() {
     handleReframeContextual,
   ]);
 
-  const handleToggle3DPress = useCallback(() => {
-    const next = !is3DEnabled;
-    setIs3DEnabled(next);
-    handleToggle3D(next);
-  }, [is3DEnabled, handleToggle3D]);
 
   const pinCounts = useMemo(
     () => ({
@@ -938,6 +946,10 @@ export function MapScreenVNext() {
           ? lastStatusSpotIdRef.current[nextFilter]
           : null;
       setPinFilter(nextFilter);
+      /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
+      if (!searchIsOpenRef.current) {
+        toast.show(INTENTION_BY_FILTER[nextFilter], { type: "success" });
+      }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
       }
@@ -954,7 +966,7 @@ export function MapScreenVNext() {
         setSelectedSpot(pendingSpot);
         setSheetState("medium");
         if (mapInstance) {
-          programmaticFlyTo(
+          flyToUnlessActMode(
             { lng: pendingSpot.longitude, lat: pendingSpot.latitude },
             { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
           );
@@ -967,8 +979,9 @@ export function MapScreenVNext() {
       pendingFilterBadges,
       mapInstance,
       spots,
-      programmaticFlyTo,
+      flyToUnlessActMode,
       updatePendingFilterBadges,
+      toast,
     ],
   );
 
@@ -1054,6 +1067,11 @@ export function MapScreenVNext() {
     },
     getFilters: () => ({ pinFilter, hasVisited: pinCounts.visited > 0 }),
   });
+
+  /** OL-WOW-F2-003: sync ref para toast solo en dropdown (handlePinFilterChange se define antes de searchV2). */
+  useEffect(() => {
+    searchIsOpenRef.current = searchV2.isOpen;
+  }, [searchV2.isOpen]);
 
   /** isEmpty: spots dentro de SPOTS_ZONA_RADIUS_KM del centro del mapa (independiente del zoom). */
   const defaultSpotsForEmpty = useMemo(() => {
@@ -1301,12 +1319,16 @@ export function MapScreenVNext() {
       recordSearchSpotClick();
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
-      programmaticFlyTo(
-        { lng: spot.longitude, lat: spot.latitude },
-        { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-      );
+      /** OL-WOW-F2-005 inspect: centrar solo si spot no visible en viewport. */
+      /** OL-WOW-F2-005 act: no flyTo durante create/edit/placing. */
+      if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+        flyToUnlessActMode(
+          { lng: spot.longitude, lat: spot.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+        );
+      }
     });
-  }, [programmaticFlyTo, searchHistory, searchV2]);
+  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2]);
 
   useEffect(() => {
     invalidateSpotIdRef.current = searchV2.invalidateSpotId;
@@ -1452,16 +1474,16 @@ export function MapScreenVNext() {
     };
   }, [params.created, spots, router, queueDeepLinkFocus]);
 
-  /** Encuadrar cámara en spot cuando volvemos de edit (spotId) o create (created). Usa programmaticFlyTo para no colapsar el sheet. */
+  /** Encuadrar cámara en spot cuando volvemos de edit (spotId) o create (created). OL-WOW-F2-005 act: no flyTo durante create/placing. */
   useEffect(() => {
     const deepLinkSpotId = params.spotId ?? params.created;
     if (!deepLinkSpotId || !mapInstance || !selectedSpot || selectedSpot.id !== deepLinkSpotId)
       return;
-    programmaticFlyTo(
+    flyToUnlessActMode(
       { lng: selectedSpot.longitude, lat: selectedSpot.latitude },
       { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
     );
-  }, [params.spotId, params.created, mapInstance, selectedSpot, programmaticFlyTo]);
+  }, [params.spotId, params.created, mapInstance, selectedSpot, flyToUnlessActMode]);
 
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(
@@ -1547,7 +1569,7 @@ export function MapScreenVNext() {
         setSelectedSpot(existingSpot);
         setPoiTapped(null);
         setSheetState("medium");
-        programmaticFlyTo(
+        flyToUnlessActMode(
           { lng: existingSpot.longitude, lat: existingSpot.latitude },
           { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
         );
@@ -1566,12 +1588,12 @@ export function MapScreenVNext() {
         source: "search_suggestion",
       });
       setSheetState("medium");
-      programmaticFlyTo(
+      flyToUnlessActMode(
         { lng: place.lng, lat: place.lat },
         { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
       );
     },
-    [searchV2, spots, programmaticFlyTo],
+    [searchV2, spots, flyToUnlessActMode],
   );
 
   /** Tap en mapa: draft placement (mover pin) o detección de POI (SpotSheet si ya existe, SpotSheet modo POI si no). */
@@ -1955,7 +1977,7 @@ export function MapScreenVNext() {
         setSelectedSpot(fromList);
         setSheetState("medium");
         addRecentViewedSpotId(fromList.id);
-        programmaticFlyTo(
+        flyToUnlessActMode(
           { lng: fromList.longitude, lat: fromList.latitude },
           { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
         );
@@ -1982,13 +2004,13 @@ export function MapScreenVNext() {
         setSelectedSpot(spot);
         setSheetState("medium");
         addRecentViewedSpotId(spot.id);
-        programmaticFlyTo(
+        flyToUnlessActMode(
           { lng: spot.longitude, lat: spot.latitude },
           { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
         );
       })();
     },
-    [spots, programmaticFlyTo],
+    [spots, flyToUnlessActMode],
   );
 
   const SKIP_CREATE_SPOT_CONFIRM_KEY = "flowya_create_spot_skip_confirm";
@@ -2296,8 +2318,9 @@ export function MapScreenVNext() {
             // Caso puntual de transición entre filtros:
             // no hacer zoom-out global; mantener continuidad enfocando el spot mutado.
             setPinFilter(destinationFilter);
-            if (mapInstance) {
-              programmaticFlyTo(
+            /** OL-WOW-F2-005 inspect: centrar solo si spot no visible en viewport. act: no flyTo durante create/placing. */
+            if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+              flyToUnlessActMode(
                 { lng: spot.longitude, lat: spot.latitude },
                 { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
               );
@@ -2320,7 +2343,7 @@ export function MapScreenVNext() {
       updateSpotPinState,
       pinFilter,
       mapInstance,
-      programmaticFlyTo,
+      flyToUnlessActMode,
       updatePendingFilterBadges,
     ],
   );
@@ -2576,19 +2599,7 @@ export function MapScreenVNext() {
             hasUserLocation={userCoords != null}
             onViewWorld={handleViewWorld}
             activeMapControl={activeMapControl}
-            show3DToggle
-            is3DEnabled={is3DEnabled}
-            onToggle3D={handleToggle3DPress}
           />
-          {selectedSpot == null && poiTapped == null ? (
-            <IconButton
-              variant="default"
-              onPress={handleOpenCreateSpot}
-              accessibilityLabel="Crear spot"
-            >
-              <MapPinPlus size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
-            </IconButton>
-          ) : null}
         </View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (

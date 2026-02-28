@@ -26,6 +26,12 @@ export const WORLD_BOUNDS: [[number, number], [number, number]] = [
   [180, 85.051129],
 ];
 
+/** Globe toggle: zoom para ver todo el mundo. Mantiene posición, solo cambia zoom. */
+export const GLOBE_ZOOM_WORLD = 4;
+
+/** Globe toggle: zoom para estado inicial. Mantiene posición, solo cambia zoom. */
+export const GLOBE_ZOOM_INITIAL = 10;
+
 /** Zoom mínimo para mostrar nombres de spots (labels solo cuando hay espacio). */
 export const LABEL_MIN_ZOOM = 12;
 
@@ -210,6 +216,31 @@ export function applyGlobeAndAtmosphere(map: MapboxMap): void {
 }
 
 export type UserCoords = { latitude: number; longitude: number } | null;
+
+/** OL-WOW-F2-005: margen (px) para considerar punto "visible" en viewport (modo inspect). */
+export const VIEWPORT_VISIBLE_MARGIN_PX = 80;
+
+/** OL-WOW-F2-005: true si el punto está en viewport visible con margen (modo inspect). */
+export function isPointVisibleInViewport(
+  map: MapboxMap,
+  lng: number,
+  lat: number,
+  marginPx: number = VIEWPORT_VISIBLE_MARGIN_PX
+): boolean {
+  try {
+    const pt = map.project([lng, lat]);
+    const size = map.getContainer()?.getBoundingClientRect();
+    if (!size || size.width <= 0 || size.height <= 0) return false;
+    return (
+      pt.x >= marginPx &&
+      pt.x <= size.width - marginPx &&
+      pt.y >= marginPx &&
+      pt.y <= size.height - marginPx
+    );
+  } catch {
+    return false;
+  }
+}
 
 /** Centra el mapa en la ubicación del usuario al cargar; llama onCoords con las coords. */
 export function tryCenterOnUser(

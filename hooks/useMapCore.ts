@@ -27,7 +27,8 @@ import {
   SPOT_FOCUS_ZOOM,
   tryCenterOnUser,
   type UserCoords,
-  WORLD_BOUNDS,
+  GLOBE_ZOOM_INITIAL,
+  GLOBE_ZOOM_WORLD,
 } from '@/lib/map-core/constants';
 import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
@@ -137,6 +138,14 @@ export function useMapCore(
 
   const programmaticMoveRef = useRef(false);
   const mapRootRef = useRef<unknown>(null);
+  const worldZoomActiveRef = useRef(false);
+  const locationSavedViewRef = useRef<{
+    center: [number, number];
+    zoom: number;
+    bearing: number;
+    pitch?: number;
+  } | null>(null);
+  const locationCycleRef = useRef<'idle' | 'location' | 'location-north'>('idle');
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressLngLatRef = useRef<{ lat: number; lng: number } | null>(null);
   const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -233,8 +242,34 @@ export function useMapCore(
   }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels]);
 
   const handleLocate = useCallback(() => {
-    if (!mapInstance || typeof navigator === 'undefined' || !navigator.geolocation) return;
+    if (!mapInstance) return;
     programmaticMoveRef.current = true;
+
+    // Press 3 (north → location): restaurar vista guardada tras press 1
+    if (locationCycleRef.current === 'location-north' && locationSavedViewRef.current) {
+      const saved = locationSavedViewRef.current;
+      mapInstance.flyTo({
+        center: saved.center,
+        zoom: saved.zoom,
+        bearing: saved.bearing,
+        pitch: saved.pitch ?? INITIAL_PITCH,
+        duration: 800,
+      });
+      locationCycleRef.current = 'location';
+      setActiveMapControl('location');
+      return;
+    }
+
+    // Press 2 (location → north): orientación norte
+    if (locationCycleRef.current === 'location') {
+      mapInstance.easeTo({ bearing: 0, duration: 600 });
+      locationCycleRef.current = 'location-north';
+      setActiveMapControl('location-north');
+      return;
+    }
+
+    // Press 1 (idle → location): flyTo user, guardar vista
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
     setActiveMapControl('location');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -243,24 +278,48 @@ export function useMapCore(
           longitude: pos.coords.longitude,
         };
         setUserCoords(coords);
+        const center: [number, number] = [coords.longitude, coords.latitude];
+        locationSavedViewRef.current = {
+          center,
+          zoom: 15,
+          bearing: mapInstance.getBearing(),
+          pitch: mapInstance.getPitch(),
+        };
+        locationCycleRef.current = 'location';
         mapInstance.flyTo({
-          center: [coords.longitude, coords.latitude],
+          center,
           zoom: 15,
           duration: 1500,
+          ...(is3DEnabled && {
+            pitch: INITIAL_PITCH,
+            padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+          }),
         });
       },
       () => {
         if (userCoords) {
+          const center: [number, number] = [userCoords.longitude, userCoords.latitude];
+          locationSavedViewRef.current = {
+            center,
+            zoom: 15,
+            bearing: mapInstance.getBearing(),
+            pitch: mapInstance.getPitch(),
+          };
+          locationCycleRef.current = 'location';
           mapInstance.flyTo({
-            center: [userCoords.longitude, userCoords.latitude],
+            center,
             zoom: 15,
             duration: 1500,
+            ...(is3DEnabled && {
+              pitch: INITIAL_PITCH,
+              padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+            }),
           });
         }
       },
       GEO_OPTIONS
     );
-  }, [mapInstance, userCoords]);
+  }, [mapInstance, userCoords, is3DEnabled]);
 
   const handleReframeSpot = useCallback(() => {
     if (!mapInstance || !selectedSpot) return;
@@ -329,8 +388,26 @@ export function useMapCore(
   const handleViewWorld = useCallback(() => {
     if (!mapInstance) return;
     programmaticMoveRef.current = true;
-    setActiveMapControl('world');
-    mapInstance.fitBounds(WORLD_BOUNDS, { duration: FIT_BOUNDS_DURATION_MS });
+    const center = mapInstance.getCenter();
+    if (worldZoomActiveRef.current) {
+      // Volver a zoom inicial
+      mapInstance.flyTo({
+        center: [center.lng, center.lat],
+        zoom: GLOBE_ZOOM_INITIAL,
+        duration: FIT_BOUNDS_DURATION_MS,
+      });
+      worldZoomActiveRef.current = false;
+      setActiveMapControl(null);
+    } else {
+      // Ver mundo: mantener posición, solo cambiar zoom
+      mapInstance.flyTo({
+        center: [center.lng, center.lat],
+        zoom: GLOBE_ZOOM_WORLD,
+        duration: FIT_BOUNDS_DURATION_MS,
+      });
+      worldZoomActiveRef.current = true;
+      setActiveMapControl('world');
+    }
   }, [mapInstance]);
 
   const handleToggle3D = useCallback(
@@ -375,6 +452,8 @@ export function useMapCore(
           ref.current = false;
         }, 200);
       } else {
+        worldZoomActiveRef.current = false;
+        locationCycleRef.current = 'idle';
         setActiveMapControl(null);
       }
       setZoom(map.getZoom());
