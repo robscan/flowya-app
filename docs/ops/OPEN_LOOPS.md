@@ -10,16 +10,16 @@
 
 ## Foco inmediato (P0 -> P2)
 
-1. **P0 único:** definir y activar próximo loop (sugerido: criterio de cierre Gate Fase 3)
-2. **P1:** mantenimiento documental continuo (bitácora + contratos + guardrails)
-3. **P2:** preparación de backlog técnico sin ejecución paralela
+1. **P0 único:** `OL-P3-002` — Países interactivo + mapa mundial shareable (arranque por fases)
+2. **P1:** definir alcance de `P3-002.A` (MVP países interactivo sin share)
+3. **P2:** mantenimiento documental continuo (bitácora + contratos + guardrails)
 
 ---
 
 ## Loops activos
 
-- Sin loops técnicos activos en ejecución.
-- Último loop cerrado: `OL-P2-006` (bitácora `232`).
+- `OL-P3-002` activo en arranque operativo (scoping de fase A).
+- `OL-P1-003` y `OL-P2-006` están **cerrados** (solo histórico).
 
 ---
 
@@ -29,7 +29,6 @@
 - `OL-P1-006` — Migración POI DB (maki/categorías)
 - `OL-P1-007` — Pipeline turístico sin Google
 - `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha
-- `OL-P3-002` — Países interactivo + mapa mundial shareable
 
 ---
 
@@ -47,15 +46,5 @@
 - `OL-WOW-F3-002` cierre operativo (QA checklist OK) — bitácora `218`.
 - `OL-WOW-F3-003` implementación base observabilidad — bitácora `219`.
 - `OL-WOW-F3-003` cierre operativo (QA checklist OK) — bitácora `220`.
-- `OL-P2-006` P0 extracción de orquestación Search/Selection — bitácora `222`.
-- `OL-P2-006` fix selección POI desde Search con sheet activa — bitácora `223`.
-- `OL-P2-006` cierre operativo P0 (smoke final OK) — bitácora `224`.
-- `OL-P2-006` P1 segmentación base SpotSheet — bitácora `225`.
-- `OL-P2-006` P1 smoke base OK — bitácora `226`.
-- `OL-P2-006` P1 extracción lógica sheet a módulo — bitácora `227`.
-- `OL-P2-006` P1 segmentación header SpotSheet — bitácora `228`.
-- `OL-P2-006` P1 segmentación body SpotSheet — bitácora `229`.
-- `OL-P2-006` cierre operativo P1 (smoke final OK) — bitácora `230`.
-- `OL-P2-006` P2 higiene documental/deprecación — bitácora `231`.
-- `OL-P2-006` cierre total del loop — bitácora `232`.
-- `OL-P1-003` cierre operativo (System Status Bar implementado + call sites migrados) — bitácora `233`.
+- `OL-P2-006` cerrado completamente — bitácora `232`.
+- `OL-P1-003` cerrado + hardening post-cierre — bitácoras `233` y `234`.
