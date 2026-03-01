@@ -366,7 +366,7 @@ function resolveAccountDisplayLabel(user: {
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
-const CONTROLS_OVERLAY_BOTTOM = 16;
+const CONTROLS_OVERLAY_BOTTOM = 20;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const MAP_CONTROL_BUTTON_SIZE = 44;
 const COUNTRIES_COUNTER_SIZE = 64;
@@ -375,8 +375,10 @@ const COUNTRIES_SLOT_RESERVED = COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_
 const COUNTRIES_CENTER_ALIGNMENT_OFFSET =
   Math.round((COUNTRIES_COUNTER_SIZE - MAP_CONTROL_BUTTON_SIZE) / 2);
 const MAP_CONTROLS_FALLBACK_HEIGHT = 148;
-const FILTER_OVERLAY_TOP = 16;
-const TOP_OVERLAY_INSET = 16;
+const FILTER_OVERLAY_TOP = 28;
+const TOP_OVERLAY_INSET = 28;
+/** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
+const THUMB_FRIENDLY_CENTER_BIAS = 56;
 /** Evita superposición entre subtítulos de estado y marca FLOWYA. */
 const FLOWYA_LABEL_CLEARANCE = 60;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
@@ -3174,7 +3176,7 @@ export function MapScreenVNext() {
     COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP + mapControlsHeight;
   const centeredGroupTop = Math.max(
     insets.top + TOP_OVERLAY_INSET,
-    Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5),
+    Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
   );
   const controlsTopOffset = centeredGroupTop + COUNTRIES_SLOT_RESERVED;
   const controlsCenteredBottom = Math.max(
@@ -3191,7 +3193,7 @@ export function MapScreenVNext() {
       ? centeredGroupTop
       : Math.max(
           insets.top + TOP_OVERLAY_INSET,
-          Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5),
+          Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
         );
   const countriesCenteredBottom = Math.max(
     dockBottomOffset + insets.bottom,
