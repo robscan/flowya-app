@@ -969,6 +969,7 @@ export function MapScreenVNext() {
   const handlePinFilterChange = useCallback(
     (nextFilter: MapPinFilterValue, options?: { reframe?: boolean }) => {
       const currentFilter = pinFilter;
+      if (nextFilter === currentFilter) return;
       const pendingForTarget =
         nextFilter !== "all" ? pendingFilterBadges[nextFilter] : false;
       const pendingSpotId =
@@ -976,23 +977,20 @@ export function MapScreenVNext() {
           ? lastStatusSpotIdRef.current[nextFilter]
           : null;
       setPinFilter(nextFilter);
-      /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
-      if (!searchIsOpenRef.current) {
-        const fromAll = currentFilter === "all";
-        const filterToast: Record<MapPinFilterValue, string> = fromAll
-          ? {
-              all: "Descubre y planea tu próximo viaje.",
-              saved: "Empieza marcando lugares para tu próxima ruta.",
-              visited: "Registra tus memorias y construye tu mapa personal.",
-            }
-          : {
-              all: "Volviste a Todos.",
-              saved: "Sigues en Por visitar: organiza y prepara tus spots.",
-              visited: "Sigues en Visitados: registra tus memorias.",
-            };
-        if (!suppressToastRef.current) {
-          toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
-        }
+      const fromAll = currentFilter === "all";
+      const filterToast: Record<MapPinFilterValue, string> = fromAll
+        ? {
+            all: "Descubre y planea tu próximo viaje.",
+            saved: "Empieza marcando lugares para tu próxima ruta.",
+            visited: "Registra tus memorias y construye tu mapa personal.",
+          }
+        : {
+            all: "Volviste a Todos.",
+            saved: "Sigues en Por visitar: organiza y prepara tus spots.",
+            visited: "Sigues en Visitados: registra tus memorias.",
+          };
+      if (!suppressToastRef.current) {
+        toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -1074,6 +1072,19 @@ export function MapScreenVNext() {
       setSelectedSpot(fresh);
     }
   }, [filteredSpots, selectedSpot]);
+
+  // Si el spot seleccionado deja de cumplir el filtro activo por un toggle explícito, cerrar sheet.
+  useEffect(() => {
+    if (!selectedSpot) return;
+    if (selectedSpot.id.startsWith("draft_")) return;
+    if (pinFilter === "all") return;
+    const stillInActiveFilter =
+      pinFilter === "saved" ? Boolean(selectedSpot.saved) : Boolean(selectedSpot.visited);
+    if (stillInActiveFilter) return;
+    setSelectedSpot(null);
+    setSheetState("peek");
+    setSheetHeight(SHEET_PEEK_HEIGHT);
+  }, [pinFilter, selectedSpot, setSheetState]);
 
   const spotsProvider = useMemo(
     () =>
@@ -3478,40 +3489,59 @@ export function MapScreenVNext() {
           ]}
           pointerEvents="box-none"
         >
-          <Pressable
-            onPress={handleCountriesCounterPress}
-            style={({ pressed }) => [
-              styles.countriesCircle,
-              {
-                backgroundColor: countriesCounterBackgroundColor,
-                borderColor: countriesCounterBorderColor,
-              },
-              pressed && styles.countriesCirclePressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={
-              countriesOverlayFilter === "saved"
-                ? "Abrir sheet de países por visitar"
-                : "Abrir sheet de países visitados"
-            }
-          >
-            <Text
-              style={[
-                styles.countriesValue,
+          <View style={styles.countriesOverlayStack}>
+            <Pressable
+              onPress={handleCountriesCounterPress}
+              style={({ pressed }) => [
+                styles.countriesCircle,
                 {
-                  color:
-                    countriesOverlayFilter === "saved"
-                      ? countriesOverlayColors.stateToVisit
-                      : countriesOverlayColors.stateSuccess,
+                  backgroundColor: countriesCounterBackgroundColor,
+                  borderColor: countriesCounterBorderColor,
+                },
+                pressed && styles.countriesCirclePressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                countriesOverlayFilter === "saved"
+                  ? "Abrir sheet de países por visitar"
+                  : "Abrir sheet de países visitados"
+              }
+            >
+              <Text
+                style={[
+                  styles.countriesValue,
+                  {
+                    color:
+                      countriesOverlayFilter === "saved"
+                        ? countriesOverlayColors.stateToVisit
+                        : countriesOverlayColors.stateSuccess,
+                  },
+                ]}
+              >
+                {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
+              </Text>
+              <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
+                Países
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleCountriesSpotsKpiPress}
+              style={({ pressed }) => [
+                styles.countriesSpotsBadge,
+                {
+                  backgroundColor: Colors[colorScheme ?? "light"].text,
+                  borderColor: countriesCounterBorderColor,
+                  opacity: pressed ? 0.88 : 1,
                 },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir lista de spots del filtro activo"
             >
-              {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
-            </Text>
-            <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
-              Países
-            </Text>
-          </Pressable>
+              <Text style={[styles.countriesSpotsBadgeValue, { color: Colors[colorScheme ?? "light"].background }]}>
+                {String(countriesPlacesCountForOverlay)}
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
@@ -3926,6 +3956,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     zIndex: 8,
   },
+  countriesOverlayStack: {
+    position: "relative",
+    width: 64,
+    height: 64,
+  },
   createSpotOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
@@ -3985,6 +4020,29 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 2,
+  },
+  countriesSpotsBadge: {
+    position: "absolute",
+    top: -6,
+    right: -8,
+    minWidth: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+    ...Platform.select({
+      web: {
+        boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
+      },
+      default: {},
+    }),
+  },
+  countriesSpotsBadgeValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 14,
   },
   quickEditDescOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -24,6 +24,7 @@
   - toasts por contexto de filtro,
   - quick actions en resultados visitados,
   - guardrail de visibilidad para spots Flowya sin filtro.
+- Bloque A cerrado para QA funcional (bitácoras `245`, `246`, `247`).
 - Foco activo actual: países interactivo con estrategia de entrega por fases.
 - Cola definida para siguiente jornada: `OL-CONTENT-001..006` (Mi diario, galería, esquema turismo, resolución de entidad, enrichment pipeline, directions).
 

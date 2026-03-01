@@ -24,6 +24,7 @@
   - toasts contextuales por origen de filtro,
   - hardening de quick actions de resultados (`Agregar imagen`, `Descripción corta`),
   - visibilidad de Flowya spots sin filtro activo.
+  - cierre Bloque A para QA: overlay de spots en contador países + casuísticas de selección/filtro.
 - `OL-P1-003` y `OL-P2-006` están **cerrados** (solo histórico).
 
 ---
