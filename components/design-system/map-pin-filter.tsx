@@ -26,7 +26,8 @@ const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
 const PULSE_DURATION_MS = 120;
 const MIN_TOUCH_TARGET = 44;
-const FILTER_TEXT_ON_STATUS_BG = '#1d1d1f';
+const COUNT_BADGE_BG_DARK = '#1b1b1f';
+const COUNT_BADGE_TEXT_LIGHT = '#f5f5f7';
 
 export type MapPinFilterValue = 'all' | 'saved' | 'visited';
 
@@ -134,11 +135,19 @@ export function MapPinFilter({
   const getSelectedColors = (optValue: MapPinFilterValue) => {
     switch (optValue) {
       case 'all':
-        return { bg: colors.text, text: colors.background };
+        return { bg: colors.text, text: colors.background, border: colors.borderSubtle };
       case 'saved':
-        return { bg: colors.stateToVisit, text: FILTER_TEXT_ON_STATUS_BG };
+        return {
+          bg: colors.countriesCounterToVisitBackground,
+          text: colors.text,
+          border: colors.countriesCounterToVisitBorder,
+        };
       case 'visited':
-        return { bg: colors.stateSuccess, text: FILTER_TEXT_ON_STATUS_BG };
+        return {
+          bg: colors.countriesCounterVisitedBackground,
+          text: colors.text,
+          border: colors.countriesCounterVisitedBorder,
+        };
     }
   };
 
@@ -184,7 +193,7 @@ export function MapPinFilter({
             styles.trigger,
             {
               backgroundColor: selectedColors.bg,
-              borderColor: colors.borderSubtle,
+              borderColor: selectedColors.border,
             },
             Platform.OS === 'web' && { cursor: 'pointer' },
           ]}
@@ -209,12 +218,12 @@ export function MapPinFilter({
                 styles.countBadge,
                 styles.triggerCountBadge,
                 {
-                  backgroundColor: colors.background,
+                  backgroundColor: COUNT_BADGE_BG_DARK,
                 },
               ]}
             >
               <Text
-                style={[styles.countBadgeText, { color: colors.text }]}
+                style={[styles.countBadgeText, { color: COUNT_BADGE_TEXT_LIGHT }]}
                 numberOfLines={1}
               >
                 {triggerCount}
@@ -282,7 +291,7 @@ export function MapPinFilter({
             menuAnimatedStyle,
           ]}
         >
-          {OPTIONS.map((opt) => {
+          {OPTIONS.filter((opt) => opt.value !== value).map((opt) => {
             const count = getCount(opt.value, counts);
             const optionPending =
               opt.value === 'all'
@@ -330,14 +339,14 @@ export function MapPinFilter({
                         style={[
                           styles.countBadge,
                           {
-                            backgroundColor: colors.text,
+                            backgroundColor: COUNT_BADGE_BG_DARK,
                           },
                         ]}
                       >
                         <Text
                           style={[
                             styles.countBadgeText,
-                            { color: colors.background },
+                            { color: COUNT_BADGE_TEXT_LIGHT },
                           ]}
                           numberOfLines={1}
                         >

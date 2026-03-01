@@ -12,25 +12,39 @@ export type SearchResultCardProps = {
     address?: string | null;
     cover_image_url?: string | null;
     pinStatus?: 'default' | 'to_visit' | 'visited';
+    description_short?: string | null;
   };
   onPress?: () => void;
   /** Señal "cerca": ej. "1.2 km". OL-WOW-F2-002. */
   distanceText?: string | null;
+  subtitleOverride?: string | null;
+  quickActions?: {
+    id: string;
+    label: string;
+    kind: 'add_image' | 'edit_description';
+    onPress: () => void;
+    accessibilityLabel?: string;
+  }[];
 };
 
 export function SearchResultCard({
   spot,
   onPress,
   distanceText = null,
+  subtitleOverride,
+  quickActions = [],
 }: SearchResultCardProps) {
+  const resolvedSubtitle =
+    subtitleOverride !== undefined ? subtitleOverride : (spot.address ?? null);
   return (
     <View style={styles.wrap}>
       <SearchListCard
         title={spot.title}
-        subtitle={spot.address ?? null}
+        subtitle={resolvedSubtitle}
         imageUri={spot.cover_image_url}
         pinStatus={spot.pinStatus}
         distanceText={distanceText}
+        quickActions={quickActions}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
       />

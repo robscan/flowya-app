@@ -17,6 +17,7 @@ import { ImagePlaceholder } from "@/components/design-system/image-placeholder";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SpotImage } from "@/components/design-system/spot-image";
 import { Colors, Radius, Spacing } from "@/constants/theme";
+import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
@@ -1353,7 +1354,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: HEADER_PADDING_H,
     paddingTop: HEADER_PADDING_V,
     paddingBottom: 16,
-    zIndex: 8,
+    zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
   },
   dragArea: {
     flexShrink: 0,

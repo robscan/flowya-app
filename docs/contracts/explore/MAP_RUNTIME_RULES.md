@@ -44,6 +44,12 @@ Reglas runtime del mapa en Explorar.
 - Al deseleccionar (tap fuera/cierre sheet), debe volver al estado base no seleccionado.
 - Durante selección POI, evitar doble jerarquía textual (labels Flowya competitivos vs labels base del mapa).
 
+6. **Settle de cámara antes de overlays sensibles (2026-03)**
+- Cualquier navegación programática relevante (`flyTo`, `fitBounds`, `onLoad`) debe activar estado de espera de cámara para overlays de alta prominencia (ej. dropdown de filtros).
+- La espera se libera al recibir señal de viewport asentado (nonce/evento equivalente).
+- Debe existir fallback timeout de seguridad para evitar deadlock visual.
+- Objetivo UX: evitar que controles reaparezcan durante movimiento de cámara y produzcan ruido/lectura ambigua.
+
 ## Core puro recomendado
 
 - `shouldReframeToAll({ visibleCount, totalCount }) => boolean`
@@ -64,3 +70,4 @@ Reglas runtime del mapa en Explorar.
 - `docs/bitacora/2026/02/153-filtros-saved-visited-reencuadre-ciclico.md`
 - `docs/bitacora/2026/02/176-pin-status-cross-filter-auto-switch-continuity.md`
 - `docs/bitacora/2026/02/179-filter-reframe-deferred-after-load.md`
+- `docs/bitacora/2026/03/242-filtro-dropdown-y-retardo-hasta-settle-de-camara.md`

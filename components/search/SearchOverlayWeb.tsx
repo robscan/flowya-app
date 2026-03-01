@@ -28,6 +28,7 @@ export function SearchOverlayWeb<T>({
   stageLabel: _stageLabel,
   resultsOverride,
   resultSections = [],
+  showResultsOnEmpty = false,
   getItemKey,
   pinFilter,
   pinCounts,
@@ -164,6 +165,7 @@ export function SearchOverlayWeb<T>({
           stageLabel=""
           resultsOverride={resultsOverride}
           resultSections={resultSections}
+          showResultsOnEmpty={showResultsOnEmpty}
           getItemKey={getItemKey}
           pinFilter={pinFilter}
           pinCounts={pinCounts}

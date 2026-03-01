@@ -46,6 +46,7 @@ export function SearchFloatingNative<T>({
   stageLabel: _stageLabel,
   resultsOverride,
   resultSections = [],
+  showResultsOnEmpty = false,
   getItemKey,
   pinFilter,
   pinCounts,
@@ -128,7 +129,13 @@ export function SearchFloatingNative<T>({
 
   return (
     <>
-      <View style={[StyleSheet.absoluteFill, styles.scrim, { pointerEvents: 'none' }]} />
+      <View
+        style={[
+          StyleSheet.absoluteFill,
+          styles.scrim,
+          { backgroundColor: colors.overlayScrim, pointerEvents: 'none' },
+        ]}
+      />
       <View style={[styles.sheetWrapper, { pointerEvents: 'box-none' }]}>
         <View style={styles.sheetRoot}>
           <Animated.View
@@ -160,6 +167,7 @@ export function SearchFloatingNative<T>({
                     stageLabel=""
                     resultsOverride={resultsOverride}
                     resultSections={resultSections}
+                    showResultsOnEmpty={showResultsOnEmpty}
                     getItemKey={getItemKey}
                     pinFilter={pinFilter}
                     pinCounts={pinCounts}
@@ -181,7 +189,7 @@ export function SearchFloatingNative<T>({
 }
 
 const styles = StyleSheet.create({
-  scrim: { backgroundColor: 'transparent', opacity: 0, zIndex: 10 },
+  scrim: { zIndex: 10 },
   sheetWrapper: {
     position: 'absolute',
     left: 0,

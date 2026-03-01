@@ -24,7 +24,26 @@ const stateFocusRingLight = 'rgba(0,113,227,0.35)';
 const stateSurfaceHoverLight = 'rgba(0, 0, 0, 0.04)';
 const stateSurfacePressedLight = 'rgba(0, 0, 0, 0.08)';
 const surfaceOnMapLight = '#ffffff';
-const overlayScrimLight = 'rgba(255, 255, 255, 0.32)';
+const overlayScrimLight = 'rgba(255, 255, 255, 1)';
+const mapPreviewSurfaceLight = '#f6f4ef';
+const mapPreviewCountryBaseLight = '#c7c2b6';
+const mapPreviewCountryLineLight = '#ddd8cc';
+const countriesPanelToVisitBackgroundLight = '#fbf7ef';
+const countriesPanelToVisitBackgroundElevatedLight = '#f7f1e6';
+const countriesPanelToVisitBorderLight = 'rgba(230,134,43,0.18)';
+const countriesPanelToVisitBorderSubtleLight = 'rgba(230,134,43,0.11)';
+const countriesPanelVisitedBackgroundLight = '#f6f8f4';
+const countriesPanelVisitedBackgroundElevatedLight = '#eef3ea';
+const countriesPanelVisitedBorderLight = 'rgba(52,199,89,0.16)';
+const countriesPanelVisitedBorderSubtleLight = 'rgba(52,199,89,0.10)';
+const countriesMapCountryBaseToVisitLight = '#c8c1b1';
+const countriesMapCountryLineToVisitLight = '#ddd4c3';
+const countriesMapCountryBaseVisitedLight = '#c4c8bf';
+const countriesMapCountryLineVisitedLight = '#d9ddd3';
+const countriesCounterToVisitBackgroundLight = 'rgba(255,246,236,0.92)';
+const countriesCounterVisitedBackgroundLight = 'rgba(238,243,234,0.92)';
+const countriesCounterToVisitBorderLight = countriesPanelToVisitBorderLight;
+const countriesCounterVisitedBorderLight = countriesPanelVisitedBorderLight;
 
 // — Pines en mapa (visibles sobre mapa claro en light y dark)
 const pinDefaultLight = '#1d1d1f';
@@ -51,7 +70,26 @@ const stateFocusRingDark = 'rgba(41,151,255,0.35)';
 const stateSurfaceHoverDark = 'rgba(255, 255, 255, 0.08)';
 const stateSurfacePressedDark = 'rgba(255, 255, 255, 0.14)';
 const surfaceOnMapDark = 'rgba(255, 255, 255, 0.9)';
-const overlayScrimDark = 'rgba(0, 0, 0, 0.32)';
+const overlayScrimDark = 'rgba(0, 0, 0, 1)';
+const mapPreviewSurfaceDark = '#2a3140';
+const mapPreviewCountryBaseDark = '#59617a';
+const mapPreviewCountryLineDark = '#727a93';
+const countriesPanelToVisitBackgroundDark = '#1A1A18';
+const countriesPanelToVisitBackgroundElevatedDark = '#24221E';
+const countriesPanelToVisitBorderDark = 'rgba(255,169,79,0.24)';
+const countriesPanelToVisitBorderSubtleDark = 'rgba(255,169,79,0.15)';
+const countriesPanelVisitedBackgroundDark = '#101D19';
+const countriesPanelVisitedBackgroundElevatedDark = '#162823';
+const countriesPanelVisitedBorderDark = 'rgba(48,209,88,0.26)';
+const countriesPanelVisitedBorderSubtleDark = 'rgba(48,209,88,0.16)';
+const countriesMapCountryBaseToVisitDark = '#777164';
+const countriesMapCountryLineToVisitDark = '#928A7B';
+const countriesMapCountryBaseVisitedDark = '#66746D';
+const countriesMapCountryLineVisitedDark = '#7E8E86';
+const countriesCounterToVisitBackgroundDark = 'rgba(36,34,30,0.88)';
+const countriesCounterVisitedBackgroundDark = 'rgba(22,40,35,0.88)';
+const countriesCounterToVisitBorderDark = countriesPanelToVisitBorderDark;
+const countriesCounterVisitedBorderDark = countriesPanelVisitedBorderDark;
 
 // — Pines en mapa (dark mode: mismos valores que light para contraste sobre mapa claro)
 const pinDefaultDark = '#1d1d1f';
@@ -80,6 +118,25 @@ export const Colors = {
     stateSurfacePressed: stateSurfacePressedLight,
     surfaceOnMap: surfaceOnMapLight,
     overlayScrim: overlayScrimLight,
+    mapPreviewSurface: mapPreviewSurfaceLight,
+    mapPreviewCountryBase: mapPreviewCountryBaseLight,
+    mapPreviewCountryLine: mapPreviewCountryLineLight,
+    countriesPanelToVisitBackground: countriesPanelToVisitBackgroundLight,
+    countriesPanelToVisitBackgroundElevated: countriesPanelToVisitBackgroundElevatedLight,
+    countriesPanelToVisitBorder: countriesPanelToVisitBorderLight,
+    countriesPanelToVisitBorderSubtle: countriesPanelToVisitBorderSubtleLight,
+    countriesPanelVisitedBackground: countriesPanelVisitedBackgroundLight,
+    countriesPanelVisitedBackgroundElevated: countriesPanelVisitedBackgroundElevatedLight,
+    countriesPanelVisitedBorder: countriesPanelVisitedBorderLight,
+    countriesPanelVisitedBorderSubtle: countriesPanelVisitedBorderSubtleLight,
+    countriesMapCountryBaseToVisit: countriesMapCountryBaseToVisitLight,
+    countriesMapCountryLineToVisit: countriesMapCountryLineToVisitLight,
+    countriesMapCountryBaseVisited: countriesMapCountryBaseVisitedLight,
+    countriesMapCountryLineVisited: countriesMapCountryLineVisitedLight,
+    countriesCounterToVisitBackground: countriesCounterToVisitBackgroundLight,
+    countriesCounterVisitedBackground: countriesCounterVisitedBackgroundLight,
+    countriesCounterToVisitBorder: countriesCounterToVisitBorderLight,
+    countriesCounterVisitedBorder: countriesCounterVisitedBorderLight,
     tint: primaryLight,
     icon: textSecondaryLight,
     tabIconDefault: textSecondaryLight,
@@ -118,6 +175,25 @@ export const Colors = {
     stateSurfacePressed: stateSurfacePressedDark,
     surfaceOnMap: surfaceOnMapDark,
     overlayScrim: overlayScrimDark,
+    mapPreviewSurface: mapPreviewSurfaceDark,
+    mapPreviewCountryBase: mapPreviewCountryBaseDark,
+    mapPreviewCountryLine: mapPreviewCountryLineDark,
+    countriesPanelToVisitBackground: countriesPanelToVisitBackgroundDark,
+    countriesPanelToVisitBackgroundElevated: countriesPanelToVisitBackgroundElevatedDark,
+    countriesPanelToVisitBorder: countriesPanelToVisitBorderDark,
+    countriesPanelToVisitBorderSubtle: countriesPanelToVisitBorderSubtleDark,
+    countriesPanelVisitedBackground: countriesPanelVisitedBackgroundDark,
+    countriesPanelVisitedBackgroundElevated: countriesPanelVisitedBackgroundElevatedDark,
+    countriesPanelVisitedBorder: countriesPanelVisitedBorderDark,
+    countriesPanelVisitedBorderSubtle: countriesPanelVisitedBorderSubtleDark,
+    countriesMapCountryBaseToVisit: countriesMapCountryBaseToVisitDark,
+    countriesMapCountryLineToVisit: countriesMapCountryLineToVisitDark,
+    countriesMapCountryBaseVisited: countriesMapCountryBaseVisitedDark,
+    countriesMapCountryLineVisited: countriesMapCountryLineVisitedDark,
+    countriesCounterToVisitBackground: countriesCounterToVisitBackgroundDark,
+    countriesCounterVisitedBackground: countriesCounterVisitedBackgroundDark,
+    countriesCounterToVisitBorder: countriesCounterToVisitBorderDark,
+    countriesCounterVisitedBorder: countriesCounterVisitedBorderDark,
     tint: primaryDark,
     icon: textSecondaryDark,
     tabIconDefault: textSecondaryDark,

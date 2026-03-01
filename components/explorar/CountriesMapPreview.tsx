@@ -5,7 +5,14 @@ type CountriesMapPreviewProps = {
   countryCodes: string[];
   height?: number;
   highlightColor?: string;
+  forceColorScheme?: "light" | "dark";
+  baseCountryColor?: string;
+  lineCountryColor?: string;
   onSnapshotChange?: (dataUrl: string | null) => void;
+  onCountryPress?: (
+    countryCode: string,
+    bounds: [[number, number], [number, number]],
+  ) => void;
 };
 
 export function CountriesMapPreview({ height = 120 }: CountriesMapPreviewProps) {

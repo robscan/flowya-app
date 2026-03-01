@@ -44,6 +44,19 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - En `saved/visited`, trigger muestra `X` para volver a `Todos`.
 - En web no se permite `button` dentro de `button` (overlay táctil hermano).
 
+6. **Dropdown positioning + visibilidad contextual (2026-03)**
+- El trigger de filtro se ancla respecto al sheet activo para mantener continuidad visual (no flotar arbitrario).
+- La apertura del menú debe resolverse dinámicamente (`up/down`) según espacio disponible por encima/debajo del trigger.
+- El dropdown no debe renderizarse cuando:
+  - `Search` está abierto,
+  - `Create Spot Paso 0` está abierto,
+  - la cámara está en transición programática y aún no se considera estable.
+
+7. **Retardo de aparición post-cámara (2026-03)**
+- Tras `flyTo/fitBounds/load`, el dropdown espera settle de cámara antes de reaparecer.
+- Debe existir fallback timeout para evitar bloqueo permanente si el evento de settle no llega.
+- La primera aparición puede usar delay corto para suavizar lectura; reapariciones subsecuentes no deben introducir latencia excesiva.
+
 ## Core puro recomendado
 
 - `reducePendingBadges(prev, event) => next`
@@ -57,6 +70,8 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 ## Referencias
 
 - `docs/contracts/MAP_PINS_CONTRACT.md`
+- `docs/bitacora/2026/02/095-pins-por-visitar-y-map-pin-filter-dropdown.md`
 - `docs/bitacora/2026/02/175-map-pin-filter-pending-badge-position-y-focus-spot.md`
 - `docs/bitacora/2026/02/177-map-pin-filter-multi-pending-badges.md`
 - `docs/bitacora/2026/02/178-map-pin-filter-pending-badges-local-persistence.md`
+- `docs/bitacora/2026/03/242-filtro-dropdown-y-retardo-hasta-settle-de-camara.md`

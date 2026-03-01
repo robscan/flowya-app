@@ -96,11 +96,11 @@ export function FlowyaBetaModal({
             </Text>
 
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              Estamos construyendo algo nuevo. Tu opinión importa.
+              Este es un proyecto personal en beta. Gracias por probarlo y tomarte el tiempo de dar feedback.
             </Text>
 
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
-              Oscar Muñiz Blanco — @robscan
+              Oscar - @robscan
             </Text>
 
             <View style={[styles.separator, { backgroundColor: colors.borderSubtle }]} />
@@ -114,7 +114,7 @@ export function FlowyaBetaModal({
                   color: colors.text,
                 },
               ]}
-              placeholder="Cuéntanos qué piensas, qué falta, qué mejorar…"
+              placeholder="Cuéntame en texto qué te gustó, qué te estorbó y qué te gustaría ver después."
               placeholderTextColor={colors.textSecondary}
               value={feedback}
               onChangeText={setFeedback}

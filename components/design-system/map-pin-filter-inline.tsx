@@ -26,7 +26,8 @@ import { TypographyStyles } from './typography';
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
 const MIN_TOUCH_TARGET = 44;
-const FILTER_TEXT_ON_STATUS_BG = '#1d1d1f';
+const COUNT_BADGE_BG_DARK = '#1b1b1f';
+const COUNT_BADGE_TEXT_LIGHT = '#f5f5f7';
 
 const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -96,9 +97,17 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
       case 'all':
         return { bg: colors.text, text: colors.background, border: colors.text };
       case 'saved':
-        return { bg: colors.stateToVisit, text: FILTER_TEXT_ON_STATUS_BG, border: colors.stateToVisit };
+        return {
+          bg: colors.countriesCounterToVisitBackground,
+          text: colors.text,
+          border: colors.countriesCounterToVisitBorder,
+        };
       case 'visited':
-        return { bg: colors.stateSuccess, text: FILTER_TEXT_ON_STATUS_BG, border: colors.stateSuccess };
+        return {
+          bg: colors.countriesCounterVisitedBackground,
+          text: colors.text,
+          border: colors.countriesCounterVisitedBorder,
+        };
       default:
         return { bg: colors.borderSubtle, text: colors.text, border: colors.borderSubtle };
     }
@@ -156,14 +165,14 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
                 style={[
                   styles.countBadge,
                   {
-                    backgroundColor: isSelected ? colors.background : colors.text,
+                    backgroundColor: COUNT_BADGE_BG_DARK,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.countBadgeText,
-                    { color: isSelected ? colors.text : colors.background },
+                    { color: COUNT_BADGE_TEXT_LIGHT },
                   ]}
                   numberOfLines={1}
                 >

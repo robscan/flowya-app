@@ -1,4 +1,3 @@
-import { IconButton } from "@/components/design-system/icon-button";
 import { SheetHandle } from "@/components/design-system/sheet-handle";
 import { Radius, Spacing } from "@/constants/theme";
 import { ArrowLeft, Share2, X } from "lucide-react-native";
@@ -53,24 +52,30 @@ export function SpotSheetHeader({
       </View>
       <View style={styles.headerRow} onLayout={onHeaderLayout}>
         {!isDraft ? (
-          <IconButton
-            variant="default"
-            size={HEADER_BUTTON_SIZE}
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { backgroundColor: colors.borderSubtle, opacity: pressed ? 0.86 : 1 },
+            ]}
             onPress={onShare}
             disabled={(isPoiMode && poiLoading) || shareDisabled}
             accessibilityLabel="Compartir"
+            accessibilityRole="button"
           >
             <Share2 size={20} color={colors.text} strokeWidth={2} />
-          </IconButton>
+          </Pressable>
         ) : isDraft && !isPlacingDraftSpot && onDraftBackToPlacing ? (
-          <IconButton
-            variant="default"
-            size={HEADER_BUTTON_SIZE}
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { backgroundColor: colors.borderSubtle, opacity: pressed ? 0.86 : 1 },
+            ]}
             onPress={onDraftBackToPlacing}
             accessibilityLabel="Atrás"
+            accessibilityRole="button"
           >
             <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-          </IconButton>
+          </Pressable>
         ) : (
           <View style={styles.headerPlaceholder} />
         )}
@@ -150,6 +155,13 @@ const styles = StyleSheet.create({
   headerPlaceholder: {
     width: HEADER_BUTTON_SIZE,
     height: HEADER_BUTTON_SIZE,
+  },
+  headerActionButton: {
+    width: HEADER_BUTTON_SIZE,
+    height: HEADER_BUTTON_SIZE,
+    borderRadius: HEADER_BUTTON_SIZE / 2,
+    alignItems: "center",
+    justifyContent: "center",
   },
   titleWrap: {
     flex: 1,
