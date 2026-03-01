@@ -370,6 +370,13 @@ const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
 const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
+const MAP_CONTROL_BUTTON_SIZE = 44;
+const COUNTRIES_COUNTER_SIZE = 64;
+const COUNTRIES_AND_CONTROLS_GAP = 12;
+const COUNTRIES_SLOT_RESERVED = COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP;
+const COUNTRIES_CENTER_ALIGNMENT_OFFSET =
+  Math.round((COUNTRIES_COUNTER_SIZE - MAP_CONTROL_BUTTON_SIZE) / 2);
+const MAP_CONTROLS_FALLBACK_HEIGHT = 148;
 const FILTER_OVERLAY_TOP = 16;
 const TOP_OVERLAY_INSET = 16;
 /** Evita superposición entre subtítulos de estado y marca FLOWYA. */
@@ -2401,6 +2408,9 @@ export function MapScreenVNext() {
     sheetState === "peek" &&
     (pinFilter === "saved" || pinFilter === "visited");
   const [countriesOverlayMounted, setCountriesOverlayMounted] = useState(showCountriesCounter);
+  const [countriesOverlayAnchorMode, setCountriesOverlayAnchorMode] = useState<
+    "center-group" | "center-mid" | "bottom"
+  >("center-group");
   const [countriesOverlayFilter, setCountriesOverlayFilter] = useState<"saved" | "visited">(
     countriesFilterForActiveCounter,
   );
@@ -3059,6 +3069,7 @@ export function MapScreenVNext() {
   const dockBottomOffset = 12;
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
+  const [mapControlsHeight, setMapControlsHeight] = useState(MAP_CONTROLS_FALLBACK_HEIGHT);
   const areMapControlsVisible =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
@@ -3107,6 +3118,58 @@ export function MapScreenVNext() {
       : isCountriesSheetVisible
         ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
         : dockBottomOffset + insets.bottom;
+  const shouldUseCenteredOverlayColumn = !isSpotSheetVisible && !isCountriesSheetVisible;
+  const shouldCenterCountriesAndControls = shouldUseCenteredOverlayColumn;
+  const shouldCenterCountriesWithPeekSheet =
+    isSpotSheetVisible && sheetState === "peek" && !isCountriesSheetVisible;
+  const centeredGroupHeight =
+    COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP + mapControlsHeight;
+  const centeredGroupTop = Math.max(
+    insets.top + TOP_OVERLAY_INSET,
+    Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5),
+  );
+  const controlsTopOffset = centeredGroupTop + COUNTRIES_SLOT_RESERVED;
+  const controlsCenteredBottom = Math.max(
+    dockBottomOffset + insets.bottom,
+    windowHeight - controlsTopOffset - mapControlsHeight,
+  );
+  const controlsResolvedBottom = shouldUseCenteredOverlayColumn
+    ? controlsCenteredBottom
+    : controlsBottomOffset;
+  const countriesBottomOffset =
+    controlsBottomOffset + mapControlsHeight + COUNTRIES_AND_CONTROLS_GAP;
+  const countriesCenterTopByAnchorMode =
+    countriesOverlayAnchorMode === "center-group"
+      ? centeredGroupTop
+      : Math.max(
+          insets.top + TOP_OVERLAY_INSET,
+          Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5),
+        );
+  const countriesCenteredBottom = Math.max(
+    dockBottomOffset + insets.bottom,
+    windowHeight - countriesCenterTopByAnchorMode - COUNTRIES_COUNTER_SIZE,
+  );
+  const countriesResolvedBottom =
+    countriesOverlayAnchorMode === "bottom" ? countriesBottomOffset : countriesCenteredBottom;
+  const handleControlsOverlayLayout = useCallback((event: any) => {
+    const nextHeight = Math.round(event?.nativeEvent?.layout?.height ?? 0);
+    if (nextHeight <= 0) return;
+    setMapControlsHeight((current) => (Math.abs(current - nextHeight) >= 2 ? nextHeight : current));
+  }, []);
+
+  useEffect(() => {
+    if (!showCountriesCounterBubble) return;
+    const nextMode: "center-group" | "center-mid" | "bottom" = shouldCenterCountriesAndControls
+      ? "center-group"
+      : shouldCenterCountriesWithPeekSheet
+        ? "center-mid"
+        : "bottom";
+    setCountriesOverlayAnchorMode((current) => (current === nextMode ? current : nextMode));
+  }, [
+    showCountriesCounterBubble,
+    shouldCenterCountriesAndControls,
+    shouldCenterCountriesWithPeekSheet,
+  ]);
 
   const handleLocateWithFilterDelay = useCallback(() => {
     suspendFilterUntilCameraSettles();
@@ -3360,6 +3423,7 @@ export function MapScreenVNext() {
           style={[
             styles.countriesOverlay,
             { right: CONTROLS_OVERLAY_RIGHT + insets.right },
+            { bottom: countriesResolvedBottom },
             {
               opacity: countriesOverlayEntry.interpolate({
                 inputRange: [0, 1, 2],
@@ -3436,11 +3500,13 @@ export function MapScreenVNext() {
       {areMapControlsVisible ? (
         <View
           pointerEvents="box-none"
+          onLayout={handleControlsOverlayLayout}
           style={[
             styles.controlsOverlay,
             {
-              right: CONTROLS_OVERLAY_RIGHT + insets.right,
-              bottom: controlsBottomOffset,
+              right:
+                CONTROLS_OVERLAY_RIGHT + insets.right + COUNTRIES_CENTER_ALIGNMENT_OFFSET,
+              bottom: controlsResolvedBottom,
               flexDirection: "column",
               gap: Spacing.sm,
             },
@@ -3821,8 +3887,6 @@ const styles = StyleSheet.create({
   },
   countriesOverlay: {
     position: "absolute",
-    top: "50%",
-    transform: [{ translateY: -32 }],
     zIndex: 8,
   },
   createSpotOverlay: {
