@@ -1784,7 +1784,11 @@ export function MapScreenVNext() {
             name: name.trim(),
             placeId: tappedFeatureId,
           });
-          if (match) {
+          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
+          const matchBelongsToActiveFilter =
+            pinFilter === "all" ||
+            (pinFilter === "saved" ? Boolean(match?.saved) : Boolean(match?.visited));
+          if (match && matchBelongsToActiveFilter) {
             recordExploreDecisionStarted({
               source: "map",
               pinFilter,
@@ -1800,18 +1804,18 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
-          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
-          setSelectedSpot(null);
-          setPoiTapped({
+            // Si el match existe pero no pertenece al filtro activo, abrir POI sheet en lugar de cerrar por guardrails.
+            setSelectedSpot(null);
+            setPoiTapped({
               name: name.trim(),
               lat,
               lng,
-            kind,
-            placeId: tappedFeatureId,
-            maki: getTappedFeatureMaki(props as Record<string, unknown>),
-            visualState: "default",
-            source: "map_tap",
-          });
+              kind,
+              placeId: tappedFeatureId,
+              maki: getTappedFeatureMaki(props as Record<string, unknown>),
+              visualState: "default",
+              source: "map_tap",
+            });
             recordExploreSelectionChanged({
               entityType: "poi",
               selectionState: "selected",
