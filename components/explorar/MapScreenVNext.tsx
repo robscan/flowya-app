@@ -395,6 +395,7 @@ const FILTER_WAIT_RELEASE_DELAY_MS = 70;
 const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
+const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -3125,6 +3126,11 @@ export function MapScreenVNext() {
     !searchV2.isOpen &&
     sheetState !== "expanded" &&
     (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+  const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(areMapControlsVisible);
+  const mapControlsOverlayEntry = useRef(
+    new Animated.Value(areMapControlsVisible ? 1 : 0),
+  ).current;
+  const mapControlsOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
   const filterEstimatedHeight = 56;
   const filterMinimumTop = insets.top + 4;
@@ -3161,6 +3167,23 @@ export function MapScreenVNext() {
       ],
     }),
     [filterOverlayEntry],
+  );
+  const mapControlsOverlayAnimatedStyle = useMemo(
+    () => ({
+      opacity: mapControlsOverlayEntry.interpolate({
+        inputRange: [0, 1, 2],
+        outputRange: [0, 1, 0],
+      }),
+      transform: [
+        {
+          translateX: mapControlsOverlayEntry.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [8, 0, -8],
+          }),
+        },
+      ],
+    }),
+    [mapControlsOverlayEntry],
   );
   const controlsBottomOffset =
     isSpotSheetVisible
@@ -3251,6 +3274,78 @@ export function MapScreenVNext() {
       filterOverlayHasAnimatedInRef.current = true;
     });
   }, [shouldShowFilterDropdown, filterOverlayEntry]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const clearDelay = () => {
+      if (mapControlsOverlayDelayRef.current) {
+        clearTimeout(mapControlsOverlayDelayRef.current);
+        mapControlsOverlayDelayRef.current = null;
+      }
+    };
+    const animateIn = () => {
+      clearDelay();
+      mapControlsOverlayDelayRef.current = setTimeout(() => {
+        if (isCancelled) return;
+        mapControlsOverlayEntry.setValue(0);
+        Animated.timing(mapControlsOverlayEntry, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== "web",
+        }).start();
+      }, MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS);
+    };
+    const animateOut = (onEnd?: () => void) => {
+      clearDelay();
+      Animated.timing(mapControlsOverlayEntry, {
+        toValue: 2,
+        duration: 160,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }).start(({ finished }) => {
+        if (!finished || isCancelled) return;
+        onEnd?.();
+      });
+    };
+
+    mapControlsOverlayEntry.stopAnimation();
+
+    if (!areMapControlsVisible) {
+      if (!mapControlsOverlayMounted) return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+      animateOut(() => {
+        if (isCancelled) return;
+        setMapControlsOverlayMounted(false);
+        mapControlsOverlayEntry.setValue(0);
+      });
+      return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+    }
+
+    if (!mapControlsOverlayMounted) {
+      setMapControlsOverlayMounted(true);
+      animateIn();
+      return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+    }
+
+    mapControlsOverlayEntry.setValue(1);
+    return () => {
+      isCancelled = true;
+      clearDelay();
+    };
+  }, [
+    areMapControlsVisible,
+    mapControlsOverlayMounted,
+    mapControlsOverlayEntry,
+  ]);
 
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
@@ -3581,9 +3676,9 @@ export function MapScreenVNext() {
           </IconButton>
         </View>
       ) : null}
-      {areMapControlsVisible ? (
-        <View
-          pointerEvents="box-none"
+      {mapControlsOverlayMounted ? (
+        <Animated.View
+          pointerEvents={areMapControlsVisible ? "box-none" : "none"}
           onLayout={handleControlsOverlayLayout}
           style={[
             styles.controlsOverlay,
@@ -3594,6 +3689,7 @@ export function MapScreenVNext() {
               flexDirection: "column",
               gap: Spacing.sm,
             },
+            mapControlsOverlayAnimatedStyle,
           ]}
         >
           <MapControls
@@ -3606,7 +3702,7 @@ export function MapScreenVNext() {
             onViewWorld={handleViewWorldWithFilterDelay}
             activeMapControl={activeMapControl}
           />
-        </View>
+        </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <Pressable
