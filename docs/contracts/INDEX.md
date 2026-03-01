@@ -7,6 +7,7 @@
 - **EXPLORE_SHEET.md** — Sheet único Explore vNext: estados (collapsed/medium/expanded), modos (search/spot), no overlay, keyboard-safe.
 - **SPOT_SELECTION_SHEET_SIZING.md** — Spot selection → Sheet sizing: 1º tap MEDIUM, 2º tap mismo spot EXPANDED, cambio de spot MEDIUM, SearchResultCard MEDIUM; navegación a detalle solo desde CTA en sheet.
 - **MOTION_SHEET.md** — Motion spec para sheets: duraciones, easing, snap (threshold/velocity), reduced motion, guardrails (translateY, keyboard-safe).
+- **CANONICAL_BOTTOM_SHEET.md** — Contrato base reusable para cualquier sheet inferior (header, estados, drag/snap, sizing, integración con mapa/search).
 - **SEARCH_V2.md** — Búsqueda V2: entry/exit en Explore, persistencia y clear, guardrails (no overlay, no duplicar DS).
 - **MAPBOX_PLACE_ENRICHMENT.md** — Datos Mapbox en creación: campos que se importan (place_id, name, lat/lng, address, maki como sugerencia); campos que no.
 - **SPOT_EDIT_MINI_SHEETS.md** — Edición por sección: SpotSheet + SubSheet (1 nivel), MVP Detalles y Categoría+etiquetas; guardrails (OL-021).

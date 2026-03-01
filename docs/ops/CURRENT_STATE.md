@@ -17,7 +17,7 @@
 - `OL-WOW-F3-003`: CERRADO (bitácora `220`).
 - `OL-P2-006`: CERRADO (bitácora `232`).
 - `OL-P1-003`: CERRADO (bitácoras `233` y `234`).
-- `OL-P3-002`: ACTIVO (arranque/scoping de fase A).
+- `OL-P3-002`: ACTIVO (fase `P3-002.A` con MVP base implementado, bitácora `236`).
 - Foco activo actual: países interactivo con estrategia de entrega por fases.
 
 ---
@@ -25,7 +25,7 @@
 ## Foco inmediato real (P0 -> P2)
 
 1. **P0 único:** definir y activar próximo loop (sugerido: Gate Fase 3 criterio de cierre).
-2. **P1:** cerrar alcance y criterio de aceptación de `OL-P3-002.A` (MVP).
+2. **P1:** ejecutar QA funcional de `OL-P3-002.A` y decidir ajustes de iteración.
 3. **P2:** mantenimiento documental y guardrails de ejecución.
 
 ---
@@ -48,6 +48,8 @@
 - `docs/ops/OPEN_LOOPS.md`
 - `docs/ops/plans/PLAN_EXPLORE_V1_STRANGLER.md`
 - `docs/bitacora/2026/03/235-ol-p3-002-arranque-operativo-y-scope-fase-a.md`
+- `docs/bitacora/2026/03/236-ol-p3-002-a-mvp-paises-interactivo-panel-y-busqueda.md`
+- `docs/bitacora/2026/03/237-ol-p3-002-a-locale-canonicoy-drilldown-paises.md`
 - `docs/bitacora/2026/03/233-ol-p1-003-system-status-bar-implementation.md`
 - `docs/bitacora/2026/03/234-ol-p1-003-hardening-runtime-ux-overlays.md`
 

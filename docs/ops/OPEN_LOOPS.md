@@ -48,3 +48,9 @@
 - `OL-WOW-F3-003` cierre operativo (QA checklist OK) — bitácora `220`.
 - `OL-P2-006` cerrado completamente — bitácora `232`.
 - `OL-P1-003` cerrado + hardening post-cierre — bitácoras `233` y `234`.
+
+## Avance del loop activo
+
+- `OL-P3-002.A` MVP base implementado (contador interactivo + panel de países + búsqueda por país) — bitácora `236`.
+- `OL-P3-002.A` hardening idioma/locale + drill-down por país + toast sobre sheet — bitácora `237`.
+- `OL-P3-002.A` reconstrucción de sheet de países sobre contrato canónico reusable (sin lógica legacy inline) — bitácora `238`.

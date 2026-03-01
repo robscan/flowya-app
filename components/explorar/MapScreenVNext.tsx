@@ -34,6 +34,7 @@ import { ResultRow } from "@/components/design-system/search-list-card";
 import { SearchResultCard } from "@/components/design-system/search-result-card";
 import { TypographyStyles } from "@/components/design-system/typography";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
+import { CountriesSheet, type CountriesSheetState } from "@/components/explorar/CountriesSheet";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
@@ -48,6 +49,7 @@ import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
 import { Colors, Spacing, WebTouchManipulation } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
 import {
@@ -170,6 +172,139 @@ type TappedMapFeature = {
   visualState: TappedMapFeatureVisualState;
   source: "map_tap" | "search_suggestion";
 };
+
+type CountryBucket = {
+  key: string;
+  label: string;
+  count: number;
+};
+
+const COUNTRY_ALIAS_OVERRIDES: Record<string, string> = {
+  "united states of america": "US",
+  "ee uu": "US",
+  "u s a": "US",
+  uk: "GB",
+  "united kingdom": "GB",
+};
+const cachedCountryAliasIndexByLocale = new Map<string, Map<string, string>>();
+const cachedRegionDisplayByLocale = new Map<string, Intl.DisplayNames | null>();
+
+function normalizeCountryLabel(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return "";
+  const normalized = trimmed
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  return normalized
+    .split(" ")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function normalizeCountryToken(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[.'’`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function getRegionDisplay(locale: string): Intl.DisplayNames | null {
+  const cached = cachedRegionDisplayByLocale.get(locale);
+  if (cached !== undefined) return cached;
+  try {
+    const display = new Intl.DisplayNames([locale], { type: "region" });
+    cachedRegionDisplayByLocale.set(locale, display);
+    return display;
+  } catch {
+    cachedRegionDisplayByLocale.set(locale, null);
+    return null;
+  }
+}
+
+function buildCountryAliasIndex(locale: string): Map<string, string> {
+  const cached = cachedCountryAliasIndexByLocale.get(locale);
+  if (cached) return cached;
+  const alias = new Map<string, string>();
+  const indexLocales = [locale, "en"];
+  for (let i = 65; i <= 90; i += 1) {
+    for (let j = 65; j <= 90; j += 1) {
+      const code = `${String.fromCharCode(i)}${String.fromCharCode(j)}`;
+      for (const indexLocale of indexLocales) {
+        const display = getRegionDisplay(indexLocale);
+        if (!display) continue;
+        const label = display.of(code);
+        if (!label) continue;
+        const normalized = normalizeCountryToken(label);
+        if (!normalized || normalized === normalizeCountryToken(code)) continue;
+        if (normalized.includes("unknown region") || normalized.includes("region desconocida")) continue;
+        if (!alias.has(normalized)) alias.set(normalized, code);
+      }
+    }
+  }
+  for (const [token, code] of Object.entries(COUNTRY_ALIAS_OVERRIDES)) {
+    alias.set(normalizeCountryToken(token), code);
+  }
+  cachedCountryAliasIndexByLocale.set(locale, alias);
+  return alias;
+}
+
+function resolveCountryFromToken(raw: string): { key: string; label: string } {
+  const normalizedToken = normalizeCountryToken(raw);
+  if (!normalizedToken) return { key: "name:unknown", label: normalizeCountryLabel(raw) };
+  const locale = getCurrentLanguage();
+  const code = buildCountryAliasIndex(locale).get(normalizedToken);
+  if (code) {
+    const display = getRegionDisplay(getCurrentLocale()) ?? getRegionDisplay(locale);
+    const localized = display?.of(code);
+    if (localized && normalizeCountryToken(localized) !== normalizeCountryToken(code)) {
+      return { key: `iso:${code}`, label: localized };
+    }
+  }
+  return { key: `name:${normalizedToken}`, label: normalizeCountryLabel(raw) };
+}
+
+function extractCountryFromSpotAddress(address: string | null | undefined): string | null {
+  if (!address) return null;
+  const parts = address
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+  const candidate = normalizeCountryLabel(parts[parts.length - 1] ?? "");
+  if (candidate.length < 2) return null;
+  if (/\d/.test(candidate)) return null;
+  return candidate;
+}
+
+function resolveCountryForSpot(spot: Spot): { key: string; label: string } | null {
+  const token = extractCountryFromSpotAddress(spot.address);
+  if (!token) return null;
+  return resolveCountryFromToken(token);
+}
+
+function buildCountryBuckets(spots: Spot[]): CountryBucket[] {
+  const buckets = new Map<string, CountryBucket>();
+  for (const spot of spots) {
+    const resolved = resolveCountryForSpot(spot);
+    if (!resolved) continue;
+    const key = resolved.key;
+    const previous = buckets.get(key);
+    if (previous) {
+      previous.count += 1;
+      continue;
+    }
+    buckets.set(key, { key, label: resolved.label, count: 1 });
+  }
+  return [...buckets.values()].sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    return a.label.localeCompare(b.label, "es");
+  });
+}
 
 function isLinkedUnsavedSpot(spot: Spot): boolean {
   // Guardrail Fase D: si falta linked_place_id, no ocultar para evitar desaparición de lugar.
@@ -328,10 +463,15 @@ export function MapScreenVNext() {
   const searchFilterRefreshRef = useRef<MapPinFilterValue>(pinFilter);
   /** OL-WOW-F2-003: ref para evitar acceder a searchV2 antes de inicialización. */
   const searchIsOpenRef = useRef(false);
+  const countriesSheetBeforeSearchRef = useRef<{
+    wasOpen: boolean;
+    state: CountriesSheetState;
+  } | null>(null);
   const countriesOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSearchStartKeyRef = useRef<string | null>(null);
   const lastNoResultsKeyRef = useRef<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
+  const [countriesSheetHeight, setCountriesSheetHeight] = useState(0);
   const [showCreateSpotConfirmModal, setShowCreateSpotConfirmModal] =
     useState(false);
   const [pendingCreateSpotCoords, setPendingCreateSpotCoords] = useState<{
@@ -493,6 +633,17 @@ export function MapScreenVNext() {
     if (pinFilter === "saved") return spots.filter((s) => s.saved);
     return spots.filter((s) => s.visited);
   }, [spots, pinFilter]);
+  const [countriesDrilldown, setCountriesDrilldown] = useState<{
+    key: string;
+    label: string;
+  } | null>(null);
+  const countryDrilldownItems = useMemo(() => {
+    if (!countriesDrilldown) return [];
+    return filteredSpots.filter((spot) => {
+      const resolved = resolveCountryForSpot(spot);
+      return resolved?.key === countriesDrilldown.key;
+    });
+  }, [countriesDrilldown, filteredSpots]);
 
   const displayedSpots = useMemo(() => {
     if (isPlacingDraftSpot && selectedSpot?.id.startsWith("draft_")) {
@@ -533,6 +684,7 @@ export function MapScreenVNext() {
     (coords: { lat: number; lng: number }) => void
   >(() => {});
   const onPinClickHandlerRef = useRef<(spot: Spot) => void>(() => {});
+  const collapseCountriesSheetOnMapGestureRef = useRef<() => void>(() => {});
   const hasLinkedSelection = hasLinkedPlaceId(selectedSpot);
   const shouldSuppressMapboxPoiLabels = Boolean(poiTapped || hasLinkedSelection || isSelectedSpotHiddenOnMap);
   const shouldShowFlowyaSpotLabels = selectedSpot == null && poiTapped == null;
@@ -552,7 +704,10 @@ export function MapScreenVNext() {
     skipCenterOnUser,
     shouldCenterOnUser: () => !deepLinkCenterLockRef.current,
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
-    onUserMapGestureStart: () => setSheetState("peek"),
+    onUserMapGestureStart: () => {
+      setSheetState("peek");
+      collapseCountriesSheetOnMapGestureRef.current?.();
+    },
     enableLandmarkLabels:
       featureFlags.mapLandmarkLabels && !shouldSuppressMapboxPoiLabels,
     isDarkStyle: colorScheme === "dark",
@@ -688,6 +843,14 @@ export function MapScreenVNext() {
     return {
       saved: evaluateVisitedCountries(toVisitSpots),
       visited: evaluateVisitedCountries(visitedSpots),
+    };
+  }, [spots]);
+  const countriesBucketsByFilter = useMemo(() => {
+    const toVisitSpots = spots.filter((s) => s.pinStatus === "to_visit");
+    const visitedSpots = spots.filter((s) => s.pinStatus === "visited");
+    return {
+      saved: buildCountryBuckets(toVisitSpots),
+      visited: buildCountryBuckets(visitedSpots),
     };
   }, [spots]);
 
@@ -887,12 +1050,35 @@ export function MapScreenVNext() {
 
   /** OL-WOW-F2-001-EMPTY: isEmpty merge spots + POIs por categoría cuando pinFilter=all. */
   const defaultItemsForEmpty = useMemo<(Spot | PlaceResult)[]>(() => {
+    const isCountryDrilldownActive =
+      searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
+    if (isCountryDrilldownActive) return countryDrilldownItems;
     if (pinFilter !== "all") return defaultSpotsForEmpty;
     return mergeSearchResults(defaultSpotsForEmpty, nearbyPlacesEmpty, "");
-  }, [pinFilter, defaultSpotsForEmpty, nearbyPlacesEmpty]);
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    countriesDrilldown,
+    countryDrilldownItems,
+    pinFilter,
+    defaultSpotsForEmpty,
+    nearbyPlacesEmpty,
+  ]);
 
   /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
   const defaultSectionsForEmpty = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
+    const isCountryDrilldownActive =
+      searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
+    if (isCountryDrilldownActive) {
+      if (countryDrilldownItems.length === 0) return [];
+      return [
+        {
+          id: "country-drilldown",
+          title: `Lugares en ${countriesDrilldown.label}`,
+          items: countryDrilldownItems,
+        },
+      ];
+    }
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
     if (!mapInstance || filteredSpots.length === 0) return [];
     try {
@@ -925,7 +1111,16 @@ export function MapScreenVNext() {
     } catch {
       return [];
     }
-  }, [pinFilter, mapInstance, filteredSpots, userCoords]);
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    countriesDrilldown,
+    countryDrilldownItems,
+    pinFilter,
+    mapInstance,
+    filteredSpots,
+    userCoords,
+  ]);
 
   const searchHistory = useSearchHistory();
 
@@ -1901,7 +2096,28 @@ export function MapScreenVNext() {
       setSheetState(prevSheetStateRef.current);
       prevSelectedSpotRef.current = null;
     }
-  }, [searchV2.isOpen, selectedSpot, poiTapped, setSheetState]);
+    if (wasOpen && !searchV2.isOpen) {
+      const countriesSnapshot = countriesSheetBeforeSearchRef.current;
+      countriesSheetBeforeSearchRef.current = null;
+      if (
+        countriesSnapshot?.wasOpen &&
+        !createSpotNameOverlayOpen &&
+        sheetState === "peek" &&
+        (pinFilter === "saved" || pinFilter === "visited")
+      ) {
+        setCountriesSheetState(countriesSnapshot.state);
+        setCountriesSheetOpen(true);
+      }
+    }
+  }, [
+    searchV2.isOpen,
+    selectedSpot,
+    poiTapped,
+    setSheetState,
+    createSpotNameOverlayOpen,
+    sheetState,
+    pinFilter,
+  ]);
 
   const handleCreateSpotConfirm = useCallback(
     (dontShowAgain: boolean) => {
@@ -1943,7 +2159,9 @@ export function MapScreenVNext() {
   );
 
   const stageLabel =
-    pinFilter === "visited"
+    countriesDrilldown && searchV2.isOpen
+      ? countriesDrilldown.label
+      : pinFilter === "visited"
       ? "Cerca de aquí"
       : pinFilter === "saved"
         ? "En esta zona"
@@ -1955,6 +2173,19 @@ export function MapScreenVNext() {
   const searchIsOpen = searchV2.isOpen;
   const searchQuery = searchV2.query;
   const setSearchQuery = searchV2.setQuery;
+  useEffect(() => {
+    if (searchIsOpen) return;
+    if (countriesDrilldown == null) return;
+    setCountriesDrilldown(null);
+  }, [searchIsOpen, countriesDrilldown]);
+  useEffect(() => {
+    if (countriesDrilldown == null) return;
+    const normalizedQuery = normalizeCountryToken(searchQuery);
+    if (normalizedQuery.length === 0) return;
+    if (normalizedQuery === normalizeCountryToken(countriesDrilldown.label)) return;
+    setCountriesDrilldown(null);
+  }, [searchQuery, countriesDrilldown]);
+
   const showCountriesCounter =
     !createSpotNameOverlayOpen &&
     !searchIsOpen &&
@@ -1965,10 +2196,17 @@ export function MapScreenVNext() {
   const [countriesOverlayFilter, setCountriesOverlayFilter] = useState<"saved" | "visited">(
     countriesFilterForActiveCounter,
   );
-  const countriesCountForOverlay =
+  const [countriesSheetOpen, setCountriesSheetOpen] = useState(false);
+  const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
+  const countriesBucketsForOverlay =
     countriesOverlayFilter === "saved"
-      ? countriesSummaryByFilter.saved.count
-      : countriesSummaryByFilter.visited.count;
+      ? countriesBucketsByFilter.saved
+      : countriesBucketsByFilter.visited;
+  const countriesCountForOverlay = countriesBucketsForOverlay.length;
+  const countriesPlacesCountForOverlay = useMemo(
+    () => countriesBucketsForOverlay.reduce((total, country) => total + country.count, 0),
+    [countriesBucketsForOverlay],
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -2043,8 +2281,98 @@ export function MapScreenVNext() {
     countriesOverlayEntry,
   ]);
 
+  useEffect(() => {
+    if (showCountriesCounter) return;
+    setCountriesSheetOpen(false);
+    setCountriesSheetHeight(0);
+    setCountriesDrilldown(null);
+  }, [showCountriesCounter]);
+  useEffect(() => {
+    collapseCountriesSheetOnMapGestureRef.current = () => {
+      if (!countriesSheetOpen) return;
+      setCountriesSheetState("peek");
+    };
+  }, [countriesSheetOpen]);
+
+  const handleCountriesCounterPress = useCallback(() => {
+    if (!countriesOverlayMounted) return;
+    setCountriesSheetState("expanded");
+    setCountriesSheetOpen(true);
+  }, [countriesOverlayMounted]);
+
+  const openSearchPreservingCountriesSheet = useCallback(() => {
+    countriesSheetBeforeSearchRef.current = {
+      wasOpen: countriesSheetOpen,
+      state: countriesSheetState,
+    };
+    if (countriesSheetOpen) setCountriesSheetOpen(false);
+    prevSelectedSpotRef.current = selectedSpot;
+    prevSheetStateRef.current = sheetState;
+    searchV2.setOpen(true);
+  }, [countriesSheetOpen, countriesSheetState, selectedSpot, sheetState, searchV2]);
+
+  const handleCountryBucketPress = useCallback(
+    (country: CountryBucket) => {
+      setCountriesDrilldown({ key: country.key, label: country.label });
+      openSearchPreservingCountriesSheet();
+      searchV2.setQuery(country.label);
+      toast.show(`Mostrando lugares en ${country.label}.`, {
+        type: "success",
+        replaceVisible: true,
+      });
+    },
+    [openSearchPreservingCountriesSheet, searchV2, toast],
+  );
+  const handleCountriesSheetShare = useCallback(async () => {
+    const modeLabel =
+      countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados";
+    const lines = countriesBucketsForOverlay
+      .slice(0, 20)
+      .map((country) => `• ${country.label}: ${country.count}`);
+    const text = [`${modeLabel} en Flowya`, "", ...lines].join("\n");
+
+    const canShare =
+      typeof navigator !== "undefined" &&
+      typeof navigator.share === "function" &&
+      (navigator.canShare?.({ title: modeLabel, text }) ?? true);
+    if (canShare) {
+      try {
+        await navigator.share({ title: modeLabel, text });
+        return;
+      } catch {
+        // fallback a copy en cancel/error.
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast.show("Resumen de paises copiado.", { type: "success", replaceVisible: true });
+        return;
+      } catch {
+        // fallback a mensaje.
+      }
+    }
+    toast.show("No se pudo compartir en este dispositivo.", {
+      type: "default",
+      replaceVisible: true,
+    });
+  }, [countriesOverlayFilter, countriesBucketsForOverlay, toast]);
+
   /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
   const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
+    const normalizedQuery = normalizeCountryToken(searchV2.query);
+    const isCountryDrilldownQuery =
+      countriesDrilldown != null &&
+      searchV2.isOpen &&
+      normalizedQuery.length > 0 &&
+      normalizedQuery === normalizeCountryToken(countriesDrilldown.label);
+    if (isCountryDrilldownQuery) {
+      if (pinFilter === "all") {
+        return mergeSearchResults(countryDrilldownItems, placeSuggestions, searchV2.query);
+      }
+      return countryDrilldownItems;
+    }
     const viewportTick = viewportNonce;
     if (pinFilter === "all") {
       return mergeSearchResults(searchV2.results, placeSuggestions, searchV2.query);
@@ -2062,8 +2390,34 @@ export function MapScreenVNext() {
     } catch {
       return searchV2.results;
     }
-  }, [pinFilter, searchV2.results, searchV2.query, placeSuggestions, mapInstance, viewportNonce]);
+  }, [
+    countriesDrilldown,
+    countryDrilldownItems,
+    pinFilter,
+    searchV2.isOpen,
+    searchV2.results,
+    searchV2.query,
+    placeSuggestions,
+    mapInstance,
+    viewportNonce,
+  ]);
   const searchResultSections = useMemo<SearchSection<Spot>[]>(() => {
+    const normalizedQuery = normalizeCountryToken(searchV2.query);
+    const isCountryDrilldownQuery =
+      countriesDrilldown != null &&
+      searchV2.isOpen &&
+      normalizedQuery.length > 0 &&
+      normalizedQuery === normalizeCountryToken(countriesDrilldown.label);
+    if (isCountryDrilldownQuery) {
+      if (countryDrilldownItems.length === 0) return [];
+      return [
+        {
+          id: "country-query-drilldown",
+          title: `Lugares en ${countriesDrilldown.label}`,
+          items: countryDrilldownItems,
+        },
+      ];
+    }
     const viewportTick = viewportNonce;
     if (viewportTick < 0) return [];
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
@@ -2092,7 +2446,16 @@ export function MapScreenVNext() {
     } catch {
       return [];
     }
-  }, [pinFilter, searchDisplayResults, mapInstance, viewportNonce]);
+  }, [
+    countriesDrilldown,
+    countryDrilldownItems,
+    pinFilter,
+    searchV2.isOpen,
+    searchV2.query,
+    searchDisplayResults,
+    mapInstance,
+    viewportNonce,
+  ]);
 
   /** Guardrail Search V2: al cambiar filtro saved/visited/all, re-ejecutar query activa para evitar resultados stale cross-filter. */
   useEffect(() => {
@@ -2335,15 +2698,33 @@ export function MapScreenVNext() {
   );
 
   const dockBottomOffset = 12;
+  const isCountriesSheetVisible = countriesOverlayMounted && countriesSheetOpen;
+  const areMapControlsVisible =
+    !createSpotNameOverlayOpen &&
+    !searchV2.isOpen &&
+    sheetState !== "expanded" &&
+    (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+  const controlsBottomOffset =
+    selectedSpot != null || poiTapped != null
+      ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
+      : isCountriesSheetVisible
+        ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
+        : dockBottomOffset + insets.bottom;
 
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
-    const isSheetVisible = selectedSpot != null || poiTapped != null;
+    const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
+    const isCountriesSheetVisible = countriesOverlayMounted && countriesSheetOpen;
     const areMapControlsVisible =
-      !createSpotNameOverlayOpen && !searchV2.isOpen && sheetState !== "expanded";
+      !createSpotNameOverlayOpen &&
+      !searchV2.isOpen &&
+      sheetState !== "expanded" &&
+      (!isCountriesSheetVisible || countriesSheetState !== "expanded");
     const bottom =
-      isSheetVisible
+      isSpotSheetVisible
         ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
+        : isCountriesSheetVisible
+          ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight + STATUS_OVER_SHEET_CLEARANCE
         : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
     toast.setAnchor({
       placement: "bottom-left",
@@ -2361,6 +2742,9 @@ export function MapScreenVNext() {
     selectedSpot,
     poiTapped,
     sheetHeight,
+    countriesSheetHeight,
+    countriesSheetOpen,
+    countriesOverlayMounted,
     insets.left,
     insets.right,
     insets.bottom,
@@ -2368,6 +2752,7 @@ export function MapScreenVNext() {
     createSpotNameOverlayOpen,
     searchV2.isOpen,
     sheetState,
+    countriesSheetState,
   ]);
 
   if (!MAPBOX_TOKEN) {
@@ -2514,6 +2899,19 @@ export function MapScreenVNext() {
           ) : null}
         </View>
       ) : null}
+      <CountriesSheet
+        visible={countriesOverlayMounted && countriesSheetOpen}
+        title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+        state={countriesSheetState}
+        items={countriesBucketsForOverlay}
+        summaryCountriesCount={countriesCountForOverlay}
+        summaryPlacesCount={countriesPlacesCountForOverlay}
+        onStateChange={setCountriesSheetState}
+        onClose={() => setCountriesSheetOpen(false)}
+        onShare={handleCountriesSheetShare}
+        onItemPress={handleCountryBucketPress}
+        onSheetHeightChange={setCountriesSheetHeight}
+      />
       {countriesOverlayMounted ? (
         <Animated.View
           style={[
@@ -2531,10 +2929,11 @@ export function MapScreenVNext() {
               ],
             },
           ]}
-          pointerEvents="none"
+          pointerEvents="box-none"
         >
-          <View
-            style={[
+          <Pressable
+            onPress={handleCountriesCounterPress}
+            style={({ pressed }) => [
               styles.countriesCircle,
               {
                 backgroundColor:
@@ -2543,7 +2942,14 @@ export function MapScreenVNext() {
                     : "rgba(255,255,255,0.78)",
                 borderColor: Colors[colorScheme ?? "light"].borderSubtle,
               },
+              pressed && styles.countriesCirclePressed,
             ]}
+            accessibilityRole="button"
+            accessibilityLabel={
+              countriesOverlayFilter === "saved"
+                ? "Abrir sheet de países por visitar"
+                : "Abrir sheet de países visitados"
+            }
           >
             <Text
               style={[
@@ -2556,12 +2962,12 @@ export function MapScreenVNext() {
                 },
               ]}
             >
-              {String(countriesCountForOverlay)}
+              {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
             </Text>
             <Text style={[styles.countriesLabel, { color: Colors[colorScheme ?? "light"].textSecondary }]}>
               Países
             </Text>
-          </View>
+          </Pressable>
         </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
@@ -2577,27 +2983,21 @@ export function MapScreenVNext() {
         >
           <IconButton
             variant="default"
-            onPress={() => {
-              prevSelectedSpotRef.current = selectedSpot;
-              prevSheetStateRef.current = sheetState;
-              searchV2.setOpen(true);
-            }}
+            onPress={openSearchPreservingCountriesSheet}
             accessibilityLabel="Buscar spots"
           >
             <Search size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
           </IconButton>
         </View>
       ) : null}
-      {!createSpotNameOverlayOpen && !searchV2.isOpen && sheetState !== "expanded" ? (
+      {areMapControlsVisible ? (
         <View
           style={[
             styles.controlsOverlay,
             {
               pointerEvents: "box-none",
               right: CONTROLS_OVERLAY_RIGHT + insets.right,
-              bottom: (selectedSpot != null || poiTapped != null)
-                ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
-                : dockBottomOffset + insets.bottom,
+              bottom: controlsBottomOffset,
               flexDirection: "column",
               gap: Spacing.sm,
             },
@@ -2865,7 +3265,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: "50%",
     transform: [{ translateY: -32 }],
-    zIndex: 6,
+    zIndex: 8,
   },
   createSpotOverlay: {
     position: "absolute",
@@ -2910,6 +3310,9 @@ const styles = StyleSheet.create({
       },
       default: {},
     }),
+  },
+  countriesCirclePressed: {
+    opacity: 0.86,
   },
   countriesValue: {
     fontSize: 18,
