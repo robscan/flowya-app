@@ -121,8 +121,7 @@ export function SearchListCard({
             event.stopPropagation?.();
             triggerInlineAction(addImageAction.onPress);
           }}
-          accessibilityLabel={addImageAction.accessibilityLabel ?? addImageAction.label}
-          accessibilityRole="button"
+          accessible={false}
         >
           <ImagePlus size={18} color={colors.textSecondary} strokeWidth={2} />
           <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Agregar imagen</Text>
@@ -148,8 +147,7 @@ export function SearchListCard({
               event.stopPropagation?.();
               triggerInlineAction(editDescriptionAction.onPress);
             }}
-            accessibilityLabel={editDescriptionAction.accessibilityLabel ?? editDescriptionAction.label}
-            accessibilityRole="button"
+            accessible={false}
           >
             <Pencil size={12} color={colors.primary} strokeWidth={2} />
             <Text style={[styles.descriptionCtaText, { color: colors.primary }]}>
