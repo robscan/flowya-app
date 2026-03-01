@@ -374,7 +374,8 @@ const COUNTRIES_AND_CONTROLS_GAP = 12;
 const COUNTRIES_SLOT_RESERVED = COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP;
 const COUNTRIES_CENTER_ALIGNMENT_OFFSET =
   Math.round((COUNTRIES_COUNTER_SIZE - MAP_CONTROL_BUTTON_SIZE) / 2);
-const MAP_CONTROLS_FALLBACK_HEIGHT = 148;
+// Debe aproximar el alto real de 2 IconButton + gap para evitar "jump" en primer render.
+const MAP_CONTROLS_FALLBACK_HEIGHT = 100;
 const FILTER_OVERLAY_TOP = 28;
 const TOP_OVERLAY_INSET = 28;
 /** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
