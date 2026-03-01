@@ -2197,6 +2197,7 @@ export function MapScreenVNext() {
     countriesFilterForActiveCounter,
   );
   const [countriesSheetOpen, setCountriesSheetOpen] = useState(false);
+  const showCountriesCounterBubble = showCountriesCounter && !countriesSheetOpen;
   const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
   const countriesBucketsForOverlay =
     countriesOverlayFilter === "saved"
@@ -2250,7 +2251,7 @@ export function MapScreenVNext() {
 
     countriesOverlayEntry.stopAnimation();
 
-    if (!showCountriesCounter) {
+    if (!showCountriesCounterBubble) {
       if (!countriesOverlayMounted) return cleanup;
       animateOut(() => setCountriesOverlayMounted(false));
       return cleanup;
@@ -2274,7 +2275,7 @@ export function MapScreenVNext() {
     animateIn();
     return cleanup;
   }, [
-    showCountriesCounter,
+    showCountriesCounterBubble,
     countriesOverlayMounted,
     countriesOverlayFilter,
     countriesFilterForActiveCounter,
@@ -2698,7 +2699,7 @@ export function MapScreenVNext() {
   );
 
   const dockBottomOffset = 12;
-  const isCountriesSheetVisible = countriesOverlayMounted && countriesSheetOpen;
+  const isCountriesSheetVisible = countriesSheetOpen;
   const areMapControlsVisible =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
@@ -2714,7 +2715,7 @@ export function MapScreenVNext() {
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
     const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
-    const isCountriesSheetVisible = countriesOverlayMounted && countriesSheetOpen;
+    const isCountriesSheetVisible = countriesSheetOpen;
     const areMapControlsVisible =
       !createSpotNameOverlayOpen &&
       !searchV2.isOpen &&
@@ -2744,7 +2745,6 @@ export function MapScreenVNext() {
     sheetHeight,
     countriesSheetHeight,
     countriesSheetOpen,
-    countriesOverlayMounted,
     insets.left,
     insets.right,
     insets.bottom,
@@ -2900,7 +2900,7 @@ export function MapScreenVNext() {
         </View>
       ) : null}
       <CountriesSheet
-        visible={countriesOverlayMounted && countriesSheetOpen}
+        visible={countriesSheetOpen}
         title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
         state={countriesSheetState}
         items={countriesBucketsForOverlay}
