@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
-import { ToastProvider } from '@/components/ui/toast';
+import { SystemStatusProvider } from '@/components/ui/system-status-bar';
 import { AuthModalProvider } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
@@ -19,7 +19,7 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <ToastProvider>
+        <SystemStatusProvider>
           <AuthModalProvider>
         <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -29,7 +29,7 @@ export default function RootLayout() {
         </Stack>
           </AuthModalProvider>
         <StatusBar style="auto" />
-      </ToastProvider>
+      </SystemStatusProvider>
     </ThemeProvider>
     </GestureHandlerRootView>
   );

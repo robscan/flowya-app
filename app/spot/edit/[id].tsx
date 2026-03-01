@@ -19,7 +19,7 @@ import {
 } from "react-native";
 
 import { IconButton } from "@/components/design-system/icon-button";
-import { useToast } from "@/components/ui/toast";
+import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -35,7 +35,7 @@ type SpotEdit = {
 export default function EditSpotScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const toast = useToast();
+  const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];

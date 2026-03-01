@@ -25,7 +25,7 @@ import {
 } from "@/components/design-system/map-pins";
 import type { SpotDetailSpot } from "@/components/design-system/spot-detail";
 import { SpotDetail } from "@/components/design-system/spot-detail";
-import { useToast } from "@/components/ui/toast";
+import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { Colors, Spacing } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -390,7 +390,7 @@ function SpotDetailScreenContent({
 
   }, [router]);
 
-  const toast = useToast();
+  const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
 
   const handleEdit = useCallback(() => {

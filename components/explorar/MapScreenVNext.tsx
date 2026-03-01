@@ -40,7 +40,7 @@ import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DuplicateSpotModal } from "@/components/ui/duplicate-spot-modal";
 import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
 import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
-import { useToast } from "@/components/ui/toast";
+import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
@@ -192,6 +192,10 @@ const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
 const TOP_OVERLAY_INSET = 16;
+/** Evita superposición entre subtítulos de estado y marca FLOWYA. */
+const FLOWYA_LABEL_CLEARANCE = 60;
+/** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
+const STATUS_OVER_SHEET_CLEARANCE = 18;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -224,7 +228,7 @@ export function MapScreenVNext() {
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { openAuthModal } = useAuthModal();
-  const toast = useToast();
+  const toast = useSystemStatus();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
@@ -678,11 +682,11 @@ export function MapScreenVNext() {
       /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
       if (!searchIsOpenRef.current) {
         const filterToast: Record<MapPinFilterValue, string> = {
-          all: "Explorando todo",
-          saved: "Planificando lo próximo",
-          visited: "Recordando lo vivido",
+          all: "Listo, te muestro todo el mapa.",
+          saved: "Vamos con tus lugares por visitar.",
+          visited: "Aquí van tus lugares visitados.",
         };
-        toast.show(filterToast[nextFilter], { type: "success" });
+        toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -2197,6 +2201,35 @@ export function MapScreenVNext() {
     }, [mapInstance]),
   );
 
+  const dockBottomOffset = 12;
+
+  useEffect(() => {
+    const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
+    const isSheetVisible = selectedSpot != null || poiTapped != null;
+    const bottom =
+      isSheetVisible
+        ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
+        : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
+    toast.setAnchor({
+      placement: "bottom-left",
+      left: TOP_OVERLAY_INSET + insets.left,
+      bottom,
+    });
+    return () => {
+      toast.resetAnchor();
+    };
+  }, [
+    toast,
+    selectedSpot,
+    poiTapped,
+    sheetHeight,
+    insets.left,
+    insets.bottom,
+    dockBottomOffset,
+    createSpotNameOverlayOpen,
+    searchV2.isOpen,
+  ]);
+
   if (!MAPBOX_TOKEN) {
     return (
       <View style={[styles.mapScreenRoot, styles.placeholder]}>
@@ -2214,7 +2247,6 @@ export function MapScreenVNext() {
     ? { ...FALLBACK_VIEW, pitch: INITIAL_PITCH, bearing: INITIAL_BEARING }
     : FALLBACK_VIEW;
 
-  const dockBottomOffset = 12;
   const selectedSpotOverlayState: "default" | "to_visit" | "visited" =
     resolveEffectivePinStatus(selectedSpot?.pinStatus) === "visited"
       ? "visited"
@@ -2345,6 +2377,7 @@ export function MapScreenVNext() {
       {!createSpotNameOverlayOpen &&
       !searchV2.isOpen &&
       isAuthUser &&
+      sheetState === "peek" &&
       (pinFilter === "saved" || pinFilter === "visited") ? (
         <View
           style={[

@@ -18,7 +18,7 @@ import {
 
 import { ButtonSecondary } from '@/components/design-system/buttons';
 import { TypographyStyles } from '@/components/design-system/typography';
-import { useToast } from '@/components/ui/toast';
+import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -36,7 +36,7 @@ export function FlowyaBetaModal({
 }: FlowyaBetaModalProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const toast = useToast();
+  const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
   const [feedback, setFeedback] = useState('');
   const [sending, setSending] = useState(false);
