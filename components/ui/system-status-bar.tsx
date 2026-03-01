@@ -200,8 +200,15 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '600',
     textAlign: 'left',
-    textShadowColor: 'rgba(0,0,0,0.88)',
-    textShadowRadius: 8,
-    textShadowOffset: { width: 0, height: 1 },
+    ...Platform.select({
+      web: {
+        textShadow: '0px 1px 8px rgba(0,0,0,0.88)',
+      },
+      default: {
+        textShadowColor: 'rgba(0,0,0,0.88)',
+        textShadowRadius: 8,
+        textShadowOffset: { width: 0, height: 1 },
+      },
+    }),
   },
 });

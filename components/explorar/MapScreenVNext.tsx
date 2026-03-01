@@ -12,6 +12,8 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { LogOut, Search, User } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
+    Animated,
+    Easing,
     Linking,
     Platform,
     Pressable,
@@ -185,6 +187,40 @@ function hasLinkedPlaceId(spot: Spot | null): boolean {
   return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
 }
 
+function resolveAccountDisplayLabel(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown> | null;
+} | null): string {
+  if (!user) return "usuario";
+  const metadata = user.user_metadata ?? {};
+  const usernameCandidate =
+    metadata.username ??
+    metadata.preferred_username ??
+    metadata.full_name ??
+    metadata.name;
+  if (typeof usernameCandidate === "string" && usernameCandidate.trim().length > 0) {
+    return usernameCandidate.trim();
+  }
+  if (typeof user.email === "string" && user.email.trim().length > 0) {
+    const email = user.email.trim();
+    const [localRaw, domainRaw] = email.split("@");
+    if (!localRaw || !domainRaw) return "usuario";
+    const domainParts = domainRaw.split(".");
+    const hostRaw = domainParts[0] ?? "";
+    const tldRaw = domainParts.slice(1).join(".") || "";
+    const host =
+      hostRaw.length <= 2
+        ? `${hostRaw[0] ?? "*"}***`
+        : `${hostRaw[0]}***${hostRaw[hostRaw.length - 1]}`;
+    const tld =
+      tldRaw.length <= 2
+        ? `${tldRaw[0] ?? "*"}**`
+        : `${tldRaw[0]}**${tldRaw[tldRaw.length - 1]}`;
+    return `${localRaw}@${host}.${tld}`;
+  }
+  return "usuario";
+}
+
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
@@ -196,6 +232,10 @@ const TOP_OVERLAY_INSET = 16;
 const FLOWYA_LABEL_CLEARANCE = 60;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
 const STATUS_OVER_SHEET_CLEARANCE = 18;
+/** Reserva lateral para no invadir la columna de MapControls en pantallas angostas. */
+const STATUS_AVOID_CONTROLS_RIGHT = 64;
+/** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
+const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -272,6 +312,7 @@ export function MapScreenVNext() {
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
 
   const prevSpotIdsRef = useRef<Set<string>>(new Set());
   const prevSelectedSpotRef = useRef<Spot | null>(null);
@@ -287,6 +328,7 @@ export function MapScreenVNext() {
   const searchFilterRefreshRef = useRef<MapPinFilterValue>(pinFilter);
   /** OL-WOW-F2-003: ref para evitar acceder a searchV2 antes de inicialización. */
   const searchIsOpenRef = useRef(false);
+  const countriesOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSearchStartKeyRef = useRef<string | null>(null);
   const lastNoResultsKeyRef = useRef<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(SHEET_PEEK_HEIGHT);
@@ -649,11 +691,7 @@ export function MapScreenVNext() {
     };
   }, [spots]);
 
-  const countriesCountForActiveFilter = useMemo(() => {
-    if (pinFilter === "saved") return countriesSummaryByFilter.saved.count;
-    if (pinFilter === "visited") return countriesSummaryByFilter.visited.count;
-    return null;
-  }, [pinFilter, countriesSummaryByFilter.saved.count, countriesSummaryByFilter.visited.count]);
+  const countriesFilterForActiveCounter = pinFilter === "visited" ? "visited" : "saved";
 
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
@@ -682,9 +720,9 @@ export function MapScreenVNext() {
       /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
       if (!searchIsOpenRef.current) {
         const filterToast: Record<MapPinFilterValue, string> = {
-          all: "Listo, te muestro todo el mapa.",
-          saved: "Vamos con tus lugares por visitar.",
-          visited: "Aquí van tus lugares visitados.",
+          all: "Descubre y planea tu próximo viaje.",
+          saved: "Organiza y prepara tus próximos lugares.",
+          visited: "Recuerda y registra tus memorias.",
         };
         toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
       }
@@ -1917,6 +1955,94 @@ export function MapScreenVNext() {
   const searchIsOpen = searchV2.isOpen;
   const searchQuery = searchV2.query;
   const setSearchQuery = searchV2.setQuery;
+  const showCountriesCounter =
+    !createSpotNameOverlayOpen &&
+    !searchIsOpen &&
+    isAuthUser &&
+    sheetState === "peek" &&
+    (pinFilter === "saved" || pinFilter === "visited");
+  const [countriesOverlayMounted, setCountriesOverlayMounted] = useState(showCountriesCounter);
+  const [countriesOverlayFilter, setCountriesOverlayFilter] = useState<"saved" | "visited">(
+    countriesFilterForActiveCounter,
+  );
+  const countriesCountForOverlay =
+    countriesOverlayFilter === "saved"
+      ? countriesSummaryByFilter.saved.count
+      : countriesSummaryByFilter.visited.count;
+
+  useEffect(() => {
+    let isCancelled = false;
+    const cleanup = () => {
+      isCancelled = true;
+      if (countriesOverlayDelayRef.current) {
+        clearTimeout(countriesOverlayDelayRef.current);
+        countriesOverlayDelayRef.current = null;
+      }
+    };
+    const animateIn = () => {
+      if (countriesOverlayDelayRef.current) {
+        clearTimeout(countriesOverlayDelayRef.current);
+      }
+      countriesOverlayDelayRef.current = setTimeout(() => {
+        if (isCancelled) return;
+        countriesOverlayEntry.setValue(0);
+        Animated.timing(countriesOverlayEntry, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }).start();
+      }, COUNTRIES_OVERLAY_ENTRY_DELAY_MS);
+    };
+    const animateOut = (onEnd?: () => void) => {
+      if (countriesOverlayDelayRef.current) {
+        clearTimeout(countriesOverlayDelayRef.current);
+        countriesOverlayDelayRef.current = null;
+      }
+      Animated.timing(countriesOverlayEntry, {
+        toValue: 0,
+        duration: 160,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (!finished || isCancelled) return;
+        onEnd?.();
+      });
+    };
+
+    countriesOverlayEntry.stopAnimation();
+
+    if (!showCountriesCounter) {
+      if (!countriesOverlayMounted) return cleanup;
+      animateOut(() => setCountriesOverlayMounted(false));
+      return cleanup;
+    }
+
+    if (!countriesOverlayMounted) {
+      setCountriesOverlayMounted(true);
+      setCountriesOverlayFilter(countriesFilterForActiveCounter);
+      animateIn();
+      return cleanup;
+    }
+
+    if (countriesOverlayFilter !== countriesFilterForActiveCounter) {
+      animateOut(() => {
+        setCountriesOverlayFilter(countriesFilterForActiveCounter);
+        animateIn();
+      });
+      return cleanup;
+    }
+
+    animateIn();
+    return cleanup;
+  }, [
+    showCountriesCounter,
+    countriesOverlayMounted,
+    countriesOverlayFilter,
+    countriesFilterForActiveCounter,
+    countriesOverlayEntry,
+  ]);
+
   /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
   const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
     const viewportTick = viewportNonce;
@@ -2034,8 +2160,15 @@ export function MapScreenVNext() {
 
   const handleProfilePress = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
-    setShowLogoutOption((prev) => !prev);
-  }, [requireAuthOrModal]);
+    const { data: { user } } = await supabase.auth.getUser();
+    const accountLabel = resolveAccountDisplayLabel(user);
+    const nextShowLogoutOption = !showLogoutOption;
+    setShowLogoutOption(nextShowLogoutOption);
+    // Hint contextual: solo cuando se abre la opción de logout estando autenticado.
+    if (nextShowLogoutOption) {
+      toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
+    }
+  }, [requireAuthOrModal, showLogoutOption, toast]);
 
   const handleLogoutPress = useCallback(() => {
     setShowLogoutConfirm(true);
@@ -2206,6 +2339,8 @@ export function MapScreenVNext() {
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
     const isSheetVisible = selectedSpot != null || poiTapped != null;
+    const areMapControlsVisible =
+      !createSpotNameOverlayOpen && !searchV2.isOpen && sheetState !== "expanded";
     const bottom =
       isSheetVisible
         ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
@@ -2214,6 +2349,9 @@ export function MapScreenVNext() {
       placement: "bottom-left",
       left: TOP_OVERLAY_INSET + insets.left,
       bottom,
+      right: areMapControlsVisible
+        ? CONTROLS_OVERLAY_RIGHT + insets.right + STATUS_AVOID_CONTROLS_RIGHT
+        : insets.right,
     });
     return () => {
       toast.resetAnchor();
@@ -2224,10 +2362,12 @@ export function MapScreenVNext() {
     poiTapped,
     sheetHeight,
     insets.left,
+    insets.right,
     insets.bottom,
     dockBottomOffset,
     createSpotNameOverlayOpen,
     searchV2.isOpen,
+    sheetState,
   ]);
 
   if (!MAPBOX_TOKEN) {
@@ -2374,15 +2514,22 @@ export function MapScreenVNext() {
           ) : null}
         </View>
       ) : null}
-      {!createSpotNameOverlayOpen &&
-      !searchV2.isOpen &&
-      isAuthUser &&
-      sheetState === "peek" &&
-      (pinFilter === "saved" || pinFilter === "visited") ? (
-        <View
+      {countriesOverlayMounted ? (
+        <Animated.View
           style={[
             styles.countriesOverlay,
             { left: TOP_OVERLAY_INSET + insets.left },
+            {
+              opacity: countriesOverlayEntry,
+              transform: [
+                {
+                  translateX: countriesOverlayEntry.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-8, 0],
+                  }),
+                },
+              ],
+            },
           ]}
           pointerEvents="none"
         >
@@ -2403,19 +2550,19 @@ export function MapScreenVNext() {
                 styles.countriesValue,
                 {
                   color:
-                    pinFilter === "saved"
+                    countriesOverlayFilter === "saved"
                       ? Colors[colorScheme ?? "light"].stateToVisit
                       : Colors[colorScheme ?? "light"].stateSuccess,
                 },
               ]}
             >
-              {countriesCountForActiveFilter == null ? "—" : String(countriesCountForActiveFilter)}
+              {String(countriesCountForOverlay)}
             </Text>
             <Text style={[styles.countriesLabel, { color: Colors[colorScheme ?? "light"].textSecondary }]}>
               Países
             </Text>
           </View>
-        </View>
+        </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <View

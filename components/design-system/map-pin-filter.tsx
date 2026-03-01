@@ -38,9 +38,9 @@ const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
 
 /** OL-WOW-F2-003: intención explícita por filtro (a11y, toast). */
 export const INTENTION_BY_FILTER: Record<MapPinFilterValue, string> = {
-  all: 'Explora y decide',
-  saved: 'Planifica lo próximo',
-  visited: 'Recuerda lo vivido',
+  all: 'Explora y planea',
+  saved: 'Planea, viaja y organiza',
+  visited: 'Recuerda y registra memorias',
 };
 
 export type MapPinFilterCounts = {
