@@ -130,6 +130,7 @@ import {
   recordExploreDecisionStarted,
   recordExploreSelectionChanged,
 } from "@/lib/explore/decision-metrics";
+import { shareCountriesCard } from "@/lib/share-countries-card";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -2289,6 +2290,11 @@ export function MapScreenVNext() {
     setCountriesDrilldown(null);
   }, [showCountriesCounter]);
   useEffect(() => {
+    if (!countriesSheetOpen) return;
+    if (countriesOverlayFilter === countriesFilterForActiveCounter) return;
+    setCountriesOverlayFilter(countriesFilterForActiveCounter);
+  }, [countriesSheetOpen, countriesOverlayFilter, countriesFilterForActiveCounter]);
+  useEffect(() => {
     collapseCountriesSheetOnMapGestureRef.current = () => {
       if (!countriesSheetOpen) return;
       setCountriesSheetState("peek");
@@ -2325,40 +2331,30 @@ export function MapScreenVNext() {
     [openSearchPreservingCountriesSheet, searchV2, toast],
   );
   const handleCountriesSheetShare = useCallback(async () => {
-    const modeLabel =
+    const title =
       countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados";
-    const lines = countriesBucketsForOverlay
-      .slice(0, 20)
-      .map((country) => `• ${country.label}: ${country.count}`);
-    const text = [`${modeLabel} en Flowya`, "", ...lines].join("\n");
-
-    const canShare =
-      typeof navigator !== "undefined" &&
-      typeof navigator.share === "function" &&
-      (navigator.canShare?.({ title: modeLabel, text }) ?? true);
-    if (canShare) {
-      try {
-        await navigator.share({ title: modeLabel, text });
-        return;
-      } catch {
-        // fallback a copy en cancel/error.
-      }
-    }
-
-    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-      try {
-        await navigator.clipboard.writeText(text);
-        toast.show("Resumen de paises copiado.", { type: "success", replaceVisible: true });
-        return;
-      } catch {
-        // fallback a mensaje.
-      }
+    const result = await shareCountriesCard({
+      title,
+      countriesCount: countriesCountForOverlay,
+      spotsCount: countriesPlacesCountForOverlay,
+      items: countriesBucketsForOverlay,
+    });
+    if (result.shared) return;
+    if (result.copied) {
+      toast.show("Resumen copiado al portapapeles.", { type: "success", replaceVisible: true });
+      return;
     }
     toast.show("No se pudo compartir en este dispositivo.", {
       type: "default",
       replaceVisible: true,
     });
-  }, [countriesOverlayFilter, countriesBucketsForOverlay, toast]);
+  }, [
+    countriesOverlayFilter,
+    countriesBucketsForOverlay,
+    countriesCountForOverlay,
+    countriesPlacesCountForOverlay,
+    toast,
+  ]);
 
   /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
   const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
