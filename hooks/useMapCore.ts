@@ -90,6 +90,27 @@ function isMultiTouch(e: MapMouseEvent | MapTouchEvent): boolean {
   return (ev as TouchEvent).touches.length > 1;
 }
 
+function isLandmarkTileset404Error(event: unknown): boolean {
+  const e = event as {
+    sourceId?: string;
+    source?: { url?: string };
+    tile?: { url?: string };
+    error?: { status?: number; message?: string } | string;
+    message?: string;
+  };
+  const status = typeof e?.error === 'object' ? e.error?.status : undefined;
+  const message =
+    `${typeof e?.message === 'string' ? e.message : ''} ` +
+    `${typeof e?.error === 'string' ? e.error : ''} ` +
+    `${typeof e?.error === 'object' && typeof e.error?.message === 'string' ? e.error.message : ''} ` +
+    `${typeof e?.sourceId === 'string' ? e.sourceId : ''} ` +
+    `${typeof e?.source?.url === 'string' ? e.source.url : ''} ` +
+    `${typeof e?.tile?.url === 'string' ? e.tile.url : ''}`;
+  const has404 = status === 404 || /404|not found/i.test(message);
+  const isLandmarkTileset = /mapbox\.mapbox-landmark-pois-v1/i.test(message);
+  return has404 && isLandmarkTileset;
+}
+
 export function useMapCore(
   selectedSpot: MapCoreSelectedSpot,
   options: UseMapCoreOptions
@@ -215,6 +236,24 @@ export function useMapCore(
     const map = mapInstance;
     if (!map) return;
     return installStyleImageFallback(map);
+  }, [mapInstance]);
+
+  useEffect(() => {
+    const map = mapInstance;
+    if (!map) return;
+    let landmarkFallbackApplied = false;
+    const handleMapError = (event: unknown) => {
+      if (landmarkFallbackApplied) return;
+      if (!isLandmarkTileset404Error(event)) return;
+      landmarkFallbackApplied = true;
+      setLandmarkLabelsEnabled(map, false);
+      stripUnavailableLandmarkPoiTileset(map);
+      hideNoiseLayers(map, { preservePoiLabels: false });
+    };
+    map.on('error', handleMapError);
+    return () => {
+      map.off('error', handleMapError);
+    };
   }, [mapInstance]);
 
   useEffect(() => {

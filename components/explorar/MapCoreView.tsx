@@ -93,6 +93,7 @@ export function MapCoreView({
         key={mapStyle}
         mapboxAccessToken={mapboxAccessToken}
         mapStyle={mapStyle}
+        styleDiffing={false}
         projection="globe"
         initialViewState={initialViewState}
         style={styleMap}
