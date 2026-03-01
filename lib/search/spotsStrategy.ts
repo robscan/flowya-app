@@ -8,6 +8,7 @@ import type { SpotPinStatus } from '@/components/design-system/map-pins';
 import type { SearchStrategyParams, SearchStrategyResult } from '@/hooks/search/useSearchControllerV2';
 import { distanceKm } from '@/lib/geo-utils';
 import { expandBBox, stableBBox, type BBox } from './bbox';
+import { expandCountryQueryAliases } from './country-query-aliases';
 import { normalizeQuery } from './normalize';
 
 const LIMIT_PER_BATCH = 25;
@@ -16,6 +17,7 @@ export type SpotForSearch = {
   id: string;
   title: string;
   description_short: string | null;
+  address?: string | null;
   cover_image_url: string | null;
   latitude: number;
   longitude: number;
@@ -88,7 +90,18 @@ export function createSpotsStrategy({
 
     const q = normalizeQuery(query);
     if (q) {
-      list = list.filter((s) => normalizeQuery(s.title ?? '').includes(q));
+      const queryAliases = expandCountryQueryAliases(q);
+      list = list.filter((s) => {
+        const title = normalizeQuery(s.title ?? '');
+        const desc = normalizeQuery(s.description_short ?? '');
+        const address = normalizeQuery(s.address ?? '');
+        const titleMatch = queryAliases.some((alias) => title.includes(alias));
+        if (titleMatch) return true;
+        const descMatch = queryAliases.some((alias) => desc.includes(alias));
+        if (descMatch) return true;
+        const addressMatch = queryAliases.some((alias) => address.includes(alias));
+        return addressMatch;
+      });
     }
 
     const pinFilter = resolvePinFilter(filters);
