@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-02-28
+**Fecha:** 2026-03-01
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y sus dependencias.
@@ -26,7 +26,6 @@
 ## Postergados estratégicos (no ejecutar ahora)
 
 - `OL-P0-002` — Create Spot canónico
-- `OL-P1-003` — System Status Bar
 - `OL-P1-006` — Migración POI DB (maki/categorías)
 - `OL-P1-007` — Pipeline turístico sin Google
 - `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha
@@ -59,3 +58,4 @@
 - `OL-P2-006` cierre operativo P1 (smoke final OK) — bitácora `230`.
 - `OL-P2-006` P2 higiene documental/deprecación — bitácora `231`.
 - `OL-P2-006` cierre total del loop — bitácora `232`.
+- `OL-P1-003` cierre operativo (System Status Bar implementado + call sites migrados) — bitácora `233`.

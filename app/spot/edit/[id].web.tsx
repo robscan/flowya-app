@@ -25,7 +25,7 @@ import {
 } from "@/components/design-system/map-location-picker";
 import { MapPinSpot } from "@/components/design-system/map-pins";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
-import { useToast } from "@/components/ui/toast";
+import { useSystemStatus } from "@/components/ui/system-status-bar";
 import {
   Colors,
   Radius,
@@ -176,7 +176,7 @@ function EditSpotMapSlot({
 export default function EditSpotScreenWeb() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const toast = useToast();
+  const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];

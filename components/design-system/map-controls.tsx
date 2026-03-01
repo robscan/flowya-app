@@ -131,6 +131,7 @@ export function MapControls({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'column',
-    gap: Spacing.xs,
+    // Espaciado más cómodo para evitar taps accidentales entre controles.
+    gap: Spacing.sm,
   },
 });
