@@ -25,6 +25,8 @@ import { TypographyStyles } from './typography';
 const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
 const PULSE_DURATION_MS = 120;
+const MIN_TOUCH_TARGET = 44;
+const FILTER_TEXT_ON_STATUS_BG = '#1d1d1f';
 
 export type MapPinFilterValue = 'all' | 'saved' | 'visited';
 
@@ -132,9 +134,9 @@ export function MapPinFilter({
       case 'all':
         return { bg: colors.text, text: colors.background };
       case 'saved':
-        return { bg: colors.stateToVisit, text: '#ffffff' };
+        return { bg: colors.stateToVisit, text: FILTER_TEXT_ON_STATUS_BG };
       case 'visited':
-        return { bg: colors.stateSuccess, text: '#ffffff' };
+        return { bg: colors.stateSuccess, text: FILTER_TEXT_ON_STATUS_BG };
     }
   };
 
@@ -274,6 +276,10 @@ export function MapPinFilter({
         >
           {OPTIONS.map((opt) => {
             const count = getCount(opt.value, counts);
+            const optionPending =
+              opt.value === 'all'
+                ? hasPendingAny
+                : Boolean(opt.value !== 'all' && pendingValues[opt.value]);
             const isDisabled =
               opt.value !== 'all' &&
               counts != null &&
@@ -309,8 +315,9 @@ export function MapPinFilter({
                   >
                     {opt.label}
                   </Text>
-                  {count != null ? (
-                    <View style={styles.menuCountSlot}>
+                  {count != null || optionPending ? (
+                    <View style={styles.menuRightSlot}>
+                      {count != null ? (
                       <View
                         style={[
                           styles.countBadge,
@@ -329,14 +336,15 @@ export function MapPinFilter({
                           {count}
                         </Text>
                       </View>
-                      {opt.value !== 'all' && pendingValues[opt.value] ? (
+                      ) : null}
+                      {optionPending ? (
                         <View
                           style={[
                             styles.pendingDot,
                             styles.menuPendingDotFloating,
                             {
                               backgroundColor: colors.stateToVisit,
-                              borderColor: colors.text,
+                              borderColor: colors.backgroundElevated,
                             },
                           ]}
                         />
@@ -373,6 +381,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
+    minHeight: MIN_TOUCH_TARGET,
     borderRadius: Radius.pill,
     borderWidth: 1,
   },
@@ -395,6 +404,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
+    minHeight: MIN_TOUCH_TARGET,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
   },
@@ -424,7 +434,7 @@ const styles = StyleSheet.create({
     right: 30,
     top: 10,
   },
-  menuCountSlot: {
+  menuRightSlot: {
     marginLeft: 'auto',
     width: 28,
     height: 28,
@@ -448,10 +458,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: Spacing.md,
     top: '50%',
-    width: 22,
-    height: 22,
-    marginTop: -11,
-    borderRadius: 11,
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    marginTop: -MIN_TOUCH_TARGET / 2,
+    borderRadius: MIN_TOUCH_TARGET / 2,
   },
   resetButtonText: {
     fontSize: 20,

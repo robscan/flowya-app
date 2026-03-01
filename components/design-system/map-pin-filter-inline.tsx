@@ -25,6 +25,8 @@ import { TypographyStyles } from './typography';
 
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
+const MIN_TOUCH_TARGET = 44;
+const FILTER_TEXT_ON_STATUS_BG = '#1d1d1f';
 
 const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -94,9 +96,9 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
       case 'all':
         return { bg: colors.text, text: colors.background, border: colors.text };
       case 'saved':
-        return { bg: colors.stateToVisit, text: '#ffffff', border: colors.stateToVisit };
+        return { bg: colors.stateToVisit, text: FILTER_TEXT_ON_STATUS_BG, border: colors.stateToVisit };
       case 'visited':
-        return { bg: colors.stateSuccess, text: '#ffffff', border: colors.stateSuccess };
+        return { bg: colors.stateSuccess, text: FILTER_TEXT_ON_STATUS_BG, border: colors.stateSuccess };
       default:
         return { bg: colors.borderSubtle, text: colors.text, border: colors.borderSubtle };
     }
@@ -194,7 +196,9 @@ const styles = StyleSheet.create({
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: Spacing.xs,
+    minHeight: MIN_TOUCH_TARGET,
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.pill,
