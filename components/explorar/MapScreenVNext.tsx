@@ -3124,15 +3124,15 @@ export function MapScreenVNext() {
   const dockBottomOffset = 12;
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
-  const [mapControlsHeight, setMapControlsHeight] = useState(MAP_CONTROLS_FALLBACK_HEIGHT);
+  const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
   const areMapControlsVisible =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
     sheetState !== "expanded" &&
     (!isCountriesSheetVisible || countriesSheetState !== "expanded");
-  const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(areMapControlsVisible);
+  const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(false);
   const mapControlsOverlayEntry = useRef(
-    new Animated.Value(areMapControlsVisible ? 1 : 0),
+    new Animated.Value(0),
   ).current;
   const mapControlsOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
@@ -3228,12 +3228,6 @@ export function MapScreenVNext() {
   );
   const countriesResolvedBottom =
     countriesOverlayAnchorMode === "bottom" ? countriesBottomOffset : countriesCenteredBottom;
-  const handleControlsOverlayLayout = useCallback((event: any) => {
-    const nextHeight = Math.round(event?.nativeEvent?.layout?.height ?? 0);
-    if (nextHeight <= 0) return;
-    setMapControlsHeight((current) => (Math.abs(current - nextHeight) >= 2 ? nextHeight : current));
-  }, []);
-
   useEffect(() => {
     if (!showCountriesCounterBubble) return;
     const nextMode: "center-group" | "center-mid" | "bottom" = shouldCenterCountriesAndControls
@@ -3340,7 +3334,6 @@ export function MapScreenVNext() {
       };
     }
 
-    mapControlsOverlayEntry.setValue(1);
     return () => {
       isCancelled = true;
       clearDelay();
@@ -3683,7 +3676,6 @@ export function MapScreenVNext() {
       {mapControlsOverlayMounted ? (
         <Animated.View
           pointerEvents={areMapControlsVisible ? "box-none" : "none"}
-          onLayout={handleControlsOverlayLayout}
           style={[
             styles.controlsOverlay,
             {
