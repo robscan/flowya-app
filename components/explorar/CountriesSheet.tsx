@@ -3,7 +3,7 @@ import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { ChevronRight } from "lucide-react-native";
+import { ChevronRight, List } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -388,7 +388,7 @@ export function CountriesSheet({
           <View style={styles.kpiLabelRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
             {onCountriesKpiPress && state !== "expanded" ? (
-              <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+              <List size={14} color={colors.primary} strokeWidth={2.2} />
             ) : null}
           </View>
         </Pressable>
@@ -406,7 +406,7 @@ export function CountriesSheet({
           <View style={styles.kpiLabelRow}>
             <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>spots</Text>
             {onSpotsKpiPress ? (
-              <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+              <List size={14} color={colors.primary} strokeWidth={2.2} />
             ) : null}
           </View>
         </Pressable>
