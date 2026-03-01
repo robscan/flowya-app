@@ -51,6 +51,7 @@ export function SearchSurface<T>({
   renderItem,
   resultsOverride,
   resultSections = [],
+  showResultsOnEmpty = false,
   getItemKey,
   pinFilter,
   pinCounts,
@@ -90,6 +91,8 @@ export function SearchSurface<T>({
   const hideListTitles = isFilteredPinSearch;
   /** isEmpty: mostrar "Spots en la zona" (ocultar solo cuando saved/visited). */
   const hideDefaultListTitle = hideListTitles;
+  const shouldRenderResultsOnEmpty = showResultsOnEmpty && isEmpty && displayResults.length > 0;
+  const shouldRenderResultsList = (isSearch || shouldRenderResultsOnEmpty) && displayResults.length > 0;
   const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
 
   const scrollProps = {
@@ -152,7 +155,9 @@ export function SearchSurface<T>({
         </View>
       ) : null}
       <View style={styles.resultsArea}>
-        {isEmpty && (defaultItemSections.some((s) => s.items.length > 0) || defaultItems.length > 0) && (
+        {!shouldRenderResultsOnEmpty &&
+        isEmpty &&
+        (defaultItemSections.some((s) => s.items.length > 0) || defaultItems.length > 0) && (
           <ScrollView
             style={styles.resultsScroll}
             contentContainerStyle={styles.resultsContent}
@@ -229,7 +234,7 @@ export function SearchSurface<T>({
             )}
           </ScrollView>
         )}
-        {isSearch && displayResults.length > 0 && (
+        {shouldRenderResultsList && (
           <ListView
             sections={resultSections}
             results={displayResults}
@@ -283,8 +288,8 @@ export function SearchSurface<T>({
                 return showNoSpotsMessage ? (
                   <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
                     {isFilteredPinSearch
-                      ? 'No veo resultados en este filtro. Si quieres te ayudo a buscar en todo el mapa.'
-                      : 'No encontramos ese lugar en tus spots.'}
+                      ? 'Ups, no hay spots con ese nombre guardados aquí.'
+                      : 'Ups, no encontré ese spot en el mapa.'}
                   </Text>
                 ) : null;
               })()}
@@ -338,7 +343,6 @@ export function SearchSurface<T>({
                   >
                     <View style={styles.chooserButtonContent}>
                       <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
-                      <Text style={styles.chooserButtonSubtitle}>Centro del mapa o tu ubicación</Text>
                     </View>
                   </Pressable>
                 </View>
@@ -360,7 +364,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
     flexShrink: 0,
   },
   filterRow: {
@@ -368,7 +372,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   searchRow: {
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
     flexShrink: 0,
   },
   activitySummaryWrap: {
@@ -434,5 +438,4 @@ const styles = StyleSheet.create({
   },
   chooserButtonContent: { gap: 2, alignItems: 'center' },
   chooserButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  chooserButtonSubtitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13 },
 });

@@ -67,3 +67,10 @@ Regla: solo se permiten estos 3 estados.
 - La implementación debe vivir en componente dedicado reutilizable.
 - Evitar estados derivados redundantes que puedan desfasarse (contador/lista usan misma fuente).
 - Cualquier nueva sheet debe declarar explícitamente si extiende este contrato o si define excepción.
+
+## 10. Guardrail de capas (z-index)
+
+- El orden de profundidad de Explore debe centralizarse en `components/explorar/layer-z.ts`.
+- `SpotSheet` y cualquier sheet hermana (ej. `CountriesSheet`) deben usar `EXPLORE_LAYER_Z.SHEET_BASE`.
+- Acciones superiores visibles (`perfil`, `buscar`, filtros) no deben depender de números mágicos locales; deben usar los tokens canónicos de `EXPLORE_LAYER_Z`.
+- Regla de regresión: un cambio de z-index en una pantalla no puede dejar elementos visibles sin interacción.

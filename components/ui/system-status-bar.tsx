@@ -42,15 +42,39 @@ export function useSystemStatus(): SystemStatusContextValue {
 
 function resolveMessageColors(
   type: SystemStatusType,
-  colors: (typeof Colors)['light'] | (typeof Colors)['dark']
-): { textColor: string } {
+  colors: (typeof Colors)['light'] | (typeof Colors)['dark'],
+  mode: 'light' | 'dark'
+): { textColor: string; backgroundColor: string; textShadowColor: string; borderColor: string } {
+  if (mode === 'light') {
+    return {
+      textColor: colors.text,
+      backgroundColor: 'rgba(255,255,255,0.88)',
+      textShadowColor: 'rgba(255,255,255,0.96)',
+      borderColor: 'rgba(255,255,255,0.92)',
+    };
+  }
   if (type === 'success') {
-    return { textColor: '#e8fff0' };
+    return {
+      textColor: '#e8fff0',
+      backgroundColor: 'rgba(0,0,0,0.32)',
+      textShadowColor: 'rgba(0,0,0,0.88)',
+      borderColor: 'rgba(0,0,0,0.4)',
+    };
   }
   if (type === 'error') {
-    return { textColor: '#ffe5e3' };
+    return {
+      textColor: '#ffe5e3',
+      backgroundColor: 'rgba(0,0,0,0.32)',
+      textShadowColor: 'rgba(0,0,0,0.88)',
+      borderColor: 'rgba(0,0,0,0.4)',
+    };
   }
-  return { textColor: '#ffffff' };
+  return {
+    textColor: '#ffffff',
+    backgroundColor: 'rgba(0,0,0,0.32)',
+    textShadowColor: 'rgba(0,0,0,0.88)',
+    borderColor: 'rgba(0,0,0,0.4)',
+  };
 }
 
 export function SystemStatusProvider({ children }: { children: React.ReactNode }) {
@@ -121,6 +145,9 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
     () => ({ show, setAnchor, resetAnchor }),
     [show, setAnchor, resetAnchor],
   );
+  const resolvedMode: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
+  const activeMessageType: SystemStatusType = messages[messages.length - 1]?.type ?? 'default';
+  const activePalette = resolveMessageColors(activeMessageType, Colors[resolvedMode], resolvedMode);
 
   // Permite anclar la barra por pantalla (top-center por defecto, bottom-left en Explore).
   const overlayPositionStyle =
@@ -153,13 +180,34 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
               accessibilityLiveRegion="polite"
               style={[
                 styles.stack,
+                {
+                  backgroundColor: activePalette.backgroundColor,
+                  borderColor: activePalette.borderColor,
+                },
                 anchor.placement === 'bottom-left' ? styles.stackBottomLeft : styles.stackTopCenter,
               ]}
             >
               {messages.map((message) => {
-                const palette = resolveMessageColors(message.type, Colors[colorScheme ?? 'light']);
+                const palette = resolveMessageColors(message.type, Colors[resolvedMode], resolvedMode);
                 return (
-                  <Text key={message.id} style={[styles.textSubtitle, { color: palette.textColor }]} numberOfLines={2}>
+                  <Text
+                    key={message.id}
+                    style={[
+                      styles.textSubtitle,
+                      { color: palette.textColor },
+                      Platform.select({
+                        web: {
+                          textShadow: `0px 1px 8px ${palette.textShadowColor}`,
+                        },
+                        default: {
+                          textShadowColor: palette.textShadowColor,
+                          textShadowRadius: 8,
+                          textShadowOffset: { width: 0, height: 1 },
+                        },
+                      }),
+                    ]}
+                    numberOfLines={2}
+                  >
                     {message.text}
                   </Text>
                 );
@@ -184,7 +232,7 @@ const styles = StyleSheet.create({
     paddingVertical: Spacing.xs,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md,
-    backgroundColor: 'rgba(0,0,0,0.32)',
+    borderWidth: 1,
     ...Shadow.card,
   },
   stackTopCenter: {
@@ -200,15 +248,5 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '600',
     textAlign: 'left',
-    ...Platform.select({
-      web: {
-        textShadow: '0px 1px 8px rgba(0,0,0,0.88)',
-      },
-      default: {
-        textShadowColor: 'rgba(0,0,0,0.88)',
-        textShadowRadius: 8,
-        textShadowOffset: { width: 0, height: 1 },
-      },
-    }),
   },
 });

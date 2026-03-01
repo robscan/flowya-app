@@ -114,3 +114,36 @@ Estado actual (Fase E parcial):
 - Si el usuario está en `Todos` y cambia estado de un spot desde sheet a `Por visitar`/`Visitados`, el dropdown puede mostrar badge de "pendiente de lectura".
 - El badge se limpia al abrir/aplicar el filtro destino.
 - Opciones de filtro sin resultados deben verse deshabilitadas y sin contador.
+
+## 8) Quick edit en resultados (visitados)
+
+- En filtro `visited`, cuando un spot no tiene `description_short`, Search puede mostrar CTA inline para agregar descripción corta.
+- El editor rápido de descripción debe cumplir keyboard-safe:
+  - superficie visible en zona superior (safe area),
+  - un solo owner de teclado por contexto (si entra Paso 0, Search/quick edit cierran),
+  - placeholder contextual con nombre del spot (no texto genérico).
+
+## 9) Contrato de card en `visited` (información y acciones)
+
+### 9.1 Prioridad de contenido
+
+En `visited`, la card no debe priorizar dirección como subtítulo por defecto.
+
+Regla:
+- Si existe `description_short` -> mostrar `description_short`.
+- Si falta `description_short` -> no mostrar dirección como fallback primario; mostrar CTA inline de completitud.
+
+Objetivo:
+- Mejor lectura editorial del spot visitado.
+- Reducir ruido de dirección postal cuando el usuario espera contexto personal del lugar.
+
+### 9.2 Acciones in-card obligatorias (cuando falta metadata)
+
+- Si falta `cover_image_url`: mostrar acción `Agregar imagen` en el slot de media.
+- Si falta `description_short`: mostrar acción `Agregar una descripción corta.` en el slot de subtítulo.
+
+Ambas acciones deben poder dispararse desde Search sin romper contexto del listado/filtro.
+
+### 9.3 Continuidad de flujo
+
+- Tras guardar imagen o descripción, Search debe reflejar el cambio (patch local + refresh coherente) sin sacar al usuario del contexto actual.

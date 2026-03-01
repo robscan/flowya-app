@@ -23,6 +23,8 @@ export type SearchFloatingProps<T> = {
   resultsOverride?: T[];
   /** Secciones opcionales para resultados (ej. cercanos vs en todo el mapa). */
   resultSections?: SearchSection<T>[];
+  /** Si true, permite mostrar resultados aunque la query esté vacía (caso KPI Spots). */
+  showResultsOnEmpty?: boolean;
   /** Mensaje cuando no hay items cercanos (query vacía). */
   emptyMessage?: string;
   /** Texto del CTA crear cuando no hay resultados (query >= 3). */

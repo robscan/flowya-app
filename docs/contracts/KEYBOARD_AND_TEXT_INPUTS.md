@@ -15,6 +15,16 @@ Siempre que el usuario accede a un campo de texto (búsqueda, nombrar spot, edit
 2. El teclado se muestra listo para escribir.
 3. El contenido relevante no queda tapado por el teclado (keyboard-safe).
 
+### Regla de ownership (obligatoria)
+
+En una misma pantalla/contexto solo puede existir **un owner activo de teclado**:
+
+1. Si abre una superficie con input prioritario (ej. Paso 0 Create Spot), debe cerrar/blurrear cualquier otra superficie con input (`Search`, quick edit, modales inline).
+2. No permitir dos overlays con `autoFocus` simultáneo.
+3. Al cambiar de owner (abrir/cerrar), ejecutar `blur` explícito del elemento activo antes de transferir foco.
+
+Objetivo: eliminar teclados empalmados y foco ambiguo en mobile web/native.
+
 ### Implementación por plataforma
 
 | Plataforma | Mecanismo |
@@ -26,6 +36,7 @@ Siempre que el usuario accede a un campo de texto (búsqueda, nombrar spot, edit
 
 - Search (input de búsqueda).
 - CreateSpotNameOverlay (nombre del spot).
+- Quick edit de descripción desde Search (visitados).
 - Create Spot wizard (título, descripción, etc.).
 - Edit Spot (título, descripciones).
 - Auth modal (email, contraseña).
@@ -95,6 +106,7 @@ En buscador y cualquier listado largo:
 |-------|-------------|
 | **T1** | Campo de texto enfocado → teclado visible, listo para escribir. |
 | **T2** | Contenido keyboard-safe (no tapado por el teclado). |
+| **T3** | Owner único de teclado por contexto (sin overlays con foco simultáneo). |
 | **C1** | CTA sticky sobre el teclado cuando está abierto; nunca oculto. |
 | **C2** | Con teclado cerrado, CTA en posición asignada en la composición. |
 | **S1** | Scroll/swipe down en lista o búsqueda → teclado se cierra. |
@@ -106,6 +118,7 @@ En buscador y cualquier listado largo:
 - Prohibido usar `100vh` en web para pantallas con teclado (usar 100dvh o visualViewport).
 - Prohibido CTA con `position: absolute; bottom: 0` sin compensar `keyboardHeight` cuando el input puede estar enfocado.
 - Prohibido listas largas con input enfocado que no permitan cerrar el teclado al hacer scroll.
+- Prohibido abrir una segunda superficie con `autoFocus` sin cerrar/blurrear explícitamente la superficie actual.
 
 ---
 

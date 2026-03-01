@@ -276,7 +276,14 @@ export function useMapCore(
 
   useEffect(() => {
     const map = mapInstance;
-    if (!map || !map.getSource('flowya-spots')) return;
+    if (!map) return;
+    let hasSpotsSource = false;
+    try {
+      hasSpotsSource = Boolean(map.getSource('flowya-spots'));
+    } catch {
+      hasSpotsSource = false;
+    }
+    if (!hasSpotsSource) return;
     updateSpotsLayerData(map, spots, selectedSpotId, zoom, showSpotLabels);
   }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels]);
 

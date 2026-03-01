@@ -55,6 +55,32 @@ export function ColorsShowcase() {
     { name: 'background', key: 'background' },
     { name: 'backgroundElevated', key: 'backgroundElevated' },
   ];
+  const countriesToVisitTokens: { name: string; key: keyof (typeof Colors)['light'] }[] = [
+    { name: 'countriesPanelToVisitBackground', key: 'countriesPanelToVisitBackground' },
+    {
+      name: 'countriesPanelToVisitBackgroundElevated',
+      key: 'countriesPanelToVisitBackgroundElevated',
+    },
+    { name: 'countriesPanelToVisitBorder', key: 'countriesPanelToVisitBorder' },
+    { name: 'countriesPanelToVisitBorderSubtle', key: 'countriesPanelToVisitBorderSubtle' },
+    { name: 'countriesMapCountryBaseToVisit', key: 'countriesMapCountryBaseToVisit' },
+    { name: 'countriesMapCountryLineToVisit', key: 'countriesMapCountryLineToVisit' },
+    { name: 'countriesCounterToVisitBackground', key: 'countriesCounterToVisitBackground' },
+    { name: 'countriesCounterToVisitBorder', key: 'countriesCounterToVisitBorder' },
+  ];
+  const countriesVisitedTokens: { name: string; key: keyof (typeof Colors)['light'] }[] = [
+    { name: 'countriesPanelVisitedBackground', key: 'countriesPanelVisitedBackground' },
+    {
+      name: 'countriesPanelVisitedBackgroundElevated',
+      key: 'countriesPanelVisitedBackgroundElevated',
+    },
+    { name: 'countriesPanelVisitedBorder', key: 'countriesPanelVisitedBorder' },
+    { name: 'countriesPanelVisitedBorderSubtle', key: 'countriesPanelVisitedBorderSubtle' },
+    { name: 'countriesMapCountryBaseVisited', key: 'countriesMapCountryBaseVisited' },
+    { name: 'countriesMapCountryLineVisited', key: 'countriesMapCountryLineVisited' },
+    { name: 'countriesCounterVisitedBackground', key: 'countriesCounterVisitedBackground' },
+    { name: 'countriesCounterVisitedBorder', key: 'countriesCounterVisitedBorder' },
+  ];
 
   return (
     <>
@@ -69,6 +95,30 @@ export function ColorsShowcase() {
       </Text>
       <View style={[styles.modeBlock, { backgroundColor: Colors.dark.background }]}>
         <SwatchRow mode="dark" tokens={baseTokens} />
+      </View>
+      <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>
+        Tokens: Countries ToVisit (Light)
+      </Text>
+      <View style={[styles.modeBlock, { backgroundColor: Colors.light.background }]}>
+        <SwatchRow mode="light" tokens={countriesToVisitTokens} />
+      </View>
+      <Text style={[styles.sectionLabel, { color: Colors.dark.textSecondary }]}>
+        Tokens: Countries ToVisit (Dark)
+      </Text>
+      <View style={[styles.modeBlock, { backgroundColor: Colors.dark.background }]}>
+        <SwatchRow mode="dark" tokens={countriesToVisitTokens} />
+      </View>
+      <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>
+        Tokens: Countries Visited (Light)
+      </Text>
+      <View style={[styles.modeBlock, { backgroundColor: Colors.light.background }]}>
+        <SwatchRow mode="light" tokens={countriesVisitedTokens} />
+      </View>
+      <Text style={[styles.sectionLabel, { color: Colors.dark.textSecondary }]}>
+        Tokens: Countries Visited (Dark)
+      </Text>
+      <View style={[styles.modeBlock, { backgroundColor: Colors.dark.background }]}>
+        <SwatchRow mode="dark" tokens={countriesVisitedTokens} />
       </View>
       <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>
         Uso: pines (referencian primary, text, stateToVisit, stateSuccess)

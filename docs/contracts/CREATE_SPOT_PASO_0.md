@@ -47,6 +47,11 @@ Al abrir Paso 0 se setean los tres; al cerrar o confirmar se limpian.
 
 - **Ocultos:** MapPinFilter, MapControls, BottomDock (solo se ve mapa + overlay + Continuar).
 - **Exclusión:** Search y SpotSheet no se muestran al mismo tiempo que Paso 0.
+- **Owner de teclado:** Paso 0 es owner prioritario. Al abrir:
+  - se cierra Search si estaba abierto,
+  - se cierra quick edit de descripción si estaba abierto,
+  - se ejecuta `blurActiveElement()` para liberar foco residual.
+- **Guardrail de apertura inversa:** mientras Paso 0 está abierto, rutas secundarias que intentan abrir Search (ej. KPI de países) deben abortar.
 - **Pin de preview:** Se muestra un pin para indicar dónde se creará el spot (MapCoreView `previewPinCoords`). Estado visual: selected (más grande). No interactivo.
   - **Durante Paso 0:** Pin en `createSpotPendingCoords`; label = valor actual del input (actualizado en tiempo real).
   - **Al seleccionar sugerencia de búsqueda (POI):** También cuando `poiTapped != null && selectedSpot == null`; pin en coords del POI, label = nombre del lugar. Bitácora 112.

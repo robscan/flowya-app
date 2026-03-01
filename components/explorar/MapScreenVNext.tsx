@@ -12,6 +12,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { LogOut, Search, User } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
+    ActivityIndicator,
     Animated,
     Easing,
     Linking,
@@ -19,6 +20,7 @@ import {
     Pressable,
     StyleSheet,
     Text,
+    TextInput,
     useWindowDimensions,
     View,
 } from "react-native";
@@ -36,6 +38,7 @@ import { SearchResultCard } from "@/components/design-system/search-result-card"
 import { TypographyStyles } from "@/components/design-system/typography";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
 import { CountriesSheet, type CountriesSheetState } from "@/components/explorar/CountriesSheet";
+import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
@@ -141,6 +144,10 @@ import {
   getMapPinPendingBadges,
   setMapPinPendingBadges,
 } from "@/lib/storage/mapPinPendingBadges";
+import {
+  getMapPinFilterPreference,
+  setMapPinFilterPreference,
+} from "@/lib/storage/mapPinFilterPreference";
 import { supabase } from "@/lib/supabase";
 
 type Spot = {
@@ -372,6 +379,10 @@ const STATUS_OVER_SHEET_CLEARANCE = 18;
 const FILTER_TRIGGER_ESTIMATED_HEIGHT = 56;
 const FILTER_MENU_ESTIMATED_HEIGHT = 210;
 const FILTER_MENU_GAP = 8;
+const FILTER_OVERLAY_ENTRY_DELAY_MS = 180;
+const FILTER_OVERLAY_ENTRY_DURATION_MS = 320;
+const FILTER_WAIT_FOR_CAMERA_FALLBACK_MS = 1600;
+const FILTER_WAIT_RELEASE_DELAY_MS = 70;
 /** Reserva lateral para no invadir la columna de MapControls en pantallas angostas. */
 const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
@@ -415,6 +426,10 @@ export function MapScreenVNext() {
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
     exploreRuntimeReducer,
     INITIAL_EXPLORE_RUNTIME_STATE,
+    (initial) => ({
+      ...initial,
+      pinFilter: getMapPinFilterPreference(),
+    }),
   );
   const pinFilter = runtimeState.pinFilter;
   const sheetState = runtimeState.sheetState;
@@ -454,6 +469,15 @@ export function MapScreenVNext() {
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
+  const filterOverlayEntry = useRef(new Animated.Value(0)).current;
+  const filterOverlayHasAnimatedInRef = useRef(false);
+  const [isFilterWaitingForCamera, setIsFilterWaitingForCamera] = useState(true);
+  const filterWaitActiveRef = useRef(true);
+  const filterWaitFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setMapPinFilterPreference(pinFilter);
+  }, [pinFilter]);
 
   const prevSpotIdsRef = useRef<Set<string>>(new Set());
   const prevSelectedSpotRef = useRef<Spot | null>(null);
@@ -472,6 +496,10 @@ export function MapScreenVNext() {
   const countriesSheetBeforeSearchRef = useRef<{
     wasOpen: boolean;
     state: CountriesSheetState;
+  } | null>(null);
+  const countriesSheetPrevSelectionRef = useRef<{
+    spot: Spot | null;
+    poi: TappedMapFeature | null;
   } | null>(null);
   const countriesOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSearchStartKeyRef = useRef<string | null>(null);
@@ -499,6 +527,37 @@ export function MapScreenVNext() {
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [quickDescSpot, setQuickDescSpot] = useState<Spot | null>(null);
+  const [quickDescValue, setQuickDescValue] = useState("");
+  const [quickDescSaving, setQuickDescSaving] = useState(false);
+
+  const clearFilterWaitFallbackTimer = useCallback(() => {
+    if (filterWaitFallbackTimerRef.current) {
+      clearTimeout(filterWaitFallbackTimerRef.current);
+      filterWaitFallbackTimerRef.current = null;
+    }
+  }, []);
+
+  const suspendFilterUntilCameraSettles = useCallback(
+    (fallbackMs = FILTER_WAIT_FOR_CAMERA_FALLBACK_MS) => {
+      filterWaitActiveRef.current = true;
+      setIsFilterWaitingForCamera(true);
+      clearFilterWaitFallbackTimer();
+      filterWaitFallbackTimerRef.current = setTimeout(() => {
+        filterWaitActiveRef.current = false;
+        setIsFilterWaitingForCamera(false);
+        filterWaitFallbackTimerRef.current = null;
+      }, fallbackMs);
+    },
+    [clearFilterWaitFallbackTimer],
+  );
+
+  useEffect(() => {
+    return () => {
+      clearFilterWaitFallbackTimer();
+    };
+  }, [clearFilterWaitFallbackTimer]);
+
   /** 3D siempre activo (sin toggle). */
   const is3DEnabled = true;
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
@@ -752,13 +811,32 @@ export function MapScreenVNext() {
     handleMapPointerUp,
   } = mapCore;
 
+  useEffect(() => {
+    if (!filterWaitActiveRef.current) return;
+    filterWaitActiveRef.current = false;
+    clearFilterWaitFallbackTimer();
+    const id = setTimeout(() => {
+      setIsFilterWaitingForCamera(false);
+    }, FILTER_WAIT_RELEASE_DELAY_MS);
+    return () => clearTimeout(id);
+  }, [viewportNonce, clearFilterWaitFallbackTimer]);
+
   /** OL-WOW-F2-005 act: no programmaticFlyTo durante create/edit/placing. */
   const flyToUnlessActMode = useCallback(
     (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => {
       if (createSpotNameOverlayOpen || isPlacingDraftSpot) return;
+      suspendFilterUntilCameraSettles();
       programmaticFlyTo(center, options);
     },
-    [createSpotNameOverlayOpen, isPlacingDraftSpot, programmaticFlyTo],
+    [createSpotNameOverlayOpen, isPlacingDraftSpot, programmaticFlyTo, suspendFilterUntilCameraSettles],
+  );
+
+  const handleMapLoadWithFilterDelay = useCallback(
+    (e: Parameters<typeof onMapLoad>[0]) => {
+      suspendFilterUntilCameraSettles();
+      onMapLoad(e);
+    },
+    [onMapLoad, suspendFilterUntilCameraSettles],
   );
 
   const queueDeepLinkFocus = useCallback(
@@ -794,6 +872,7 @@ export function MapScreenVNext() {
 
   const handleReframeContextual = useCallback(() => {
     if (selectedSpot) {
+      suspendFilterUntilCameraSettles();
       handleReframeSpot();
       return;
     }
@@ -802,16 +881,18 @@ export function MapScreenVNext() {
       { lng: poiTapped.lng, lat: poiTapped.lat },
       { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
     );
-  }, [selectedSpot, handleReframeSpot, poiTapped, flyToUnlessActMode]);
+  }, [selectedSpot, handleReframeSpot, poiTapped, flyToUnlessActMode, suspendFilterUntilCameraSettles]);
 
   const handleReframeContextualAndUser = useCallback(() => {
     if (selectedSpot) {
+      suspendFilterUntilCameraSettles();
       handleReframeSpotAndUser();
       return;
     }
     if (!poiTapped) return;
     if (mapInstance && userCoords) {
       try {
+        suspendFilterUntilCameraSettles();
         mapInstance.fitBounds(
           [
             [poiTapped.lng, poiTapped.lat],
@@ -832,6 +913,7 @@ export function MapScreenVNext() {
     mapInstance,
     userCoords,
     handleReframeContextual,
+    suspendFilterUntilCameraSettles,
   ]);
 
 
@@ -890,7 +972,7 @@ export function MapScreenVNext() {
       if (!searchIsOpenRef.current) {
         const filterToast: Record<MapPinFilterValue, string> = {
           all: "Descubre y planea tu próximo viaje.",
-          saved: "Organiza y prepara tus próximos lugares.",
+          saved: "Organiza y prepara tus spots.",
           visited: "Recuerda y registra tus memorias.",
         };
         if (!suppressToastRef.current) toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
@@ -1021,6 +1103,21 @@ export function MapScreenVNext() {
     },
     getFilters: () => ({ pinFilter, hasVisited: pinCounts.visited > 0 }),
   });
+
+  /**
+   * Contrato teclado/foco:
+   * Paso 0 (Nombre del spot) y Search son mutuamente excluyentes.
+   * Si Paso 0 se abre, Search se cierra y se libera foco activo para evitar teclados empalmados.
+   */
+  useEffect(() => {
+    if (!createSpotNameOverlayOpen) return;
+    if (searchV2.isOpen) searchV2.setOpen(false);
+    if (quickDescSpot) {
+      setQuickDescSpot(null);
+      setQuickDescValue("");
+    }
+    blurActiveElement();
+  }, [createSpotNameOverlayOpen, quickDescSpot, searchV2]);
 
   /** OL-WOW-F2-003: sync ref para toast solo en dropdown (handlePinFilterChange se define antes de searchV2). */
   useEffect(() => {
@@ -2059,6 +2156,109 @@ export function MapScreenVNext() {
     [spots, flyToUnlessActMode, setPinFilter, setSheetState],
   );
 
+  const patchSpotSearchMetadata = useCallback(
+    (spotId: string, patch: Partial<Pick<Spot, "cover_image_url" | "description_short">>) => {
+      setSpots((prev) => prev.map((s) => (s.id === spotId ? { ...s, ...patch } : s)));
+      setSelectedSpot((prev) => (prev?.id === spotId ? { ...prev, ...patch } : prev));
+      invalidateSpotIdRef.current?.(spotId);
+    },
+    [],
+  );
+
+  const handleQuickAddImageFromSearch = useCallback(
+    async (spot: Spot) => {
+      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
+      try {
+        const ImagePicker = await import("expo-image-picker");
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.85,
+        });
+        if (result.canceled || !result.assets?.[0]?.uri) return;
+        const res = await fetch(result.assets[0].uri);
+        if (!res.ok) {
+          if (!suppressToastRef.current) toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+          return;
+        }
+        const blob = await res.blob();
+        const optimized = await optimizeSpotImage(blob);
+        const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+        if (!toUpload) {
+          if (!suppressToastRef.current) toast.show("No se pudo procesar la imagen.", { type: "error" });
+          return;
+        }
+        const coverUrl = await uploadSpotCover(spot.id, toUpload);
+        if (!coverUrl) {
+          if (!suppressToastRef.current) toast.show("No se pudo subir la imagen.", { type: "error" });
+          return;
+        }
+        const { error } = await supabase
+          .from("spots")
+          .update({ cover_image_url: coverUrl })
+          .eq("id", spot.id);
+        if (error) {
+          if (!suppressToastRef.current) toast.show("No se pudo guardar la imagen.", { type: "error" });
+          return;
+        }
+        patchSpotSearchMetadata(spot.id, { cover_image_url: coverUrl });
+        if (!suppressToastRef.current) toast.show("Imagen agregada.", { type: "success", replaceVisible: true });
+      } catch {
+        if (!suppressToastRef.current) toast.show("No se pudo completar la carga de imagen.", { type: "error" });
+      }
+    },
+    [patchSpotSearchMetadata, requireAuthOrModal, toast],
+  );
+
+  const handleQuickEditDescriptionOpen = useCallback((spot: Spot) => {
+    setQuickDescSpot(spot);
+    setQuickDescValue(spot.description_short?.trim() ?? "");
+  }, []);
+
+  const handleQuickEditDescriptionClose = useCallback(() => {
+    if (quickDescSaving) return;
+    setQuickDescSpot(null);
+    setQuickDescValue("");
+  }, [quickDescSaving]);
+
+  const handleQuickEditDescriptionSave = useCallback(async () => {
+    if (!quickDescSpot) return;
+    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
+    const nextValue = quickDescValue.trim();
+    const currentValue = quickDescSpot.description_short?.trim() ?? "";
+    if (nextValue === currentValue) {
+      handleQuickEditDescriptionClose();
+      return;
+    }
+    setQuickDescSaving(true);
+    try {
+      const { error } = await supabase
+        .from("spots")
+        .update({ description_short: nextValue.length > 0 ? nextValue : null })
+        .eq("id", quickDescSpot.id);
+      if (error) {
+        if (!suppressToastRef.current) toast.show("No se pudo guardar la descripción.", { type: "error" });
+        return;
+      }
+      patchSpotSearchMetadata(quickDescSpot.id, {
+        description_short: nextValue.length > 0 ? nextValue : null,
+      });
+      if (!suppressToastRef.current) toast.show("Descripción actualizada.", { type: "success", replaceVisible: true });
+      setQuickDescSpot(null);
+      setQuickDescValue("");
+    } finally {
+      setQuickDescSaving(false);
+    }
+  }, [
+    handleQuickEditDescriptionClose,
+    patchSpotSearchMetadata,
+    quickDescSpot,
+    quickDescValue,
+    requireAuthOrModal,
+    toast,
+  ]);
+
   const SKIP_CREATE_SPOT_CONFIRM_KEY = "flowya_create_spot_skip_confirm";
 
   const handleMapLongPress = useCallback(
@@ -2103,6 +2303,7 @@ export function MapScreenVNext() {
       prevSelectedSpotRef.current = null;
     }
     if (wasOpen && !searchV2.isOpen) {
+      setShowFilteredResultsOnEmpty(false);
       const countriesSnapshot = countriesSheetBeforeSearchRef.current;
       countriesSheetBeforeSearchRef.current = null;
       if (
@@ -2147,6 +2348,7 @@ export function MapScreenVNext() {
 
   /** Cerrar Paso 0 (tap fuera): sin side effects, vuelve al mapa. */
   const handleCloseCreateSpotNameOverlay = useCallback(() => {
+    blurActiveElement();
     setCreateSpotNameOverlayOpen(false);
     setCreateSpotPendingCoords(null);
     setCreateSpotInitialName(undefined);
@@ -2205,6 +2407,7 @@ export function MapScreenVNext() {
   const [countriesSheetOpen, setCountriesSheetOpen] = useState(false);
   const [countriesMapSnapshot, setCountriesMapSnapshot] = useState<string | null>(null);
   const [isCountriesShareInFlight, setIsCountriesShareInFlight] = useState(false);
+  const [showFilteredResultsOnEmpty, setShowFilteredResultsOnEmpty] = useState(false);
   const isCountriesShareInFlightRef = useRef(false);
   const lastCountriesShareAtRef = useRef(0);
   const countriesShareConsumedRef = useRef(false);
@@ -2215,6 +2418,16 @@ export function MapScreenVNext() {
     countriesOverlayFilter === "saved"
       ? countriesBucketsByFilter.saved
       : countriesBucketsByFilter.visited;
+  const countriesOverlayScheme = (colorScheme === "dark" ? "dark" : "light") as "light" | "dark";
+  const countriesOverlayColors = Colors[countriesOverlayScheme];
+  const countriesCounterBackgroundColor =
+    countriesOverlayFilter === "saved"
+      ? countriesOverlayColors.countriesCounterToVisitBackground
+      : countriesOverlayColors.countriesCounterVisitedBackground;
+  const countriesCounterBorderColor =
+    countriesOverlayFilter === "saved"
+      ? countriesOverlayColors.countriesCounterToVisitBorder
+      : countriesOverlayColors.countriesCounterVisitedBorder;
   const countriesCountForOverlay = countriesBucketsForOverlay.length;
   const countriesPlacesCountForOverlay = useMemo(
     () => countriesBucketsForOverlay.reduce((total, country) => total + country.count, 0),
@@ -2255,7 +2468,7 @@ export function MapScreenVNext() {
         countriesOverlayDelayRef.current = null;
       }
       Animated.timing(countriesOverlayEntry, {
-        toValue: 0,
+        toValue: 2,
         duration: 160,
         easing: Easing.in(Easing.cubic),
         useNativeDriver: false,
@@ -2322,20 +2535,75 @@ export function MapScreenVNext() {
 
   const handleCountriesCounterPress = useCallback(() => {
     if (!countriesOverlayMounted) return;
-    setCountriesSheetState("expanded");
+    countriesSheetPrevSelectionRef.current = {
+      spot: selectedSpot,
+      poi: poiTapped,
+    };
+    // Contrato de capas/sheets: no apilar sheets. CountriesSheet reemplaza SpotSheet activa.
+    setSelectedSpot(null);
+    setPoiTapped(null);
+    setSheetState("peek");
+    setSheetHeight(SHEET_PEEK_HEIGHT);
+    setIsPlacingDraftSpot(false);
+    setDraftCoverUri(null);
+    setCountriesSheetState("medium");
     setCountriesSheetOpen(true);
-  }, [countriesOverlayMounted]);
+  }, [countriesOverlayMounted, poiTapped, selectedSpot, setSheetState]);
+
+  const handleCountriesSheetClose = useCallback(() => {
+    setCountriesSheetOpen(false);
+    const snapshot = countriesSheetPrevSelectionRef.current;
+    countriesSheetPrevSelectionRef.current = null;
+    if (!snapshot) return;
+    if (snapshot.spot != null) {
+      setSelectedSpot(snapshot.spot);
+      setPoiTapped(null);
+      setSheetState("peek");
+      return;
+    }
+    if (snapshot.poi != null) {
+      setSelectedSpot(null);
+      setPoiTapped(snapshot.poi);
+      setSheetState("peek");
+    }
+  }, [setSheetState]);
 
   const openSearchPreservingCountriesSheet = useCallback(() => {
+    if (createSpotNameOverlayOpen) return;
+    setShowFilteredResultsOnEmpty(false);
     countriesSheetBeforeSearchRef.current = {
       wasOpen: countriesSheetOpen,
       state: countriesSheetState,
     };
+    countriesSheetPrevSelectionRef.current = null;
     if (countriesSheetOpen) setCountriesSheetOpen(false);
     prevSelectedSpotRef.current = selectedSpot;
     prevSheetStateRef.current = sheetState;
+    blurActiveElement();
     searchV2.setOpen(true);
-  }, [countriesSheetOpen, countriesSheetState, selectedSpot, sheetState, searchV2]);
+  }, [createSpotNameOverlayOpen, countriesSheetOpen, countriesSheetState, selectedSpot, sheetState, searchV2]);
+
+  const handleCountriesKpiPress = useCallback(() => {
+    if (!countriesSheetOpen) return;
+    setCountriesSheetState("expanded");
+  }, [countriesSheetOpen]);
+
+  const handleCountriesSpotsKpiPress = useCallback(() => {
+    if (createSpotNameOverlayOpen) return;
+    setCountriesDrilldown(null);
+    setShowFilteredResultsOnEmpty(true);
+    countriesSheetBeforeSearchRef.current = {
+      wasOpen: countriesSheetOpen,
+      state: countriesSheetState,
+    };
+    countriesSheetPrevSelectionRef.current = null;
+    if (countriesSheetOpen) setCountriesSheetOpen(false);
+    prevSelectedSpotRef.current = selectedSpot;
+    prevSheetStateRef.current = sheetState;
+    blurActiveElement();
+    searchV2.setOpen(true);
+    searchV2.setQuery("");
+  }, [createSpotNameOverlayOpen, countriesSheetOpen, countriesSheetState, selectedSpot, sheetState, searchV2]);
 
   const handleCountryBucketPress = useCallback(
     (country: CountryBucket) => {
@@ -2402,6 +2670,23 @@ export function MapScreenVNext() {
     toast,
   ]);
 
+  const handleCountriesMapCountryPress = useCallback(
+    (_countryCode: string, bounds: [[number, number], [number, number]]) => {
+      if (!mapInstance) return;
+      setCountriesSheetState("peek");
+      try {
+        suspendFilterUntilCameraSettles();
+        mapInstance.fitBounds(bounds, {
+          padding: FIT_BOUNDS_PADDING,
+          duration: FIT_BOUNDS_DURATION_MS,
+        });
+      } catch {
+        // noop
+      }
+    },
+    [mapInstance, suspendFilterUntilCameraSettles],
+  );
+
   /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
   const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
     const normalizedQuery = normalizeCountryToken(searchV2.query);
@@ -2443,6 +2728,30 @@ export function MapScreenVNext() {
     placeSuggestions,
     mapInstance,
     viewportNonce,
+  ]);
+  const kpiSpotsSearchResults = useMemo<(Spot | PlaceResult)[]>(() => {
+    if (!showFilteredResultsOnEmpty) return searchDisplayResults;
+    if (!searchV2.isOpen || searchV2.query.trim().length > 0) return searchDisplayResults;
+    if (pinFilter !== "saved" && pinFilter !== "visited") return searchDisplayResults;
+    if (!mapInstance || filteredSpots.length <= 1) return filteredSpots;
+    try {
+      const center = mapInstance.getCenter();
+      return [...filteredSpots].sort(
+        (a, b) =>
+          distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
+          distanceKm(center.lat, center.lng, b.latitude, b.longitude),
+      );
+    } catch {
+      return filteredSpots;
+    }
+  }, [
+    showFilteredResultsOnEmpty,
+    searchDisplayResults,
+    searchV2.isOpen,
+    searchV2.query,
+    pinFilter,
+    mapInstance,
+    filteredSpots,
   ]);
   const searchResultSections = useMemo<SearchSection<Spot>[]>(() => {
     const normalizedQuery = normalizeCountryToken(searchV2.query);
@@ -2509,6 +2818,12 @@ export function MapScreenVNext() {
     if (q.length < 3) return;
     setSearchQuery(searchQuery);
   }, [pinFilter, searchIsOpen, searchQuery, setSearchQuery]);
+
+  useEffect(() => {
+    if (!searchV2.isOpen) return;
+    if (!showFilteredResultsOnEmpty) return;
+    if (searchV2.query.trim().length > 0) setShowFilteredResultsOnEmpty(false);
+  }, [searchV2.isOpen, searchV2.query, showFilteredResultsOnEmpty]);
 
   /** Reordenar resultados por viewport al terminar navegación de mapa (moveend). */
   useEffect(() => {
@@ -2770,13 +3085,59 @@ export function MapScreenVNext() {
   const shouldShowFilterDropdown =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
+    !isFilterWaitingForCamera &&
     filterTop >= filterMinimumTop;
+  const filterOverlayAnimatedStyle = useMemo(
+    () => ({
+      opacity: filterOverlayEntry,
+      transform: [
+        {
+          translateY: filterOverlayEntry.interpolate({
+            inputRange: [0, 1],
+            outputRange: [-8, 0],
+          }),
+        },
+      ],
+    }),
+    [filterOverlayEntry],
+  );
   const controlsBottomOffset =
     isSpotSheetVisible
       ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
       : isCountriesSheetVisible
         ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
         : dockBottomOffset + insets.bottom;
+
+  const handleLocateWithFilterDelay = useCallback(() => {
+    suspendFilterUntilCameraSettles();
+    handleLocate();
+  }, [handleLocate, suspendFilterUntilCameraSettles]);
+
+  const handleViewWorldWithFilterDelay = useCallback(() => {
+    suspendFilterUntilCameraSettles();
+    handleViewWorld();
+  }, [handleViewWorld, suspendFilterUntilCameraSettles]);
+
+  useEffect(() => {
+    if (!shouldShowFilterDropdown) {
+      filterOverlayEntry.stopAnimation();
+      filterOverlayEntry.setValue(0);
+      return;
+    }
+    filterOverlayEntry.stopAnimation();
+    filterOverlayEntry.setValue(0);
+    const delay = filterOverlayHasAnimatedInRef.current ? 0 : FILTER_OVERLAY_ENTRY_DELAY_MS;
+    Animated.timing(filterOverlayEntry, {
+      toValue: 1,
+      duration: FILTER_OVERLAY_ENTRY_DURATION_MS,
+      delay,
+      easing: Easing.out(Easing.bezier(0.22, 1, 0.36, 1)),
+      useNativeDriver: Platform.OS !== "web",
+    }).start(({ finished }) => {
+      if (!finished) return;
+      filterOverlayHasAnimatedInRef.current = true;
+    });
+  }, [shouldShowFilterDropdown, filterOverlayEntry]);
 
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
@@ -2855,7 +3216,7 @@ export function MapScreenVNext() {
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
         initialViewState={initialViewState}
-        onLoad={onMapLoad}
+        onLoad={handleMapLoadWithFilterDelay}
         onPointerDown={handleMapPointerDown}
         onPointerMove={handleMapPointerMove}
         onPointerUp={handleMapPointerUp}
@@ -2912,13 +3273,15 @@ export function MapScreenVNext() {
         />
       ) : null}
       {shouldShowFilterDropdown ? (
-        <View
+        <Animated.View
+          pointerEvents="box-none"
           style={[
             styles.filterOverlay,
-            { top: Math.max(filterMinimumTop, filterTop), pointerEvents: "box-none" },
+            { top: Math.max(filterMinimumTop, filterTop) },
+            filterOverlayAnimatedStyle,
           ]}
         >
-          <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
+          <View pointerEvents="box-none" style={styles.filterRowWrap}>
             <MapPinFilter
               value={pinFilter}
               onChange={(next) => handlePinFilterChange(next, { reframe: true })}
@@ -2928,17 +3291,17 @@ export function MapScreenVNext() {
               menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
             />
           </View>
-        </View>
+        </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <View
+          pointerEvents="box-none"
           style={[
             styles.profileOverlay,
             {
               top: TOP_OVERLAY_INSET + insets.top,
               left: TOP_OVERLAY_INSET + insets.left,
             },
-            { pointerEvents: "box-none" },
           ]}
         >
           <View style={styles.profileTopRow}>
@@ -2976,30 +3339,37 @@ export function MapScreenVNext() {
         title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
         filterMode={countriesOverlayFilter}
         state={countriesSheetState}
+        forceColorScheme={countriesOverlayScheme}
         items={countriesBucketsForOverlay}
         worldPercentage={countriesWorldPercentageForOverlay}
         summaryCountriesCount={countriesCountForOverlay}
         summaryPlacesCount={countriesPlacesCountForOverlay}
+        onCountriesKpiPress={handleCountriesKpiPress}
+        onSpotsKpiPress={handleCountriesSpotsKpiPress}
         onStateChange={setCountriesSheetState}
-        onClose={() => setCountriesSheetOpen(false)}
+        onClose={handleCountriesSheetClose}
         onShare={handleCountriesSheetShare}
         shareDisabled={isCountriesShareInFlight}
         onItemPress={handleCountryBucketPress}
         onSheetHeightChange={setCountriesSheetHeight}
         onMapSnapshotChange={setCountriesMapSnapshot}
+        onMapCountryPress={handleCountriesMapCountryPress}
       />
       {countriesOverlayMounted ? (
         <Animated.View
           style={[
             styles.countriesOverlay,
-            { left: TOP_OVERLAY_INSET + insets.left },
+            { right: CONTROLS_OVERLAY_RIGHT + insets.right },
             {
-              opacity: countriesOverlayEntry,
+              opacity: countriesOverlayEntry.interpolate({
+                inputRange: [0, 1, 2],
+                outputRange: [0, 1, 0],
+              }),
               transform: [
                 {
                   translateX: countriesOverlayEntry.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-8, 0],
+                    inputRange: [0, 1, 2],
+                    outputRange: [8, 0, -8],
                   }),
                 },
               ],
@@ -3012,11 +3382,8 @@ export function MapScreenVNext() {
             style={({ pressed }) => [
               styles.countriesCircle,
               {
-                backgroundColor:
-                  colorScheme === "dark"
-                    ? "rgba(29,29,31,0.78)"
-                    : "rgba(255,255,255,0.78)",
-                borderColor: Colors[colorScheme ?? "light"].borderSubtle,
+                backgroundColor: countriesCounterBackgroundColor,
+                borderColor: countriesCounterBorderColor,
               },
               pressed && styles.countriesCirclePressed,
             ]}
@@ -3033,14 +3400,14 @@ export function MapScreenVNext() {
                 {
                   color:
                     countriesOverlayFilter === "saved"
-                      ? Colors[colorScheme ?? "light"].stateToVisit
-                      : Colors[colorScheme ?? "light"].stateSuccess,
+                      ? countriesOverlayColors.stateToVisit
+                      : countriesOverlayColors.stateSuccess,
                 },
               ]}
             >
               {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
             </Text>
-            <Text style={[styles.countriesLabel, { color: Colors[colorScheme ?? "light"].textSecondary }]}>
+            <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
               Países
             </Text>
           </Pressable>
@@ -3048,13 +3415,13 @@ export function MapScreenVNext() {
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <View
+          pointerEvents="box-none"
           style={[
             styles.createSpotOverlay,
             {
               top: TOP_OVERLAY_INSET + insets.top,
               right: CONTROLS_OVERLAY_RIGHT + insets.right,
             },
-            { pointerEvents: "box-none" },
           ]}
         >
           <IconButton
@@ -3068,10 +3435,10 @@ export function MapScreenVNext() {
       ) : null}
       {areMapControlsVisible ? (
         <View
+          pointerEvents="box-none"
           style={[
             styles.controlsOverlay,
             {
-              pointerEvents: "box-none",
               right: CONTROLS_OVERLAY_RIGHT + insets.right,
               bottom: controlsBottomOffset,
               flexDirection: "column",
@@ -3081,12 +3448,12 @@ export function MapScreenVNext() {
         >
           <MapControls
             map={mapInstance}
-            onLocate={handleLocate}
+            onLocate={handleLocateWithFilterDelay}
             selectedSpot={contextualSelection}
             onReframeSpot={handleReframeContextual}
             onReframeSpotAndUser={handleReframeContextualAndUser}
             hasUserLocation={userCoords != null}
-            onViewWorld={handleViewWorld}
+            onViewWorld={handleViewWorldWithFilterDelay}
             activeMapControl={activeMapControl}
           />
         </View>
@@ -3139,8 +3506,9 @@ export function MapScreenVNext() {
         pinFilter={pinFilter}
         pinCounts={pinCounts}
         onPinFilterChange={(next) => handlePinFilterChange(next, { reframe: false })}
-        resultsOverride={searchDisplayResults}
+        resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
+        showResultsOnEmpty={showFilteredResultsOnEmpty}
         placeSuggestions={pinFilter === "all" ? [] : placeSuggestions}
         onCreateFromPlace={handleCreateFromPlace}
         activitySummary={{
@@ -3156,11 +3524,45 @@ export function MapScreenVNext() {
             const spot = item as Spot;
             const km = distanceKm(ref.latitude, ref.longitude, spot.latitude, spot.longitude);
             const distanceText = formatDistanceKm(km);
+            const isVisitedFilter = pinFilter === "visited";
+            const descriptionShort = spot.description_short?.trim() ?? "";
+            const hasDescriptionShort = descriptionShort.length > 0;
+            const hasCoverImage = Boolean(spot.cover_image_url && spot.cover_image_url.trim().length > 0);
+            const quickActions = isVisitedFilter
+              ? [
+                  ...(!hasCoverImage
+                    ? [
+                        {
+                          id: `add-image-${spot.id}`,
+                          label: "Agregar imagen",
+                          kind: "add_image" as const,
+                          onPress: () => handleQuickAddImageFromSearch(spot),
+                          accessibilityLabel: `Agregar imagen a ${spot.title}`,
+                        },
+                      ]
+                    : []),
+                  ...(!hasDescriptionShort
+                    ? [
+                        {
+                          id: `edit-desc-${spot.id}`,
+                          label: "Agregar una descripción corta",
+                          kind: "edit_description" as const,
+                          onPress: () => handleQuickEditDescriptionOpen(spot),
+                          accessibilityLabel: `Agregar una descripción corta a ${spot.title}`,
+                        },
+                      ]
+                    : []),
+                ]
+              : [];
             return (
               <SearchResultCard
                 spot={item}
                 onPress={() => searchV2.onSelect(item)}
                 distanceText={distanceText}
+                subtitleOverride={
+                  isVisitedFilter ? (hasDescriptionShort ? descriptionShort : null) : undefined
+                }
+                quickActions={quickActions}
               />
             );
           }
@@ -3187,6 +3589,86 @@ export function MapScreenVNext() {
           return p.id ?? `place-${p.lat}-${p.lng}`;
         }}
       />
+      {quickDescSpot ? (
+        <View
+          style={[
+            styles.quickEditDescOverlay,
+            { paddingTop: Math.max(insets.top, 16) + 8 },
+          ]}
+          pointerEvents="box-none"
+        >
+          <Pressable
+            style={styles.quickEditDescBackdrop}
+            onPress={handleQuickEditDescriptionClose}
+            accessibilityLabel="Cerrar editor de descripción"
+          />
+          <View
+            style={[
+              styles.quickEditDescCard,
+              {
+                backgroundColor: Colors[colorScheme ?? "light"].backgroundElevated,
+                borderColor: Colors[colorScheme ?? "light"].borderSubtle,
+              },
+            ]}
+          >
+            <Text style={[styles.quickEditDescTitle, { color: Colors[colorScheme ?? "light"].text }]}>
+              Descripción corta
+            </Text>
+            <TextInput
+              value={quickDescValue}
+              onChangeText={setQuickDescValue}
+              placeholder={`Agrega una descripción breve para ${quickDescSpot.title}`}
+              placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
+              style={[
+                styles.quickEditDescInput,
+                {
+                  color: Colors[colorScheme ?? "light"].text,
+                  borderColor: Colors[colorScheme ?? "light"].borderSubtle,
+                  backgroundColor: Colors[colorScheme ?? "light"].background,
+                },
+              ]}
+              editable={!quickDescSaving}
+              multiline
+              maxLength={180}
+              autoFocus
+            />
+            <View style={styles.quickEditDescActions}>
+              <Pressable
+                style={[
+                  styles.quickEditDescButton,
+                  { borderColor: Colors[colorScheme ?? "light"].borderSubtle },
+                ]}
+                onPress={handleQuickEditDescriptionClose}
+                disabled={quickDescSaving}
+              >
+                <Text
+                  style={[
+                    styles.quickEditDescButtonText,
+                    { color: Colors[colorScheme ?? "light"].textSecondary },
+                  ]}
+                >
+                  Cancelar
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.quickEditDescButton,
+                  styles.quickEditDescButtonPrimary,
+                  { backgroundColor: Colors[colorScheme ?? "light"].primary },
+                ]}
+                onPress={handleQuickEditDescriptionSave}
+                disabled={quickDescSaving}
+              >
+                {quickDescSaving ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.quickEditDescButtonText, { color: "#fff" }]}>Guardar</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      ) : null}
       {/* CONTRATO: Sheet disabled while search open; ocultar cuando flujo de creación (CreateSpotNameOverlay) activo */}
       {(selectedSpot != null || poiTapped != null) &&
       !searchV2.isOpen &&
@@ -3321,7 +3803,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: FILTER_OVERLAY_TOP,
     alignItems: "center",
-    zIndex: 14,
+    zIndex: EXPLORE_LAYER_Z.FILTER,
   },
   filterRowWrap: {
     position: "relative",
@@ -3331,7 +3813,7 @@ const styles = StyleSheet.create({
   profileOverlay: {
     position: "absolute",
     left: TOP_OVERLAY_INSET,
-    zIndex: 12,
+    zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
   },
   profileTopRow: {
     flexDirection: "column",
@@ -3346,7 +3828,7 @@ const styles = StyleSheet.create({
   createSpotOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
-    zIndex: 11,
+    zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
   },
   logoutButtonWrap: {
     marginTop: 8,
@@ -3365,11 +3847,11 @@ const styles = StyleSheet.create({
   controlsOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
-    zIndex: 10,
+    zIndex: EXPLORE_LAYER_Z.MAP_CONTROLS,
   },
   flowyaLabelWrap: {
     position: "absolute",
-    zIndex: 5,
+    zIndex: EXPLORE_LAYER_Z.FLOWYA_LABEL,
     alignSelf: "flex-start",
     padding: 8,
   },
@@ -3402,6 +3884,63 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 2,
+  },
+  quickEditDescOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 70,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    padding: 20,
+  },
+  quickEditDescBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.32)",
+  },
+  quickEditDescCard: {
+    width: "100%",
+    maxWidth: 460,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 10,
+  },
+  quickEditDescTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    lineHeight: 24,
+  },
+  quickEditDescInput: {
+    minHeight: 98,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 15,
+    lineHeight: 20,
+    textAlignVertical: "top",
+  },
+  quickEditDescActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 4,
+  },
+  quickEditDescButton: {
+    minHeight: 40,
+    minWidth: 96,
+    borderRadius: 999,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 14,
+  },
+  quickEditDescButtonPrimary: {
+    borderWidth: 0,
+  },
+  quickEditDescButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   placeholder: {
     flex: 1,

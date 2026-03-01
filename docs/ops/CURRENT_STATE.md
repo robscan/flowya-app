@@ -18,6 +18,7 @@
 - `OL-P2-006`: CERRADO (bitácora `232`).
 - `OL-P1-003`: CERRADO (bitácoras `233` y `234`).
 - `OL-P3-002`: ACTIVO (fase `P3-002.A` con MVP base implementado, bitácora `236`).
+- Hardening UX teclado/foco aplicado en Explore (owner único entre Paso 0/Search/quick edit, bitácora `240`).
 - Foco activo actual: países interactivo con estrategia de entrega por fases.
 - Cola definida para siguiente jornada: `OL-CONTENT-001..006` (Mi diario, galería, esquema turismo, resolución de entidad, enrichment pipeline, directions).
 
@@ -62,6 +63,10 @@
 - `docs/bitacora/2026/03/237-ol-p3-002-a-locale-canonicoy-drilldown-paises.md`
 - `docs/bitacora/2026/03/233-ol-p1-003-system-status-bar-implementation.md`
 - `docs/bitacora/2026/03/234-ol-p1-003-hardening-runtime-ux-overlays.md`
+- `docs/bitacora/2026/03/240-hardening-keyboard-owner-y-quick-edit-description-search.md`
+- `docs/bitacora/2026/03/241-design-system-search-cards-colores-tipografia-y-layout-canonico.md`
+- `docs/bitacora/2026/03/242-filtro-dropdown-y-retardo-hasta-settle-de-camara.md`
+- `docs/bitacora/2026/03/243-consolidacion-integral-ajustes-explore-search-ds-del-dia.md`
 - `docs/ops/plans/PLAN_CONTENT_STACK_ENRICHMENT_2026-03-01.md`
 - `docs/ops/analysis/API_INTEGRATION_RISK_REGISTER_2026-03-01.md`
 

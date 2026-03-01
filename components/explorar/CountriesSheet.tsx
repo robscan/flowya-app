@@ -1,8 +1,10 @@
 import { CountriesMapPreview } from "@/components/explorar/CountriesMapPreview";
+import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronRight } from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
@@ -32,10 +34,13 @@ type CountriesSheetProps = {
   title: string;
   filterMode: "saved" | "visited";
   state: CountriesSheetState;
+  forceColorScheme?: "light" | "dark";
   items: CountrySheetItem[];
   worldPercentage: number;
   summaryCountriesCount: number;
   summaryPlacesCount: number;
+  onCountriesKpiPress?: () => void;
+  onSpotsKpiPress?: () => void;
   emptyLabel?: string;
   onStateChange: (next: CountriesSheetState) => void;
   onClose: () => void;
@@ -44,6 +49,10 @@ type CountriesSheetProps = {
   onItemPress: (item: CountrySheetItem) => void;
   onSheetHeightChange?: (height: number) => void;
   onMapSnapshotChange?: (dataUrl: string | null) => void;
+  onMapCountryPress?: (
+    countryCode: string,
+    bounds: [[number, number], [number, number]],
+  ) => void;
 };
 
 const SHEET_PEEK_HEIGHT = 96;
@@ -59,16 +68,27 @@ const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
 const MAP_PREVIEW_HEIGHT = 172;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
+const PROGRESS_BLOCK_HEIGHT = 44;
+
+function resolveWorldProgressCopy(worldPercentage: number): string {
+  if (worldPercentage < 10) return "Primeros pasos";
+  if (worldPercentage < 30) return "Buen ritmo";
+  if (worldPercentage < 60) return "Gran avance";
+  return "Nivel explorador";
+}
 
 export function CountriesSheet({
   visible,
   title,
   filterMode,
   state,
+  forceColorScheme,
   items,
   worldPercentage,
   summaryCountriesCount,
   summaryPlacesCount,
+  onCountriesKpiPress,
+  onSpotsKpiPress,
   emptyLabel = "No hay países detectados por ahora.",
   onStateChange,
   onClose,
@@ -77,10 +97,32 @@ export function CountriesSheet({
   onItemPress,
   onSheetHeightChange,
   onMapSnapshotChange,
+  onMapCountryPress,
 }: CountriesSheetProps) {
   const insets = useSafeAreaInsets();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? "light"];
+  const deviceColorScheme = useColorScheme();
+  const activeScheme = forceColorScheme ?? (deviceColorScheme === "dark" ? "dark" : "light");
+  const colors = useMemo(() => {
+    const base = Colors[activeScheme];
+    const panelOverrides =
+      filterMode === "saved"
+        ? {
+            background: base.countriesPanelToVisitBackground,
+            backgroundElevated: base.countriesPanelToVisitBackgroundElevated,
+            border: base.countriesPanelToVisitBorder,
+            borderSubtle: base.countriesPanelToVisitBorderSubtle,
+          }
+        : {
+            background: base.countriesPanelVisitedBackground,
+            backgroundElevated: base.countriesPanelVisitedBackgroundElevated,
+            border: base.countriesPanelVisitedBorder,
+            borderSubtle: base.countriesPanelVisitedBorderSubtle,
+          };
+    return {
+      ...base,
+      ...panelOverrides,
+    };
+  }, [activeScheme, filterMode]);
   const viewportHeight = Dimensions.get("window").height;
 
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
@@ -98,7 +140,11 @@ export function CountriesSheet({
   const expandedAnchor = viewportHeight;
 
   const mediumBaselineHeight =
-    collapsedAnchor + summaryHeight + MAP_PREVIEW_BLOCK_HEIGHT + CONTAINER_PADDING_BOTTOM;
+    collapsedAnchor +
+    summaryHeight +
+    MAP_PREVIEW_BLOCK_HEIGHT +
+    PROGRESS_BLOCK_HEIGHT +
+    CONTAINER_PADDING_BOTTOM;
   const mediumVisible = Math.min(mediumAnchor, mediumBaselineHeight);
   const expandedVisibleLimit = Math.max(
     collapsedAnchor + 120,
@@ -267,7 +313,7 @@ export function CountriesSheet({
     0,
     visibleHeightForState - collapsedAnchor - summaryHeight - CONTAINER_PADDING_BOTTOM,
   );
-  const maxListHeight = Math.max(0, maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT);
+  const maxListHeight = Math.max(0, maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - PROGRESS_BLOCK_HEIGHT);
   const showExpandedList = state === "expanded";
   const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
@@ -276,9 +322,20 @@ export function CountriesSheet({
     .filter((code): code is string => code != null);
   const previewHighlightColor =
     filterMode === "saved" ? colors.stateToVisit : colors.stateSuccess;
+  const previewBaseCountryColor =
+    filterMode === "saved"
+      ? colors.countriesMapCountryBaseToVisit
+      : colors.countriesMapCountryBaseVisited;
+  const previewLineCountryColor =
+    filterMode === "saved"
+      ? colors.countriesMapCountryLineToVisit
+      : colors.countriesMapCountryLineVisited;
+  const normalizedWorldPercentage = Math.max(0, Math.min(100, Math.round(worldPercentage)));
+  const worldProgressCopy = resolveWorldProgressCopy(normalizedWorldPercentage);
 
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={[
         styles.container,
         {
@@ -313,18 +370,46 @@ export function CountriesSheet({
         style={styles.summaryWrap}
         onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
       >
-        <View style={[styles.summaryChip, { borderColor: colors.borderSubtle }]}>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{`${worldPercentage}%`}</Text>
+        <View style={styles.summaryChip}>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{`${normalizedWorldPercentage}%`}</Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>del mundo</Text>
         </View>
-        <View style={[styles.summaryChip, { borderColor: colors.borderSubtle }]}>
+        <Pressable
+          onPress={onCountriesKpiPress}
+          disabled={onCountriesKpiPress == null}
+          style={({ pressed }) => [
+            styles.summaryChip,
+            pressed && onCountriesKpiPress != null ? styles.summaryChipPressed : null,
+          ]}
+          accessibilityRole={onCountriesKpiPress ? "button" : undefined}
+          accessibilityLabel={onCountriesKpiPress ? "Ver lista completa de países" : undefined}
+        >
           <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
-        </View>
-        <View style={[styles.summaryChip, { borderColor: colors.borderSubtle }]}>
+          <View style={styles.kpiLabelRow}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
+            {onCountriesKpiPress && state !== "expanded" ? (
+              <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+            ) : null}
+          </View>
+        </Pressable>
+        <Pressable
+          onPress={onSpotsKpiPress}
+          disabled={onSpotsKpiPress == null}
+          style={({ pressed }) => [
+            styles.summaryChip,
+            pressed && onSpotsKpiPress != null ? styles.summaryChipPressed : null,
+          ]}
+          accessibilityRole={onSpotsKpiPress ? "button" : undefined}
+          accessibilityLabel={onSpotsKpiPress ? "Abrir buscador con spots del filtro" : undefined}
+        >
           <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>spots</Text>
-        </View>
+          <View style={styles.kpiLabelRow}>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>spots</Text>
+            {onSpotsKpiPress ? (
+              <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+            ) : null}
+          </View>
+        </Pressable>
       </View>
 
       <View style={styles.mapPreviewWrap}>
@@ -332,8 +417,27 @@ export function CountriesSheet({
           countryCodes={previewCountryCodes}
           height={MAP_PREVIEW_HEIGHT}
           highlightColor={previewHighlightColor}
+          forceColorScheme={activeScheme}
+          baseCountryColor={previewBaseCountryColor}
+          lineCountryColor={previewLineCountryColor}
           onSnapshotChange={onMapSnapshotChange}
+          onCountryPress={onMapCountryPress}
         />
+      </View>
+      <View style={styles.progressWrap}>
+        <View style={[styles.progressTrack, { backgroundColor: colors.borderSubtle }]}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${normalizedWorldPercentage}%`,
+                backgroundColor:
+                  filterMode === "saved" ? colors.stateToVisit : colors.stateSuccess,
+              },
+            ]}
+          />
+        </View>
+        <Text style={[styles.progressCopy, { color: colors.textSecondary }]}>{worldProgressCopy}</Text>
       </View>
 
       {!showExpandedList ? null : items.length === 0 ? (
@@ -344,7 +448,7 @@ export function CountriesSheet({
         <ScrollView
           style={[styles.listScroll, { maxHeight: expandedListMaxHeight }]}
           contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
+          showsVerticalScrollIndicator={true}
         >
           {items.map((item) => (
             <Pressable
@@ -355,7 +459,10 @@ export function CountriesSheet({
               accessibilityLabel={`Buscar en ${item.label}`}
             >
               <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
-              <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
+              <View style={styles.itemRight}>
+                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
+                <ChevronRight size={16} color={colors.primary} strokeWidth={2.2} />
+              </View>
             </Pressable>
           ))}
         </ScrollView>
@@ -377,7 +484,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     paddingHorizontal: 14,
     paddingTop: 12,
-    zIndex: 12,
+    zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
   },
   emptyWrap: {
     paddingHorizontal: Spacing.base,
@@ -393,13 +500,38 @@ const styles = StyleSheet.create({
   },
   summaryChip: {
     flex: 1,
-    minHeight: 44,
-    borderWidth: 1,
-    borderRadius: Radius.md,
+    minHeight: 40,
     paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
+    paddingVertical: 5,
     alignItems: "center",
     justifyContent: "center",
+  },
+  progressTrack: {
+    width: "100%",
+    height: 6,
+    borderRadius: 999,
+    overflow: "hidden",
+    marginTop: 6,
+    marginBottom: 4,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+  },
+  progressCopy: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  summaryChipPressed: {
+    opacity: 0.82,
+  },
+  kpiLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+    marginTop: 1,
   },
   summaryValue: {
     fontSize: 16,
@@ -418,6 +550,10 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginTop: MAP_PREVIEW_TOP_GAP,
     overflow: "hidden",
+  },
+  progressWrap: {
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.md,
   },
   emptyText: {
     fontSize: 14,
@@ -452,7 +588,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: "700",
-    minWidth: 20,
+    minWidth: 22,
     textAlign: "right",
+  },
+  itemRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 42,
+    justifyContent: "flex-end",
   },
 });

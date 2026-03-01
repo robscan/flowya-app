@@ -65,6 +65,12 @@ function drawImageContain(
   ctx.drawImage(image, dx, dy, drawW, drawH);
 }
 
+function truncateLabel(input: string, max = 26): string {
+  const text = input.trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max - 1)}…`;
+}
+
 async function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement | null> {
   if (typeof window === "undefined" || !dataUrl) return null;
   try {
@@ -95,37 +101,52 @@ function drawCard(
   input: ShareCountriesCardInput,
   mapImage: HTMLImageElement | null,
 ) {
+  const DESIGN_WIDTH = 1600;
+  const DESIGN_HEIGHT = 2000;
   const width = ctx.canvas.width;
-  const height = ctx.canvas.height;
+  const scale = width / DESIGN_WIDTH;
+  const logicalWidth = DESIGN_WIDTH;
+  const logicalHeight = DESIGN_HEIGHT;
   const accent = input.accentColor ?? "#35D563";
   const side = 92;
   const mapTop = 242;
-  const mapWidth = width - side * 2;
+  const mapWidth = logicalWidth - side * 2;
   const mapHeight = 520;
   const mapRadius = 30;
   const kpiTop = mapTop + mapHeight + 150;
   const kpiCardGap = 26;
-  const kpiCardWidth = Math.floor((width - side * 2 - kpiCardGap * 2) / 3);
+  const kpiCardWidth = Math.floor((logicalWidth - side * 2 - kpiCardGap * 2) / 3);
   const kpiCardHeight = 236;
+  const topCountries = input.items.slice(0, 6);
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, height * 1.05);
+  ctx.save();
+  ctx.scale(scale, scale);
+
+  const gradient = ctx.createLinearGradient(0, 0, 0, logicalHeight * 1.05);
   gradient.addColorStop(0, "#171D3D");
   gradient.addColorStop(0.56, "#0E1536");
   gradient.addColorStop(1, "#0A0F2A");
   ctx.fillStyle = gradient;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
   // Subtle ambient glow to avoid a flat background while preserving contrast.
-  const glow = ctx.createRadialGradient(width * 0.5, height * 0.45, 40, width * 0.5, height * 0.45, height * 0.58);
+  const glow = ctx.createRadialGradient(
+    logicalWidth * 0.5,
+    logicalHeight * 0.45,
+    40,
+    logicalWidth * 0.5,
+    logicalHeight * 0.45,
+    logicalHeight * 0.58,
+  );
   glow.addColorStop(0, "rgba(63, 86, 180, 0.20)");
   glow.addColorStop(1, "rgba(12, 18, 44, 0)");
   ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, width, height);
+  ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
   ctx.fillStyle = "rgba(255,255,255,0.94)";
   ctx.font = "700 84px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(input.title, width / 2, 156);
+  ctx.fillText(input.title, logicalWidth / 2, 156);
 
   const mapLeft = side;
   drawRoundedClip(ctx, mapLeft, mapTop, mapWidth, mapHeight, mapRadius);
@@ -182,10 +203,61 @@ function drawCard(
     ctx.fillText(kpiLabels[i], x + kpiCardWidth / 2, kpiTop + 186);
   }
 
+  if (topCountries.length > 0) {
+    const listTop = kpiTop + kpiCardHeight + 78;
+    const listLeft = side;
+    const listWidth = mapWidth;
+    const listHeaderHeight = 76;
+    const rowHeight = 70;
+    const listHeight = listHeaderHeight + topCountries.length * rowHeight + 20;
+
+    drawRoundedClip(ctx, listLeft, listTop, listWidth, listHeight, 26);
+    ctx.fillStyle = "rgba(24, 31, 60, 0.68)";
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = "rgba(255,255,255,0.12)";
+    ctx.stroke();
+
+    ctx.fillStyle = "rgba(255,255,255,0.78)";
+    ctx.font = "700 46px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("Top países", listLeft + 36, listTop + 52);
+
+    for (let i = 0; i < topCountries.length; i += 1) {
+      const rowY = listTop + listHeaderHeight + i * rowHeight;
+      const rank = `${i + 1}.`;
+      const item = topCountries[i];
+
+      if (i > 0) {
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(listLeft + 36, rowY);
+        ctx.lineTo(listLeft + listWidth - 36, rowY);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "rgba(255,255,255,0.72)";
+      ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.fillText(rank, listLeft + 36, rowY + 46);
+
+      ctx.fillStyle = "rgba(255,255,255,0.94)";
+      ctx.font = "600 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.fillText(truncateLabel(item.label), listLeft + 104, rowY + 46);
+
+      ctx.fillStyle = `${accent}E6`;
+      ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(String(item.count), listLeft + listWidth - 36, rowY + 46);
+      ctx.textAlign = "left";
+    }
+  }
+
   ctx.textAlign = "center";
   ctx.font = "700 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fillText("FLOWYA", width / 2, height - 120);
+  ctx.fillText("FLOWYA", logicalWidth / 2, logicalHeight - 120);
+  ctx.restore();
 }
 
 export async function shareCountriesCard(input: ShareCountriesCardInput): Promise<ShareCountriesCardResult> {
@@ -210,8 +282,8 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     }
 
     const canvas = document.createElement("canvas");
-    canvas.width = 1600;
-    canvas.height = 2000;
+    canvas.width = 2400;
+    canvas.height = 3000;
     const context = canvas.getContext("2d");
     if (!context) {
       const copied = await copyToClipboard(fallbackText);

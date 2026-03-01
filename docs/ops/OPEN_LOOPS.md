@@ -67,6 +67,10 @@ Nota:
 - `OL-WOW-F3-003` cierre operativo (QA checklist OK) — bitácora `220`.
 - `OL-P2-006` cerrado completamente — bitácora `232`.
 - `OL-P1-003` cerrado + hardening post-cierre — bitácoras `233` y `234`.
+- Hardening teclado/foco en Explore (`Paso 0` owner único, guardrails Search, quick edit top-aligned) — bitácora `240`.
+- Consolidación DS Search/paises (colores canónicos + tipografía + layout card resultados) — bitácora `241`.
+- Canonización dropdown filtros + retardo hasta settle de cámara/flyTo — bitácora `242`.
+- Consolidación integral de ajustes del día (Search visited card + quick actions foto/descr + hardening UX) — bitácora `243`.
 
 ## Avance del loop activo
 

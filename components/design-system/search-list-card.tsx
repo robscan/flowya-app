@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { CheckCircle, ChevronRight, Landmark, MapPin, Pin } from 'lucide-react-native';
+import { CheckCircle, ChevronRight, ImagePlus, Landmark, MapPin, Pencil, Pin } from 'lucide-react-native';
 import React, { useMemo, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -20,6 +20,13 @@ export type SearchListCardProps = {
   distanceText?: string | null;
   /** Señal "landmark": POI destacado. */
   isLandmark?: boolean;
+  quickActions?: {
+    id: string;
+    label: string;
+    kind: 'add_image' | 'edit_description';
+    onPress: () => void;
+    accessibilityLabel?: string;
+  }[];
 };
 /** Alias canónico DS para item visual de listados. */
 export type ResultRowProps = SearchListCardProps;
@@ -36,6 +43,7 @@ export function SearchListCard({
   disabled = false,
   distanceText = null,
   isLandmark = false,
+  quickActions = [],
 }: SearchListCardProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -46,8 +54,15 @@ export function SearchListCard({
     () => typeof imageUri === 'string' && imageUri.trim().length > 0 && !imageError,
     [imageUri, imageError],
   );
+  const addImageAction = quickActions.find((action) => action.kind === 'add_image');
+  const editDescriptionAction = quickActions.find((action) => action.kind === 'edit_description');
+  const hasLeadingMediaBlock = hasImage || addImageAction != null;
   const showPinStatusChip = pinStatus === 'to_visit' || pinStatus === 'visited';
-  const statusColor = pinStatus === 'visited' ? colors.stateSuccess : colors.stateToVisit;
+  const statusColor =
+    pinStatus === 'visited'
+      ? colors.countriesCounterVisitedBackground
+      : colors.countriesCounterToVisitBackground;
+  const statusForeground = colors.text;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
 
@@ -55,6 +70,7 @@ export function SearchListCard({
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        hasLeadingMediaBlock ? styles.cardWithImage : null,
         {
           borderColor: selected ? colors.primary : colors.borderSubtle,
           backgroundColor: selected
@@ -87,19 +103,46 @@ export function SearchListCard({
             onError={() => setImageError(true)}
           />
         </View>
+      ) : addImageAction ? (
+        <Pressable
+          onPress={addImageAction.onPress}
+          style={({ pressed }) => [
+            styles.imagePlaceholderWrap,
+            {
+              borderColor: colors.borderSubtle,
+              backgroundColor: colors.background,
+              opacity: pressed ? 0.85 : 1,
+            },
+          ]}
+          accessibilityLabel={addImageAction.accessibilityLabel ?? addImageAction.label}
+        >
+          <ImagePlus size={18} color={colors.textSecondary} strokeWidth={2} />
+          <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Agregar imagen</Text>
+        </Pressable>
       ) : (
         <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
           <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
         </View>
       )}
-      <View style={styles.content}>
+      <View style={[styles.content, hasLeadingMediaBlock ? styles.contentWithMedia : null]}>
         <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]} numberOfLines={3}>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
             {subtitle}
           </Text>
+        ) : editDescriptionAction ? (
+          <Pressable
+            onPress={editDescriptionAction.onPress}
+            style={({ pressed }) => [styles.descriptionCtaRow, { opacity: pressed ? 0.78 : 1 }]}
+            accessibilityLabel={editDescriptionAction.accessibilityLabel ?? editDescriptionAction.label}
+          >
+            <Pencil size={12} color={colors.primary} strokeWidth={2} />
+            <Text style={[styles.descriptionCtaText, { color: colors.primary }]}>
+              Agregar una descripción corta.
+            </Text>
+          </Pressable>
         ) : null}
         {showRankingSignals ? (
           <View style={styles.rankingSignals}>
@@ -115,11 +158,13 @@ export function SearchListCard({
                 accessibilityRole="image"
               >
                 {pinStatus === 'visited' ? (
-                  <CheckCircle size={12} color="#FFFFFF" strokeWidth={2.2} />
+                  <CheckCircle size={12} color={statusForeground} strokeWidth={2.2} />
                 ) : (
-                  <Pin size={12} color="#FFFFFF" strokeWidth={2} />
+                  <Pin size={12} color={statusForeground} strokeWidth={2} />
                 )}
-                <Text style={styles.rankingChipLabel}>{(statusLabel as string)}</Text>
+                <Text style={[styles.rankingChipLabel, { color: statusForeground }]}>
+                  {statusLabel as string}
+                </Text>
               </View>
             ) : null}
             {isLandmark ? (
@@ -131,7 +176,9 @@ export function SearchListCard({
           </View>
         ) : null}
       </View>
-      {showChevron ? <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} /> : null}
+      {showChevron ? (
+        <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} style={styles.chevron} />
+      ) : null}
     </Pressable>
   );
 }
@@ -143,25 +190,40 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: Spacing.sm,
+    gap: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
     paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.base,
     minHeight: 88,
+    overflow: 'hidden',
+  },
+  cardWithImage: {
+    alignItems: 'stretch',
+    paddingLeft: 0,
+    paddingTop: 0,
+    paddingBottom: 0,
+    gap: Spacing.base,
   },
   content: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
+    gap: 4,
+    justifyContent: 'center',
+  },
+  contentWithMedia: {
+    justifyContent: 'flex-start',
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.base,
+    paddingRight: Spacing.xs,
   },
   title: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '600',
   },
   subtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
   },
   iconWrap: {
     width: 36,
@@ -173,19 +235,46 @@ const styles = StyleSheet.create({
   },
   imageWrap: {
     width: 88,
-    height: 88,
-    borderRadius: Radius.md,
+    alignSelf: 'stretch',
     overflow: 'hidden',
+  },
+  imagePlaceholderWrap: {
+    width: 88,
+    alignSelf: 'stretch',
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  imagePlaceholderText: {
+    fontSize: 11,
+    fontWeight: '600',
+    lineHeight: 13,
+    textAlign: 'center',
   },
   image: {
     width: '100%',
     height: '100%',
   },
+  descriptionCtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  descriptionCtaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
   rankingSignals: {
     flexDirection: 'row',
     alignItems: 'center',
+    flexWrap: 'wrap',
     gap: Spacing.xs,
-    marginTop: 2,
+    marginTop: 4,
   },
   rankingSignal: {
     fontSize: 12,
@@ -202,6 +291,8 @@ const styles = StyleSheet.create({
   rankingChipLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: '#FFFFFF',
+  },
+  chevron: {
+    alignSelf: 'center',
   },
 });

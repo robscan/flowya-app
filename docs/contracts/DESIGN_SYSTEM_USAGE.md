@@ -169,3 +169,56 @@ También se removieron secciones legacy de `/design-system` asociadas a esos art
   - etiqueta `@deprecated`,
   - reemplazo recomendado,
   - fecha objetivo de retiro.
+
+---
+
+## 6) Canon visual de Search (2026-03)
+
+### 6.1 Fuente única de color (obligatoria)
+
+Los componentes de Search y países deben consumir tokens de `constants/theme.ts`:
+
+- Familias países/filtro:
+  - `countriesPanelToVisit*`, `countriesPanelVisited*`
+  - `countriesMapCountry*ToVisit`, `countriesMapCountry*Visited`
+  - `countriesCounterToVisit*`, `countriesCounterVisited*`
+
+Regla:
+- No introducir nuevos hardcodes de color para estos dominios en componentes runtime.
+- Cualquier ajuste de tono/contraste se realiza en `theme.ts` y luego se valida en DS showcase + runtime.
+
+### 6.2 SearchListCard v2 (layout/escala)
+
+Componente canónico: `components/design-system/search-list-card.tsx`
+
+Reglas de layout:
+- Con imagen: media integrada al borde izquierdo (sin padding superior/inferior/izquierdo de la card).
+- Sin imagen: placeholder accionable en el slot de media ("Agregar imagen").
+- Sin descripción corta (visitados): CTA inline en slot de subtítulo ("Agregar una descripción corta.").
+- El contenedor de texto debe soportar crecimiento vertical (sin clipping con textos largos).
+
+Reglas tipográficas:
+- `title`: escala compacta de jerarquía primaria.
+- `subtitle`: escala secundaria menor que título, con line-height legible.
+- CTAs inline/chips: escala menor para no competir con título.
+
+### 6.2.1 Variante `visited` (contrato de contenido)
+
+Para resultados de spots en filtro `visited`:
+
+- el subtítulo prioriza `description_short`,
+- cuando falta `description_short`, se usa CTA inline de completitud (no dirección como fallback primario),
+- cuando falta imagen, el placeholder de media es accionable (`Agregar imagen`).
+
+Regla DS:
+- estas variantes son parte del mismo componente canónico `SearchListCard`/`ResultRow`, no una card paralela.
+
+### 6.3 Filtros en Search y mapa (consistencia)
+
+Componentes:
+- `MapPinFilter` (mapa)
+- `MapPinFilterInline` (search)
+
+Regla:
+- Ambos deben reflejar la misma semántica cromática de estados (`to_visit`, `visited`) desde tokens canónicos.
+- Badge de conteo oscuro de alto contraste se mantiene como decisión UX aprobada.
