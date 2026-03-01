@@ -3334,6 +3334,7 @@ export function MapScreenVNext() {
       };
     }
 
+    animateIn();
     return () => {
       isCancelled = true;
       clearDelay();
