@@ -65,6 +65,10 @@ export function SearchListCard({
   const statusForeground = colors.text;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
+  const triggerInlineAction = (action: (() => void) | undefined) => {
+    if (!action) return;
+    action();
+  };
 
   return (
     <Pressable
@@ -104,21 +108,25 @@ export function SearchListCard({
           />
         </View>
       ) : addImageAction ? (
-        <Pressable
-          onPress={addImageAction.onPress}
-          style={({ pressed }) => [
+        <View
+          style={[
             styles.imagePlaceholderWrap,
             {
               borderColor: colors.borderSubtle,
               backgroundColor: colors.background,
-              opacity: pressed ? 0.85 : 1,
             },
           ]}
+          onStartShouldSetResponder={() => true}
+          onResponderRelease={(event) => {
+            event.stopPropagation?.();
+            triggerInlineAction(addImageAction.onPress);
+          }}
           accessibilityLabel={addImageAction.accessibilityLabel ?? addImageAction.label}
+          accessibilityRole="button"
         >
           <ImagePlus size={18} color={colors.textSecondary} strokeWidth={2} />
           <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Agregar imagen</Text>
-        </Pressable>
+        </View>
       ) : (
         <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
           <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
@@ -133,16 +141,21 @@ export function SearchListCard({
             {subtitle}
           </Text>
         ) : editDescriptionAction ? (
-          <Pressable
-            onPress={editDescriptionAction.onPress}
-            style={({ pressed }) => [styles.descriptionCtaRow, { opacity: pressed ? 0.78 : 1 }]}
+          <View
+            style={styles.descriptionCtaRow}
+            onStartShouldSetResponder={() => true}
+            onResponderRelease={(event) => {
+              event.stopPropagation?.();
+              triggerInlineAction(editDescriptionAction.onPress);
+            }}
             accessibilityLabel={editDescriptionAction.accessibilityLabel ?? editDescriptionAction.label}
+            accessibilityRole="button"
           >
             <Pencil size={12} color={colors.primary} strokeWidth={2} />
             <Text style={[styles.descriptionCtaText, { color: colors.primary }]}>
               Agregar una descripción corta.
             </Text>
-          </Pressable>
+          </View>
         ) : null}
         {showRankingSignals ? (
           <View style={styles.rankingSignals}>

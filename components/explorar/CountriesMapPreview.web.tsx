@@ -424,6 +424,9 @@ export function CountriesMapPreview({
 
   return (
     <div
+      onWheel={(event) => {
+        if (event.ctrlKey) event.preventDefault();
+      }}
       style={{
         width: "100%",
         height,
@@ -431,6 +434,8 @@ export function CountriesMapPreview({
         borderRadius: 16,
         background: "transparent",
         position: "relative",
+        touchAction: "none",
+        userSelect: "none",
       }}
     >
       <div ref={mapContainerRef} style={{ width: "100%", height: "100%" }} />

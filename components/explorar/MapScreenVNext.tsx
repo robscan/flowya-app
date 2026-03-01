@@ -84,9 +84,7 @@ import {
 import {
     getCurrentUserId,
     getPinsForSpots,
-    nextPinStatus,
-    removePin,
-    setPinStatus,
+    setPinState,
     setSaved,
     setVisited,
 } from "@/lib/pins";
@@ -722,7 +720,9 @@ export function MapScreenVNext() {
       return [selectedSpot];
     }
     const canHideLinkedUnsaved =
-      featureFlags.hideLinkedUnsaved && featureFlags.mapLandmarkLabels;
+      pinFilter !== "all" &&
+      featureFlags.hideLinkedUnsaved &&
+      featureFlags.mapLandmarkLabels;
     const visibilityFiltered = canHideLinkedUnsaved
       ? filteredSpots.filter((s) => !isLinkedUnsavedSpot(s))
       : filteredSpots;
@@ -968,6 +968,7 @@ export function MapScreenVNext() {
 
   const handlePinFilterChange = useCallback(
     (nextFilter: MapPinFilterValue, options?: { reframe?: boolean }) => {
+      const currentFilter = pinFilter;
       const pendingForTarget =
         nextFilter !== "all" ? pendingFilterBadges[nextFilter] : false;
       const pendingSpotId =
@@ -977,12 +978,21 @@ export function MapScreenVNext() {
       setPinFilter(nextFilter);
       /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
       if (!searchIsOpenRef.current) {
-        const filterToast: Record<MapPinFilterValue, string> = {
-          all: "Descubre y planea tu próximo viaje.",
-          saved: "Organiza y prepara tus spots.",
-          visited: "Recuerda y registra tus memorias.",
-        };
-        if (!suppressToastRef.current) toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
+        const fromAll = currentFilter === "all";
+        const filterToast: Record<MapPinFilterValue, string> = fromAll
+          ? {
+              all: "Descubre y planea tu próximo viaje.",
+              saved: "Empieza marcando lugares para tu próxima ruta.",
+              visited: "Registra tus memorias y construye tu mapa personal.",
+            }
+          : {
+              all: "Volviste a Todos.",
+              saved: "Sigues en Por visitar: organiza y prepara tus spots.",
+              visited: "Sigues en Visitados: registra tus memorias.",
+            };
+        if (!suppressToastRef.current) {
+          toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
+        }
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -1012,6 +1022,7 @@ export function MapScreenVNext() {
     [
       pendingFilterBadges,
       mapInstance,
+      pinFilter,
       spots,
       flyToUnlessActMode,
       updatePendingFilterBadges,
@@ -2178,7 +2189,7 @@ export function MapScreenVNext() {
       try {
         const ImagePicker = await import("expo-image-picker");
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.85,
@@ -2946,7 +2957,14 @@ export function MapScreenVNext() {
   );
 
   const handleSavePin = useCallback(
-    async (spot: Spot, targetStatus?: "to_visit" | "visited") => {
+    async (
+      spot: Spot,
+      targetStatus?:
+        | "to_visit"
+        | "visited"
+        | "clear_to_visit"
+        | "clear_visited",
+    ) => {
       if (spot.id.startsWith("draft_")) return;
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -2956,84 +2974,103 @@ export function MapScreenVNext() {
         });
         return;
       }
-      const current =
-        spot.pinStatus === "to_visit" || spot.pinStatus === "visited"
-          ? spot.pinStatus
-          : null;
-      if (current === "visited") {
-        const ok = await removePin(spot.id);
-        if (ok) {
-          if (lastStatusSpotIdRef.current.saved === spot.id) {
-            lastStatusSpotIdRef.current.saved = null;
-          }
-          if (lastStatusSpotIdRef.current.visited === spot.id) {
-            lastStatusSpotIdRef.current.visited = null;
-          }
-          updatePendingFilterBadges((prev) => ({ ...prev, visited: false }));
-          updateSpotPinState(spot.id, { saved: false, visited: false });
-          recordExploreDecisionCompleted({
-            outcome: "dismissed",
-            pinFilter,
-          });
-          if (!suppressToastRef.current) toast.show("Listo, ya no está en tu lista", { type: "success" });
+      const currentSaved = Boolean(spot.saved ?? (spot.pinStatus === "to_visit"));
+      const currentVisited = Boolean(spot.visited ?? (spot.pinStatus === "visited"));
+      const currentState = { saved: currentSaved, visited: currentVisited };
+      let requestedState = currentState;
+      switch (targetStatus) {
+        case "to_visit":
+          requestedState = { saved: true, visited: false };
+          break;
+        case "visited":
+          requestedState = { saved: false, visited: true };
+          break;
+        case "clear_to_visit":
+          requestedState = { saved: false, visited: currentVisited };
+          break;
+        case "clear_visited":
+          requestedState = { saved: currentSaved, visited: false };
+          break;
+        default:
+          requestedState = currentVisited
+            ? { saved: false, visited: false }
+            : { saved: true, visited: false };
+          break;
+      }
+      const normalizedState = requestedState.visited
+        ? { saved: false, visited: true }
+        : { saved: requestedState.saved, visited: false };
+      if (
+        normalizedState.saved === currentState.saved &&
+        normalizedState.visited === currentState.visited
+      ) {
+        return;
+      }
+      const nextState = await setPinState(spot.id, normalizedState);
+      if (!nextState) return;
+
+      const hasDestination = nextState.saved || nextState.visited;
+      const destinationFilter = hasDestination
+        ? resolveDestinationFilterForStatus(nextState.visited ? "visited" : "to_visit")
+        : null;
+
+      if (!hasDestination) {
+        if (lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
         }
-      } else {
-        const next =
-          targetStatus != null ? targetStatus : nextPinStatus(current);
-        const newStatus = await setPinStatus(spot.id, next);
-        if (newStatus) {
-          const nextState =
-            newStatus === "to_visit"
-              ? { saved: true, visited: false }
-              : { saved: false, visited: true };
-          const destinationFilter = resolveDestinationFilterForStatus(newStatus);
-          lastStatusSpotIdRef.current[destinationFilter] = spot.id;
-          if (destinationFilter === "visited") {
-            // Al subir de "Por visitar" a "Visitado", ya no es candidato del filtro saved.
-            if (lastStatusSpotIdRef.current.saved === spot.id) {
-              lastStatusSpotIdRef.current.saved = null;
-            }
-          }
-          if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
-            updatePendingFilterBadges((prev) => ({
-              ...prev,
-              [destinationFilter]: true,
-            }));
-          } else if (
-            shouldSwitchFilterOnStatusTransition({
-              currentFilter: pinFilter,
-              destinationFilter,
-            })
-          ) {
-            // Caso puntual de transición entre filtros:
-            // no hacer zoom-out global; mantener continuidad enfocando el spot mutado.
-            setPinFilter(destinationFilter);
-            /** OL-WOW-F2-005 inspect: centrar solo si spot no visible en viewport. act: no flyTo durante create/placing. */
-            if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
-              flyToUnlessActMode(
-                { lng: spot.longitude, lat: spot.latitude },
-                { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-              );
-            }
-          } else if (
-            shouldPulseFilterOnStatusTransition({
-              currentFilter: pinFilter,
-              destinationFilter,
-            })
-          ) {
-            setPinFilterPulseNonce((n) => n + 1);
-          }
-          updateSpotPinState(spot.id, nextState);
-          recordExploreDecisionCompleted({
-            outcome: newStatus === "to_visit" ? "saved" : "visited",
-            pinFilter,
-          });
-          setSheetState("medium");
-          if (!suppressToastRef.current) toast.show(
-            newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!",
-            { type: "success" },
-          );
+        if (lastStatusSpotIdRef.current.visited === spot.id) {
+          lastStatusSpotIdRef.current.visited = null;
         }
+        updatePendingFilterBadges((prev) => ({ ...prev, saved: false, visited: false }));
+      } else if (destinationFilter) {
+        lastStatusSpotIdRef.current[destinationFilter] = spot.id;
+        if (destinationFilter === "visited" && lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
+        }
+        if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
+          updatePendingFilterBadges((prev) => ({
+            ...prev,
+            [destinationFilter]: true,
+          }));
+        } else if (
+          shouldSwitchFilterOnStatusTransition({
+            currentFilter: pinFilter,
+            destinationFilter,
+          })
+        ) {
+          setPinFilter(destinationFilter);
+          if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+            flyToUnlessActMode(
+              { lng: spot.longitude, lat: spot.latitude },
+              { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+            );
+          }
+        } else if (
+          shouldPulseFilterOnStatusTransition({
+            currentFilter: pinFilter,
+            destinationFilter,
+          })
+        ) {
+          setPinFilterPulseNonce((n) => n + 1);
+        }
+      }
+
+      updateSpotPinState(spot.id, nextState);
+      const outcome = nextState.visited
+        ? "visited"
+        : nextState.saved
+          ? "saved"
+          : "dismissed";
+      recordExploreDecisionCompleted({ outcome, pinFilter });
+      setSheetState("medium");
+      if (!suppressToastRef.current) {
+        const toastText =
+          outcome === "visited"
+            ? "¡Marcado como visitado!"
+            : outcome === "saved"
+              ? "Agregado a Por visitar"
+              : "Listo, ya no está en tu lista";
+        toast.show(toastText, { type: "success", replaceVisible: true });
       }
     },
     [

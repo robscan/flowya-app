@@ -19,6 +19,11 @@
 - `OL-P1-003`: CERRADO (bitácoras `233` y `234`).
 - `OL-P3-002`: ACTIVO (fase `P3-002.A` con MVP base implementado, bitácora `236`).
 - Hardening UX teclado/foco aplicado en Explore (owner único entre Paso 0/Search/quick edit, bitácora `240`).
+- Bloque UX Explore/Search en ejecución incremental (plan `PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`):
+  - toggles explícitos de estado en SpotSheet,
+  - toasts por contexto de filtro,
+  - quick actions en resultados visitados,
+  - guardrail de visibilidad para spots Flowya sin filtro.
 - Foco activo actual: países interactivo con estrategia de entrega por fases.
 - Cola definida para siguiente jornada: `OL-CONTENT-001..006` (Mi diario, galería, esquema turismo, resolución de entidad, enrichment pipeline, directions).
 
@@ -68,6 +73,7 @@
 - `docs/bitacora/2026/03/242-filtro-dropdown-y-retardo-hasta-settle-de-camara.md`
 - `docs/bitacora/2026/03/243-consolidacion-integral-ajustes-explore-search-ds-del-dia.md`
 - `docs/ops/plans/PLAN_CONTENT_STACK_ENRICHMENT_2026-03-01.md`
+- `docs/ops/plans/PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`
 - `docs/ops/analysis/API_INTEGRATION_RISK_REGISTER_2026-03-01.md`
 
 ## Referencias históricas (cerradas)

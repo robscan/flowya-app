@@ -137,7 +137,13 @@ export type SpotSheetProps = {
   state: SheetState;
   onStateChange: (state: SheetState) => void;
   onShare?: () => void;
-  onSavePin?: (targetStatus?: "to_visit" | "visited") => void;
+  onSavePin?: (
+    targetStatus?:
+      | "to_visit"
+      | "visited"
+      | "clear_to_visit"
+      | "clear_visited"
+  ) => void;
   userCoords?: { latitude: number; longitude: number } | null;
   isAuthUser?: boolean;
   onDirections?: (spot: SpotSheetSpot) => void;
@@ -181,7 +187,13 @@ type BodyContentProps = {
   colors: (typeof Colors)["light"];
   colorScheme: "light" | "dark" | null;
   onOpenDetail: () => void;
-  handleSavePin: (targetStatus?: "to_visit" | "visited") => void;
+  handleSavePin: (
+    targetStatus?:
+      | "to_visit"
+      | "visited"
+      | "clear_to_visit"
+      | "clear_visited"
+  ) => void;
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
@@ -198,7 +210,6 @@ function MediumBodyContent({
   colors,
   colorScheme,
   handleSavePin,
-  pinFilter = "all",
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -209,10 +220,7 @@ function MediumBodyContent({
   | "colors"
   | "colorScheme"
   | "handleSavePin"
-> & { isDraft?: boolean; pinFilter?: "all" | "saved" | "visited" }) {
-  const showBothPills = !isSaved && !isVisited && pinFilter === "all";
-  const showOnlyPorVisitar = !isSaved && !isVisited && pinFilter === "saved";
-  const showOnlyVisitado = !isSaved && !isVisited && pinFilter === "visited";
+> & { isDraft?: boolean }) {
 
   return (
     <>
@@ -240,128 +248,68 @@ function MediumBodyContent({
       ) : null}
       {!isDraft ? (
         <View style={styles.actionRow}>
-          {isVisited ? (
-            <Pressable
+          <Pressable
+            style={[
+              styles.actionPill,
+              {
+                backgroundColor: isSaved
+                  ? colors.stateToVisit
+                  : colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+                borderWidth: isSaved ? 0 : 1,
+              },
+            ]}
+            onPress={() => handleSavePin(isSaved ? "clear_to_visit" : "to_visit")}
+            accessibilityLabel={isSaved ? "Quitar Por visitar" : "Agregar a Por visitar"}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isSaved }}
+          >
+            <Pin
+              size={ACTION_ICON_SIZE}
+              color={isSaved ? "#ffffff" : colors.text}
+              strokeWidth={2}
+            />
+            <Text
               style={[
-                styles.actionPill,
-                {
-                  backgroundColor: colors.stateSuccess,
-                  borderColor: colors.borderSubtle,
-                  borderWidth: 0,
-                },
+                styles.actionPillText,
+                { color: isSaved ? "#ffffff" : colors.text },
               ]}
-              onPress={() => handleSavePin()}
-              accessibilityLabel="Visitado (tocar para quitar)"
-              accessibilityRole="button"
-              accessibilityState={{ selected: true }}
+              numberOfLines={1}
             >
-              <CheckCircle size={ACTION_ICON_SIZE} color="#ffffff" strokeWidth={2} />
-              <Text style={[styles.actionPillText, { color: "#ffffff" }]} numberOfLines={1}>
-                Visitado
-              </Text>
-            </Pressable>
-          ) : isSaved ? (
-            <Pressable
+              {isSaved ? "Por visitar ×" : "Por visitar"}
+            </Text>
+          </Pressable>
+          <Pressable
+            style={[
+              styles.actionPill,
+              {
+                backgroundColor: isVisited
+                  ? colors.stateSuccess
+                  : colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+                borderWidth: isVisited ? 0 : 1,
+              },
+            ]}
+            onPress={() => handleSavePin(isVisited ? "clear_visited" : "visited")}
+            accessibilityLabel={isVisited ? "Quitar Visitado" : "Marcar Visitado"}
+            accessibilityRole="button"
+            accessibilityState={{ selected: isVisited }}
+          >
+            <CheckCircle
+              size={ACTION_ICON_SIZE}
+              color={isVisited ? "#ffffff" : colors.text}
+              strokeWidth={2}
+            />
+            <Text
               style={[
-                styles.actionPill,
-                {
-                  backgroundColor: colors.stateToVisit,
-                  borderColor: colors.borderSubtle,
-                  borderWidth: 0,
-                },
+                styles.actionPillText,
+                { color: isVisited ? "#ffffff" : colors.text },
               ]}
-              onPress={() => handleSavePin()}
-              accessibilityLabel="Por visitar (tocar para marcar visitado)"
-              accessibilityRole="button"
-              accessibilityState={{ selected: true }}
+              numberOfLines={1}
             >
-              <Pin size={ACTION_ICON_SIZE} color="#ffffff" strokeWidth={2} />
-              <Text style={[styles.actionPillText, { color: "#ffffff" }]} numberOfLines={1}>
-                Por visitar
-              </Text>
-            </Pressable>
-          ) : showBothPills ? (
-            <>
-              <Pressable
-                style={[
-                  styles.actionPill,
-                  {
-                    backgroundColor: colors.backgroundElevated,
-                    borderColor: colors.borderSubtle,
-                    borderWidth: 1,
-                  },
-                ]}
-                onPress={() => handleSavePin("to_visit")}
-                accessibilityLabel="Por visitar"
-                accessibilityRole="button"
-                accessibilityState={{ selected: false }}
-              >
-                <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-                <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-                  Por visitar
-                </Text>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.actionPill,
-                  {
-                    backgroundColor: colors.backgroundElevated,
-                    borderColor: colors.borderSubtle,
-                    borderWidth: 1,
-                  },
-                ]}
-                onPress={() => handleSavePin("visited")}
-                accessibilityLabel="Visitado"
-                accessibilityRole="button"
-                accessibilityState={{ selected: false }}
-              >
-                <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-                <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-                  Visitado
-                </Text>
-              </Pressable>
-            </>
-          ) : showOnlyPorVisitar ? (
-            <Pressable
-              style={[
-                styles.actionPill,
-                {
-                  backgroundColor: colors.backgroundElevated,
-                  borderColor: colors.borderSubtle,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={() => handleSavePin("to_visit")}
-              accessibilityLabel="Por visitar"
-              accessibilityRole="button"
-              accessibilityState={{ selected: false }}
-            >
-              <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-              <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-                Por visitar
-              </Text>
-            </Pressable>
-          ) : showOnlyVisitado ? (
-            <Pressable
-              style={[
-                styles.actionPill,
-                {
-                  backgroundColor: colors.backgroundElevated,
-                  borderColor: colors.borderSubtle,
-                  borderWidth: 1,
-                },
-              ]}
-              onPress={() => handleSavePin("visited")}
-              accessibilityLabel="Visitado"
-              accessibilityRole="button"
-              accessibilityState={{ selected: false }}
-            >
-              <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-              <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-                Visitado
-              </Text>
-            </Pressable>
-          ) : null}
+              {isVisited ? "Visitado ×" : "Visitado"}
+            </Text>
+          </Pressable>
         </View>
       ) : null}
     </>
@@ -470,7 +418,7 @@ function DraftInlineEditor({
     try {
       const ImagePicker = await import("expo-image-picker");
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         quality: 1,
       });
@@ -730,7 +678,13 @@ type SpotSheetBodyProps = {
   isVisited: boolean;
   colors: (typeof Colors)["light"];
   colorScheme: "light" | "dark" | null;
-  handleSavePin: (targetStatus?: "to_visit" | "visited") => void;
+  handleSavePin: (
+    targetStatus?:
+      | "to_visit"
+      | "visited"
+      | "clear_to_visit"
+      | "clear_visited"
+  ) => void;
   draftCoverUri?: string | null;
   onDraftCoverChange?: (uri: string | null) => void;
   onCreateSpot?: () => void;
@@ -811,7 +765,6 @@ function SpotSheetBody({
           colors={colors}
           colorScheme={colorScheme}
           handleSavePin={handleSavePin}
-          pinFilter={pinFilter}
         />
         {isDraft ? (
           <DraftInlineEditor
@@ -1232,7 +1185,13 @@ export function SpotSheet({
     else if (__DEV__ && spot) console.log("[SpotSheet] Share stub", spot.id);
   };
 
-  const handleSavePin = (targetStatus?: "to_visit" | "visited") => {
+  const handleSavePin = (
+    targetStatus?:
+      | "to_visit"
+      | "visited"
+      | "clear_to_visit"
+      | "clear_visited"
+  ) => {
     if (onSavePin) onSavePin(targetStatus);
   };
 
