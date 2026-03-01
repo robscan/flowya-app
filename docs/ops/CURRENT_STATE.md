@@ -1,82 +1,60 @@
 # CURRENT_STATE — Flowya (operativo)
 
-> Fuente de verdad del estado actual del proyecto.
-> Snapshot operativo + memoria resumida.
-> No es backlog ni planeación.
->
-> Nota operativa (2026-02-26): este archivo se mantiene como snapshot de contexto.
-> El cierre diario obligatorio vive en `OPEN_LOOPS.md` + bitácora del día.
+> Snapshot operativo vigente.
+> Esta fuente no reemplaza el cierre diario: `OPEN_LOOPS.md` + bitácora del día.
+
+**Fecha de actualización:** 2026-02-28
 
 ---
 
-## Ahora mismo
+## Estado actual
 
-- **Sprint activo:** Explore V1 Strangler (core-first + UI replaceable).
-- **Estado:** Gate A ✅, Gate B ✅ (core extraído), Gate C **PAUSADO** (V3 revertido/eliminado).
-- **UI actual:** legacy (SpotSheet Reanimated + overlays existentes).
-- **Core:** `core/shared/search/*` + `core/explore/*` (Search como shared capability).
-- **Foco inmediato (P0→P2):**
-  1) Cierre de QA crítico en **mapa + buscador** (landmarks, encuadre POI, filtros, simplificación Mapbox-first)
-  2) Implementar System Status Bar (reemplazo de toast)
-  3) Create Spot mínimo + Rediseño Edit Spot (pospuestos temporalmente)
-
-## Actualización (2026-02-28)
-
-- **Fase 1 WOW:** cerrada operativamente (`F1-001`, `F1-002`, `F1-003`, `F1-004`).
-- **Fase 2 WOW:** Gate cerrado. `F2-001..005` todos CERRADOS. Bitácoras `206`–`213`.
-- **OL-WOW-F2-001** (Single Search Surface): CERRADO. SearchSurface unifica contenido web/native; adapters mínimos. Bitácora `206`.
-- **OL-WOW-F2-001-SEARCH** (Lista unificada isSearch): CERRADO. Merge spots + POIs/landmarks en lista principal. Bitácora `207`.
-- **OL-WOW-F2-001-EMPTY** (Lista unificada isEmpty): CERRADO. Merge spots + POIs por categoría en isEmpty. Bitácora `208`.
-- **OL-WOW-F2-002** (Ranking explicable): CERRADO. Micro-señales (distanceText, isLandmark, chips Por visitar/Visitado) en SearchListCard. Bitácora `211`.
-- **OL-WOW-F2-003** (Filtros como vistas de trabajo): CERRADO. INTENTION_BY_FILTER, pending-first. Bitácora `209`.
-- **OL-WOW-F2-004** (Sheet intent model): CERRADO. CTA contextual por filtro y estado del lugar; toasts conversacionales. Bitácora `212`.
-- **OL-WOW-F2-005** (Cámara/foco por intención): CERRADO. Modos discover/inspect/act; anti-jitter; refactor controles. Bitácora `210`.
-- **Gate Fase 2:** CERRADO. Fase 3 desbloqueada (F3-001, F3-002, F3-003). Bitácora `213`.
-- **OL-P2-002** (teclado desaparece al scroll/tap): CERRADO con evidencia.
-- **OL-P2-004** (autoFocus + keyboard-safe): CERRADO con evidencia.
-- **OL-P2-006** (Optimización Explore): ACTIVO — completar conforme se avanzan y definen o descartan nuevos elementos.
-- **Design System:** consolidado con matriz de estados v1 en runtime (`IconButton`, `ActionButton`, `SearchListCard`) y naming canónico (`ListView`, `ResultRow`).
-- **Activity Summary Fase A:** implementado y validado QA; países con heurística + guardrail de cobertura.
-- **Ajuste UX vigente:** indicador circular de países en mapa, visible solo con filtros `saved/visited`, no interactivo por ahora.
-- **Mejora diferida acordada:** interacción del círculo para abrir mapa mundial shareable (postergado).
+- Gate Fase 1: **CERRADO**.
+- Gate Fase 2: **CERRADO** (bitácora `213`).
+- Fase 3 ciclo actual: **COMPLETADO**.
+- `OL-WOW-F3-001`: CERRADO (bitácora `216`).
+- `OL-WOW-F3-002`: CERRADO (bitácora `218`).
+- `OL-WOW-F3-003`: CERRADO (bitácora `220`).
+- `OL-P2-006`: CERRADO (bitácora `232`).
+- Foco activo actual: sin loop técnico activo; pendiente definir próximo P0.
 
 ---
 
-## Hoy (2026-02-22)
+## Foco inmediato real (P0 -> P2)
 
-- **Plan Explore Anti-duplicados y UX cerrado:** Bitácora 114. MS-1 a MS-6: 3D default, contrato ANTI_DUPLICATE_SPOT_RULES, checkDuplicateSpot en todos los entry points, DuplicateSpotModal (Ver spot | Crear otro | Cerrar), pin visible en pasos draft, altura sheet draft adaptativa. Contrato `docs/contracts/ANTI_DUPLICATE_SPOT_RULES.md`.
-- **Plan documentado (post-P0):** Ajustes Explore mapa + búsqueda en `docs/ops/plans/PLAN_EXPLORE_AJUSTES_MAP_SEARCH.md` (MS-A a MS-E). MS-A, MS-B, MS-C, MS-D completados; MS-E pendiente.
-- **Preview pin al seleccionar sugerencia de búsqueda (POI):** flyTo + pin en coordenadas del lugar. Bitácora 112.
-- **Otros ajustes sesión:** Bitácora 113 — fix mapa post-edición (flyTo spot editado), placeholder buscador "Buscar en esta zona del mapa…", sheet POI unificado con SpotSheet, sync selectedSpot con filteredSpots, estado de carga al crear spot desde POI, nombre spot con wrap, desfase sheet expanded, controles y botón crear spot.
-- Se consolida documentación y cambios de Explore/Search:
-  - Search pill DS refactor; Map overlays redesign (entry icon Search derecha, FLOWYA abajo-izquierda).
-  - MapPinFilterInline en Search; filtros + cerrar en fila 1, input ancho completo en fila 2.
-  - Contrato KEYBOARD_AND_TEXT_INPUTS aplicado (CTA sticky, scroll cierra teclado).
-  - MapControls: fix alineación (eliminado padding 4px del contenedor) para coincidir con botón Search.
-  - OPEN_LOOPS actualizado con OL-FUT-001 (Galería imágenes) y OL-FUT-002 (Mi diario) — documentado para retomar.
-
-## Actualización (2026-02-25)
-
-- **Soft delete:** resuelto y operativo; retirado de prioridades activas/OPEN_LOOPS.
-- Evidencia de cierre/fix: bitácoras 043 (alineación auth runtime), 046 (RLS/migración) y 047 (diagnóstico P0 + fix de sesión/JWT en update).
-- **Mapa Explore:** decisión de producto confirmada: trabajar solo con estilo **FLOWYA** (Mapbox Studio). Se eliminó la bifurcación Standard vs FLOWYA en código y el toggle de versiones de mapa quedó deprecado/removido. El control 3D se mantiene operativo en FLOWYA.
-- **Search V2 (estado operativo actual):**
-  - `Search Box /forward` como request principal externo (single request) + fallback Geocoding.
-  - Ranking de intents estabilizado para casos landmark (`landmark > geo > recommendation`) con hardening para monumentos.
-  - En búsqueda con filtros `Por visitar/Visitados`: no mostrar recomendaciones externas ni CTA de crear; mensaje centrado para cambiar a `Todos`.
-  - Tap en fondo del overlay web ya no cierra búsqueda (solo blur de input cuando aplica).
-- **Mapa/filtros:** en mapa principal se mantiene **dropdown** (`MapPinFilter`) por decisión de UX de la sesión.
-- **Pendiente inmediato (open loop activo):** fallback visual de iconografía maki. Actualmente evita errores de sprite faltante, pero el fallback neutro se percibe como punto blanco homogéneo; requiere set visual canónico.
+1. **P0 único:** definir y activar próximo loop (sugerido: Gate Fase 3 criterio de cierre).
+2. **P1:** consolidar checklist de decisión para próximo loop.
+3. **P2:** mantenimiento documental y guardrails de ejecución.
 
 ---
 
-## Sólido
+## Riesgos vigentes
 
-- Explore (map-first) es público y estable (baseline).
-- Search es capability shared (contratos Phase 1 vigentes).
-- RLS activo en `spots`.
-- Policies vigentes (esperado):
-  - **SELECT:** público (`is_hidden = false`)
-  - **INSERT/UPDATE:** solo usuarios autenticados
-  - **DELETE físico:** deshabilitado
-- Soft delete vía `is_hidden` operativo en UI y alineado con RLS.
+1. **Reingreso a ejecución sin P0 explícito**.
+   - Mitigación: no iniciar código nuevo hasta fijar loop único en `OPEN_LOOPS`.
+
+2. **Regresión por mezclar dominios en un mismo cambio**.
+   - Mitigación: 1 PR por micro-scope, sin scope bundling.
+
+3. **Deriva documental tras múltiples cierres en el día**.
+   - Mitigación: sincronía estricta entre `OPEN_LOOPS` + bitácora + planes.
+
+---
+
+## Referencias activas
+
+- `docs/ops/OPEN_LOOPS.md`
+- `docs/ops/plans/PLAN_OL_P2_006_OPTIMIZACION_EXPLORE_2026-02-28.md`
+- `docs/ops/plans/PLAN_EXPLORE_V1_STRANGLER.md`
+- `docs/bitacora/2026/02/221-arranque-p2-006-optimizacion-explore.md`
+- `docs/bitacora/2026/02/222-p2-006-p0-extraccion-orquestacion-search-selection.md`
+- `docs/bitacora/2026/02/223-fix-search-poi-reemplazo-sheet-activa.md`
+- `docs/bitacora/2026/02/224-cierre-p2-006-p0-smoke-final-ok.md`
+- `docs/bitacora/2026/02/225-p2-006-p1-spot-sheet-segmentacion-interna-base.md`
+- `docs/bitacora/2026/02/226-p2-006-p1-smoke-base-ok.md`
+- `docs/bitacora/2026/02/227-p2-006-p1-extraccion-logica-sheet-a-modulo.md`
+- `docs/bitacora/2026/02/228-p2-006-p1-segmentacion-header-spot-sheet.md`
+- `docs/bitacora/2026/02/229-p2-006-p1-segmentacion-body-spot-sheet.md`
+- `docs/bitacora/2026/02/230-cierre-p2-006-p1-spot-sheet-segmentacion-smoke-final-ok.md`
+- `docs/bitacora/2026/02/231-p2-006-p2-higiene-documental-deprecacion.md`
+- `docs/bitacora/2026/02/232-cierre-ol-p2-006-optimizacion-explore.md`

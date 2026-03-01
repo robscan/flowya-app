@@ -13,12 +13,11 @@
  * - scroll único: un solo ScrollView en body (bodyNeedsScroll); header fijo
  */
 
-import { IconButton } from "@/components/design-system/icon-button";
 import { ImagePlaceholder } from "@/components/design-system/image-placeholder";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
-import { SheetHandle } from "@/components/design-system/sheet-handle";
 import { SpotImage } from "@/components/design-system/spot-image";
 import { Colors, Radius, Spacing } from "@/constants/theme";
+import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import {
     distanceKm,
@@ -26,13 +25,10 @@ import {
     getMapsDirectionsUrl,
 } from "@/lib/geo-utils";
 import {
-    ArrowLeft,
     CheckCircle,
     MapPin,
     Pencil,
     Pin,
-    Share2,
-    X,
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -57,6 +53,10 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ConfirmModal } from "@/components/ui/confirm-modal";
+import {
+  getSheetHeightForState,
+  resolveNextSheetStateFromGesture,
+} from "@/components/explorar/spot-sheet/sheet-logic";
 
 function usePrefersReducedMotion(): boolean {
   const [prefers, setPrefers] = useState(false);
@@ -672,6 +672,194 @@ function PlacingDraftContent({
   );
 }
 
+function SheetBodyPanel({
+  shouldScroll,
+  maxBodyHeight,
+  onContentLayout,
+  children,
+}: {
+  shouldScroll: boolean;
+  maxBodyHeight: number;
+  onContentLayout: (e: LayoutChangeEvent) => void;
+  children: React.ReactNode;
+}) {
+  if (shouldScroll) {
+    return (
+      <ScrollView
+        style={[styles.bodyScroll, { maxHeight: maxBodyHeight }]}
+        contentContainerStyle={styles.bodyContentWrap}
+        showsVerticalScrollIndicator={true}
+      >
+        <View style={styles.bodyContentInner} onLayout={onContentLayout}>
+          {children}
+        </View>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <View style={styles.bodyContentWrap}>
+      <View style={styles.bodyContentInner} onLayout={onContentLayout}>
+        {children}
+      </View>
+    </View>
+  );
+}
+
+type SpotSheetBodyProps = {
+  isMedium: boolean;
+  isExpanded: boolean;
+  isPoiMode: boolean;
+  isDraft: boolean;
+  isPlacingDraftSpot: boolean;
+  poiLoading: boolean;
+  pinFilter: "all" | "saved" | "visited";
+  effectiveBodyNeedsScroll: boolean;
+  maxBodyHeight: number;
+  onMediumBodyLayout: (e: LayoutChangeEvent) => void;
+  onFullBodyLayout: (e: LayoutChangeEvent) => void;
+  onConfirmPlacement?: () => void;
+  onClose: () => void;
+  onPoiPorVisitar?: () => void | Promise<void>;
+  onPoiVisitado?: () => void | Promise<void>;
+  spot: SpotSheetSpot | null;
+  hasDesc: boolean;
+  hasCover: boolean;
+  isSaved: boolean;
+  isVisited: boolean;
+  colors: (typeof Colors)["light"];
+  colorScheme: "light" | "dark" | null;
+  handleSavePin: (targetStatus?: "to_visit" | "visited") => void;
+  draftCoverUri?: string | null;
+  onDraftCoverChange?: (uri: string | null) => void;
+  onCreateSpot?: () => void;
+  distanceKmVal: number | null;
+  whyText: string | null;
+  addressText: string | null;
+  isAuthUser?: boolean;
+  handleDirections: () => void;
+  handleEdit: () => void;
+  onEdit?: (spotId: string) => void;
+};
+
+function SpotSheetBody({
+  isMedium,
+  isExpanded,
+  isPoiMode,
+  isDraft,
+  isPlacingDraftSpot,
+  poiLoading,
+  pinFilter,
+  effectiveBodyNeedsScroll,
+  maxBodyHeight,
+  onMediumBodyLayout,
+  onFullBodyLayout,
+  onConfirmPlacement,
+  onClose,
+  onPoiPorVisitar,
+  onPoiVisitado,
+  spot,
+  hasDesc,
+  hasCover,
+  isSaved,
+  isVisited,
+  colors,
+  colorScheme,
+  handleSavePin,
+  draftCoverUri,
+  onDraftCoverChange,
+  onCreateSpot,
+  distanceKmVal,
+  whyText,
+  addressText,
+  isAuthUser,
+  handleDirections,
+  handleEdit,
+  onEdit,
+}: SpotSheetBodyProps) {
+  const renderBodyContent = () => {
+    if (isPoiMode) {
+      return onPoiPorVisitar ? (
+        <PoiBodyContent
+          onPorVisitar={onPoiPorVisitar}
+          onVisitado={onPoiVisitado}
+          pinFilter={pinFilter}
+          loading={poiLoading}
+          colors={colors}
+        />
+      ) : null;
+    }
+    if (isDraft && isPlacingDraftSpot) {
+      return (
+        <PlacingDraftContent
+          onConfirm={() => onConfirmPlacement?.()}
+          onCancel={onClose}
+          colors={colors}
+        />
+      );
+    }
+    return (
+      <>
+        <MediumBodyContent
+          spot={spot!}
+          hasDesc={hasDesc}
+          hasCover={hasCover}
+          isSaved={isSaved}
+          isVisited={isVisited}
+          isDraft={isDraft}
+          colors={colors}
+          colorScheme={colorScheme}
+          handleSavePin={handleSavePin}
+          pinFilter={pinFilter}
+        />
+        {isDraft ? (
+          <DraftInlineEditor
+            draftCoverUri={draftCoverUri}
+            onDraftCoverChange={onDraftCoverChange}
+            onCreateSpot={onCreateSpot}
+            colors={colors}
+            colorScheme={colorScheme ?? "light"}
+          />
+        ) : isExpanded ? (
+          <ExpandedExtra
+            distanceKmVal={distanceKmVal}
+            whyText={whyText}
+            addressText={addressText}
+            isAuthUser={isAuthUser}
+            colors={colors}
+            handleDirections={handleDirections}
+            handleEdit={handleEdit}
+            onEdit={onEdit}
+          />
+        ) : null}
+      </>
+    );
+  };
+
+  return (
+    <>
+      {isMedium ? (
+        <SheetBodyPanel
+          shouldScroll={effectiveBodyNeedsScroll}
+          maxBodyHeight={maxBodyHeight}
+          onContentLayout={onMediumBodyLayout}
+        >
+          {renderBodyContent()}
+        </SheetBodyPanel>
+      ) : null}
+      {isExpanded ? (
+        <SheetBodyPanel
+          shouldScroll={effectiveBodyNeedsScroll}
+          maxBodyHeight={maxBodyHeight}
+          onContentLayout={onFullBodyLayout}
+        >
+          {renderBodyContent()}
+        </SheetBodyPanel>
+      ) : null}
+    </>
+  );
+}
+
 const CONTAINER_PADDING_BOTTOM = 16;
 
 export function SpotSheet({
@@ -922,12 +1110,12 @@ export function SpotSheet({
     (nextState: SheetState) => {
       isDraggingRef.current = false;
       onStateChange(nextState);
-      const h =
-        nextState === "peek"
-          ? collapsedAnchor
-          : nextState === "medium"
-            ? mediumVisible
-            : expandedVisible;
+      const h = getSheetHeightForState(
+        nextState,
+        collapsedAnchor,
+        mediumVisible,
+        expandedVisible,
+      );
       onSheetHeightChange?.(h);
     },
     [
@@ -961,25 +1149,15 @@ export function SpotSheet({
       const visible = exp - currentTy;
       const velocityY = e.velocityY;
 
-      let nextState: SheetState;
-      const midCollapsedMedium = col + (medVis - col) * 0.5;
-      if (visible <= midCollapsedMedium) {
-        const band = medVis - col;
-        const towardMedium = band > 0 ? (visible - col) / band : 0;
-        if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = "medium";
-        else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = "peek";
-        else
-          nextState =
-            towardMedium >= SNAP_POSITION_THRESHOLD ? "medium" : "peek";
-      } else {
-        const band = expVis - medVis;
-        const towardExpanded = band > 0 ? (visible - medVis) / band : 0;
-        if (velocityY < -VELOCITY_SNAP_THRESHOLD) nextState = "expanded";
-        else if (velocityY > VELOCITY_SNAP_THRESHOLD) nextState = "medium";
-        else
-          nextState =
-            towardExpanded >= SNAP_POSITION_THRESHOLD ? "expanded" : "medium";
-      }
+      const nextState = resolveNextSheetStateFromGesture({
+        visible,
+        velocityY,
+        collapsedAnchor: col,
+        mediumVisible: medVis,
+        expandedVisible: expVis,
+        velocitySnapThreshold: VELOCITY_SNAP_THRESHOLD,
+        snapPositionThreshold: SNAP_POSITION_THRESHOLD,
+      });
 
       const targetTy =
         nextState === "expanded"
@@ -1087,330 +1265,59 @@ export function SpotSheet({
     >
       {/* CONTRATO drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded */}
       <GestureDetector gesture={panGesture}>
-        <View style={styles.dragArea} onLayout={onDragAreaLayout}>
-          <View style={styles.handleRow}>
-            <SheetHandle onPress={handleHeaderTap} />
-          </View>
-          <View style={styles.headerRow} onLayout={onHeaderLayout}>
-            {!isDraft ? (
-              <IconButton
-                variant="default"
-                size={HEADER_BUTTON_SIZE}
-                onPress={handleShare}
-                disabled={isPoiMode && poiLoading}
-                accessibilityLabel="Compartir"
-              >
-                <Share2 size={20} color={colors.text} strokeWidth={2} />
-              </IconButton>
-            ) : isDraft && !isPlacingDraftSpot && onDraftBackToPlacing ? (
-              <IconButton
-                variant="default"
-                size={HEADER_BUTTON_SIZE}
-                onPress={onDraftBackToPlacing}
-                accessibilityLabel="Atrás"
-              >
-                <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
-              </IconButton>
-            ) : (
-              <View
-                style={{
-                  width: HEADER_BUTTON_SIZE,
-                  height: HEADER_BUTTON_SIZE,
-                }}
-              />
-            )}
-            {isDraft ? (
-              <View style={styles.titleWrap}>
-                <View style={styles.titleRow}>
-                <View style={styles.titleTextWrap}>
-                  <Text
-                    style={[styles.title, { color: colors.text }]}
-                  >
-                    {displayTitle}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.draftBadge,
-                    { backgroundColor: colors.borderSubtle },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.draftBadgeText,
-                      { color: colors.textSecondary },
-                    ]}
-                  >
-                    BORRADOR
-                  </Text>
-                </View>
-                </View>
-              </View>
-            ) : (
-              <Pressable
-                style={styles.titleWrap}
-                onPress={handleHeaderTap}
-                accessibilityLabel={
-                  state === "peek"
-                    ? "Expandir"
-                    : state === "medium"
-                      ? "Expandir más"
-                      : "Reducir"
-                }
-                accessibilityRole="button"
-              >
-                <View style={styles.titleRow}>
-                  <View style={styles.titleTextWrap}>
-                    <Text
-                      style={[styles.title, { color: colors.text }]}
-                    >
-                      {displayTitle}
-                    </Text>
-                  </View>
-                </View>
-              </Pressable>
-            )}
-            <Pressable
-              style={[
-                styles.closeButton,
-                { backgroundColor: colors.borderSubtle },
-              ]}
-              onPress={
-                isDraft ? () => setShowDiscardDraftConfirm(true) : onClose
-              }
-              accessibilityLabel={isDraft ? "Descartar borrador" : "Cerrar"}
-              accessibilityRole="button"
-            >
-              <X size={20} color={colors.text} strokeWidth={2} />
-            </Pressable>
-          </View>
-        </View>
+        <SpotSheetHeader
+          isDraft={isDraft}
+          isPlacingDraftSpot={isPlacingDraftSpot}
+          isPoiMode={isPoiMode}
+          poiLoading={poiLoading}
+          displayTitle={displayTitle}
+          state={state}
+          colors={colors}
+          onHeaderTap={handleHeaderTap}
+          onShare={handleShare}
+          onDraftBackToPlacing={onDraftBackToPlacing}
+          onClose={isDraft ? () => setShowDiscardDraftConfirm(true) : onClose}
+          onDragAreaLayout={onDragAreaLayout}
+          onHeaderLayout={onHeaderLayout}
+        />
       </GestureDetector>
 
       {/* CONTRATO scroll único: un solo ScrollView en body; header fijo; scroll solo si overflow */}
-      {/* Body MEDIUM: solo descripción + imagen + Guardar/Visitado; altura al contenido; scroll solo si supera max */}
-      {isMedium ? (
-        effectiveBodyNeedsScroll ? (
-          <ScrollView
-            style={[styles.bodyScroll, { maxHeight: maxBodyHeight }]}
-            contentContainerStyle={styles.bodyContentWrap}
-            showsVerticalScrollIndicator={true}
-          >
-            <View style={styles.bodyContentInner} onLayout={onMediumBodyLayout}>
-              {isPoiMode ? (
-                onPoiPorVisitar ? (
-                  <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar!}
-                    onVisitado={onPoiVisitado}
-                    pinFilter={pinFilter}
-                    loading={poiLoading}
-                    colors={colors}
-                  />
-                ) : null
-              ) : isDraft && isPlacingDraftSpot ? (
-                <PlacingDraftContent
-                  onConfirm={() => onConfirmPlacement?.()}
-                  onCancel={onClose}
-                  colors={colors}
-                />
-              ) : (
-                <>
-                  <MediumBodyContent
-                    spot={spot!}
-                    hasDesc={hasDesc}
-                    hasCover={hasCover}
-                    isSaved={isSaved}
-                    isVisited={isVisited}
-                    isDraft={isDraft}
-                    colors={colors}
-                    colorScheme={colorScheme}
-                    handleSavePin={handleSavePin}
-                    pinFilter={pinFilter}
-                  />
-                  {isDraft ? (
-                    <DraftInlineEditor
-                      draftCoverUri={draftCoverUri}
-                      onDraftCoverChange={onDraftCoverChange}
-                      onCreateSpot={onCreateSpot}
-                      colors={colors}
-                      colorScheme={colorScheme ?? "light"}
-                    />
-                  ) : null}
-                </>
-              )}
-            </View>
-          </ScrollView>
-        ) : (
-          <View style={styles.bodyContentWrap}>
-            <View style={styles.bodyContentInner} onLayout={onMediumBodyLayout}>
-              {isPoiMode ? (
-                onPoiPorVisitar ? (
-                  <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar!}
-                    onVisitado={onPoiVisitado}
-                    pinFilter={pinFilter}
-                    loading={poiLoading}
-                    colors={colors}
-                  />
-                ) : null
-              ) : isDraft && isPlacingDraftSpot ? (
-                <PlacingDraftContent
-                  onConfirm={() => onConfirmPlacement?.()}
-                  onCancel={onClose}
-                  colors={colors}
-                />
-              ) : (
-                <>
-                  <MediumBodyContent
-                    spot={spot!}
-                    hasDesc={hasDesc}
-                    hasCover={hasCover}
-                    isSaved={isSaved}
-                    isVisited={isVisited}
-                    isDraft={isDraft}
-                    colors={colors}
-                    colorScheme={colorScheme}
-                    handleSavePin={handleSavePin}
-                    pinFilter={pinFilter}
-                  />
-                  {isDraft ? (
-                    <DraftInlineEditor
-                      draftCoverUri={draftCoverUri}
-                      onDraftCoverChange={onDraftCoverChange}
-                      onCreateSpot={onCreateSpot}
-                      colors={colors}
-                      colorScheme={colorScheme ?? "light"}
-                    />
-                  ) : null}
-                </>
-              )}
-            </View>
-          </View>
-        )
-      ) : null}
-
-      {/* Body EXPANDED: medium + resto (distancia, Por qué, dirección, Cómo llegar, Editar); para draft solo DraftInlineEditor */}
-      {isExpanded ? (
-        effectiveBodyNeedsScroll ? (
-          <ScrollView
-            style={[styles.bodyScroll, { maxHeight: maxBodyHeight }]}
-            contentContainerStyle={styles.bodyContentWrap}
-            showsVerticalScrollIndicator={true}
-          >
-            <View style={styles.bodyContentInner} onLayout={onFullBodyLayout}>
-              {isPoiMode ? (
-                onPoiPorVisitar ? (
-                  <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar!}
-                    onVisitado={onPoiVisitado}
-                    pinFilter={pinFilter}
-                    loading={poiLoading}
-                    colors={colors}
-                  />
-                ) : null
-              ) : isDraft && isPlacingDraftSpot ? (
-                <PlacingDraftContent
-                  onConfirm={() => onConfirmPlacement?.()}
-                  onCancel={onClose}
-                  colors={colors}
-                />
-              ) : (
-                <>
-                  <MediumBodyContent
-                    spot={spot!}
-                    hasDesc={hasDesc}
-                    hasCover={hasCover}
-                    isSaved={isSaved}
-                    isVisited={isVisited}
-                    isDraft={isDraft}
-                    colors={colors}
-                    colorScheme={colorScheme}
-                    handleSavePin={handleSavePin}
-                    pinFilter={pinFilter}
-                  />
-                  {isDraft ? (
-                    <DraftInlineEditor
-                      draftCoverUri={draftCoverUri}
-                      onDraftCoverChange={onDraftCoverChange}
-                      onCreateSpot={onCreateSpot}
-                      colors={colors}
-                      colorScheme={colorScheme ?? "light"}
-                    />
-                  ) : (
-                    <ExpandedExtra
-                      distanceKmVal={distanceKmVal}
-                      whyText={whyText}
-                      addressText={addressText}
-                      isAuthUser={isAuthUser}
-                      colors={colors}
-                      handleDirections={handleDirections}
-                      handleEdit={handleEdit}
-                      onEdit={onEdit}
-                    />
-                  )}
-                </>
-              )}
-            </View>
-          </ScrollView>
-        ) : (
-          <View style={styles.bodyContentWrap}>
-            <View style={styles.bodyContentInner} onLayout={onFullBodyLayout}>
-              {isPoiMode ? (
-                onPoiPorVisitar ? (
-                  <PoiBodyContent
-                    onPorVisitar={onPoiPorVisitar!}
-                    onVisitado={onPoiVisitado}
-                    pinFilter={pinFilter}
-                    loading={poiLoading}
-                    colors={colors}
-                  />
-                ) : null
-              ) : isDraft && isPlacingDraftSpot ? (
-                <PlacingDraftContent
-                  onConfirm={() => onConfirmPlacement?.()}
-                  onCancel={onClose}
-                  colors={colors}
-                />
-              ) : (
-                <>
-                  <MediumBodyContent
-                    spot={spot!}
-                    hasDesc={hasDesc}
-                    hasCover={hasCover}
-                    isSaved={isSaved}
-                    isVisited={isVisited}
-                    isDraft={isDraft}
-                    colors={colors}
-                    colorScheme={colorScheme}
-                    handleSavePin={handleSavePin}
-                    pinFilter={pinFilter}
-                  />
-                  {isDraft ? (
-                    <DraftInlineEditor
-                      draftCoverUri={draftCoverUri}
-                      onDraftCoverChange={onDraftCoverChange}
-                      onCreateSpot={onCreateSpot}
-                      colors={colors}
-                      colorScheme={colorScheme ?? "light"}
-                    />
-                  ) : (
-                    <ExpandedExtra
-                      distanceKmVal={distanceKmVal}
-                      whyText={whyText}
-                      addressText={addressText}
-                      isAuthUser={isAuthUser}
-                      colors={colors}
-                      handleDirections={handleDirections}
-                      handleEdit={handleEdit}
-                      onEdit={onEdit}
-                    />
-                  )}
-                </>
-              )}
-            </View>
-          </View>
-        )
-      ) : null}
+      <SpotSheetBody
+        isMedium={isMedium}
+        isExpanded={isExpanded}
+        isPoiMode={isPoiMode}
+        isDraft={isDraft}
+        isPlacingDraftSpot={isPlacingDraftSpot}
+        poiLoading={poiLoading}
+        pinFilter={pinFilter}
+        effectiveBodyNeedsScroll={effectiveBodyNeedsScroll}
+        maxBodyHeight={maxBodyHeight}
+        onMediumBodyLayout={onMediumBodyLayout}
+        onFullBodyLayout={onFullBodyLayout}
+        onConfirmPlacement={onConfirmPlacement}
+        onClose={onClose}
+        onPoiPorVisitar={onPoiPorVisitar}
+        onPoiVisitado={onPoiVisitado}
+        spot={spot}
+        hasDesc={hasDesc}
+        hasCover={hasCover}
+        isSaved={isSaved}
+        isVisited={isVisited}
+        colors={colors}
+        colorScheme={colorScheme}
+        handleSavePin={handleSavePin}
+        draftCoverUri={draftCoverUri}
+        onDraftCoverChange={onDraftCoverChange}
+        onCreateSpot={onCreateSpot}
+        distanceKmVal={distanceKmVal}
+        whyText={whyText}
+        addressText={addressText}
+        isAuthUser={isAuthUser}
+        handleDirections={handleDirections}
+        handleEdit={handleEdit}
+        onEdit={onEdit}
+      />
 
       <ConfirmModal
         visible={showDiscardDraftConfirm}

@@ -1,6 +1,6 @@
 /**
  * core/shared/search/effects.ts — Interfaces de adapters para Search.
- * Fuente: contracts/shared/SEARCH_EFFECTS.md
+ * Fuente: docs/contracts/shared/SEARCH_EFFECTS.md
  */
 
 import type {

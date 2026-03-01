@@ -15,6 +15,7 @@ import React from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -69,11 +70,14 @@ export function SearchSurface<T>({
   const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
   const sectionHeaderGlowColor =
     colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-  const sectionHeaderGlowStyle = {
-    textShadowColor: sectionHeaderGlowColor,
-    textShadowRadius: 6,
-    textShadowOffset: { width: 0, height: 1 } as const,
-  };
+  const sectionHeaderGlowStyle =
+    Platform.OS === 'web'
+      ? ({ textShadow: `0px 1px 6px ${sectionHeaderGlowColor}` } as const)
+      : ({
+          textShadowColor: sectionHeaderGlowColor,
+          textShadowRadius: 6,
+          textShadowOffset: { width: 0, height: 1 } as const,
+        } as const);
 
   const q = controller.query.trim();
   const len = q.length;
@@ -279,11 +283,30 @@ export function SearchSurface<T>({
                 return showNoSpotsMessage ? (
                   <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
                     {isFilteredPinSearch
-                      ? 'No encontramos resultados en este filtro. Para ver recomendaciones del mundo, cambia a Todos.'
+                      ? 'No veo resultados en este filtro. Si quieres te ayudo a buscar en todo el mapa.'
                       : 'No encontramos ese lugar en tus spots.'}
                   </Text>
                 ) : null;
               })()}
+              {isFilteredPinSearch && onPinFilterChange != null ? (
+                <View style={styles.filterCtaSection}>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.filterCtaButton,
+                      {
+                        backgroundColor: pressed
+                          ? colors.tintPressed ?? colors.tint
+                          : colors.tint,
+                      },
+                    ]}
+                    onPress={() => onPinFilterChange('all')}
+                    accessibilityRole="button"
+                    accessibilityLabel="Ver todo para buscar en todos tus lugares y recomendaciones"
+                  >
+                    <Text style={styles.filterCtaButtonText}>Buscar en todo el mapa</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
                 <View style={styles.suggestionsSection}>
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
@@ -388,6 +411,15 @@ const styles = StyleSheet.create({
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
   noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
+  filterCtaSection: { marginTop: Spacing.xs, marginBottom: Spacing.base },
+  filterCtaButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.pill,
+  },
+  filterCtaButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   suggestionsSection: { marginBottom: Spacing.base },
   cardsList: { gap: Spacing.sm },
   chooserSection: { marginTop: Spacing.sm },

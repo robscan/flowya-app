@@ -1,6 +1,6 @@
 /**
  * core/shared/search/intents.ts — Tipos de intents para Search.
- * Fuente: contracts/shared/SEARCH_INTENTS.md
+ * Fuente: docs/contracts/shared/SEARCH_INTENTS.md
  */
 
 import type { SearchContext, SearchResult } from "./state";
