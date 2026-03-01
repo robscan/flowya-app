@@ -1080,13 +1080,12 @@ export function MapScreenVNext() {
     if (!selectedSpot) return;
     if (selectedSpot.id.startsWith("draft_")) return;
     if (pinFilter === "all") return;
-    const stillInActiveFilter =
-      pinFilter === "saved" ? Boolean(selectedSpot.saved) : Boolean(selectedSpot.visited);
+    const stillInActiveFilter = filteredSpots.some((spot) => spot.id === selectedSpot.id);
     if (stillInActiveFilter) return;
     setSelectedSpot(null);
     setSheetState("peek");
     setSheetHeight(SHEET_PEEK_HEIGHT);
-  }, [pinFilter, selectedSpot, setSheetState]);
+  }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
 
   const spotsProvider = useMemo(
     () =>
