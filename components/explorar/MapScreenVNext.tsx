@@ -3400,6 +3400,7 @@ export function MapScreenVNext() {
               pendingValues={pendingFilterBadges}
               pulseNonce={pinFilterPulseNonce}
               menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
+              hideActiveCount={showCountriesCounterBubble}
             />
           </View>
         </Animated.View>
@@ -3527,9 +3528,10 @@ export function MapScreenVNext() {
             <Pressable
               onPress={handleCountriesSpotsKpiPress}
               style={({ pressed }) => [
-                styles.countriesSpotsBadge,
+                styles.countriesCircle,
+                styles.countriesSpotsCircle,
                 {
-                  backgroundColor: Colors[colorScheme ?? "light"].text,
+                  backgroundColor: countriesCounterBackgroundColor,
                   borderColor: countriesCounterBorderColor,
                   opacity: pressed ? 0.88 : 1,
                 },
@@ -3537,8 +3539,21 @@ export function MapScreenVNext() {
               accessibilityRole="button"
               accessibilityLabel="Abrir lista de spots del filtro activo"
             >
-              <Text style={[styles.countriesSpotsBadgeValue, { color: Colors[colorScheme ?? "light"].background }]}>
+              <Text
+                style={[
+                  styles.countriesValue,
+                  {
+                    color:
+                      countriesOverlayFilter === "saved"
+                        ? countriesOverlayColors.stateToVisit
+                        : countriesOverlayColors.stateSuccess,
+                  },
+                ]}
+              >
                 {String(countriesPlacesCountForOverlay)}
+              </Text>
+              <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
+                spots
               </Text>
             </Pressable>
           </View>
@@ -3957,9 +3972,9 @@ const styles = StyleSheet.create({
     zIndex: 8,
   },
   countriesOverlayStack: {
-    position: "relative",
-    width: 64,
-    height: 64,
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 8,
   },
   createSpotOverlay: {
     position: "absolute",
@@ -4021,28 +4036,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
     marginTop: 2,
   },
-  countriesSpotsBadge: {
-    position: "absolute",
-    top: -6,
-    right: -8,
-    minWidth: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 6,
-    ...Platform.select({
-      web: {
-        boxShadow: "0 4px 10px rgba(0,0,0,0.2)",
-      },
-      default: {},
-    }),
-  },
-  countriesSpotsBadgeValue: {
-    fontSize: 12,
-    fontWeight: "700",
-    lineHeight: 14,
+  countriesSpotsCircle: {
+    width: 64,
+    height: 64,
   },
   quickEditDescOverlay: {
     ...StyleSheet.absoluteFillObject,

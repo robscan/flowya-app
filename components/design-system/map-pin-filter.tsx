@@ -57,6 +57,8 @@ export type MapPinFilterProps = {
   pendingValues?: Partial<Record<Exclude<MapPinFilterValue, 'all'>, boolean>>;
   pulseNonce?: number;
   menuPlacement?: 'down' | 'up';
+  /** Oculta contador del valor activo en trigger para evitar redundancia con overlays externos. */
+  hideActiveCount?: boolean;
 };
 
 function getLabelWithCount(
@@ -102,6 +104,7 @@ export function MapPinFilter({
   pendingValues = {},
   pulseNonce = 0,
   menuPlacement = 'down',
+  hideActiveCount = false,
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   const colorScheme = useColorScheme();
@@ -153,7 +156,7 @@ export function MapPinFilter({
 
   const selectedColors = getSelectedColors(value);
   const currentLabel = OPTIONS.find((o) => o.value === value)!.label;
-  const triggerCount = getCount(value, counts);
+  const triggerCount = hideActiveCount ? undefined : getCount(value, counts);
   const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
 
   const handleSelect = (optValue: MapPinFilterValue) => {
