@@ -21,6 +21,7 @@ export type SpotSheetHeaderProps = {
   colors: HeaderColors;
   onHeaderTap: () => void;
   onShare: () => void;
+  shareDisabled?: boolean;
   onDraftBackToPlacing?: () => void;
   onClose: () => void;
   onDragAreaLayout: (e: LayoutChangeEvent) => void;
@@ -39,6 +40,7 @@ export function SpotSheetHeader({
   colors,
   onHeaderTap,
   onShare,
+  shareDisabled = false,
   onDraftBackToPlacing,
   onClose,
   onDragAreaLayout,
@@ -55,7 +57,7 @@ export function SpotSheetHeader({
             variant="default"
             size={HEADER_BUTTON_SIZE}
             onPress={onShare}
-            disabled={isPoiMode && poiLoading}
+            disabled={(isPoiMode && poiLoading) || shareDisabled}
             accessibilityLabel="Compartir"
           >
             <Share2 size={20} color={colors.text} strokeWidth={2} />

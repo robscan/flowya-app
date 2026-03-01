@@ -55,6 +55,7 @@ export type MapPinFilterProps = {
   counts?: MapPinFilterCounts;
   pendingValues?: Partial<Record<Exclude<MapPinFilterValue, 'all'>, boolean>>;
   pulseNonce?: number;
+  menuPlacement?: 'down' | 'up';
 };
 
 function getLabelWithCount(
@@ -99,6 +100,7 @@ export function MapPinFilter({
   counts,
   pendingValues = {},
   pulseNonce = 0,
+  menuPlacement = 'down',
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   const colorScheme = useColorScheme();
@@ -263,7 +265,13 @@ export function MapPinFilter({
           accessibilityLabel="Cerrar menú"
         />
       </Animated.View>
-      <View style={[styles.menuContainer, { pointerEvents: open ? 'auto' : 'none' }]}>
+      <View
+        style={[
+          styles.menuContainer,
+          menuPlacement === 'up' ? styles.menuContainerUp : styles.menuContainerDown,
+          { pointerEvents: open ? 'auto' : 'none' },
+        ]}
+      >
         <Animated.View
           style={[
             styles.menu,
@@ -387,12 +395,18 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     position: 'absolute',
-    top: '100%',
     left: 0,
     right: 0,
-    marginTop: Spacing.xs,
     alignItems: 'center',
     zIndex: 20,
+  },
+  menuContainerDown: {
+    top: '100%',
+    marginTop: Spacing.xs,
+  },
+  menuContainerUp: {
+    bottom: '100%',
+    marginBottom: Spacing.xs,
   },
   menu: {
     borderRadius: Radius.lg,

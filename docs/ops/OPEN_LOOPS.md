@@ -10,9 +10,9 @@
 
 ## Foco inmediato (P0 -> P2)
 
-1. **P0 único:** `OL-P3-002` — Países interactivo + mapa mundial shareable (arranque por fases)
-2. **P1:** definir alcance de `P3-002.A` (MVP países interactivo sin share)
-3. **P2:** mantenimiento documental continuo (bitácora + contratos + guardrails)
+1. **P0 único:** `OL-P3-002` — Países interactivo + mapa mundial shareable (cierre visual/QA final del share card + estabilidad).
+2. **P1:** preparar arranque del bloque contenido (`OL-CONTENT-001..006`) con contracts y research de riesgo API.
+3. **P2:** mantenimiento documental continuo (bitácora + contratos + guardrails).
 
 ---
 
@@ -23,12 +23,31 @@
 
 ---
 
+## Próxima cola (mañana, secuencial; no paralelizar)
+
+1. `OL-CONTENT-001` — Mi diario v1 (notas por spot: datos + entry en SpotSheet + persistencia segura).
+2. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot, orden, fullscreen y gestión mínima).
+3. `OL-CONTENT-003` — Tourism schema v1 (migración DB para señales turísticas y clasificación base).
+4. `OL-CONTENT-004` — Entity resolution v1 (matching Mapbox↔Wikidata con score y fallback seguro).
+5. `OL-CONTENT-005` — Enrichment pipeline v1 (Wikidata/Wikipedia/Wikimedia con trazabilidad y licencia).
+6. `OL-CONTENT-006` — Directions v1 (UX de ruta con costo controlado y sin lock-in prematuro).
+
+Reglas de ejecución para esta cola:
+- 1 loop activo por vez.
+- No abrir implementación de `004/005` sin cierre previo de research y contrato técnico.
+- No bloquear UX principal por enriquecimiento asíncrono externo.
+
+---
+
 ## Postergados estratégicos (no ejecutar ahora)
 
 - `OL-P0-002` — Create Spot canónico
 - `OL-P1-006` — Migración POI DB (maki/categorías)
 - `OL-P1-007` — Pipeline turístico sin Google
 - `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha
+
+Nota:
+- `OL-P1-006` y `OL-P1-007` quedan como macro-loops históricos; su ejecución práctica se descompone en `OL-CONTENT-003..005`.
 
 ---
 

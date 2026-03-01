@@ -19,6 +19,7 @@ import {
     Pressable,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -368,6 +369,9 @@ const TOP_OVERLAY_INSET = 16;
 const FLOWYA_LABEL_CLEARANCE = 60;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
 const STATUS_OVER_SHEET_CLEARANCE = 18;
+const FILTER_TRIGGER_ESTIMATED_HEIGHT = 56;
+const FILTER_MENU_ESTIMATED_HEIGHT = 210;
+const FILTER_MENU_GAP = 8;
 /** Reserva lateral para no invadir la columna de MapControls en pantallas angostas. */
 const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
@@ -405,6 +409,7 @@ export function MapScreenVNext() {
   const insets = useSafeAreaInsets();
   const { openAuthModal } = useAuthModal();
   const toast = useSystemStatus();
+  const suppressToastRef = useRef(false);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
@@ -888,7 +893,7 @@ export function MapScreenVNext() {
           saved: "Organiza y prepara tus próximos lugares.",
           visited: "Recuerda y registra tus memorias.",
         };
-        toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
+        if (!suppressToastRef.current) toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -1737,7 +1742,7 @@ export function MapScreenVNext() {
       .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
       .single();
     if (insertError) {
-      toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
+      if (!suppressToastRef.current) toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
       return;
     }
     const newId = inserted?.id;
@@ -1863,26 +1868,26 @@ export function MapScreenVNext() {
           .single();
         if (insertError) {
           if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
-          toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
+          if (!suppressToastRef.current) toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
           return;
         }
         const newId = inserted?.id;
         if (!newId) {
           if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(false);
-          toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
+          if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
           return;
         }
         if (initialStatus === "to_visit") {
           const savedState = await setSaved(newId, true);
           if (savedState == null) {
-            toast.show("Se creó el lugar, pero no se pudo agregar a Por visitar. Prueba otra vez.", {
+            if (!suppressToastRef.current) toast.show("Se creó el lugar, pero no se pudo agregar a Por visitar. Prueba otra vez.", {
               type: "error",
             });
           }
         } else if (initialStatus === "visited") {
           const visitedState = await setVisited(newId, true);
           if (visitedState == null) {
-            toast.show("Se creó el lugar, pero no se pudo marcar como visitado. Prueba otra vez.", {
+            if (!suppressToastRef.current) toast.show("Se creó el lugar, pero no se pudo marcar como visitado. Prueba otra vez.", {
               type: "error",
             });
           }
@@ -1921,7 +1926,7 @@ export function MapScreenVNext() {
         if (shouldTrackCreateFromSearch && didAttemptPersist) {
           recordCreateFromSearchResult(false);
         }
-        toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
+        if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
         if (initialStatus === "to_visit" && !created) {
@@ -1966,16 +1971,16 @@ export function MapScreenVNext() {
           .select("id, title, link_status, linked_place_id, linked_place_kind, linked_maki")
           .single();
         if (insertError) {
-          toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
+          if (!suppressToastRef.current) toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
           return;
         }
         const newId = inserted?.id;
         if (!newId) {
-          toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
+          if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
           return;
         }
         const result = await shareSpot(newId, poi.name);
-        if (result.copied) toast.show("Enlace copiado", { type: "success" });
+        if (result.copied) if (!suppressToastRef.current) toast.show("Enlace copiado", { type: "success" });
         const pinMap = await getPinsForSpots([newId]);
         const state = pinMap.get(newId);
         const created: Spot = {
@@ -2002,7 +2007,7 @@ export function MapScreenVNext() {
         setSheetState("medium");
         refetchSpots();
       } catch {
-        toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
+        if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
       }
@@ -2198,8 +2203,14 @@ export function MapScreenVNext() {
     countriesFilterForActiveCounter,
   );
   const [countriesSheetOpen, setCountriesSheetOpen] = useState(false);
+  const [countriesMapSnapshot, setCountriesMapSnapshot] = useState<string | null>(null);
+  const [isCountriesShareInFlight, setIsCountriesShareInFlight] = useState(false);
+  const isCountriesShareInFlightRef = useRef(false);
+  const lastCountriesShareAtRef = useRef(0);
+  const countriesShareConsumedRef = useRef(false);
   const showCountriesCounterBubble = showCountriesCounter && !countriesSheetOpen;
   const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
+  suppressToastRef.current = countriesSheetOpen && countriesSheetState === "expanded";
   const countriesBucketsForOverlay =
     countriesOverlayFilter === "saved"
       ? countriesBucketsByFilter.saved
@@ -2208,6 +2219,10 @@ export function MapScreenVNext() {
   const countriesPlacesCountForOverlay = useMemo(
     () => countriesBucketsForOverlay.reduce((total, country) => total + country.count, 0),
     [countriesBucketsForOverlay],
+  );
+  const countriesWorldPercentageForOverlay = useMemo(
+    () => Math.round((countriesCountForOverlay / 195) * 100),
+    [countriesCountForOverlay],
   );
 
   useEffect(() => {
@@ -2290,6 +2305,10 @@ export function MapScreenVNext() {
     setCountriesDrilldown(null);
   }, [showCountriesCounter]);
   useEffect(() => {
+    if (countriesSheetOpen) return;
+    countriesShareConsumedRef.current = false;
+  }, [countriesSheetOpen]);
+  useEffect(() => {
     if (!countriesSheetOpen) return;
     if (countriesOverlayFilter === countriesFilterForActiveCounter) return;
     setCountriesOverlayFilter(countriesFilterForActiveCounter);
@@ -2323,7 +2342,7 @@ export function MapScreenVNext() {
       setCountriesDrilldown({ key: country.key, label: country.label });
       openSearchPreservingCountriesSheet();
       searchV2.setQuery(country.label);
-      toast.show(`Mostrando lugares en ${country.label}.`, {
+      if (!suppressToastRef.current) toast.show(`Mostrando lugares en ${country.label}.`, {
         type: "success",
         replaceVisible: true,
       });
@@ -2331,28 +2350,55 @@ export function MapScreenVNext() {
     [openSearchPreservingCountriesSheet, searchV2, toast],
   );
   const handleCountriesSheetShare = useCallback(async () => {
+    if (countriesShareConsumedRef.current) return;
+    const now = Date.now();
+    // Web sometimes emits a second press/click around share flows.
+    // Keep a longer cooldown to guarantee a single outbound share action.
+    if (now - lastCountriesShareAtRef.current < 6000) return;
+    if (isCountriesShareInFlightRef.current) return;
+    isCountriesShareInFlightRef.current = true;
+    countriesShareConsumedRef.current = true;
+    setIsCountriesShareInFlight(true);
+    lastCountriesShareAtRef.current = now;
     const title =
       countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados";
-    const result = await shareCountriesCard({
-      title,
-      countriesCount: countriesCountForOverlay,
-      spotsCount: countriesPlacesCountForOverlay,
-      items: countriesBucketsForOverlay,
-    });
-    if (result.shared) return;
-    if (result.copied) {
-      toast.show("Resumen copiado al portapapeles.", { type: "success", replaceVisible: true });
-      return;
+    const accentColor =
+      countriesOverlayFilter === "saved"
+        ? Colors[colorScheme ?? "light"].stateToVisit
+        : Colors[colorScheme ?? "light"].stateSuccess;
+    try {
+      const result = await shareCountriesCard({
+        title,
+        countriesCount: countriesCountForOverlay,
+        spotsCount: countriesPlacesCountForOverlay,
+        worldPercentage: countriesWorldPercentageForOverlay,
+        accentColor,
+        mapSnapshotDataUrl: countriesMapSnapshot,
+        items: countriesBucketsForOverlay,
+      });
+      if (result.shared) return;
+      if (result.copied) {
+        if (!suppressToastRef.current) toast.show("Resumen copiado al portapapeles.", { type: "success", replaceVisible: true });
+        return;
+      }
+      if (!suppressToastRef.current) toast.show("No se pudo compartir en este dispositivo.", {
+        type: "default",
+        replaceVisible: true,
+      });
+    } finally {
+      setTimeout(() => {
+        isCountriesShareInFlightRef.current = false;
+        setIsCountriesShareInFlight(false);
+      }, 1200);
     }
-    toast.show("No se pudo compartir en este dispositivo.", {
-      type: "default",
-      replaceVisible: true,
-    });
   }, [
     countriesOverlayFilter,
     countriesBucketsForOverlay,
     countriesCountForOverlay,
+    countriesMapSnapshot,
     countriesPlacesCountForOverlay,
+    countriesWorldPercentageForOverlay,
+    colorScheme,
     toast,
   ]);
 
@@ -2526,7 +2572,7 @@ export function MapScreenVNext() {
     setShowLogoutOption(nextShowLogoutOption);
     // Hint contextual: solo cuando se abre la opción de logout estando autenticado.
     if (nextShowLogoutOption) {
-      toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
+      if (!suppressToastRef.current) toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
     }
   }, [requireAuthOrModal, showLogoutOption, toast]);
 
@@ -2544,7 +2590,7 @@ export function MapScreenVNext() {
     async (spot: Spot) => {
       if (spot.id.startsWith("draft_")) return;
       const result = await shareSpot(spot.id, spot.title);
-      if (result.copied) toast.show("Link copiado", { type: "success" });
+      if (result.copied) if (!suppressToastRef.current) toast.show("Link copiado", { type: "success" });
     },
     [toast],
   );
@@ -2604,7 +2650,7 @@ export function MapScreenVNext() {
             outcome: "dismissed",
             pinFilter,
           });
-          toast.show("Listo, ya no está en tu lista", { type: "success" });
+          if (!suppressToastRef.current) toast.show("Listo, ya no está en tu lista", { type: "success" });
         }
       } else {
         const next =
@@ -2658,7 +2704,7 @@ export function MapScreenVNext() {
             pinFilter,
           });
           setSheetState("medium");
-          toast.show(
+          if (!suppressToastRef.current) toast.show(
             newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!",
             { type: "success" },
           );
@@ -2694,15 +2740,39 @@ export function MapScreenVNext() {
     }, [mapInstance]),
   );
 
+  const { height: windowHeight } = useWindowDimensions();
   const dockBottomOffset = 12;
+  const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
   const areMapControlsVisible =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
     sheetState !== "expanded" &&
     (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+  const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
+  const filterEstimatedHeight = 56;
+  const filterMinimumTop = insets.top + 4;
+  // Canonical parity: dropdown de filtros sigue el comportamiento de SpotSheet.
+  // CountriesSheet no modifica este anclaje para evitar divergencias UX.
+  const filterAnchorSheetHeight = isSpotSheetVisible ? sheetHeight : 0;
+  const filterAnchorSheetTop = windowHeight - filterAnchorSheetHeight;
+  const filterTop = filterAnchorSheetHeight > 0
+    ? Math.min(filterDefaultTop, filterAnchorSheetTop - filterEstimatedHeight - 8)
+    : filterDefaultTop;
+  const availableSpaceAboveFilter = filterTop - (insets.top + 4);
+  const availableSpaceBelowFilter =
+    filterAnchorSheetHeight > 0
+      ? filterAnchorSheetTop - (filterTop + FILTER_TRIGGER_ESTIMATED_HEIGHT)
+      : windowHeight - insets.bottom - (filterTop + FILTER_TRIGGER_ESTIMATED_HEIGHT);
+  const shouldOpenFilterMenuUp =
+    availableSpaceAboveFilter >= FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP &&
+    availableSpaceBelowFilter < FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP;
+  const shouldShowFilterDropdown =
+    !createSpotNameOverlayOpen &&
+    !searchV2.isOpen &&
+    filterTop >= filterMinimumTop;
   const controlsBottomOffset =
-    selectedSpot != null || poiTapped != null
+    isSpotSheetVisible
       ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
       : isCountriesSheetVisible
         ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
@@ -2841,8 +2911,13 @@ export function MapScreenVNext() {
           accessibilityRole="button"
         />
       ) : null}
-      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
-        <View style={[styles.filterOverlay, { top: FILTER_OVERLAY_TOP + insets.top, pointerEvents: "box-none" }]}>
+      {shouldShowFilterDropdown ? (
+        <View
+          style={[
+            styles.filterOverlay,
+            { top: Math.max(filterMinimumTop, filterTop), pointerEvents: "box-none" },
+          ]}
+        >
           <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
             <MapPinFilter
               value={pinFilter}
@@ -2850,6 +2925,7 @@ export function MapScreenVNext() {
               counts={pinCounts}
               pendingValues={pendingFilterBadges}
               pulseNonce={pinFilterPulseNonce}
+              menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
             />
           </View>
         </View>
@@ -2898,15 +2974,19 @@ export function MapScreenVNext() {
       <CountriesSheet
         visible={countriesSheetOpen}
         title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+        filterMode={countriesOverlayFilter}
         state={countriesSheetState}
         items={countriesBucketsForOverlay}
+        worldPercentage={countriesWorldPercentageForOverlay}
         summaryCountriesCount={countriesCountForOverlay}
         summaryPlacesCount={countriesPlacesCountForOverlay}
         onStateChange={setCountriesSheetState}
         onClose={() => setCountriesSheetOpen(false)}
         onShare={handleCountriesSheetShare}
+        shareDisabled={isCountriesShareInFlight}
         onItemPress={handleCountryBucketPress}
         onSheetHeightChange={setCountriesSheetHeight}
+        onMapSnapshotChange={setCountriesMapSnapshot}
       />
       {countriesOverlayMounted ? (
         <Animated.View
@@ -3241,12 +3321,12 @@ const styles = StyleSheet.create({
     right: 0,
     top: FILTER_OVERLAY_TOP,
     alignItems: "center",
-    zIndex: 10,
+    zIndex: 14,
   },
   filterRowWrap: {
     position: "relative",
-    zIndex: 20,
-    ...Platform.select({ android: { elevation: 4 } }),
+    zIndex: 30,
+    ...Platform.select({ android: { elevation: 14 } }),
   },
   profileOverlay: {
     position: "absolute",
