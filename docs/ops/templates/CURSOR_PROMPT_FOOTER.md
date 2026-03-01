@@ -5,7 +5,7 @@
 - **Deps:** Si Radix/shadcn fue agregado solo para V3 y ya no se usa en runtime, remover de `package.json` / `package-lock.json`.
 - **No refactor masivo**. Solo lo necesario para la fase actual.
 - **No UI nueva** si estamos en **Fase 2** (core extraction).
-- **No duplicar estado**: alinear con `contracts/explore/EXPLORE_STATE.md` y `contracts/shared/SEARCH_STATE.md`.
+- **No duplicar estado**: alinear con `docs/contracts/explore/EXPLORE_STATE.md` y `docs/contracts/shared/SEARCH_STATE.md`.
 - **Search shared**: no acoplarlo a Explore.
 - **No crear paja**: si agregas un helper nuevo, debe reemplazar uno viejo o justificarlo explícitamente.
 

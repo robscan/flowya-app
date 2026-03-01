@@ -38,10 +38,12 @@ Sin introducir ruido visual, sin degradar performance y sin métricas dudosas.
 ### 2.3 `visitedCountriesCount`
 - Definición: cantidad de países únicos con al menos un spot `visited` del usuario.
 - Fuente preferida (orden):
-  1. país normalizado persistido en spot (si existe en modelo futuro),
-  2. snapshot de lugar enlazado (si existe campo canónico),
-  3. fallback heurístico de address (solo si calidad >= umbral y cacheado).
+  1. `spot.countryCode` (ISO-2 canónico persistido),
+  2. `spot.linkedCountryCode` (ISO-2 desde place enlazado),
+  3. `spot.linkedCountryName` (normalizado),
+  4. fallback heurístico `address` (último token válido, normalizado).
 - Regla: si no hay fuente confiable, no inventar; mostrar `—` o ocultar bloque según configuración UX.
+- Criterio de bloqueo operativo: si `quality.countries` es `low` o la cobertura validada es menor al umbral acordado, mantener `visitedCountriesCount` en `—`.
 - Precisión esperada: media en v1 (hasta cerrar modelo de país canónico).
 
 ---
@@ -52,6 +54,13 @@ Sin introducir ruido visual, sin degradar performance y sin métricas dudosas.
 - Un spot cuenta una sola vez por métrica.
 - `visited` y `to_visit` son excluyentes por spot/usuario.
 - Países: deduplicación por clave canónica ISO (si existe); si no, por nombre normalizado.
+- Política de cobertura activa (runtime 2026-02-28):
+  - `minCoverageToShow = 0.40`
+  - `highCoverageThreshold = 0.80`
+  - calidad:
+    - `low`: `< 0.40` -> mostrar `—`
+    - `medium`: `>= 0.40` y `< 0.80` -> mostrar conteo
+    - `high`: `>= 0.80` -> mostrar conteo
 
 ---
 
@@ -145,3 +154,8 @@ Estado 2026-02-27:
 
 - Definir fuente canónica de país en modelo de datos (evitar heurística frágil de address).
 - Establecer contrato de calidad para `visitedCountriesCount` (high/medium/low) en analytics.
+- Checklist mínimo para desbloquear Fase B:
+  - Fuente canónica de país disponible y documentada (orden de prioridad).
+  - Regla de deduplicación de país definida (ISO o clave normalizada estable).
+  - Umbral de cobertura acordado y medible.
+  - Smoke QA con muestra real sin conteos dudosos.

@@ -1,6 +1,6 @@
 /**
  * core/shared/search/state.ts — Tipos canónicos de SearchState.
- * Fuente: contracts/shared/SEARCH_STATE.md
+ * Fuente: docs/contracts/shared/SEARCH_STATE.md
  */
 
 /** Snapshot del viewport del mapa (usado en SearchContext). */

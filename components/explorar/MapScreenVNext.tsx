@@ -10,7 +10,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LogOut, Search, User } from "lucide-react-native";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
     Linking,
     Platform,
@@ -24,7 +24,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { IconButton } from "@/components/design-system/icon-button";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
-    INTENTION_BY_FILTER,
     MapPinFilter,
     type MapPinFilterValue,
 } from "@/components/design-system/map-pin-filter";
@@ -85,10 +84,35 @@ import {
 } from "@/lib/pins";
 import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spotsStrategyProvider";
 import { onlyVisible } from "@/core/shared/visibility-softdelete";
+import {
+  INITIAL_EXPLORE_RUNTIME_STATE,
+  evaluateVisitedCountries,
+  exploreRuntimeReducer,
+  resolveDestinationFilterForStatus,
+  shouldClearSelectedSpotOnFilterChange,
+  shouldMarkPendingBadge,
+  shouldPulseFilterOnStatusTransition,
+  shouldRestoreSelectionOnSearchClose,
+  shouldSwitchFilterOnStatusTransition,
+  type ExploreSheetState,
+  validateExploreRuntimeState,
+} from "@/core/explore/runtime";
 import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
+import {
+  classifyTappedFeatureKind,
+  dedupeExternalPlacesAgainstSpots,
+  getStablePlaceId,
+  getTappedFeatureId,
+  getTappedFeatureMaki,
+  inferTappedKindFromPlace,
+  mergeSearchResults,
+  rankExternalPlacesByIntent,
+  type TappedMapFeatureKind,
+  resolveTappedSpotMatch,
+} from "@/lib/explore/map-screen-orchestration";
 import {
   recordCreateFromSearchResult,
   recordExternalFetchMetric,
@@ -97,6 +121,11 @@ import {
   recordSearchSpotClick,
   recordSearchStarted,
 } from "@/lib/search/metrics";
+import {
+  recordExploreDecisionCompleted,
+  recordExploreDecisionStarted,
+  recordExploreSelectionChanged,
+} from "@/lib/explore/decision-metrics";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -127,7 +156,6 @@ type Spot = {
   pinStatus?: SpotPinStatus;
 };
 
-type TappedMapFeatureKind = "poi" | "landmark";
 type TappedMapFeatureVisualState = "default" | "to_visit";
 
 type TappedMapFeature = {
@@ -140,49 +168,6 @@ type TappedMapFeature = {
   visualState: TappedMapFeatureVisualState;
   source: "map_tap" | "search_suggestion";
 };
-
-function classifyTappedFeatureKind(
-  layerId?: string,
-  props?: Record<string, unknown> | null,
-): TappedMapFeatureKind {
-  const id = (layerId ?? "").toLowerCase();
-  if (id.includes("landmark")) return "landmark";
-
-  const cls =
-    typeof props?.class === "string"
-      ? props.class.toLowerCase()
-      : typeof props?.category === "string"
-        ? props.category.toLowerCase()
-        : "";
-  if (cls.includes("landmark")) return "landmark";
-  return "poi";
-}
-
-function getTappedFeatureId(
-  featureId: unknown,
-  props?: Record<string, unknown> | null,
-): string | null {
-  const candidates: unknown[] = [
-    featureId,
-    props?.mapbox_id,
-    props?.place_id,
-    props?.id,
-    props?.feature_id,
-  ];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  }
-  return null;
-}
-
-function getTappedFeatureMaki(props?: Record<string, unknown> | null): string | null {
-  const candidates: unknown[] = [props?.maki, props?.icon];
-  for (const value of candidates) {
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return null;
-}
 
 function isLinkedUnsavedSpot(spot: Spot): boolean {
   // Guardrail Fase D: si falta linked_place_id, no ocultar para evitar desaparición de lugar.
@@ -200,48 +185,9 @@ function hasLinkedPlaceId(spot: Spot | null): boolean {
   return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
 }
 
-function resolveTappedSpotMatch(
-  spots: Spot[],
-  tapped: { lat: number; lng: number; name: string; placeId: string | null },
-): Spot | null {
-  const stableSpots = spots.filter((s) => !s.id.startsWith("draft_"));
-
-  if (tapped.placeId) {
-    const linkedById = stableSpots.find(
-      (s) =>
-        s.link_status === "linked" &&
-        typeof s.linked_place_id === "string" &&
-        s.linked_place_id === tapped.placeId,
-    );
-    if (linkedById) return linkedById;
-  }
-
-  const linkedByDistance = stableSpots.find(
-    (s) =>
-      s.link_status === "linked" &&
-      distanceKm(s.latitude, s.longitude, tapped.lat, tapped.lng) <=
-        LINKED_TAP_FALLBACK_TOLERANCE_KM,
-  );
-  if (linkedByDistance) return linkedByDistance;
-
-  const tappedName = normalizeText(tapped.name);
-  const closestSemantic = stableSpots
-    .map((s) => ({
-      spot: s,
-      km: distanceKm(s.latitude, s.longitude, tapped.lat, tapped.lng),
-      sameName: normalizeText(s.title) === tappedName,
-    }))
-    .filter(({ km, sameName }) => sameName && km <= 0.03)
-    .sort((a, b) => a.km - b.km)[0];
-  if (closestSemantic) return closestSemantic.spot;
-
-  return null;
-}
-
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
-const LINKED_TAP_FALLBACK_TOLERANCE_KM = 0.012;
 const CONTROLS_OVERLAY_BOTTOM = 16;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const FILTER_OVERLAY_TOP = 16;
@@ -273,260 +219,6 @@ function isPlaceLandmark(place: PlaceResult): boolean {
   return false;
 }
 
-const TOURISM_KEYWORDS = [
-  "museum",
-  "monument",
-  "historic",
-  "landmark",
-  "gallery",
-  "castle",
-  "church",
-  "cathedral",
-  "park",
-  "theatre",
-  "theater",
-];
-
-const TOURISM_MAKI_HINTS = [
-  "museum",
-  "monument",
-  "castle",
-  "theatre",
-  "theater",
-  "park",
-];
-
-function normalizeText(value: string): string {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .trim();
-}
-
-const COUNTRY_MIN_COVERAGE_RATIO = 0.4;
-const NON_COUNTRY_ADDRESS_TOKENS = new Set([
-  "centro",
-  "downtown",
-  "unknown",
-  "sin direccion",
-  "sin dirección",
-  "n/a",
-  "na",
-]);
-
-function extractCountryFromAddress(address: string | null | undefined): string | null {
-  if (!address) return null;
-  const parts = address
-    .split(",")
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return null;
-  const raw = parts[parts.length - 1];
-  const normalized = normalizeText(raw);
-  if (!normalized) return null;
-  if (NON_COUNTRY_ADDRESS_TOKENS.has(normalized)) return null;
-  if (/\d/.test(normalized)) return null;
-  if (normalized.length < 2) return null;
-  return raw;
-}
-
-function computeCountriesCountForSpots(spots: Spot[]): number | null {
-  if (spots.length === 0) return 0;
-  const countries = spots
-    .map((spot) => extractCountryFromAddress(spot.address))
-    .filter((value): value is string => Boolean(value));
-  if (countries.length === 0) return null;
-  const coverage = countries.length / spots.length;
-  if (coverage < COUNTRY_MIN_COVERAGE_RATIO) return null;
-  return new Set(countries.map((country) => normalizeText(country))).size;
-}
-
-function dedupeExternalPlacesAgainstSpots(
-  places: PlaceResult[],
-  spots: Spot[],
-): PlaceResult[] {
-  return places.filter((place) => {
-    const placeName = normalizeText(place.name);
-    return !spots.some((spot) => {
-      if (!spot || spot.id.startsWith("draft_")) return false;
-      const byLinkedId =
-        spot.linked_place_id != null &&
-        spot.linked_place_id.length > 0 &&
-        spot.linked_place_id === place.id;
-      if (byLinkedId) return true;
-      const closeEnough =
-        distanceKm(spot.latitude, spot.longitude, place.lat, place.lng) <= 0.02;
-      if (!closeEnough) return false;
-      const spotName = normalizeText(spot.title ?? "");
-      return spotName.length > 0 && placeName.length > 0 && spotName === placeName;
-    });
-  });
-}
-
-function inferExternalIntent(place: PlaceResult): "poi_landmark" | "poi" | "place" | "address" {
-  const featureType = normalizeText(place.featureType ?? "");
-  const maki = normalizeText(place.maki ?? "");
-  const categories = (place.categories ?? []).map((item) => normalizeText(item));
-  const bag = `${featureType} ${maki} ${categories.join(" ")}`.trim();
-  const hasTourismSignal =
-    TOURISM_KEYWORDS.some((keyword) => bag.includes(keyword)) ||
-    TOURISM_MAKI_HINTS.some((hint) => maki.includes(hint));
-  if (hasTourismSignal || featureType.includes("landmark")) return "poi_landmark";
-  if (featureType.includes("poi") || maki.length > 0 || categories.length > 0) return "poi";
-  if (featureType.includes("address") || featureType.includes("street")) return "address";
-  if (
-    featureType.includes("place") ||
-    featureType.includes("locality") ||
-    featureType.includes("district") ||
-    featureType.includes("neighborhood") ||
-    featureType.includes("postcode") ||
-    featureType.includes("region") ||
-    featureType.includes("country")
-  ) {
-    return "place";
-  }
-  return "place";
-}
-
-const COMMERCIAL_KEYWORDS = [
-  "tour",
-  "tours",
-  "ferry",
-  "restaurant",
-  "hotel",
-  "bar",
-  "cafe",
-  "snorkel",
-  "buggy",
-  "rental",
-  "rent",
-  "shop",
-  "store",
-  "taxi",
-  "agency",
-  "terminal",
-];
-
-const NON_GEO_QUERY_HINTS = [
-  "hotel",
-  "restaurante",
-  "restaurant",
-  "bar",
-  "cafe",
-  "cafeteria",
-  "tour",
-  "ferry",
-  "taxi",
-  "museo",
-  "museum",
-  "playa",
-  "beach",
-];
-
-function isGeoIntentQuery(query: string): boolean {
-  const q = normalizeText(query);
-  if (!q) return false;
-  const parts = q.split(/\s+/).filter(Boolean);
-  if (parts.length > 3) return false;
-  if (NON_GEO_QUERY_HINTS.some((hint) => q.includes(hint))) return false;
-  return true;
-}
-
-function isCommercialSuggestion(place: PlaceResult): boolean {
-  const bag = normalizeText(
-    `${place.name} ${place.fullName ?? ""} ${place.featureType ?? ""} ${(place.categories ?? []).join(" ")}`,
-  );
-  return COMMERCIAL_KEYWORDS.some((keyword) => bag.includes(keyword));
-}
-
-function rankExternalPlacesByIntent(items: PlaceResult[], query: string): PlaceResult[] {
-  const normalizedQuery = normalizeText(query);
-  const geoQuery = isGeoIntentQuery(query);
-  const hasExactPlace = items.some((item) => {
-    const intent = inferExternalIntent(item);
-    return intent === "place" && normalizeText(item.name) === normalizedQuery;
-  });
-
-  const scoreForIntent = (intent: ReturnType<typeof inferExternalIntent>): number => {
-    if (intent === "poi_landmark") return 0;
-    if (intent === "place") return 1;
-    if (intent === "poi") return 2;
-    return 3;
-  };
-
-  const ranked = items
-    .map((item, idx) => {
-      const intent = inferExternalIntent(item);
-      let score = scoreForIntent(intent);
-      const normalizedName = normalizeText(item.name);
-      const exactNameMatch = normalizedName === normalizedQuery;
-
-      if (geoQuery && intent === "place" && exactNameMatch) score -= 2;
-      if (intent === "poi" && isCommercialSuggestion(item)) score += geoQuery ? 4 : 2;
-      if (geoQuery && intent === "address") score += 2;
-
-      return { item, idx, score };
-    })
-    .sort((a, b) => (a.score === b.score ? a.idx - b.idx : a.score - b.score))
-    .map(({ item }) => item);
-
-  if (geoQuery && hasExactPlace) {
-    return ranked.filter((item) => {
-      const intent = inferExternalIntent(item);
-      if (intent === "place") return true;
-      if (intent === "poi_landmark") return true;
-      return !isCommercialSuggestion(item);
-    });
-  }
-  return ranked;
-}
-
-function getStablePlaceId(place: PlaceResult): string | null {
-  const id = place.id?.trim();
-  if (!id) return null;
-  // IDs sintéticos ("place-<i>-<lng>-<lat>") no deben persistirse como link.
-  if (id.startsWith("place-")) return null;
-  return id;
-}
-
-function inferTappedKindFromPlace(place: PlaceResult): TappedMapFeatureKind {
-  return inferExternalIntent(place) === "poi_landmark" ? "landmark" : "poi";
-}
-
-/** OL-WOW-F2-001-SEARCH: merge spots + places en lista unificada ordenada por atractivo/interés. */
-function mergeSearchResults(
-  spots: Spot[],
-  places: PlaceResult[],
-  query: string,
-): (Spot | PlaceResult)[] {
-  const deduped = dedupeExternalPlacesAgainstSpots(places, spots);
-  const rankedPlaces = rankExternalPlacesByIntent(deduped, query);
-
-  type Entry = { item: Spot | PlaceResult; score: number };
-  const entries: Entry[] = [];
-
-  // Spots: pinStatus primero, luego por índice
-  spots.forEach((spot, idx) => {
-    const hasPin = spot.pinStatus === "to_visit" || spot.pinStatus === "visited";
-    const base = hasPin ? 0 : 60;
-    entries.push({ item: spot, score: base + idx * 0.001 });
-  });
-
-  // Places: poi_landmark > place > poi; comercial penalizado
-  rankedPlaces.forEach((place, idx) => {
-    const intent = inferExternalIntent(place);
-    const commercial = isCommercialSuggestion(place);
-    let base = 40;
-    if (intent === "poi_landmark") base = 10;
-    else if (intent === "place") base = 20;
-    else if (intent === "poi") base = commercial ? 50 : 30;
-    entries.push({ item: place, score: base + idx * 0.001 });
-  });
-
-  return entries.sort((a, b) => a.score - b.score).map((e) => e.item);
-}
-
 export function MapScreenVNext() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -535,7 +227,24 @@ export function MapScreenVNext() {
   const toast = useToast();
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  const [pinFilter, setPinFilter] = useState<MapPinFilterValue>("all");
+  const [runtimeState, dispatchRuntimeIntent] = useReducer(
+    exploreRuntimeReducer,
+    INITIAL_EXPLORE_RUNTIME_STATE,
+  );
+  const pinFilter = runtimeState.pinFilter;
+  const sheetState = runtimeState.sheetState;
+  const setPinFilter = useCallback((nextFilter: MapPinFilterValue) => {
+    dispatchRuntimeIntent({
+      type: "EXPLORE_RUNTIME/SET_PIN_FILTER",
+      filter: nextFilter,
+    });
+  }, []);
+  const setSheetState = useCallback((nextState: ExploreSheetState) => {
+    dispatchRuntimeIntent({
+      type: "EXPLORE_RUNTIME/SET_SHEET_STATE",
+      sheetState: nextState,
+    });
+  }, []);
   const [pendingFilterBadges, setPendingFilterBadges] = useState<{
     saved: boolean;
     visited: boolean;
@@ -559,13 +268,10 @@ export function MapScreenVNext() {
   const [isAuthUser, setIsAuthUser] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [sheetState, setSheetState] = useState<"peek" | "medium" | "expanded">(
-    "peek",
-  );
 
   const prevSpotIdsRef = useRef<Set<string>>(new Set());
   const prevSelectedSpotRef = useRef<Spot | null>(null);
-  const prevSheetStateRef = useRef<"peek" | "medium" | "expanded">("peek");
+  const prevSheetStateRef = useRef<ExploreSheetState>("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
   const lastStatusSpotIdRef = useRef<{
     saved: string | null;
@@ -615,6 +321,16 @@ export function MapScreenVNext() {
   const appliedSpotIdFromParamsRef = useRef<string | null>(null);
   const appliedCreatedIdRef = useRef<string | null>(null);
   const viewportRefreshNonceRef = useRef<number>(-1);
+  const runtimeInvariant = useMemo(
+    () => validateExploreRuntimeState(runtimeState),
+    [runtimeState],
+  );
+
+  useEffect(() => {
+    if (__DEV__ && !runtimeInvariant.ok) {
+      console.warn(`[ExploreRuntime] invariant failed: ${runtimeInvariant.reason}`);
+    }
+  }, [runtimeInvariant]);
 
   const params = useLocalSearchParams<{ spotId?: string; sheet?: string; created?: string }>();
   const deepLinkCenterLockRef = useRef(
@@ -717,7 +433,7 @@ export function MapScreenVNext() {
 
     setSpots(visible);
     return visible;
-  }, [selectedSpot]);
+  }, [selectedSpot, setSheetState]);
 
   useFocusEffect(
     useCallback(() => {
@@ -920,20 +636,20 @@ export function MapScreenVNext() {
     [spots],
   );
 
-  const countriesCountByFilter = useMemo(() => {
+  const countriesSummaryByFilter = useMemo(() => {
     const toVisitSpots = spots.filter((s) => s.pinStatus === "to_visit");
     const visitedSpots = spots.filter((s) => s.pinStatus === "visited");
     return {
-      saved: computeCountriesCountForSpots(toVisitSpots),
-      visited: computeCountriesCountForSpots(visitedSpots),
+      saved: evaluateVisitedCountries(toVisitSpots),
+      visited: evaluateVisitedCountries(visitedSpots),
     };
   }, [spots]);
 
   const countriesCountForActiveFilter = useMemo(() => {
-    if (pinFilter === "saved") return countriesCountByFilter.saved;
-    if (pinFilter === "visited") return countriesCountByFilter.visited;
+    if (pinFilter === "saved") return countriesSummaryByFilter.saved.count;
+    if (pinFilter === "visited") return countriesSummaryByFilter.visited.count;
     return null;
-  }, [pinFilter, countriesCountByFilter.saved, countriesCountByFilter.visited]);
+  }, [pinFilter, countriesSummaryByFilter.saved.count, countriesSummaryByFilter.visited.count]);
 
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
@@ -1000,6 +716,8 @@ export function MapScreenVNext() {
       flyToUnlessActMode,
       updatePendingFilterBadges,
       toast,
+      setPinFilter,
+      setSheetState,
     ],
   );
 
@@ -1019,16 +737,23 @@ export function MapScreenVNext() {
 
   /** Solo deseleccionar cuando el usuario cambia el filtro y el spot pasa a estar fuera. NO deseleccionar en tap POI cross-filter (Por visitar↔Visitados). */
   useEffect(() => {
-    if (prevPinFilterRef.current === pinFilter) return;
+    const prevFilter = prevPinFilterRef.current;
     prevPinFilterRef.current = pinFilter;
-    if (!selectedSpot) return;
-    if (selectedSpot.id.startsWith("draft_")) return;
-    if (!filteredSpots.some((s) => s.id === selectedSpot.id)) {
+    const shouldClearSelection = shouldClearSelectedSpotOnFilterChange({
+      prevFilter,
+      nextFilter: pinFilter,
+      hasSelectedSpot: Boolean(selectedSpot),
+      isDraftSpot: Boolean(selectedSpot?.id.startsWith("draft_")),
+      isSelectedVisibleInNextFilter: Boolean(
+        selectedSpot && filteredSpots.some((s) => s.id === selectedSpot.id),
+      ),
+    });
+    if (shouldClearSelection) {
       setSelectedSpot(null);
       setSheetState("peek");
       setSheetHeight(SHEET_PEEK_HEIGHT);
     }
-  }, [pinFilter, filteredSpots, selectedSpot]);
+  }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
 
   // Sincronizar selectedSpot con versión fresca de filteredSpots (ej. tras refetch o edición)
   useEffect(() => {
@@ -1312,6 +1037,11 @@ export function MapScreenVNext() {
     if (lastSearchStartKeyRef.current !== q) {
       lastSearchStartKeyRef.current = q;
       recordSearchStarted();
+      recordExploreDecisionStarted({
+        source: "search",
+        pinFilter,
+        hasSelection: selectedSpot != null || poiTapped != null,
+      });
     }
     if (!searchV2.isLoading && searchV2.results.length === 0) {
       if (lastNoResultsKeyRef.current !== q) {
@@ -1319,7 +1049,15 @@ export function MapScreenVNext() {
         recordSearchNoResults();
       }
     }
-  }, [searchV2.isOpen, searchV2.query, searchV2.isLoading, searchV2.results.length]);
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    searchV2.isLoading,
+    searchV2.results.length,
+    pinFilter,
+    selectedSpot,
+    poiTapped,
+  ]);
 
   const recentViewedSpots = useMemo(() => {
     const ids = getRecentViewedSpotIds();
@@ -1333,6 +1071,12 @@ export function MapScreenVNext() {
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
       setSelectedSpot(spot);
+      recordExploreSelectionChanged({
+        entityType: "spot",
+        selectionState: "selected",
+        fromFilter: pinFilter,
+        toFilter: pinFilter,
+      });
       setSheetState("medium"); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
       recordSearchSpotClick();
       addRecentViewedSpotId(spot.id);
@@ -1346,7 +1090,7 @@ export function MapScreenVNext() {
         );
       }
     });
-  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2]);
+  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2, setSheetState, pinFilter]);
 
   useEffect(() => {
     invalidateSpotIdRef.current = searchV2.invalidateSpotId;
@@ -1361,7 +1105,7 @@ export function MapScreenVNext() {
       openFromSearchRef.current = false;
       setSheetState("medium");
     }
-  }, [selectedSpot]);
+  }, [selectedSpot, setSheetState]);
 
   /** Deep link intake: spotId + sheet=extended|medium → select spot, open sheet in that state, then clean params. See docs/contracts/DEEP_LINK_SPOT.md.
    * Siempre fetch desde DB para tener coords actualizadas (ej. tras editar ubicación). */
@@ -1427,7 +1171,7 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [params.spotId, params.sheet, router, queueDeepLinkFocus]);
+  }, [params.spotId, params.sheet, router, queueDeepLinkFocus, setPinFilter, setSheetState]);
 
   /** Post-create intake: created=<id> → select spot, open sheet expanded, then clean params. Preserva comportamiento Create Spot original (Explorar + SpotSheet extended). */
   useEffect(() => {
@@ -1490,7 +1234,7 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [params.created, spots, router, queueDeepLinkFocus]);
+  }, [params.created, spots, router, queueDeepLinkFocus, setPinFilter, setSheetState]);
 
   /** Encuadrar cámara en spot cuando volvemos de edit (spotId) o create (created). OL-WOW-F2-005 act: no flyTo durante create/placing. */
   useEffect(() => {
@@ -1558,7 +1302,7 @@ export function MapScreenVNext() {
       setSheetState("medium");
       setIsPlacingDraftSpot(true);
     },
-    [searchV2],
+    [searchV2, setSheetState],
   );
 
   /** "Crear spot nuevo aquí" (solo UGC): centro del mapa o ubicación actual. Sin resolver texto. */
@@ -1584,8 +1328,19 @@ export function MapScreenVNext() {
         placeId: stablePlaceId,
       });
       if (existingSpot) {
+        recordExploreDecisionStarted({
+          source: "search",
+          pinFilter,
+          hasSelection: true,
+        });
         setSelectedSpot(existingSpot);
         setPoiTapped(null);
+        recordExploreSelectionChanged({
+          entityType: "spot",
+          selectionState: "selected",
+          fromFilter: pinFilter,
+          toFilter: pinFilter,
+        });
         setSheetState("medium");
         flyToUnlessActMode(
           { lng: existingSpot.longitude, lat: existingSpot.latitude },
@@ -1605,13 +1360,19 @@ export function MapScreenVNext() {
         visualState: "default",
         source: "search_suggestion",
       });
+      recordExploreSelectionChanged({
+        entityType: "poi",
+        selectionState: "selected",
+        fromFilter: pinFilter,
+        toFilter: pinFilter,
+      });
       setSheetState("medium");
       flyToUnlessActMode(
         { lng: place.lng, lat: place.lat },
         { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
       );
     },
-    [searchV2, spots, flyToUnlessActMode],
+    [searchV2, spots, flyToUnlessActMode, setSheetState, pinFilter],
   );
 
   /** Tap en mapa: draft placement (mover pin) o detección de POI (SpotSheet si ya existe, SpotSheet modo POI si no). */
@@ -1652,7 +1413,18 @@ export function MapScreenVNext() {
             placeId: tappedFeatureId,
           });
           if (match) {
+            recordExploreDecisionStarted({
+              source: "map",
+              pinFilter,
+              hasSelection: true,
+            });
             setSelectedSpot(match);
+            recordExploreSelectionChanged({
+              entityType: "spot",
+              selectionState: "selected",
+              fromFilter: pinFilter,
+              toFilter: pinFilter,
+            });
             setSheetState("medium");
             setPoiTapped(null);
           } else {
@@ -1668,6 +1440,12 @@ export function MapScreenVNext() {
             visualState: "default",
             source: "map_tap",
           });
+            recordExploreSelectionChanged({
+              entityType: "poi",
+              selectionState: "selected",
+              fromFilter: pinFilter,
+              toFilter: pinFilter,
+            });
             setSheetState("medium");
           }
           return;
@@ -1676,7 +1454,7 @@ export function MapScreenVNext() {
         /* ignore query errors */
       }
     },
-    [isPlacingDraftSpot, mapInstance, spots],
+    [isPlacingDraftSpot, mapInstance, spots, setSheetState, pinFilter],
   );
 
   useEffect(() => {
@@ -1779,7 +1557,7 @@ export function MapScreenVNext() {
         });
     });
     },
-    [selectedSpot, draftCoverUri, requireAuthOrModal, refetchSpots, searchV2, toast, setDuplicateModal],
+    [selectedSpot, draftCoverUri, requireAuthOrModal, refetchSpots, searchV2, toast, setDuplicateModal, setSheetState],
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
@@ -1913,7 +1691,7 @@ export function MapScreenVNext() {
         }
       }
     },
-    [poiTapped, requireAuthOrModal, refetchSpots, resetPoiTappedVisualState, toast],
+    [poiTapped, requireAuthOrModal, refetchSpots, resetPoiTappedVisualState, toast, setSheetState],
   );
 
   /** Crear spot desde POI y compartir. Flujo de planificación: no bloquea por anti-duplicado. */
@@ -1990,7 +1768,7 @@ export function MapScreenVNext() {
       } finally {
         setPoiSheetLoading(false);
       }
-  }, [poiTapped, requireAuthOrModal, refetchSpots, toast]);
+  }, [poiTapped, requireAuthOrModal, refetchSpots, toast, setSheetState]);
 
   /** Ver spot existente (desde modal duplicado): abre sheet MEDIUM con pin seleccionado. */
   const handleViewExistingSpot = useCallback(
@@ -2035,19 +1813,10 @@ export function MapScreenVNext() {
         );
       })();
     },
-    [spots, flyToUnlessActMode],
+    [spots, flyToUnlessActMode, setPinFilter, setSheetState],
   );
 
   const SKIP_CREATE_SPOT_CONFIRM_KEY = "flowya_create_spot_skip_confirm";
-
-  /** Paso 0: CTA (+) abre overlay "Nombre del spot"; al confirmar → draft. */
-  const handleOpenCreateSpot = useCallback(async () => {
-    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-    blurActiveElement();
-    setCreateSpotPendingCoords(getFallbackCoords());
-    setCreateSpotInitialName(undefined);
-    setCreateSpotNameOverlayOpen(true);
-  }, [requireAuthOrModal, getFallbackCoords]);
 
   const handleMapLongPress = useCallback(
     async (coords: { lat: number; lng: number }) => {
@@ -2078,15 +1847,19 @@ export function MapScreenVNext() {
   useEffect(() => {
     const wasOpen = wasSearchOpenRef.current;
     wasSearchOpenRef.current = searchV2.isOpen;
-    if (wasOpen && !searchV2.isOpen) {
-      const prev = prevSelectedSpotRef.current;
-      if (prev != null && selectedSpot === null) {
-        setSelectedSpot(prev);
-        setSheetState(prevSheetStateRef.current);
-      }
+    const prev = prevSelectedSpotRef.current;
+    const shouldRestoreSelection = shouldRestoreSelectionOnSearchClose({
+      wasSearchOpen: wasOpen,
+      isSearchOpen: searchV2.isOpen,
+      hasPreviousSelection: prev != null,
+      hasCurrentSelection: selectedSpot != null || poiTapped != null,
+    });
+    if (shouldRestoreSelection && prev != null) {
+      setSelectedSpot(prev);
+      setSheetState(prevSheetStateRef.current);
       prevSelectedSpotRef.current = null;
     }
-  }, [searchV2.isOpen, selectedSpot]);
+  }, [searchV2.isOpen, selectedSpot, poiTapped, setSheetState]);
 
   const handleCreateSpotConfirm = useCallback(
     (dontShowAgain: boolean) => {
@@ -2217,11 +1990,22 @@ export function MapScreenVNext() {
       if (selectedSpot?.id === spot.id) {
         setSheetState("expanded");
       } else {
+        recordExploreDecisionStarted({
+          source: "map",
+          pinFilter,
+          hasSelection: true,
+        });
         setSelectedSpot(spot);
+        recordExploreSelectionChanged({
+          entityType: "spot",
+          selectionState: "selected",
+          fromFilter: pinFilter,
+          toFilter: pinFilter,
+        });
         setSheetState("medium");
       }
     },
-    [selectedSpot?.id, setSheetState],
+    [selectedSpot?.id, setSheetState, pinFilter],
   );
 
   useEffect(() => {
@@ -2235,10 +2019,14 @@ export function MapScreenVNext() {
 
   const handleSheetOpenDetail = useCallback(() => {
     if (!selectedSpot) return;
+    recordExploreDecisionCompleted({
+      outcome: "opened_detail",
+      pinFilter,
+    });
     saveFocusBeforeNavigate();
     blurActiveElement();
     (router.push as (href: string) => void)(`/spot/${selectedSpot.id}`);
-  }, [selectedSpot, router]);
+  }, [selectedSpot, router, pinFilter]);
 
   const handleProfilePress = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
@@ -2315,6 +2103,10 @@ export function MapScreenVNext() {
           }
           updatePendingFilterBadges((prev) => ({ ...prev, visited: false }));
           updateSpotPinState(spot.id, { saved: false, visited: false });
+          recordExploreDecisionCompleted({
+            outcome: "dismissed",
+            pinFilter,
+          });
           toast.show("Listo, ya no está en tu lista", { type: "success" });
         }
       } else {
@@ -2326,8 +2118,7 @@ export function MapScreenVNext() {
             newStatus === "to_visit"
               ? { saved: true, visited: false }
               : { saved: false, visited: true };
-          const destinationFilter: Exclude<MapPinFilterValue, "all"> =
-            newStatus === "to_visit" ? "saved" : "visited";
+          const destinationFilter = resolveDestinationFilterForStatus(newStatus);
           lastStatusSpotIdRef.current[destinationFilter] = spot.id;
           if (destinationFilter === "visited") {
             // Al subir de "Por visitar" a "Visitado", ya no es candidato del filtro saved.
@@ -2335,12 +2126,17 @@ export function MapScreenVNext() {
               lastStatusSpotIdRef.current.saved = null;
             }
           }
-          if (pinFilter === "all") {
+          if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
             updatePendingFilterBadges((prev) => ({
               ...prev,
               [destinationFilter]: true,
             }));
-          } else if (pinFilter !== destinationFilter) {
+          } else if (
+            shouldSwitchFilterOnStatusTransition({
+              currentFilter: pinFilter,
+              destinationFilter,
+            })
+          ) {
             // Caso puntual de transición entre filtros:
             // no hacer zoom-out global; mantener continuidad enfocando el spot mutado.
             setPinFilter(destinationFilter);
@@ -2351,10 +2147,19 @@ export function MapScreenVNext() {
                 { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
               );
             }
-          } else if (pinFilter === destinationFilter) {
+          } else if (
+            shouldPulseFilterOnStatusTransition({
+              currentFilter: pinFilter,
+              destinationFilter,
+            })
+          ) {
             setPinFilterPulseNonce((n) => n + 1);
           }
           updateSpotPinState(spot.id, nextState);
+          recordExploreDecisionCompleted({
+            outcome: newStatus === "to_visit" ? "saved" : "visited",
+            pinFilter,
+          });
           setSheetState("medium");
           toast.show(
             newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!",
@@ -2371,6 +2176,8 @@ export function MapScreenVNext() {
       mapInstance,
       flyToUnlessActMode,
       updatePendingFilterBadges,
+      setPinFilter,
+      setSheetState,
     ],
   );
 
@@ -2684,7 +2491,7 @@ export function MapScreenVNext() {
           isVisible: false,
           visitedPlacesCount: pinCounts.visited,
           pendingPlacesCount: pinCounts.saved,
-          visitedCountriesCount: countriesCountByFilter.visited,
+          visitedCountriesCount: countriesSummaryByFilter.visited.count,
           isLoading: false,
         }}
         renderItem={(item: Spot | PlaceResult) => {
@@ -2732,6 +2539,16 @@ export function MapScreenVNext() {
           spot={selectedSpot}
           poi={poiTapped}
           onClose={() => {
+            recordExploreDecisionCompleted({
+              outcome: "dismissed",
+              pinFilter,
+            });
+            recordExploreSelectionChanged({
+              entityType: poiTapped != null && selectedSpot == null ? "poi" : "spot",
+              selectionState: "cleared",
+              fromFilter: pinFilter,
+              toFilter: pinFilter,
+            });
             setSelectedSpot(null);
             setPoiTapped(null);
             setSheetState("peek");

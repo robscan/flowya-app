@@ -1,6 +1,6 @@
 # Guardrails de deprecación
 
-**Última actualización:** 2026-02-14
+**Última actualización:** 2026-02-28
 
 > Reglas para marcar, documentar y eliminar código/servicios deprecated de forma gradual y segura.
 > Usar este documento en cada sesión para detectar qué deprecado está listo para borrar.
@@ -24,12 +24,15 @@
 | Elemento | Motivo | Fase | Marcado | Eliminado | Notas |
 |----------|--------|------|---------|-----------|-------|
 | Marker+MapPinSpot para spots en MapCoreView | Reemplazado por SymbolLayer en useMapCore | 3 | 2026-02-14 | 2026-02-14 | Spots ahora como capa nativa debajo de POI |
-| Modal POI (Agregar spot / Por visitar) | Sustituido por POISheetMedium | 3 | 2026-02-14 | 2026-02-14 | Nueva sheet: Compartir, Por visitar, Cerrar |
-| `/mapaV0` (MapScreenV0) | Legacy; entry real es `/` | 1 | 2026-02-14 | — | Fase 2: quitar de _layout; Fase 3: borrar app/mapaV0.* y MapScreenV0 |
+| Modal POI (Agregar spot / Por visitar) | Sustituido por SpotSheet modo POI | 3 | 2026-02-14 | 2026-02-23 | Eliminación efectiva registrada en bitácora `113` |
+| `/mapaV0` (MapScreenV0) | Legacy; entry real es `/` | 3 | 2026-02-14 | 2026-02-27 | Eliminado en runtime (bitácora `200`) |
 | Flujo wizard largo create-spot | Sustituido por draft + creador mínimo | 1 | 2026-02-14 | — | Verificar si /create-spot se usa; si no, deprecar |
-| `onOpenDetail` en SpotSheet | Flujo actual = expanded sin navegar a SpotDetail | 1 | 2026-02-14 | — | Hacer opcional o eliminar prop si no hay CTA |
 | `getPinsForSpotsLegacy` | Migración 011 (saved/visited) | 1 | 2026-02-14 | — | Eliminar con MapScreenV0 |
 | Sugerencias ES↔EN (no results) | Sin criterio útil; reemplazar por mapPoiResults | 1 | 2026-02-22 | — | SearchOverlayWeb + SearchFloatingNative; `{false && ...}` |
+
+Notas de higiene (2026-02-28):
+- `onOpenDetail` en `SpotSheet` se retira del registro deprecado porque sigue activo por contrato (`SPOT_SELECTION_SHEET_SIZING`) y uso real en `MapScreenVNext`.
+- `getPinsForSpotsLegacy` sigue en Fase 1 hasta confirmar eliminación de consumidores legacy fuera del runtime principal.
 
 ---
 
@@ -60,4 +63,4 @@ En cada sesión o al retomar trabajo:
 
 - **Deprecados eliminados (V3):** `docs/ops/strategy/DEPRECATED_V3_CLEANUP.md`
 - **Contratos:** `docs/contracts/INDEX.md` — marcar como DEPRECATED (fecha) cuando aplique
-- **OPEN_LOOPS:** OL-DEPREC-001 en `docs/ops/OPEN_LOOPS.md`
+- **OPEN_LOOPS:** registro operativo y cierres recientes en `docs/ops/OPEN_LOOPS.md`

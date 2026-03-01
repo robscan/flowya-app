@@ -8,7 +8,7 @@
 
 import { Check, Pin } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -41,6 +41,17 @@ const EXISTING_PIN_LABEL_MAX_WIDTH = 90;
 const CREATING_PIN_LABEL_FONT_SIZE = 11;
 const CREATING_PIN_LABEL_GAP = 3;
 const CREATING_PIN_LABEL_MAX_WIDTH = 100;
+
+function makeTextShadowStyle(color: string, radius: number, offsetX = 0, offsetY = 0) {
+  if (Platform.OS === 'web') {
+    return { textShadow: `${offsetX}px ${offsetY}px ${radius}px ${color}` } as const;
+  }
+  return {
+    textShadowColor: color,
+    textShadowOffset: { width: offsetX, height: offsetY } as const,
+    textShadowRadius: radius,
+  } as const;
+}
 
 /** Pin de ubicación del usuario: círculo azul clásico. No reutiliza MapPinSpot. */
 export function MapPinLocation({
@@ -127,12 +138,10 @@ export function MapPinSpot({
 
   const hasStatusIcon = status === 'to_visit' || status === 'visited';
   const savedLabelShadowStyle = hasStatusIcon
-    ? {
-        textShadowColor:
-          colorScheme === 'dark' ? 'rgba(0,0,0,0.34)' : 'rgba(255,255,255,0.55)',
-        textShadowOffset: { width: 0, height: 0 },
-        textShadowRadius: 1.25,
-      }
+    ? makeTextShadowStyle(
+        colorScheme === 'dark' ? 'rgba(0,0,0,0.34)' : 'rgba(255,255,255,0.55)',
+        1.25,
+      )
     : null;
 
   const selectedProgress = useSharedValue(selected ? 1 : 0);
@@ -323,9 +332,10 @@ export function MapPinCreating({
               color: colors.text,
               fontWeight: '600',
               fontFamily: Fonts.sans,
-              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
-              textShadowOffset: { width: 0, height: 0 },
-              textShadowRadius: 2,
+              ...makeTextShadowStyle(
+                colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
+                2,
+              ),
             },
           ]}
           numberOfLines={2}
@@ -387,9 +397,10 @@ export function MapPinExisting({
             {
               color: colors.text,
               fontFamily: Fonts.sans,
-              textShadowColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
-              textShadowOffset: { width: 0, height: 0 },
-              textShadowRadius: 2,
+              ...makeTextShadowStyle(
+                colorScheme === 'dark' ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.9)',
+                2,
+              ),
             },
           ]}
           numberOfLines={2}

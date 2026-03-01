@@ -48,8 +48,8 @@ Cerrar **Explorar V1** con una experiencia map-first estable, **reduciendo super
 
 ### Fase 1 — Contratos (antes de mover código)
 Contratos canónicos:
-- Search: `contracts/shared/SEARCH_STATE.md`, `SEARCH_INTENTS.md`, `SEARCH_EFFECTS.md`
-- Explore: `contracts/explore/EXPLORE_STATE.md`, `EXPLORE_INTENTS.md`, `EXPLORE_EFFECTS.md`
+- Search: `docs/contracts/shared/SEARCH_STATE.md`, `SEARCH_INTENTS.md`, `SEARCH_EFFECTS.md`
+- Explore: `docs/contracts/explore/EXPLORE_STATE.md`, `EXPLORE_INTENTS.md`, `EXPLORE_EFFECTS.md`
 
 **Salida de Fase 1:** contratos listos, sin UI nueva.
 
