@@ -1,3 +1,4 @@
+import { CountriesMapPreview } from "@/components/explorar/CountriesMapPreview";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -29,16 +30,20 @@ export type CountrySheetItem = {
 type CountriesSheetProps = {
   visible: boolean;
   title: string;
+  filterMode: "saved" | "visited";
   state: CountriesSheetState;
   items: CountrySheetItem[];
+  worldPercentage: number;
   summaryCountriesCount: number;
   summaryPlacesCount: number;
   emptyLabel?: string;
   onStateChange: (next: CountriesSheetState) => void;
   onClose: () => void;
   onShare: () => void;
+  shareDisabled?: boolean;
   onItemPress: (item: CountrySheetItem) => void;
   onSheetHeightChange?: (height: number) => void;
+  onMapSnapshotChange?: (dataUrl: string | null) => void;
 };
 
 const SHEET_PEEK_HEIGHT = 96;
@@ -51,20 +56,27 @@ const HEADER_PADDING_V = 12;
 const HANDLE_ROW_ESTIMATE = 20;
 const DURATION_PROGRAMMATIC = 300;
 const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
+const MAP_PREVIEW_HEIGHT = 172;
+const MAP_PREVIEW_TOP_GAP = Spacing.md;
+const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 
 export function CountriesSheet({
   visible,
   title,
+  filterMode,
   state,
   items,
+  worldPercentage,
   summaryCountriesCount,
   summaryPlacesCount,
   emptyLabel = "No hay países detectados por ahora.",
   onStateChange,
   onClose,
   onShare,
+  shareDisabled = false,
   onItemPress,
   onSheetHeightChange,
+  onMapSnapshotChange,
 }: CountriesSheetProps) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
@@ -74,7 +86,6 @@ export function CountriesSheet({
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [summaryHeight, setSummaryHeight] = useState(0);
-  const [bodyContentHeight, setBodyContentHeight] = useState(0);
 
   const collapsedFromMeasure =
     dragAreaHeight > 0
@@ -86,16 +97,14 @@ export function CountriesSheet({
   const mediumAnchor = Math.round(viewportHeight * SHEET_MEDIUM_RATIO);
   const expandedAnchor = viewportHeight;
 
-  const totalContentHeight =
-    collapsedAnchor + summaryHeight + bodyContentHeight + CONTAINER_PADDING_BOTTOM;
-  const mediumVisible = bodyContentHeight > 0 ? Math.min(mediumAnchor, totalContentHeight) : mediumAnchor;
+  const mediumBaselineHeight =
+    collapsedAnchor + summaryHeight + MAP_PREVIEW_BLOCK_HEIGHT + CONTAINER_PADDING_BOTTOM;
+  const mediumVisible = Math.min(mediumAnchor, mediumBaselineHeight);
   const expandedVisibleLimit = Math.max(
     collapsedAnchor + 120,
     viewportHeight - (insets.top + MIN_MAP_VISIBLE_TOP),
   );
-  const expandedVisible = bodyContentHeight > 0
-    ? Math.min(expandedVisibleLimit, totalContentHeight)
-    : expandedVisibleLimit;
+  const expandedVisible = expandedVisibleLimit;
 
   const translateYToAnchor = useCallback(
     (next: CountriesSheetState) => {
@@ -106,9 +115,7 @@ export function CountriesSheet({
     [expandedAnchor, expandedVisible, mediumVisible, collapsedAnchor],
   );
 
-  const isMeasured =
-    dragAreaHeight > 0 &&
-    (state === "peek" || ((state === "medium" || state === "expanded") && bodyContentHeight > 0));
+  const isMeasured = dragAreaHeight > 0;
 
   const translateYShared = useSharedValue(viewportHeight);
   const opacityShared = useSharedValue(0);
@@ -243,11 +250,6 @@ export function CountriesSheet({
     if (height > 0) setHeaderHeight(height);
   }, []);
 
-  const onBodyLayout = useCallback((e: LayoutChangeEvent) => {
-    const height = Math.round(e.nativeEvent.layout.height);
-    if (height > 0) setBodyContentHeight(height);
-  }, []);
-
   const animatedContainerStyle = useAnimatedStyle(() => ({
     opacity: opacityShared.value,
     transform: [{ translateY: translateYShared.value }],
@@ -265,8 +267,15 @@ export function CountriesSheet({
     0,
     visibleHeightForState - collapsedAnchor - summaryHeight - CONTAINER_PADDING_BOTTOM,
   );
-  const bodyNeedsScroll = bodyContentHeight > maxBodyHeight;
+  const maxListHeight = Math.max(0, maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT);
+  const showExpandedList = state === "expanded";
+  const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
+  const previewCountryCodes = items
+    .map((item) => item.key.match(/^iso:([A-Z]{2})$/)?.[1] ?? null)
+    .filter((code): code is string => code != null);
+  const previewHighlightColor =
+    filterMode === "saved" ? colors.stateToVisit : colors.stateSuccess;
 
   return (
     <Animated.View
@@ -293,6 +302,7 @@ export function CountriesSheet({
           colors={colors}
           onHeaderTap={handleHeaderTap}
           onShare={onShare}
+          shareDisabled={shareDisabled}
           onClose={onClose}
           onDragAreaLayout={onDragAreaLayout}
           onHeaderLayout={onHeaderLayout}
@@ -304,6 +314,10 @@ export function CountriesSheet({
         onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
       >
         <View style={[styles.summaryChip, { borderColor: colors.borderSubtle }]}>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{`${worldPercentage}%`}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>del mundo</Text>
+        </View>
+        <View style={[styles.summaryChip, { borderColor: colors.borderSubtle }]}>
           <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
         </View>
@@ -313,48 +327,38 @@ export function CountriesSheet({
         </View>
       </View>
 
-      {items.length === 0 ? (
-        <View style={styles.emptyWrap} onLayout={onBodyLayout}>
+      <View style={styles.mapPreviewWrap}>
+        <CountriesMapPreview
+          countryCodes={previewCountryCodes}
+          height={MAP_PREVIEW_HEIGHT}
+          highlightColor={previewHighlightColor}
+          onSnapshotChange={onMapSnapshotChange}
+        />
+      </View>
+
+      {!showExpandedList ? null : items.length === 0 ? (
+        <View style={styles.emptyWrap}>
           <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyLabel}</Text>
         </View>
-      ) : bodyNeedsScroll ? (
+      ) : (
         <ScrollView
-          style={[styles.listScroll, { maxHeight: maxBodyHeight }]}
+          style={[styles.listScroll, { maxHeight: expandedListMaxHeight }]}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         >
-          <View onLayout={onBodyLayout}>
-            {items.map((item) => (
-              <Pressable
-                key={item.key}
-                onPress={() => onItemPress(item)}
-                style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Buscar en ${item.label}`}
-              >
-                <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
-                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
-              </Pressable>
-            ))}
-          </View>
+          {items.map((item) => (
+            <Pressable
+              key={item.key}
+              onPress={() => onItemPress(item)}
+              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
+              accessibilityRole="button"
+              accessibilityLabel={`Buscar en ${item.label}`}
+            >
+              <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
+              <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
+            </Pressable>
+          ))}
         </ScrollView>
-      ) : (
-        <View style={styles.listContent}>
-          <View onLayout={onBodyLayout}>
-            {items.map((item) => (
-              <Pressable
-                key={item.key}
-                onPress={() => onItemPress(item)}
-                style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={`Buscar en ${item.label}`}
-              >
-                <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
-                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
       )}
     </Animated.View>
   );
@@ -407,6 +411,13 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     textTransform: "uppercase",
     letterSpacing: 0.4,
+  },
+  mapPreviewWrap: {
+    height: MAP_PREVIEW_HEIGHT,
+    borderRadius: Radius.lg,
+    marginHorizontal: 0,
+    marginTop: MAP_PREVIEW_TOP_GAP,
+    overflow: "hidden",
   },
   emptyText: {
     fontSize: 14,
