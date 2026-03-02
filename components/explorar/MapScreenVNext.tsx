@@ -51,7 +51,7 @@ import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
-import { Colors, Spacing, WebTouchManipulation } from "@/constants/theme";
+import { Colors, Radius, Spacing, WebTouchManipulation } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
@@ -133,6 +133,7 @@ import {
   recordExploreSelectionChanged,
 } from "@/lib/explore/decision-metrics";
 import { shareCountriesCard } from "@/lib/share-countries-card";
+import { computeTravelerPoints } from "@/lib/traveler-levels";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -377,7 +378,8 @@ const COUNTRIES_CENTER_ALIGNMENT_OFFSET =
 // Debe aproximar el alto real de 2 IconButton + gap para evitar "jump" en primer render.
 const MAP_CONTROLS_FALLBACK_HEIGHT = 100;
 const FILTER_OVERLAY_TOP = 28;
-const TOP_OVERLAY_INSET = 28;
+const TOP_OVERLAY_INSET_X = 16;
+const TOP_OVERLAY_INSET_Y = 28;
 /** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
 const THUMB_FRIENDLY_CENTER_BIAS = 56;
 /** Evita superposición entre subtítulos de estado y marca FLOWYA. */
@@ -946,6 +948,15 @@ export function MapScreenVNext() {
       visited: evaluateVisitedCountries(visitedSpots),
     };
   }, [spots]);
+  const travelerPoints = useMemo(
+    () => computeTravelerPoints(countriesSummaryByFilter.visited.count, pinCounts.visited),
+    [countriesSummaryByFilter.visited.count, pinCounts.visited],
+  );
+  const travelerPointsLabel = useMemo(
+    () => new Intl.NumberFormat("es-MX").format(travelerPoints),
+    [travelerPoints],
+  );
+  const travelerPointsChipLabel = travelerPointsLabel;
   const countriesBucketsByFilter = useMemo(() => {
     const toVisitSpots = spots.filter((s) => s.pinStatus === "to_visit");
     const visitedSpots = spots.filter((s) => s.pinStatus === "visited");
@@ -2519,6 +2530,13 @@ export function MapScreenVNext() {
     () => Math.round((countriesCountForOverlay / 195) * 100),
     [countriesCountForOverlay],
   );
+  const countriesSnapshotSignature = useMemo(
+    () =>
+      `${countriesOverlayFilter}|${countriesBucketsForOverlay
+        .map((item) => `${item.key}:${item.count}`)
+        .join(",")}`,
+    [countriesOverlayFilter, countriesBucketsForOverlay],
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -2608,6 +2626,11 @@ export function MapScreenVNext() {
     if (countriesOverlayFilter === countriesFilterForActiveCounter) return;
     setCountriesOverlayFilter(countriesFilterForActiveCounter);
   }, [countriesSheetOpen, countriesOverlayFilter, countriesFilterForActiveCounter]);
+  useEffect(() => {
+    if (!countriesSheetOpen) return;
+    // Guardrail de calidad: forzar snapshot fresco al abrir/cambiar dataset antes de compartir.
+    setCountriesMapSnapshot(null);
+  }, [countriesSheetOpen, countriesSnapshotSignature]);
   useEffect(() => {
     collapseCountriesSheetOnMapGestureRef.current = () => {
       if (!countriesSheetOpen) return;
@@ -2706,6 +2729,15 @@ export function MapScreenVNext() {
     // Keep a longer cooldown to guarantee a single outbound share action.
     if (now - lastCountriesShareAtRef.current < 6000) return;
     if (isCountriesShareInFlightRef.current) return;
+    if (!countriesMapSnapshot) {
+      if (!suppressToastRef.current) {
+        toast.show("Preparando imagen del mapa… intenta de nuevo en un momento.", {
+          type: "default",
+          replaceVisible: true,
+        });
+      }
+      return;
+    }
     isCountriesShareInFlightRef.current = true;
     countriesShareConsumedRef.current = true;
     setIsCountriesShareInFlight(true);
@@ -2727,6 +2759,12 @@ export function MapScreenVNext() {
         items: countriesBucketsForOverlay,
       });
       if (result.shared) return;
+      if (result.downloaded) {
+        if (!suppressToastRef.current) {
+          toast.show("Imagen guardada en tu computadora.", { type: "success", replaceVisible: true });
+        }
+        return;
+      }
       if (result.copied) {
         if (!suppressToastRef.current) toast.show("Resumen copiado al portapapeles.", { type: "success", replaceVisible: true });
         return;
@@ -2738,6 +2776,7 @@ export function MapScreenVNext() {
     } finally {
       setTimeout(() => {
         isCountriesShareInFlightRef.current = false;
+        countriesShareConsumedRef.current = false;
         setIsCountriesShareInFlight(false);
       }, 1200);
     }
@@ -2972,6 +3011,13 @@ export function MapScreenVNext() {
       if (!suppressToastRef.current) toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
     }
   }, [requireAuthOrModal, showLogoutOption, toast]);
+  const handleTravelerPointsHintPress = useCallback(() => {
+    if (suppressToastRef.current) return;
+    toast.show("Suma flows marcando spots como visitados desde el mapa o buscador.", {
+      type: "default",
+      replaceVisible: true,
+    });
+  }, [toast]);
 
   const handleLogoutPress = useCallback(() => {
     setShowLogoutConfirm(true);
@@ -3252,7 +3298,7 @@ export function MapScreenVNext() {
   const centeredGroupHeight =
     COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP + mapControlsHeight;
   const centeredGroupTop = Math.max(
-    insets.top + TOP_OVERLAY_INSET,
+    insets.top + TOP_OVERLAY_INSET_Y,
     Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
   );
   const controlsTopOffset = centeredGroupTop + COUNTRIES_SLOT_RESERVED;
@@ -3269,7 +3315,7 @@ export function MapScreenVNext() {
     countriesOverlayAnchorMode === "center-group"
       ? centeredGroupTop
       : Math.max(
-          insets.top + TOP_OVERLAY_INSET,
+          insets.top + TOP_OVERLAY_INSET_Y,
           Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
         );
   const countriesCenteredBottom = Math.max(
@@ -3412,7 +3458,7 @@ export function MapScreenVNext() {
         : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
     toast.setAnchor({
       placement: "bottom-left",
-      left: TOP_OVERLAY_INSET + insets.left,
+      left: TOP_OVERLAY_INSET_X + insets.left,
       bottom,
       right: areMapControlsVisible
         ? CONTROLS_OVERLAY_RIGHT + insets.right + STATUS_AVOID_CONTROLS_RIGHT
@@ -3556,23 +3602,42 @@ export function MapScreenVNext() {
           style={[
             styles.profileOverlay,
             {
-              top: TOP_OVERLAY_INSET + insets.top,
-              left: TOP_OVERLAY_INSET + insets.left,
+              top: TOP_OVERLAY_INSET_Y + insets.top,
+              left: TOP_OVERLAY_INSET_X + insets.left,
             },
           ]}
         >
           <View style={styles.profileTopRow}>
-            <IconButton
-              variant="default"
-              onPress={handleProfilePress}
-              accessibilityLabel="Cuenta"
-            >
-              <User
-                size={24}
-                color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
-                strokeWidth={2}
-              />
-            </IconButton>
+            <View style={styles.profileBadgeAnchor}>
+              <IconButton
+                variant="default"
+                onPress={handleProfilePress}
+                accessibilityLabel="Cuenta"
+              >
+                <User
+                  size={24}
+                  color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
+                  strokeWidth={2}
+                />
+              </IconButton>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.profilePointsChip,
+                  {
+                    backgroundColor: (colorScheme ?? "light") === "dark" ? "#FFFFFF" : "#111111",
+                    borderColor: (colorScheme ?? "light") === "dark" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.2)",
+                  },
+                  pressed ? styles.profilePointsChipPressed : null,
+                ]}
+                onPress={handleTravelerPointsHintPress}
+                accessibilityRole="button"
+                accessibilityLabel={`Tienes ${travelerPointsLabel} flows. Toca para ver cómo sumar más.`}
+              >
+                <Text style={[styles.profilePointsChipText, { color: (colorScheme ?? "light") === "dark" ? "#111111" : "#FFFFFF" }]}>
+                  {travelerPointsChipLabel}
+                </Text>
+              </Pressable>
+            </View>
           </View>
           {showLogoutOption && isAuthUser ? (
             <View style={styles.logoutButtonWrap}>
@@ -3606,7 +3671,7 @@ export function MapScreenVNext() {
         onStateChange={setCountriesSheetState}
         onClose={handleCountriesSheetClose}
         onShare={handleCountriesSheetShare}
-        shareDisabled={isCountriesShareInFlight}
+        shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
         onItemPress={handleCountryBucketPress}
         onSheetHeightChange={setCountriesSheetHeight}
         onMapSnapshotChange={setCountriesMapSnapshot}
@@ -3710,7 +3775,7 @@ export function MapScreenVNext() {
           style={[
             styles.createSpotOverlay,
             {
-              top: TOP_OVERLAY_INSET + insets.top,
+              top: TOP_OVERLAY_INSET_Y + insets.top,
               right: CONTROLS_OVERLAY_RIGHT + insets.right,
             },
           ]}
@@ -3753,7 +3818,7 @@ export function MapScreenVNext() {
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <Pressable
-          style={[styles.flowyaLabelWrap, { left: TOP_OVERLAY_INSET + insets.left, bottom: dockBottomOffset + insets.bottom }, WebTouchManipulation]}
+          style={[styles.flowyaLabelWrap, { left: TOP_OVERLAY_INSET_X + insets.left, bottom: dockBottomOffset + insets.bottom }, WebTouchManipulation]}
           onPress={() => setShowBetaModal(true)}
           accessibilityLabel="FLOWYA Beta"
         >
@@ -4105,12 +4170,35 @@ const styles = StyleSheet.create({
   },
   profileOverlay: {
     position: "absolute",
-    left: TOP_OVERLAY_INSET,
+    left: TOP_OVERLAY_INSET_X,
     zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
   },
   profileTopRow: {
     flexDirection: "column",
     alignItems: "flex-start",
+  },
+  profileBadgeAnchor: {
+    position: "relative",
+  },
+  profilePointsChip: {
+    position: "absolute",
+    right: -8,
+    top: -8,
+    minHeight: 20,
+    paddingHorizontal: 7,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  profilePointsChipPressed: {
+    opacity: 0.82,
+  },
+  profilePointsChipText: {
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   countriesOverlay: {
     position: "absolute",

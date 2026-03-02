@@ -1,4 +1,6 @@
 import { Platform } from "react-native";
+import { Colors } from "@/constants/theme";
+import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
 
 type CountriesCardItem = {
   key: string;
@@ -19,11 +21,13 @@ export type ShareCountriesCardInput = {
 export type ShareCountriesCardResult = {
   shared: boolean;
   copied: boolean;
+  downloaded: boolean;
 };
 
 let shareCountriesInFlight = false;
 let shareCountriesLastAt = 0;
 let shareCountriesPromise: Promise<ShareCountriesCardResult> | null = null;
+const SHARE_COOLDOWN_MS = 1200;
 
 function drawRoundedClip(
   ctx: CanvasRenderingContext2D,
@@ -33,16 +37,18 @@ function drawRoundedClip(
   height: number,
   radius: number,
 ) {
+  if (width <= 0 || height <= 0) return;
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2));
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.lineTo(x + width - radius, y);
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-  ctx.lineTo(x + width, y + height - radius);
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-  ctx.lineTo(x + radius, y + height);
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-  ctx.lineTo(x, y + radius);
-  ctx.quadraticCurveTo(x, y, x + radius, y);
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
 }
 
@@ -57,7 +63,8 @@ function drawImageContain(
   const srcW = image.naturalWidth || image.width;
   const srcH = image.naturalHeight || image.height;
   if (!srcW || !srcH) return;
-  const scale = Math.min(width / srcW, height / srcH, 1);
+  // Allow upscaling to keep the map proportionally dominant in the share layout.
+  const scale = Math.min(width / srcW, height / srcH);
   const drawW = Math.round(srcW * scale);
   const drawH = Math.round(srcH * scale);
   const dx = x + (width - drawW) / 2;
@@ -108,45 +115,56 @@ function drawCard(
   const logicalWidth = DESIGN_WIDTH;
   const logicalHeight = DESIGN_HEIGHT;
   const accent = input.accentColor ?? "#35D563";
-  const side = 92;
-  const mapTop = 242;
+  const isToVisit = /por visitar/i.test(input.title);
+  const side = 52;
+  const mapTop = 430;
   const mapWidth = logicalWidth - side * 2;
-  const mapHeight = 520;
-  const mapRadius = 30;
-  const kpiTop = mapTop + mapHeight + 150;
-  const kpiCardGap = 26;
-  const kpiCardWidth = Math.floor((logicalWidth - side * 2 - kpiCardGap * 2) / 3);
-  const kpiCardHeight = 236;
-  const topCountries = input.items.slice(0, 6);
+  const mapHeight = 830;
+  const mapRadius = 34;
+  const kpiTop = 230;
+  const kpiGap = 36;
+  const kpiWidth = Math.floor((logicalWidth - side * 2 - kpiGap * 2) / 3);
+  const topCountries = input.items.slice(0, 3);
+  const normalizedWorldPercentage = Number.isFinite(input.worldPercentage)
+    ? Math.max(0, Math.round(input.worldPercentage ?? 0))
+    : 0;
+  const travelerPoints = computeTravelerPoints(input.countriesCount, input.spotsCount);
+  const currentTravelerLevel = resolveTravelerLevelByPoints(travelerPoints);
+  const levelProgressLabel = `${currentTravelerLevel.level}/12`;
+  const GAP_BLOCKS = 22;
+  const progressTop = mapTop + mapHeight + GAP_BLOCKS;
+  const progressWidth = mapWidth;
+  const progressHeight = 20;
+  const listTop = isToVisit ? mapTop + mapHeight + 64 : progressTop + 118;
 
   ctx.save();
   ctx.scale(scale, scale);
 
-  const gradient = ctx.createLinearGradient(0, 0, 0, logicalHeight * 1.05);
-  gradient.addColorStop(0, "#171D3D");
-  gradient.addColorStop(0.56, "#0E1536");
-  gradient.addColorStop(1, "#0A0F2A");
-  ctx.fillStyle = gradient;
+  const solidBackground = isToVisit
+    ? Colors.dark.countriesPanelToVisitBackground
+    : Colors.dark.countriesPanelVisitedBackground;
+  ctx.fillStyle = solidBackground;
   ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
-  // Subtle ambient glow to avoid a flat background while preserving contrast.
-  const glow = ctx.createRadialGradient(
-    logicalWidth * 0.5,
-    logicalHeight * 0.45,
-    40,
-    logicalWidth * 0.5,
-    logicalHeight * 0.45,
-    logicalHeight * 0.58,
-  );
-  glow.addColorStop(0, "rgba(63, 86, 180, 0.20)");
-  glow.addColorStop(1, "rgba(12, 18, 44, 0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, logicalWidth, logicalHeight);
-
-  ctx.fillStyle = "rgba(255,255,255,0.94)";
-  ctx.font = "700 84px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.96)";
+  ctx.font = "700 86px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText(input.title, logicalWidth / 2, 156);
+  ctx.fillText(input.title, logicalWidth / 2, 154);
+
+  const formattedFlows = new Intl.NumberFormat("es-MX").format(travelerPoints);
+  const kpiLabels = ["países", "spots", isToVisit ? "flows por obtener" : "flows"] as const;
+  const kpiValues = [String(input.countriesCount), String(input.spotsCount), formattedFlows];
+  ctx.textAlign = "center";
+  for (let i = 0; i < 3; i += 1) {
+    const x = side + i * (kpiWidth + kpiGap) + kpiWidth / 2;
+    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    ctx.font = "700 74px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText(kpiValues[i], x, kpiTop + 68);
+
+    ctx.fillStyle = "rgba(255,255,255,0.76)";
+    ctx.font = "500 48px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText(kpiLabels[i], x, kpiTop + 136);
+  }
 
   const mapLeft = side;
   drawRoundedClip(ctx, mapLeft, mapTop, mapWidth, mapHeight, mapRadius);
@@ -155,130 +173,134 @@ function drawCard(
   if (mapImage) {
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
-    ctx.fillStyle = "#191F3A";
-    ctx.fillRect(mapLeft, mapTop, mapWidth, mapHeight);
     drawImageContain(ctx, mapImage, mapLeft, mapTop, mapWidth, mapHeight);
   } else {
-    // Fallback neutro, sin generar visual alternativo confuso.
-    ctx.fillStyle = "#191F3A";
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
     ctx.fillRect(mapLeft, mapTop, mapWidth, mapHeight);
   }
   ctx.restore();
-
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "rgba(255,255,255,0.10)";
+  // Soft edge pass to avoid hard clipping feel on map bounds.
+  ctx.save();
   drawRoundedClip(ctx, mapLeft, mapTop, mapWidth, mapHeight, mapRadius);
+  ctx.shadowColor = "rgba(255,255,255,0.08)";
+  ctx.shadowBlur = 16;
+  ctx.strokeStyle = "rgba(255,255,255,0.08)";
+  ctx.lineWidth = 1.25;
   ctx.stroke();
+  ctx.restore();
 
-  const kpiLabels = ["Del mundo", "Países", "Spots"] as const;
-  const percentageValue = Number.isFinite(input.worldPercentage)
-    ? `${Math.max(0, Math.round(input.worldPercentage ?? 0))}%`
-    : "—";
-  const kpiValues = [percentageValue, String(input.countriesCount), String(input.spotsCount)];
-  for (let i = 0; i < 3; i += 1) {
-    const x = side + i * (kpiCardWidth + kpiCardGap);
-    drawRoundedClip(ctx, x, kpiTop, kpiCardWidth, kpiCardHeight, 26);
-    ctx.fillStyle = "rgba(24, 31, 60, 0.68)";
+  if (!isToVisit) {
+    ctx.fillStyle = "rgba(255,255,255,0.16)";
+    drawRoundedClip(ctx, side, progressTop, progressWidth, progressHeight, 999);
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = i === 2 ? "rgba(255,255,255,0.16)" : "rgba(255,255,255,0.12)";
-    ctx.stroke();
-
-    if (i === 2) {
-      ctx.save();
-      ctx.strokeStyle = `${accent}66`;
-      ctx.lineWidth = 2;
-      drawRoundedClip(ctx, x, kpiTop, kpiCardWidth, kpiCardHeight, 26);
-      ctx.stroke();
-      ctx.restore();
+    ctx.fillStyle = accent;
+    const progressFillWidth = (progressWidth * normalizedWorldPercentage) / 100;
+    if (progressFillWidth > 0) {
+      drawRoundedClip(ctx, side, progressTop, progressFillWidth, progressHeight, progressHeight / 2);
+      ctx.fill();
     }
+    const metaY = progressTop + 76;
+    const leftX = side;
+    const rightX = side + progressWidth;
 
+    ctx.textAlign = "left";
+    ctx.fillStyle = "rgba(255,255,255,0.70)";
+    ctx.font = "400 42px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText("Nivel:", leftX, metaY);
+
+    const levelPrefixWidth = ctx.measureText("Nivel:").width;
     ctx.fillStyle = "rgba(255,255,255,0.96)";
-    ctx.font = "700 80px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(kpiValues[i], x + kpiCardWidth / 2, kpiTop + 106);
+    ctx.font = "700 42px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText(` ${currentTravelerLevel.label}`, leftX + levelPrefixWidth + 6, metaY);
 
-    ctx.fillStyle = "rgba(255,255,255,0.76)";
-    ctx.font = "500 50px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-    ctx.fillText(kpiLabels[i], x + kpiCardWidth / 2, kpiTop + 186);
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(255,255,255,0.70)";
+    ctx.font = "600 42px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillText(levelProgressLabel, rightX, metaY);
   }
 
+  let listBottomY = listTop;
   if (topCountries.length > 0) {
-    const listTop = kpiTop + kpiCardHeight + 78;
-    const listLeft = side;
-    const listWidth = mapWidth;
-    const listHeaderHeight = 76;
+    const listInsetX = 18;
+    const listLeft = side + listInsetX;
+    const listWidth = mapWidth - listInsetX * 2;
+    const listHeaderHeight = 74;
     const rowHeight = 70;
-    const listHeight = listHeaderHeight + topCountries.length * rowHeight + 20;
-
-    drawRoundedClip(ctx, listLeft, listTop, listWidth, listHeight, 26);
-    ctx.fillStyle = "rgba(24, 31, 60, 0.68)";
-    ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = "rgba(255,255,255,0.12)";
-    ctx.stroke();
+    listBottomY = listTop + listHeaderHeight + topCountries.length * rowHeight;
 
     ctx.fillStyle = "rgba(255,255,255,0.78)";
     ctx.font = "700 46px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
     ctx.textAlign = "left";
-    ctx.fillText("Top países", listLeft + 36, listTop + 52);
+    ctx.fillText("Top países", listLeft, listTop + 54);
 
     for (let i = 0; i < topCountries.length; i += 1) {
       const rowY = listTop + listHeaderHeight + i * rowHeight;
       const rank = `${i + 1}.`;
       const item = topCountries[i];
 
-      if (i > 0) {
-        ctx.strokeStyle = "rgba(255,255,255,0.08)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(listLeft + 36, rowY);
-        ctx.lineTo(listLeft + listWidth - 36, rowY);
-        ctx.stroke();
-      }
-
       ctx.fillStyle = "rgba(255,255,255,0.72)";
       ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.fillText(rank, listLeft + 36, rowY + 46);
+      ctx.fillText(rank, listLeft + 32, rowY + 50);
 
       ctx.fillStyle = "rgba(255,255,255,0.94)";
       ctx.font = "600 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-      ctx.fillText(truncateLabel(item.label), listLeft + 104, rowY + 46);
+      ctx.fillText(truncateLabel(item.label), listLeft + 98, rowY + 50);
 
       ctx.fillStyle = `${accent}E6`;
-      ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      ctx.font = "700 30px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
       ctx.textAlign = "right";
-      ctx.fillText(String(item.count), listLeft + listWidth - 36, rowY + 46);
+      ctx.fillText(`${item.count} spots`, listLeft + listWidth - 28, rowY + 50);
       ctx.textAlign = "left";
     }
+  } else {
+    listBottomY = listTop + 60;
   }
 
+  const brandY = Math.min(logicalHeight - 86, listBottomY + 176);
   ctx.textAlign = "center";
   ctx.font = "700 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fillText("FLOWYA", logicalWidth / 2, logicalHeight - 120);
+  ctx.fillStyle = "rgba(255,255,255,0.90)";
+  ctx.fillText("flowya.app", logicalWidth / 2, brandY);
   ctx.restore();
+}
+
+async function downloadBlob(blob: Blob, filename: string): Promise<boolean> {
+  if (typeof document === "undefined" || typeof window === "undefined") return false;
+  try {
+    const href = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = href;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function shareCountriesCard(input: ShareCountriesCardInput): Promise<ShareCountriesCardResult> {
   if (shareCountriesPromise) return shareCountriesPromise;
   const now = Date.now();
-  if (shareCountriesInFlight || now - shareCountriesLastAt < 6000) {
-    return { shared: false, copied: false };
+  if (shareCountriesInFlight || now - shareCountriesLastAt < SHARE_COOLDOWN_MS) {
+    return { shared: false, copied: false, downloaded: false };
   }
   shareCountriesInFlight = true;
   shareCountriesLastAt = now;
 
   const shareTitle = `${input.title} · Flowya`;
   const worldLine = Number.isFinite(input.worldPercentage)
-    ? `\n${Math.max(0, Math.round(input.worldPercentage ?? 0))}% del mundo`
+    ? `\n${Math.max(0, Math.round(input.worldPercentage ?? 0))}% de 195`
     : "";
   const fallbackText = `${input.title}\n${input.countriesCount} países · ${input.spotsCount} spots${worldLine}`;
 
   const run = (async (): Promise<ShareCountriesCardResult> => {
     if (Platform.OS !== "web" || typeof document === "undefined") {
       const copied = await copyToClipboard(fallbackText);
-      return { shared: false, copied };
+      return { shared: false, copied, downloaded: false };
     }
 
     const canvas = document.createElement("canvas");
@@ -287,7 +309,7 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     const context = canvas.getContext("2d");
     if (!context) {
       const copied = await copyToClipboard(fallbackText);
-      return { shared: false, copied };
+      return { shared: false, copied, downloaded: false };
     }
 
     const mapImage = input.mapSnapshotDataUrl
@@ -301,7 +323,7 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     );
     if (!blob) {
       const copied = await copyToClipboard(fallbackText);
-      return { shared: false, copied };
+      return { shared: false, copied, downloaded: false };
     }
 
     const file = new File([blob], "flowya-paises.png", { type: "image/png" });
@@ -316,7 +338,7 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
           title: shareTitle,
           files: [file],
         });
-        return { shared: true, copied: false };
+        return { shared: true, copied: false, downloaded: false };
       } catch {
         // user cancel/error, fallback below
       }
@@ -329,14 +351,19 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     if (canShareText) {
       try {
         await navigator.share({ title: shareTitle, text: fallbackText });
-        return { shared: true, copied: false };
+        return { shared: true, copied: false, downloaded: false };
       } catch {
         // fallback below
       }
     }
 
+    const downloaded = await downloadBlob(blob, "flowya-paises.png");
+    if (downloaded) {
+      return { shared: false, copied: false, downloaded: true };
+    }
+
     const copied = await copyToClipboard(fallbackText);
-    return { shared: false, copied };
+    return { shared: false, copied, downloaded: false };
   })();
 
   shareCountriesPromise = run;
@@ -346,6 +373,6 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     setTimeout(() => {
       shareCountriesInFlight = false;
       shareCountriesPromise = null;
-    }, 6000);
+    }, SHARE_COOLDOWN_MS);
   }
 }

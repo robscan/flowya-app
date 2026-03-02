@@ -1,83 +1,83 @@
 # CURRENT_STATE — Flowya (operativo)
 
 > Snapshot operativo vigente.
-> Esta fuente no reemplaza el cierre diario: `OPEN_LOOPS.md` + bitácora del día.
+> Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
 **Fecha de actualización:** 2026-03-01
 
 ---
 
-## Estado actual
+## Estado general
 
 - Gate Fase 1: **CERRADO**.
 - Gate Fase 2: **CERRADO** (bitácora `213`).
-- Fase 3 ciclo actual: **COMPLETADO**.
-- `OL-WOW-F3-001`: CERRADO (bitácora `216`).
-- `OL-WOW-F3-002`: CERRADO (bitácora `218`).
-- `OL-WOW-F3-003`: CERRADO (bitácora `220`).
-- `OL-P2-006`: CERRADO (bitácora `232`).
-- `OL-P1-003`: CERRADO (bitácoras `233` y `234`).
-- `OL-P3-002`: ACTIVO (fase `P3-002.A` con MVP base implementado, bitácora `236`).
-- Hardening UX teclado/foco aplicado en Explore (owner único entre Paso 0/Search/quick edit, bitácora `240`).
-- Bloque UX Explore/Search en ejecución incremental (plan `PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`):
-  - toggles explícitos de estado en SpotSheet,
-  - toasts por contexto de filtro,
-  - quick actions en resultados visitados,
-  - guardrail de visibilidad para spots Flowya sin filtro.
-- Bloque A cerrado para QA funcional (bitácoras `245`, `246`, `247`).
-- Foco activo actual: países interactivo con estrategia de entrega por fases.
-- Cola definida para siguiente jornada: `OL-CONTENT-001..006` (Mi diario, galería, esquema turismo, resolución de entidad, enrichment pipeline, directions).
+- Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
+- `OL-P2-006`: **CERRADO**.
+- `OL-P1-003`: **CERRADO**.
+- Loop activo real: **`OL-P3-002.B`** (bloque países, QA final).
 
 ---
 
-## Foco inmediato real (P0 -> P2)
+## Estado funcional actual (producto)
 
-1. **P0 único:** cerrar `OL-P3-002` en su bloque shareable (calidad visual + estabilidad + QA manual final).
-2. **P1:** arrancar `OL-CONTENT-001` (Mi diario v1), sin mezclar con integraciones externas.
-3. **P2:** fase de research/gobernanza para `OL-CONTENT-004/005` antes de implementar APIs nuevas.
+### Explore + Countries
+
+- CountriesSheet operativo en medium/expanded.
+- Interacción de mapa mundial activa para drilldown.
+- No-ensamble de sheets (regla de colisión activa).
+- Share card web con fallback de descarga local cuando no hay share nativo.
+
+### Gamificación (V1)
+
+- Score activo en runtime:
+  - países (`+120`) + spots (`+8`).
+- Terminología de usuario: **flows**.
+- Barra de nivel en `visitados` con referencia `X/12`.
+- Modal de niveles disponible desde `X/12`.
+- Chip de flows sobre perfil con mensaje de incentivo por tap.
+- En `por visitar`: KPI muestra `flows por obtener` y no se dibuja barra de nivel.
+- Orden canónico KPI sincronizado en sheet/share: `países -> spots -> flows`.
+
+### Documentación de gamificación
+
+- Contrato canónico actualizado: `docs/contracts/GAMIFICATION_TRAVELER_LEVELS.md`.
+- V2 (telemetría + calibración + distancia por tramos): documentada, no implementada.
 
 ---
 
 ## Riesgos vigentes
 
-1. **Reingreso a ejecución sin P0 explícito**.
-   - Mitigación: no iniciar código nuevo hasta fijar loop único en `OPEN_LOOPS`.
+1. **Desalineación de UX entre sheet y share card tras iteraciones rápidas**.
+- Mitigación: cierre QA visual final de `OL-P3-002.B` antes de abrir nuevo loop.
 
-2. **Regresión por mezclar dominios en un mismo cambio**.
-   - Mitigación: 1 PR por micro-scope, sin scope bundling.
+2. **Confusión de alcance V1/V2 de gamificación**.
+- Mitigación: contrato con separación explícita (V1 activa vs V2 diferida).
 
-3. **Deriva documental tras múltiples cierres en el día**.
-   - Mitigación: sincronía estricta entre `OPEN_LOOPS` + bitácora + planes.
+3. **Regresión por ajustes de overlay/animaciones en mapa**.
+- Mitigación: smoke QA manual por tema (`light/dark`) y por modo (`all/por visitar/visitados`).
 
-4. **Acoplamiento temprano a APIs externas (Mapbox/Overpass/Wikidata/Wikipedia) sin contrato de resiliencia**.
-   - Mitigación: arquitectura asíncrona de enrichment, adapter por proveedor, límites de costo/rate y fallback sin bloqueo de UX.
-
-5. **Riesgo legal/licencias en media y texto externo (Wikimedia/Wikipedia)**.
-   - Mitigación: persistir licencia/autor/fuente/URL de atribución por asset; no publicar contenido sin metadatos de atribución válidos.
-
-6. **Riesgo de matching incorrecto de entidad (Mapbox vs Wikidata) y contenido equivocado por spot**.
-   - Mitigación: score de confianza + umbral duro + estado `unresolved`; si no hay certeza, no enriquecer automáticamente.
+4. **Deriva documental diaria**.
+- Mitigación: actualizar bitácora + `OPEN_LOOPS` + `CURRENT_STATE` en cada cierre de bloque.
 
 ---
 
 ## Referencias activas
 
 - `docs/ops/OPEN_LOOPS.md`
-- `docs/ops/plans/PLAN_EXPLORE_V1_STRANGLER.md`
-- `docs/bitacora/2026/03/235-ol-p3-002-arranque-operativo-y-scope-fase-a.md`
-- `docs/bitacora/2026/03/236-ol-p3-002-a-mvp-paises-interactivo-panel-y-busqueda.md`
-- `docs/bitacora/2026/03/237-ol-p3-002-a-locale-canonicoy-drilldown-paises.md`
-- `docs/bitacora/2026/03/233-ol-p1-003-system-status-bar-implementation.md`
-- `docs/bitacora/2026/03/234-ol-p1-003-hardening-runtime-ux-overlays.md`
-- `docs/bitacora/2026/03/240-hardening-keyboard-owner-y-quick-edit-description-search.md`
-- `docs/bitacora/2026/03/241-design-system-search-cards-colores-tipografia-y-layout-canonico.md`
-- `docs/bitacora/2026/03/242-filtro-dropdown-y-retardo-hasta-settle-de-camara.md`
-- `docs/bitacora/2026/03/243-consolidacion-integral-ajustes-explore-search-ds-del-dia.md`
-- `docs/ops/plans/PLAN_CONTENT_STACK_ENRICHMENT_2026-03-01.md`
-- `docs/ops/plans/PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`
-- `docs/ops/analysis/API_INTEGRATION_RISK_REGISTER_2026-03-01.md`
+- `docs/contracts/GAMIFICATION_TRAVELER_LEVELS.md`
+- `docs/contracts/INDEX.md`
+- `docs/bitacora/2026/03/259-ol-p3-002-b-web-hardening-bloqueo-zoom-mini-mapa-paises.md`
+- `docs/bitacora/2026/03/260-ol-p3-002-b-share-card-guardrails-snapshot-y-reintentos.md`
+- `docs/bitacora/2026/03/261-ol-p3-002-b-share-card-estilo-sheet-tiers-y-descarga-web.md`
+- `docs/bitacora/2026/03/262-gamification-traveler-levels-v2-modal-y-referencia-x-de-12.md`
+- `docs/bitacora/2026/03/263-gamification-levels-v3-estilo-barra-modal-lista-y-copys-flowya.md`
+- `docs/bitacora/2026/03/264-gamification-v2-docs-analytics-y-ajuste-inset-horizontal-mapa.md`
+- `docs/bitacora/2026/03/265-gamification-flows-v1-consolidacion-sheet-modal-share-y-overlay-mapa.md`
+- `docs/bitacora/2026/03/266-gamification-kpi-order-countriessheet-share-y-toast-flows.md`
 
-## Referencias históricas (cerradas)
+---
 
-- `docs/ops/plans/PLAN_OL_P2_006_OPTIMIZACION_EXPLORE_2026-02-28.md`
-- `docs/bitacora/2026/02/232-cierre-ol-p2-006-optimizacion-explore.md`
+## Siguiente paso operativo
+
+- Cerrar QA final de `OL-P3-002.B`.
+- Si QA pasa sin regresiones, congelar bloque países/gamificación V1 y abrir `OL-CONTENT-001`.

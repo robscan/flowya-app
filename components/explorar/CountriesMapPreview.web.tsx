@@ -179,6 +179,7 @@ export function CountriesMapPreview({
   const resolvedBaseCountryColor = baseCountryColor ?? colors.mapPreviewCountryBase;
   const resolvedLineCountryColor = lineCountryColor ?? colors.mapPreviewCountryLine;
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<import("mapbox-gl").Map | null>(null);
   const worldLayerReadyRef = useRef(false);
   const normalizedCodesRef = useRef<string[]>([]);
@@ -209,6 +210,32 @@ export function CountriesMapPreview({
   useEffect(() => {
     normalizedCodesRef.current = normalizedCodes;
   }, [normalizedCodes]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const preventWheelZoom = (event: WheelEvent) => {
+      // Guardrail web: nunca delegar zoom/pinch del navegador dentro del mini-mapa.
+      event.preventDefault();
+    };
+    const preventGesture = (event: Event) => {
+      // Safari pinch-gesture events.
+      event.preventDefault();
+    };
+
+    host.addEventListener("wheel", preventWheelZoom, { passive: false });
+    host.addEventListener("gesturestart", preventGesture);
+    host.addEventListener("gesturechange", preventGesture);
+    host.addEventListener("gestureend", preventGesture);
+
+    return () => {
+      host.removeEventListener("wheel", preventWheelZoom);
+      host.removeEventListener("gesturestart", preventGesture);
+      host.removeEventListener("gesturechange", preventGesture);
+      host.removeEventListener("gestureend", preventGesture);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -272,6 +299,7 @@ export function CountriesMapPreview({
                   highlightColor,
                   resolvedBaseCountryColor,
                 ),
+                "fill-outline-color": resolvedBaseCountryColor,
                 "fill-opacity": 1,
                 "fill-antialias": true,
               },
@@ -290,8 +318,17 @@ export function CountriesMapPreview({
                   highlightColor,
                   "rgba(0,0,0,0)",
                 ],
-                "line-width": 0.6,
-                "line-opacity": 0.9,
+                "line-width": [
+                  "case",
+                  ["in", countryIsoExpression(), ["literal", normalizedCodesRef.current]],
+                  0.35,
+                  0,
+                ],
+                "line-opacity": 0.7,
+              },
+              layout: {
+                "line-cap": "round",
+                "line-join": "round",
               },
             });
           }
@@ -303,8 +340,8 @@ export function CountriesMapPreview({
               "source-layer": "country_boundaries",
               paint: {
                 "line-color": resolvedLineCountryColor,
-                "line-width": 0.15,
-                "line-opacity": 0.12,
+                "line-width": 0.12,
+                "line-opacity": 0.07,
               },
             });
           }
@@ -412,6 +449,16 @@ export function CountriesMapPreview({
             "rgba(0,0,0,0)",
           ] as never,
         );
+        map.setPaintProperty(
+          WORLD_HIGHLIGHT_LAYER_ID,
+          "line-width",
+          [
+            "case",
+            ["in", countryIsoExpression(), ["literal", normalizedCodes]],
+            0.35,
+            0,
+          ] as never,
+        );
       }
       if (hasMapLayer(map, WORLD_LINE_LAYER_ID)) {
         map.setPaintProperty(WORLD_LINE_LAYER_ID, "line-color", resolvedLineCountryColor);
@@ -424,9 +471,7 @@ export function CountriesMapPreview({
 
   return (
     <div
-      onWheel={(event) => {
-        if (event.ctrlKey) event.preventDefault();
-      }}
+      ref={hostRef}
       style={{
         width: "100%",
         height,
