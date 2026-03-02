@@ -80,6 +80,7 @@ const MAP_SECTION_HEIGHT = 320;
 const ICON_SIZE = 22;
 
 /** Color del icono sobre fondos stateToVisit / stateSuccess. */
+const SAVE_PIN_ICON_ON_STATE = Colors.light.text;
 const ICON_ON_STATE = '#ffffff';
 
 export function SpotDetail({
@@ -204,7 +205,9 @@ export function SpotDetail({
   }, []);
 
   const savePinIconColor =
-    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.background;
+    savePinState === 'toVisit' || savePinState === 'visited'
+      ? SAVE_PIN_ICON_ON_STATE
+      : colors.background;
 
   return (
     <View

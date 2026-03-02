@@ -19,6 +19,12 @@
 ## Loops activos
 
 - `OL-P3-002` activo en arranque operativo (scoping de fase A).
+- Bloque UX Explore/Search (ejecución incremental desde plan `PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`):
+  - estado de spot con toggles explícitos (`Por visitar` / `Visitado`),
+  - toasts contextuales por origen de filtro,
+  - hardening de quick actions de resultados (`Agregar imagen`, `Descripción corta`),
+  - visibilidad de Flowya spots sin filtro activo.
+  - cierre Bloque A para QA: overlay de spots en contador países + casuísticas de selección/filtro.
 - `OL-P1-003` y `OL-P2-006` están **cerrados** (solo histórico).
 
 ---

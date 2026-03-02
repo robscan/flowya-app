@@ -141,6 +141,45 @@ export async function setVisited(spotId: string, value: boolean): Promise<PinSta
   return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
 }
 
+/**
+ * Persiste ambos flags del pin en una sola operación.
+ * Regla canónica: si `visited=true`, `saved` se fuerza a `false` para evitar estados ambiguos en UI.
+ * Devuelve el nuevo PinState o null si falló.
+ */
+export async function setPinState(
+  spotId: string,
+  next: PinState
+): Promise<PinState | null> {
+  const userId = await getCurrentUserId();
+  if (!userId) return null;
+  const normalized: PinState = next.visited
+    ? { saved: false, visited: true }
+    : { saved: Boolean(next.saved), visited: false };
+
+  if (!normalized.saved && !normalized.visited) {
+    const ok = await removePin(spotId);
+    return ok ? normalized : null;
+  }
+
+  const statusLegacy: PinStatus = normalized.visited ? 'visited' : 'to_visit';
+  const { data, error } = await supabase
+    .from('pins')
+    .upsert(
+      {
+        spot_id: spotId,
+        user_id: userId,
+        saved: normalized.saved,
+        visited: normalized.visited,
+        status: statusLegacy,
+      },
+      { onConflict: ['user_id', 'spot_id'] }
+    )
+    .select('saved, visited')
+    .single();
+  if (error || !data) return null;
+  return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
+}
+
 /** Elimina el pin del usuario para el spot. Devuelve true si se eliminó. */
 export async function removePin(spotId: string): Promise<boolean> {
   const userId = await getCurrentUserId();

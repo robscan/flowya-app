@@ -45,7 +45,7 @@ type SpotCardMapSelectionProps = {
 const LEFT_COLUMN_MAX_WIDTH = 128;
 const ACTIONS_ICON_SIZE = 18;
 const ACTIONS_BUTTON_SIZE = 36;
-const ICON_ON_STATE = '#ffffff';
+const SAVE_PIN_ICON_ON_STATE = Colors.light.text;
 
 const CLOSE_BUTTON_SIZE = 36;
 
@@ -73,7 +73,9 @@ export function SpotCardMapSelection({
   };
 
   const savePinIconColor =
-    savePinState === 'toVisit' || savePinState === 'visited' ? ICON_ON_STATE : colors.background;
+    savePinState === 'toVisit' || savePinState === 'visited'
+      ? SAVE_PIN_ICON_ON_STATE
+      : colors.background;
 
   const cardPressLabel = onCardPress
     ? `Seleccionar ${spot.title}`

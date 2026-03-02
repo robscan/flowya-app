@@ -93,6 +93,15 @@ export function MapControls({
 
   return (
     <View style={styles.container}>
+      <IconButton
+        variant="default"
+        onPress={handleLocate}
+        disabled={!enabled}
+        selected={activeMapControl === 'location' || activeMapControl === 'location-north'}
+        accessibilityLabel="Center on my location"
+      >
+        <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
+      </IconButton>
       {showWorld ? (
         <IconButton
           variant="default"
@@ -115,15 +124,6 @@ export function MapControls({
           <FrameWithDot size={ICON_SIZE} color={enabled ? colors.text : colors.textSecondary} strokeWidth={2} />
         </IconButton>
       ) : null}
-      <IconButton
-        variant="default"
-        onPress={handleLocate}
-        disabled={!enabled}
-        selected={activeMapControl === 'location' || activeMapControl === 'location-north'}
-        accessibilityLabel="Center on my location"
-      >
-        <Locate size={ICON_SIZE} color={iconColor} strokeWidth={2} />
-      </IconButton>
     </View>
   );
 }

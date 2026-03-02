@@ -144,6 +144,11 @@ Objetivo:
 
 Ambas acciones deben poder dispararse desde Search sin romper contexto del listado/filtro.
 
+Regla web:
+- no anidar controles interactivos tipo `button` dentro de otro `button` para evitar hydration errors en RN Web.
+- si la card principal es accionable, las quick actions internas deben manejar propagación de eventos de forma explícita.
+
 ### 9.3 Continuidad de flujo
 
 - Tras guardar imagen o descripción, Search debe reflejar el cambio (patch local + refresh coherente) sin sacar al usuario del contexto actual.
+- `Agregar imagen` debe abrir picker y persistir sin navegación adicional; si falla, feedback de error por toast y continuidad en lista.

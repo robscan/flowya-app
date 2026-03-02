@@ -15,6 +15,9 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Filtros comunicados como guía, no switch técnico: intención por filtro.
 - `Todos`: "Explora y decide"; `Por visitar`: "Planifica lo próximo"; `Visitados`: "Recuerda lo vivido".
 - Al seleccionar filtro en dropdown del mapa: toast con mensaje de intención.
+- Matiz contextual 2026-03-01:
+  - si el usuario viene desde `all`, el toast invita a actuar sobre el nuevo filtro;
+  - si ya estaba en un filtro (`saved`/`visited`), el toast recuerda explícitamente el contexto actual.
 - MapPinFilterInline (buscador): sin subtítulos para no saturar.
 - MapPinFilter: a11y incluye intención; en futuro se evaluará comportamiento adaptativo.
 
@@ -56,6 +59,14 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Tras `flyTo/fitBounds/load`, el dropdown espera settle de cámara antes de reaparecer.
 - Debe existir fallback timeout para evitar bloqueo permanente si el evento de settle no llega.
 - La primera aparición puede usar delay corto para suavizar lectura; reapariciones subsecuentes no deben introducir latencia excesiva.
+
+8. **Estado de spot explícito (SpotSheet, 2026-03-01)**
+- El cambio de estado en sheet no debe depender de transición implícita secuencial.
+- Deben existir dos acciones explícitas:
+  - `Por visitar` (toggle on/off),
+  - `Visitado` (toggle on/off).
+- Al activar `Visitado`, prevalece sobre `Por visitar` (normalización de estado).
+- Al desactivar el estado activo dentro de un filtro (`saved` o `visited`), el spot sale de esa lista y la vista permanece en el filtro actual.
 
 ## Core puro recomendado
 

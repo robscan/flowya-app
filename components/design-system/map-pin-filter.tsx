@@ -26,8 +26,8 @@ const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
 const PULSE_DURATION_MS = 120;
 const MIN_TOUCH_TARGET = 44;
-const COUNT_BADGE_BG_DARK = '#1b1b1f';
-const COUNT_BADGE_TEXT_LIGHT = '#f5f5f7';
+const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
+const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
 
 export type MapPinFilterValue = 'all' | 'saved' | 'visited';
 
@@ -57,6 +57,8 @@ export type MapPinFilterProps = {
   pendingValues?: Partial<Record<Exclude<MapPinFilterValue, 'all'>, boolean>>;
   pulseNonce?: number;
   menuPlacement?: 'down' | 'up';
+  /** Oculta contador del valor activo en trigger para evitar redundancia con overlays externos. */
+  hideActiveCount?: boolean;
 };
 
 function getLabelWithCount(
@@ -102,6 +104,7 @@ export function MapPinFilter({
   pendingValues = {},
   pulseNonce = 0,
   menuPlacement = 'down',
+  hideActiveCount = false,
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   const colorScheme = useColorScheme();
@@ -138,22 +141,26 @@ export function MapPinFilter({
         return { bg: colors.text, text: colors.background, border: colors.borderSubtle };
       case 'saved':
         return {
-          bg: colors.countriesCounterToVisitBackground,
-          text: colors.text,
-          border: colors.countriesCounterToVisitBorder,
+          bg: FILTER_SELECTED_TO_VISIT,
+          text: colors.pin.default,
+          border: FILTER_SELECTED_TO_VISIT,
         };
       case 'visited':
         return {
-          bg: colors.countriesCounterVisitedBackground,
-          text: colors.text,
-          border: colors.countriesCounterVisitedBorder,
+          bg: FILTER_SELECTED_VISITED,
+          text: colors.pin.default,
+          border: FILTER_SELECTED_VISITED,
         };
     }
   };
 
   const selectedColors = getSelectedColors(value);
+  const countBadgeColors = {
+    background: colors.surfaceOnMap,
+    text: colors.pin.default,
+  };
   const currentLabel = OPTIONS.find((o) => o.value === value)!.label;
-  const triggerCount = getCount(value, counts);
+  const triggerCount = hideActiveCount ? undefined : getCount(value, counts);
   const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
 
   const handleSelect = (optValue: MapPinFilterValue) => {
@@ -218,12 +225,12 @@ export function MapPinFilter({
                 styles.countBadge,
                 styles.triggerCountBadge,
                 {
-                  backgroundColor: COUNT_BADGE_BG_DARK,
+                  backgroundColor: countBadgeColors.background,
                 },
               ]}
             >
               <Text
-                style={[styles.countBadgeText, { color: COUNT_BADGE_TEXT_LIGHT }]}
+                style={[styles.countBadgeText, { color: countBadgeColors.text }]}
                 numberOfLines={1}
               >
                 {triggerCount}
@@ -339,14 +346,14 @@ export function MapPinFilter({
                         style={[
                           styles.countBadge,
                           {
-                            backgroundColor: COUNT_BADGE_BG_DARK,
+                            backgroundColor: countBadgeColors.background,
                           },
                         ]}
                       >
                         <Text
                           style={[
                             styles.countBadgeText,
-                            { color: COUNT_BADGE_TEXT_LIGHT },
+                            { color: countBadgeColors.text },
                           ]}
                           numberOfLines={1}
                         >

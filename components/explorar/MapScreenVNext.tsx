@@ -84,9 +84,7 @@ import {
 import {
     getCurrentUserId,
     getPinsForSpots,
-    nextPinStatus,
-    removePin,
-    setPinStatus,
+    setPinState,
     setSaved,
     setVisited,
 } from "@/lib/pins";
@@ -368,17 +366,20 @@ function resolveAccountDisplayLabel(user: {
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
-const CONTROLS_OVERLAY_BOTTOM = 16;
+const CONTROLS_OVERLAY_BOTTOM = 20;
 const CONTROLS_OVERLAY_RIGHT = 16;
 const MAP_CONTROL_BUTTON_SIZE = 44;
 const COUNTRIES_COUNTER_SIZE = 64;
-const COUNTRIES_AND_CONTROLS_GAP = 12;
+const COUNTRIES_AND_CONTROLS_GAP = 20;
 const COUNTRIES_SLOT_RESERVED = COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP;
 const COUNTRIES_CENTER_ALIGNMENT_OFFSET =
   Math.round((COUNTRIES_COUNTER_SIZE - MAP_CONTROL_BUTTON_SIZE) / 2);
-const MAP_CONTROLS_FALLBACK_HEIGHT = 148;
-const FILTER_OVERLAY_TOP = 16;
-const TOP_OVERLAY_INSET = 16;
+// Debe aproximar el alto real de 2 IconButton + gap para evitar "jump" en primer render.
+const MAP_CONTROLS_FALLBACK_HEIGHT = 100;
+const FILTER_OVERLAY_TOP = 28;
+const TOP_OVERLAY_INSET = 28;
+/** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
+const THUMB_FRIENDLY_CENTER_BIAS = 56;
 /** Evita superposición entre subtítulos de estado y marca FLOWYA. */
 const FLOWYA_LABEL_CLEARANCE = 60;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
@@ -394,6 +395,7 @@ const FILTER_WAIT_RELEASE_DELAY_MS = 70;
 const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
+const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -490,6 +492,7 @@ export function MapScreenVNext() {
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<ExploreSheetState>("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
+  const preserveOutOfFilterSelectionSpotIdRef = useRef<string | null>(null);
   const lastStatusSpotIdRef = useRef<{
     saved: string | null;
     visited: string | null;
@@ -537,6 +540,7 @@ export function MapScreenVNext() {
   const [quickDescSpot, setQuickDescSpot] = useState<Spot | null>(null);
   const [quickDescValue, setQuickDescValue] = useState("");
   const [quickDescSaving, setQuickDescSaving] = useState(false);
+  const quickDescBackdropGuardUntilRef = useRef(0);
 
   const clearFilterWaitFallbackTimer = useCallback(() => {
     if (filterWaitFallbackTimerRef.current) {
@@ -722,7 +726,9 @@ export function MapScreenVNext() {
       return [selectedSpot];
     }
     const canHideLinkedUnsaved =
-      featureFlags.hideLinkedUnsaved && featureFlags.mapLandmarkLabels;
+      pinFilter !== "all" &&
+      featureFlags.hideLinkedUnsaved &&
+      featureFlags.mapLandmarkLabels;
     const visibilityFiltered = canHideLinkedUnsaved
       ? filteredSpots.filter((s) => !isLinkedUnsavedSpot(s))
       : filteredSpots;
@@ -968,6 +974,8 @@ export function MapScreenVNext() {
 
   const handlePinFilterChange = useCallback(
     (nextFilter: MapPinFilterValue, options?: { reframe?: boolean }) => {
+      const currentFilter = pinFilter;
+      if (nextFilter === currentFilter) return;
       const pendingForTarget =
         nextFilter !== "all" ? pendingFilterBadges[nextFilter] : false;
       const pendingSpotId =
@@ -975,14 +983,20 @@ export function MapScreenVNext() {
           ? lastStatusSpotIdRef.current[nextFilter]
           : null;
       setPinFilter(nextFilter);
-      /** OL-WOW-F2-003: toast de intención solo al cambiar filtro desde dropdown del mapa. */
-      if (!searchIsOpenRef.current) {
-        const filterToast: Record<MapPinFilterValue, string> = {
-          all: "Descubre y planea tu próximo viaje.",
-          saved: "Organiza y prepara tus spots.",
-          visited: "Recuerda y registra tus memorias.",
-        };
-        if (!suppressToastRef.current) toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
+      const fromAll = currentFilter === "all";
+      const filterToast: Record<MapPinFilterValue, string> = fromAll
+        ? {
+            all: "Descubre y planea tu próximo viaje.",
+            saved: "Empieza marcando lugares para tu próxima ruta.",
+            visited: "Registra tus memorias y construye tu mapa personal.",
+          }
+        : {
+            all: "Volviste a Todos.",
+            saved: "Sigues en Por visitar: organiza y prepara tus spots.",
+            visited: "Sigues en Visitados: registra tus memorias.",
+          };
+      if (!suppressToastRef.current) {
+        toast.show(filterToast[nextFilter], { type: "success", replaceVisible: true });
       }
       if (pendingForTarget && nextFilter !== "all") {
         updatePendingFilterBadges((prev) => ({ ...prev, [nextFilter]: false }));
@@ -1012,6 +1026,7 @@ export function MapScreenVNext() {
     [
       pendingFilterBadges,
       mapInstance,
+      pinFilter,
       spots,
       flyToUnlessActMode,
       updatePendingFilterBadges,
@@ -1048,6 +1063,10 @@ export function MapScreenVNext() {
         selectedSpot && filteredSpots.some((s) => s.id === selectedSpot.id),
       ),
     });
+    const isPreservedSelection =
+      selectedSpot != null &&
+      preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id;
+    if (isPreservedSelection) return;
     if (shouldClearSelection) {
       setSelectedSpot(null);
       setSheetState("peek");
@@ -1063,6 +1082,32 @@ export function MapScreenVNext() {
       setSelectedSpot(fresh);
     }
   }, [filteredSpots, selectedSpot]);
+
+  // Si el spot seleccionado deja de cumplir el filtro activo por un toggle explícito, cerrar sheet.
+  useEffect(() => {
+    if (!selectedSpot) return;
+    if (selectedSpot.id.startsWith("draft_")) return;
+    if (pinFilter === "all") return;
+    const stillInActiveFilter = filteredSpots.some((spot) => spot.id === selectedSpot.id);
+    if (stillInActiveFilter) return;
+    if (preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id) return;
+    setSelectedSpot(null);
+    setSheetState("peek");
+    setSheetHeight(SHEET_PEEK_HEIGHT);
+  }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
+
+  useEffect(() => {
+    if (!selectedSpot) {
+      preserveOutOfFilterSelectionSpotIdRef.current = null;
+      return;
+    }
+    if (
+      preserveOutOfFilterSelectionSpotIdRef.current != null &&
+      preserveOutOfFilterSelectionSpotIdRef.current !== selectedSpot.id
+    ) {
+      preserveOutOfFilterSelectionSpotIdRef.current = null;
+    }
+  }, [selectedSpot]);
 
   const spotsProvider = useMemo(
     () =>
@@ -1759,7 +1804,11 @@ export function MapScreenVNext() {
             name: name.trim(),
             placeId: tappedFeatureId,
           });
-          if (match) {
+          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
+          const matchBelongsToActiveFilter =
+            pinFilter === "all" ||
+            (pinFilter === "saved" ? Boolean(match?.saved) : Boolean(match?.visited));
+          if (match && matchBelongsToActiveFilter) {
             recordExploreDecisionStarted({
               source: "map",
               pinFilter,
@@ -1775,18 +1824,18 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
-          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
-          setSelectedSpot(null);
-          setPoiTapped({
+            // Si el match existe pero no pertenece al filtro activo, abrir POI sheet en lugar de cerrar por guardrails.
+            setSelectedSpot(null);
+            setPoiTapped({
               name: name.trim(),
               lat,
               lng,
-            kind,
-            placeId: tappedFeatureId,
-            maki: getTappedFeatureMaki(props as Record<string, unknown>),
-            visualState: "default",
-            source: "map_tap",
-          });
+              kind,
+              placeId: tappedFeatureId,
+              maki: getTappedFeatureMaki(props as Record<string, unknown>),
+              visualState: "default",
+              source: "map_tap",
+            });
             recordExploreSelectionChanged({
               entityType: "poi",
               selectionState: "selected",
@@ -2183,14 +2232,31 @@ export function MapScreenVNext() {
           aspect: [1, 1],
           quality: 0.85,
         });
-        if (result.canceled || !result.assets?.[0]?.uri) return;
-        const res = await fetch(result.assets[0].uri);
-        if (!res.ok) {
-          if (!suppressToastRef.current) toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0] as (typeof result.assets)[number] & { file?: Blob };
+        let sourceBlob: Blob | null = null;
+
+        if (asset.file instanceof Blob) {
+          sourceBlob = asset.file;
+        } else if (asset.uri) {
+          const res = await fetch(asset.uri);
+          if (!res.ok) {
+            if (!suppressToastRef.current) {
+              toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+            }
+            return;
+          }
+          sourceBlob = await res.blob();
+        }
+
+        if (!sourceBlob) {
+          if (!suppressToastRef.current) {
+            toast.show("No se detectó una imagen válida para subir.", { type: "error" });
+          }
           return;
         }
-        const blob = await res.blob();
-        const optimized = await optimizeSpotImage(blob);
+
+        const optimized = await optimizeSpotImage(sourceBlob);
         const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
         if (!toUpload) {
           if (!suppressToastRef.current) toast.show("No se pudo procesar la imagen.", { type: "error" });
@@ -2219,6 +2285,7 @@ export function MapScreenVNext() {
   );
 
   const handleQuickEditDescriptionOpen = useCallback((spot: Spot) => {
+    quickDescBackdropGuardUntilRef.current = Date.now() + 350;
     setQuickDescSpot(spot);
     setQuickDescValue(spot.description_short?.trim() ?? "");
   }, []);
@@ -2228,6 +2295,11 @@ export function MapScreenVNext() {
     setQuickDescSpot(null);
     setQuickDescValue("");
   }, [quickDescSaving]);
+
+  const handleQuickEditDescriptionBackdropPress = useCallback(() => {
+    if (Date.now() < quickDescBackdropGuardUntilRef.current) return;
+    handleQuickEditDescriptionClose();
+  }, [handleQuickEditDescriptionClose]);
 
   const handleQuickEditDescriptionSave = useCallback(async () => {
     if (!quickDescSpot) return;
@@ -2946,7 +3018,14 @@ export function MapScreenVNext() {
   );
 
   const handleSavePin = useCallback(
-    async (spot: Spot, targetStatus?: "to_visit" | "visited") => {
+    async (
+      spot: Spot,
+      targetStatus?:
+        | "to_visit"
+        | "visited"
+        | "clear_to_visit"
+        | "clear_visited",
+    ) => {
       if (spot.id.startsWith("draft_")) return;
       const userId = await getCurrentUserId();
       if (!userId) {
@@ -2956,84 +3035,110 @@ export function MapScreenVNext() {
         });
         return;
       }
-      const current =
-        spot.pinStatus === "to_visit" || spot.pinStatus === "visited"
-          ? spot.pinStatus
-          : null;
-      if (current === "visited") {
-        const ok = await removePin(spot.id);
-        if (ok) {
-          if (lastStatusSpotIdRef.current.saved === spot.id) {
-            lastStatusSpotIdRef.current.saved = null;
-          }
-          if (lastStatusSpotIdRef.current.visited === spot.id) {
-            lastStatusSpotIdRef.current.visited = null;
-          }
-          updatePendingFilterBadges((prev) => ({ ...prev, visited: false }));
-          updateSpotPinState(spot.id, { saved: false, visited: false });
-          recordExploreDecisionCompleted({
-            outcome: "dismissed",
-            pinFilter,
-          });
-          if (!suppressToastRef.current) toast.show("Listo, ya no está en tu lista", { type: "success" });
+      const currentSaved = Boolean(spot.saved ?? (spot.pinStatus === "to_visit"));
+      const currentVisited = Boolean(spot.visited ?? (spot.pinStatus === "visited"));
+      const currentState = { saved: currentSaved, visited: currentVisited };
+      let requestedState = currentState;
+      switch (targetStatus) {
+        case "to_visit":
+          requestedState = { saved: true, visited: false };
+          break;
+        case "visited":
+          requestedState = { saved: false, visited: true };
+          break;
+        case "clear_to_visit":
+          requestedState = { saved: false, visited: currentVisited };
+          break;
+        case "clear_visited":
+          requestedState = { saved: currentSaved, visited: false };
+          break;
+        default:
+          requestedState = currentVisited
+            ? { saved: false, visited: false }
+            : { saved: true, visited: false };
+          break;
+      }
+      const normalizedState = requestedState.visited
+        ? { saved: false, visited: true }
+        : { saved: requestedState.saved, visited: false };
+      if (
+        normalizedState.saved === currentState.saved &&
+        normalizedState.visited === currentState.visited
+      ) {
+        return;
+      }
+      const nextState = await setPinState(spot.id, normalizedState);
+      if (!nextState) return;
+      const isExplicitClearAction =
+        targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
+      if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
+        preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
+      } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
+        preserveOutOfFilterSelectionSpotIdRef.current = null;
+      }
+
+      const hasDestination = nextState.saved || nextState.visited;
+      const destinationFilter = hasDestination
+        ? resolveDestinationFilterForStatus(nextState.visited ? "visited" : "to_visit")
+        : null;
+
+      if (!hasDestination) {
+        if (lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
         }
-      } else {
-        const next =
-          targetStatus != null ? targetStatus : nextPinStatus(current);
-        const newStatus = await setPinStatus(spot.id, next);
-        if (newStatus) {
-          const nextState =
-            newStatus === "to_visit"
-              ? { saved: true, visited: false }
-              : { saved: false, visited: true };
-          const destinationFilter = resolveDestinationFilterForStatus(newStatus);
-          lastStatusSpotIdRef.current[destinationFilter] = spot.id;
-          if (destinationFilter === "visited") {
-            // Al subir de "Por visitar" a "Visitado", ya no es candidato del filtro saved.
-            if (lastStatusSpotIdRef.current.saved === spot.id) {
-              lastStatusSpotIdRef.current.saved = null;
-            }
-          }
-          if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
-            updatePendingFilterBadges((prev) => ({
-              ...prev,
-              [destinationFilter]: true,
-            }));
-          } else if (
-            shouldSwitchFilterOnStatusTransition({
-              currentFilter: pinFilter,
-              destinationFilter,
-            })
-          ) {
-            // Caso puntual de transición entre filtros:
-            // no hacer zoom-out global; mantener continuidad enfocando el spot mutado.
-            setPinFilter(destinationFilter);
-            /** OL-WOW-F2-005 inspect: centrar solo si spot no visible en viewport. act: no flyTo durante create/placing. */
-            if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
-              flyToUnlessActMode(
-                { lng: spot.longitude, lat: spot.latitude },
-                { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-              );
-            }
-          } else if (
-            shouldPulseFilterOnStatusTransition({
-              currentFilter: pinFilter,
-              destinationFilter,
-            })
-          ) {
-            setPinFilterPulseNonce((n) => n + 1);
-          }
-          updateSpotPinState(spot.id, nextState);
-          recordExploreDecisionCompleted({
-            outcome: newStatus === "to_visit" ? "saved" : "visited",
-            pinFilter,
-          });
-          setSheetState("medium");
-          if (!suppressToastRef.current) toast.show(
-            newStatus === "to_visit" ? "Agregado a Por visitar" : "¡Marcado como visitado!",
-            { type: "success" },
-          );
+        if (lastStatusSpotIdRef.current.visited === spot.id) {
+          lastStatusSpotIdRef.current.visited = null;
         }
+        updatePendingFilterBadges((prev) => ({ ...prev, saved: false, visited: false }));
+      } else if (destinationFilter) {
+        lastStatusSpotIdRef.current[destinationFilter] = spot.id;
+        if (destinationFilter === "visited" && lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
+        }
+        if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
+          updatePendingFilterBadges((prev) => ({
+            ...prev,
+            [destinationFilter]: true,
+          }));
+        } else if (
+          shouldSwitchFilterOnStatusTransition({
+            currentFilter: pinFilter,
+            destinationFilter,
+          })
+        ) {
+          setPinFilter(destinationFilter);
+          if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+            flyToUnlessActMode(
+              { lng: spot.longitude, lat: spot.latitude },
+              { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+            );
+          }
+        } else if (
+          shouldPulseFilterOnStatusTransition({
+            currentFilter: pinFilter,
+            destinationFilter,
+          })
+        ) {
+          setPinFilterPulseNonce((n) => n + 1);
+        }
+      }
+
+      updateSpotPinState(spot.id, nextState);
+      const outcome = nextState.visited
+        ? "visited"
+        : nextState.saved
+          ? "saved"
+          : "dismissed";
+      recordExploreDecisionCompleted({ outcome, pinFilter });
+      setSheetState("medium");
+      if (!suppressToastRef.current) {
+        const toastText =
+          outcome === "visited"
+            ? "¡Marcado como visitado!"
+            : outcome === "saved"
+              ? "Agregado a Por visitar"
+              : "Listo, ya no está en tu lista";
+        toast.show(toastText, { type: "success", replaceVisible: true });
       }
     },
     [
@@ -3069,12 +3174,17 @@ export function MapScreenVNext() {
   const dockBottomOffset = 12;
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
-  const [mapControlsHeight, setMapControlsHeight] = useState(MAP_CONTROLS_FALLBACK_HEIGHT);
+  const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
   const areMapControlsVisible =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
     sheetState !== "expanded" &&
     (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+  const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(false);
+  const mapControlsOverlayEntry = useRef(
+    new Animated.Value(0),
+  ).current;
+  const mapControlsOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
   const filterEstimatedHeight = 56;
   const filterMinimumTop = insets.top + 4;
@@ -3112,6 +3222,23 @@ export function MapScreenVNext() {
     }),
     [filterOverlayEntry],
   );
+  const mapControlsOverlayAnimatedStyle = useMemo(
+    () => ({
+      opacity: mapControlsOverlayEntry.interpolate({
+        inputRange: [0, 1, 2],
+        outputRange: [0, 1, 0],
+      }),
+      transform: [
+        {
+          translateX: mapControlsOverlayEntry.interpolate({
+            inputRange: [0, 1, 2],
+            outputRange: [8, 0, -8],
+          }),
+        },
+      ],
+    }),
+    [mapControlsOverlayEntry],
+  );
   const controlsBottomOffset =
     isSpotSheetVisible
       ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
@@ -3126,7 +3253,7 @@ export function MapScreenVNext() {
     COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP + mapControlsHeight;
   const centeredGroupTop = Math.max(
     insets.top + TOP_OVERLAY_INSET,
-    Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5),
+    Math.round(windowHeight * 0.5 - centeredGroupHeight * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
   );
   const controlsTopOffset = centeredGroupTop + COUNTRIES_SLOT_RESERVED;
   const controlsCenteredBottom = Math.max(
@@ -3143,7 +3270,7 @@ export function MapScreenVNext() {
       ? centeredGroupTop
       : Math.max(
           insets.top + TOP_OVERLAY_INSET,
-          Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5),
+          Math.round(windowHeight * 0.5 - COUNTRIES_COUNTER_SIZE * 0.5 + THUMB_FRIENDLY_CENTER_BIAS),
         );
   const countriesCenteredBottom = Math.max(
     dockBottomOffset + insets.bottom,
@@ -3151,12 +3278,6 @@ export function MapScreenVNext() {
   );
   const countriesResolvedBottom =
     countriesOverlayAnchorMode === "bottom" ? countriesBottomOffset : countriesCenteredBottom;
-  const handleControlsOverlayLayout = useCallback((event: any) => {
-    const nextHeight = Math.round(event?.nativeEvent?.layout?.height ?? 0);
-    if (nextHeight <= 0) return;
-    setMapControlsHeight((current) => (Math.abs(current - nextHeight) >= 2 ? nextHeight : current));
-  }, []);
-
   useEffect(() => {
     if (!showCountriesCounterBubble) return;
     const nextMode: "center-group" | "center-mid" | "bottom" = shouldCenterCountriesAndControls
@@ -3201,6 +3322,78 @@ export function MapScreenVNext() {
       filterOverlayHasAnimatedInRef.current = true;
     });
   }, [shouldShowFilterDropdown, filterOverlayEntry]);
+
+  useEffect(() => {
+    let isCancelled = false;
+    const clearDelay = () => {
+      if (mapControlsOverlayDelayRef.current) {
+        clearTimeout(mapControlsOverlayDelayRef.current);
+        mapControlsOverlayDelayRef.current = null;
+      }
+    };
+    const animateIn = () => {
+      clearDelay();
+      mapControlsOverlayDelayRef.current = setTimeout(() => {
+        if (isCancelled) return;
+        mapControlsOverlayEntry.setValue(0);
+        Animated.timing(mapControlsOverlayEntry, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: Platform.OS !== "web",
+        }).start();
+      }, MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS);
+    };
+    const animateOut = (onEnd?: () => void) => {
+      clearDelay();
+      Animated.timing(mapControlsOverlayEntry, {
+        toValue: 2,
+        duration: 160,
+        easing: Easing.in(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }).start(({ finished }) => {
+        if (!finished || isCancelled) return;
+        onEnd?.();
+      });
+    };
+
+    mapControlsOverlayEntry.stopAnimation();
+
+    if (!areMapControlsVisible) {
+      if (!mapControlsOverlayMounted) return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+      animateOut(() => {
+        if (isCancelled) return;
+        setMapControlsOverlayMounted(false);
+        mapControlsOverlayEntry.setValue(0);
+      });
+      return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+    }
+
+    if (!mapControlsOverlayMounted) {
+      setMapControlsOverlayMounted(true);
+      animateIn();
+      return () => {
+        isCancelled = true;
+        clearDelay();
+      };
+    }
+
+    animateIn();
+    return () => {
+      isCancelled = true;
+      clearDelay();
+    };
+  }, [
+    areMapControlsVisible,
+    mapControlsOverlayMounted,
+    mapControlsOverlayEntry,
+  ]);
 
   useEffect(() => {
     const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
@@ -3352,6 +3545,7 @@ export function MapScreenVNext() {
               pendingValues={pendingFilterBadges}
               pulseNonce={pinFilterPulseNonce}
               menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
+              hideActiveCount={showCountriesCounterBubble}
             />
           </View>
         </Animated.View>
@@ -3441,40 +3635,73 @@ export function MapScreenVNext() {
           ]}
           pointerEvents="box-none"
         >
-          <Pressable
-            onPress={handleCountriesCounterPress}
-            style={({ pressed }) => [
-              styles.countriesCircle,
-              {
-                backgroundColor: countriesCounterBackgroundColor,
-                borderColor: countriesCounterBorderColor,
-              },
-              pressed && styles.countriesCirclePressed,
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={
-              countriesOverlayFilter === "saved"
-                ? "Abrir sheet de países por visitar"
-                : "Abrir sheet de países visitados"
-            }
-          >
-            <Text
-              style={[
-                styles.countriesValue,
+          <View style={styles.countriesOverlayStack}>
+            <Pressable
+              onPress={handleCountriesCounterPress}
+              style={({ pressed }) => [
+                styles.countriesCircle,
                 {
-                  color:
-                    countriesOverlayFilter === "saved"
-                      ? countriesOverlayColors.stateToVisit
-                      : countriesOverlayColors.stateSuccess,
+                  backgroundColor: countriesCounterBackgroundColor,
+                  borderColor: countriesCounterBorderColor,
+                },
+                pressed && styles.countriesCirclePressed,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={
+                countriesOverlayFilter === "saved"
+                  ? "Abrir sheet de países por visitar"
+                  : "Abrir sheet de países visitados"
+              }
+            >
+              <Text
+                style={[
+                  styles.countriesValue,
+                  {
+                    color:
+                      countriesOverlayFilter === "saved"
+                        ? countriesOverlayColors.stateToVisit
+                        : countriesOverlayColors.stateSuccess,
+                  },
+                ]}
+              >
+                {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
+              </Text>
+              <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
+                Países
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={handleCountriesSpotsKpiPress}
+              style={({ pressed }) => [
+                styles.countriesCircle,
+                styles.countriesSpotsCircle,
+                {
+                  backgroundColor: countriesCounterBackgroundColor,
+                  borderColor: countriesCounterBorderColor,
+                  opacity: pressed ? 0.88 : 1,
                 },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel="Abrir lista de spots del filtro activo"
             >
-              {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
-            </Text>
-            <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
-              Países
-            </Text>
-          </Pressable>
+              <Text
+                style={[
+                  styles.countriesValue,
+                  {
+                    color:
+                      countriesOverlayFilter === "saved"
+                        ? countriesOverlayColors.stateToVisit
+                        : countriesOverlayColors.stateSuccess,
+                  },
+                ]}
+              >
+                {String(countriesPlacesCountForOverlay)}
+              </Text>
+              <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
+                spots
+              </Text>
+            </Pressable>
+          </View>
         </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
@@ -3497,10 +3724,9 @@ export function MapScreenVNext() {
           </IconButton>
         </View>
       ) : null}
-      {areMapControlsVisible ? (
-        <View
-          pointerEvents="box-none"
-          onLayout={handleControlsOverlayLayout}
+      {mapControlsOverlayMounted ? (
+        <Animated.View
+          pointerEvents={areMapControlsVisible ? "box-none" : "none"}
           style={[
             styles.controlsOverlay,
             {
@@ -3510,6 +3736,7 @@ export function MapScreenVNext() {
               flexDirection: "column",
               gap: Spacing.sm,
             },
+            mapControlsOverlayAnimatedStyle,
           ]}
         >
           <MapControls
@@ -3522,7 +3749,7 @@ export function MapScreenVNext() {
             onViewWorld={handleViewWorldWithFilterDelay}
             activeMapControl={activeMapControl}
           />
-        </View>
+        </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <Pressable
@@ -3611,10 +3838,10 @@ export function MapScreenVNext() {
                     ? [
                         {
                           id: `edit-desc-${spot.id}`,
-                          label: "Agregar una descripción corta",
+                          label: "Escribir nota breve",
                           kind: "edit_description" as const,
                           onPress: () => handleQuickEditDescriptionOpen(spot),
-                          accessibilityLabel: `Agregar una descripción corta a ${spot.title}`,
+                          accessibilityLabel: `Escribir una nota breve sobre ${spot.title}`,
                         },
                       ]
                     : []),
@@ -3665,7 +3892,7 @@ export function MapScreenVNext() {
         >
           <Pressable
             style={styles.quickEditDescBackdrop}
-            onPress={handleQuickEditDescriptionClose}
+            onPress={handleQuickEditDescriptionBackdropPress}
             accessibilityLabel="Cerrar editor de descripción"
           />
           <View
@@ -3683,7 +3910,7 @@ export function MapScreenVNext() {
             <TextInput
               value={quickDescValue}
               onChangeText={setQuickDescValue}
-              placeholder={`Agrega una descripción breve para ${quickDescSpot.title}`}
+              placeholder={`Escribe una nota personal breve sobre ${quickDescSpot.title}.`}
               placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
               style={[
                 styles.quickEditDescInput,
@@ -3889,6 +4116,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     zIndex: 8,
   },
+  countriesOverlayStack: {
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 8,
+  },
   createSpotOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
@@ -3948,6 +4180,10 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 2,
+  },
+  countriesSpotsCircle: {
+    width: 64,
+    height: 64,
   },
   quickEditDescOverlay: {
     ...StyleSheet.absoluteFillObject,

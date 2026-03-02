@@ -26,8 +26,8 @@ import { TypographyStyles } from './typography';
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
 const MIN_TOUCH_TARGET = 44;
-const COUNT_BADGE_BG_DARK = '#1b1b1f';
-const COUNT_BADGE_TEXT_LIGHT = '#f5f5f7';
+const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
+const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
 
 const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'all', label: 'Todos' },
@@ -98,15 +98,15 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
         return { bg: colors.text, text: colors.background, border: colors.text };
       case 'saved':
         return {
-          bg: colors.countriesCounterToVisitBackground,
-          text: colors.text,
-          border: colors.countriesCounterToVisitBorder,
+          bg: FILTER_SELECTED_TO_VISIT,
+          text: colors.pin.default,
+          border: FILTER_SELECTED_TO_VISIT,
         };
       case 'visited':
         return {
-          bg: colors.countriesCounterVisitedBackground,
-          text: colors.text,
-          border: colors.countriesCounterVisitedBorder,
+          bg: FILTER_SELECTED_VISITED,
+          text: colors.pin.default,
+          border: FILTER_SELECTED_VISITED,
         };
       default:
         return { bg: colors.borderSubtle, text: colors.text, border: colors.borderSubtle };
@@ -118,6 +118,10 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
     text: colors.text,
     border: colors.borderSubtle,
   });
+  const countBadgeColors = {
+    background: colors.surfaceOnMap,
+    text: colors.pin.default,
+  };
 
   return (
     <View style={styles.row}>
@@ -165,14 +169,14 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
                 style={[
                   styles.countBadge,
                   {
-                    backgroundColor: COUNT_BADGE_BG_DARK,
+                    backgroundColor: countBadgeColors.background,
                   },
                 ]}
               >
                 <Text
                   style={[
                     styles.countBadgeText,
-                    { color: COUNT_BADGE_TEXT_LIGHT },
+                    { color: countBadgeColors.text },
                   ]}
                   numberOfLines={1}
                 >
