@@ -3,83 +3,74 @@
 **Fecha:** 2026-03-01
 
 > Fuente operativa diaria del alcance activo.
-> Este archivo contiene solo loops activos y sus dependencias.
-> Cierres se registran en bitácora y trazabilidad final.
+> Este archivo contiene solo loops activos y dependencias inmediatas.
 
 ---
 
 ## Foco inmediato (P0 -> P2)
 
-1. **P0 único:** `OL-P3-002` — Países interactivo + mapa mundial shareable (cierre visual/QA final del share card + estabilidad).
-2. **P1:** preparar arranque del bloque contenido (`OL-CONTENT-001..006`) con contracts y research de riesgo API.
-3. **P2:** mantenimiento documental continuo (bitácora + contratos + guardrails).
+1. **P0 único:** `OL-P3-002.B` — cierre de QA visual/funcional de CountriesSheet + share card + overlays de mapa (bloque países).
+2. **P1:** estabilización de gamificación V1 (`flows`) y verificación cross-theme/cross-platform.
+3. **P2:** preparación de fase siguiente de contenido (`OL-CONTENT-001..006`) sin arrancar ejecución hasta cerrar P0.
 
 ---
 
 ## Loops activos
 
-- `OL-P3-002` activo en arranque operativo (scoping de fase A).
-- Bloque UX Explore/Search (ejecución incremental desde plan `PLAN_UX_MAPA_BUSCADOR_CONTADOR_DIARIO_2026-03-01.md`):
-  - estado de spot con toggles explícitos (`Por visitar` / `Visitado`),
-  - toasts contextuales por origen de filtro,
-  - hardening de quick actions de resultados (`Agregar imagen`, `Descripción corta`),
-  - visibilidad de Flowya spots sin filtro activo.
-  - cierre Bloque A para QA: overlay de spots en contador países + casuísticas de selección/filtro.
-- `OL-P1-003` y `OL-P2-006` están **cerrados** (solo histórico).
+- `OL-P3-002` activo (subfase `P3-002.B`):
+  - mapa mundial interactivo,
+  - CountriesSheet en medium/expanded,
+  - share card web con fallback de descarga,
+  - hardening de overlays/animaciones/control de colisiones.
+- Gamificación V1 activa en runtime:
+  - score por países + spots,
+  - niveles `X/12`,
+  - chip de flows en perfil,
+  - modal de niveles.
+- V2 de gamificación: **solo documentación** (telemetría + calibración), sin implementación.
 
 ---
 
-## Próxima cola (mañana, secuencial; no paralelizar)
+## Próxima cola (secuencial; no paralelizar)
 
-1. `OL-CONTENT-001` — Mi diario v1 (notas por spot: datos + entry en SpotSheet + persistencia segura).
-2. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot, orden, fullscreen y gestión mínima).
-3. `OL-CONTENT-003` — Tourism schema v1 (migración DB para señales turísticas y clasificación base).
-4. `OL-CONTENT-004` — Entity resolution v1 (matching Mapbox↔Wikidata con score y fallback seguro).
-5. `OL-CONTENT-005` — Enrichment pipeline v1 (Wikidata/Wikipedia/Wikimedia con trazabilidad y licencia).
-6. `OL-CONTENT-006` — Directions v1 (UX de ruta con costo controlado y sin lock-in prematuro).
+1. `OL-P3-002.B` — cierre QA final y freeze de UI del bloque países.
+2. `OL-CONTENT-001` — Mi diario v1 (notas por spot + persistencia).
+3. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
+4. `OL-CONTENT-003` — Tourism schema v1.
+5. `OL-CONTENT-004` — Entity resolution v1.
+6. `OL-CONTENT-005` — Enrichment pipeline v1.
+7. `OL-CONTENT-006` — Directions v1.
 
-Reglas de ejecución para esta cola:
+Reglas:
 - 1 loop activo por vez.
-- No abrir implementación de `004/005` sin cierre previo de research y contrato técnico.
-- No bloquear UX principal por enriquecimiento asíncrono externo.
+- No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
+- No bloquear UX principal por dependencias externas.
 
 ---
 
 ## Postergados estratégicos (no ejecutar ahora)
 
-- `OL-P0-002` — Create Spot canónico
-- `OL-P1-006` — Migración POI DB (maki/categorías)
-- `OL-P1-007` — Pipeline turístico sin Google
-- `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha
-
-Nota:
-- `OL-P1-006` y `OL-P1-007` quedan como macro-loops históricos; su ejecución práctica se descompone en `OL-CONTENT-003..005`.
+- `OL-P0-002` — Create Spot canónico.
+- `OL-P1-006` — Migración POI DB (maki/categorías).
+- `OL-P1-007` — Pipeline turístico sin Google.
+- `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha.
 
 ---
 
 ## Cierres recientes (trazabilidad)
 
-- `OL-WOW-F2-003` — bitácora `209`.
-- `OL-WOW-F2-005` — bitácora `210`.
-- `OL-WOW-F2-002` — bitácora `211`.
-- `OL-WOW-F2-004` — bitácora `212`.
-- Gate Fase 2 cerrado — bitácora `213`.
-- Saneamiento ops + arranque F3-001 — bitácora `214`.
-- `OL-WOW-F3-001` MS1 smoke OK + avance MS2 — bitácora `215`.
-- `OL-WOW-F3-001` cierre operativo (MS1+MS2, smoke final OK) — bitácora `216`.
-- `OL-WOW-F3-002` quality gate países implementado — bitácora `217`.
-- `OL-WOW-F3-002` cierre operativo (QA checklist OK) — bitácora `218`.
-- `OL-WOW-F3-003` implementación base observabilidad — bitácora `219`.
-- `OL-WOW-F3-003` cierre operativo (QA checklist OK) — bitácora `220`.
-- `OL-P2-006` cerrado completamente — bitácora `232`.
-- `OL-P1-003` cerrado + hardening post-cierre — bitácoras `233` y `234`.
-- Hardening teclado/foco en Explore (`Paso 0` owner único, guardrails Search, quick edit top-aligned) — bitácora `240`.
-- Consolidación DS Search/paises (colores canónicos + tipografía + layout card resultados) — bitácora `241`.
-- Canonización dropdown filtros + retardo hasta settle de cámara/flyTo — bitácora `242`.
-- Consolidación integral de ajustes del día (Search visited card + quick actions foto/descr + hardening UX) — bitácora `243`.
+- `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
+- `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
+- `OL-P3-002.B` rediseño share card + descarga web: bitácora `261`.
+- Gamificación niveles v2 (`X/12` + modal): bitácora `262`.
+- Gamificación v3 (estilo barra/modal + copys): bitácora `263`.
+- V2 documentada + ajuste inset horizontal mapa: bitácora `264`.
+- Consolidación flows V1 (sheet/modal/share/overlay): bitácora `265`.
+- Orden canónico KPI (`países -> spots -> flows`) en sheet/share + toast flows con guía mapa/buscador: bitácora `266`.
 
-## Avance del loop activo
+---
 
-- `OL-P3-002.A` MVP base implementado (contador interactivo + panel de países + búsqueda por país) — bitácora `236`.
-- `OL-P3-002.A` hardening idioma/locale + drill-down por país + toast sobre sheet — bitácora `237`.
-- `OL-P3-002.A` reconstrucción de sheet de países sobre contrato canónico reusable (sin lógica legacy inline) — bitácora `238`.
+## Avance de `OL-P3-002`
+
+- `P3-002.A` completado (MVP base + locale/drilldown + reconstrucción canónica): bitácoras `236`, `237`, `238`.
+- `P3-002.B` en cierre de QA y saneamiento final de experiencia.

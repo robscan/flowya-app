@@ -3,9 +3,24 @@ import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { ChevronRight, List } from "lucide-react-native";
+import {
+  TRAVELER_LEVELS,
+  computeTravelerPoints,
+  formatTravelerLevelPointsRange,
+  resolveTravelerLevelByPoints,
+} from "@/lib/traveler-levels";
+import { List, X } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from "react-native";
+import {
+  Dimensions,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+} from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -68,14 +83,7 @@ const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
 const MAP_PREVIEW_HEIGHT = 172;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
-const PROGRESS_BLOCK_HEIGHT = 44;
-
-function resolveWorldProgressCopy(worldPercentage: number): string {
-  if (worldPercentage < 10) return "Primeros pasos";
-  if (worldPercentage < 30) return "Buen ritmo";
-  if (worldPercentage < 60) return "Gran avance";
-  return "Nivel explorador";
-}
+const PROGRESS_BLOCK_HEIGHT = 62;
 
 export function CountriesSheet({
   visible,
@@ -128,6 +136,9 @@ export function CountriesSheet({
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [summaryHeight, setSummaryHeight] = useState(0);
+  const [showLevelsModal, setShowLevelsModal] = useState(false);
+  const [levelsViewportHeight, setLevelsViewportHeight] = useState(0);
+  const [levelsContentHeight, setLevelsContentHeight] = useState(0);
 
   const collapsedFromMeasure =
     dragAreaHeight > 0
@@ -143,7 +154,7 @@ export function CountriesSheet({
     collapsedAnchor +
     summaryHeight +
     MAP_PREVIEW_BLOCK_HEIGHT +
-    PROGRESS_BLOCK_HEIGHT +
+    (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0) +
     CONTAINER_PADDING_BOTTOM;
   const mediumVisible = Math.min(mediumAnchor, mediumBaselineHeight);
   const expandedVisibleLimit = Math.max(
@@ -313,7 +324,10 @@ export function CountriesSheet({
     0,
     visibleHeightForState - collapsedAnchor - summaryHeight - CONTAINER_PADDING_BOTTOM,
   );
-  const maxListHeight = Math.max(0, maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - PROGRESS_BLOCK_HEIGHT);
+  const maxListHeight = Math.max(
+    0,
+    maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
+  );
   const showExpandedList = state === "expanded";
   const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
@@ -331,7 +345,10 @@ export function CountriesSheet({
       ? colors.countriesMapCountryLineToVisit
       : colors.countriesMapCountryLineVisited;
   const normalizedWorldPercentage = Math.max(0, Math.min(100, Math.round(worldPercentage)));
-  const worldProgressCopy = resolveWorldProgressCopy(normalizedWorldPercentage);
+  const currentTravelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
+  const currentTravelerLevel = resolveTravelerLevelByPoints(currentTravelerPoints);
+  const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
+  const isLevelsScrollable = levelsViewportHeight > 0 && levelsContentHeight > levelsViewportHeight + 2;
 
   return (
     <Animated.View
@@ -370,10 +387,6 @@ export function CountriesSheet({
         style={styles.summaryWrap}
         onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
       >
-        <View style={styles.summaryChip}>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{`${normalizedWorldPercentage}%`}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>del mundo</Text>
-        </View>
         <Pressable
           onPress={onCountriesKpiPress}
           disabled={onCountriesKpiPress == null}
@@ -410,6 +423,14 @@ export function CountriesSheet({
             ) : null}
           </View>
         </Pressable>
+        <View style={styles.summaryChip}>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {pointsLabel}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
+            {filterMode === "visited" ? "flows" : "flows por obtener"}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.mapPreviewWrap}>
@@ -424,21 +445,35 @@ export function CountriesSheet({
           onCountryPress={onMapCountryPress}
         />
       </View>
-      <View style={styles.progressWrap}>
-        <View style={[styles.progressTrack, { backgroundColor: colors.borderSubtle }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${normalizedWorldPercentage}%`,
-                backgroundColor:
-                  filterMode === "saved" ? colors.stateToVisit : colors.stateSuccess,
-              },
-            ]}
-          />
+      {filterMode === "visited" ? (
+        <View style={styles.progressWrap}>
+          <View style={[styles.progressTrack, { backgroundColor: colors.borderSubtle }]}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${normalizedWorldPercentage}%`,
+                  backgroundColor: colors.stateSuccess,
+                },
+              ]}
+            />
+          </View>
+          <View style={styles.progressMetaRow}>
+            <Text style={[styles.progressCopy, { color: colors.textSecondary }]}>
+              Nivel: <Text style={[styles.progressCopyLevelName, { color: colors.text }]}>{currentTravelerLevel.label}</Text>
+            </Text>
+            <Pressable
+              onPress={() => setShowLevelsModal(true)}
+              style={({ pressed }) => [styles.progressLevelButton, pressed ? styles.progressLevelButtonPressed : null]}
+              accessibilityRole="button"
+              accessibilityLabel={`Ver niveles de exploración. Nivel actual ${currentTravelerLevel.level} de ${TRAVELER_LEVELS.length} con ${currentTravelerPoints} flows`}
+            >
+              <Text style={[styles.progressLevelButtonText, { color: colors.textSecondary }]}>{`${currentTravelerLevel.level}/${TRAVELER_LEVELS.length}`}</Text>
+              <List size={14} color={colors.primary} strokeWidth={2.2} />
+            </Pressable>
+          </View>
         </View>
-        <Text style={[styles.progressCopy, { color: colors.textSecondary }]}>{worldProgressCopy}</Text>
-      </View>
+      ) : null}
 
       {!showExpandedList ? null : items.length === 0 ? (
         <View style={styles.emptyWrap}>
@@ -458,15 +493,81 @@ export function CountriesSheet({
               accessibilityRole="button"
               accessibilityLabel={`Buscar en ${item.label}`}
             >
-              <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
-              <View style={styles.itemRight}>
-                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{item.count}</Text>
-                <ChevronRight size={16} color={colors.primary} strokeWidth={2.2} />
-              </View>
-            </Pressable>
+                <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
+                <View style={styles.itemRight}>
+                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{`${item.count} spots`}</Text>
+                <List size={14} color={colors.primary} strokeWidth={2.2} />
+                </View>
+              </Pressable>
           ))}
         </ScrollView>
       )}
+
+      <Modal
+        visible={showLevelsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowLevelsModal(false)}
+      >
+        <View style={styles.levelsModalBackdrop}>
+          <Pressable style={styles.levelsModalDismiss} onPress={() => setShowLevelsModal(false)} />
+          <View
+            style={[
+              styles.levelsModalCard,
+              {
+                backgroundColor: colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+              },
+            ]}
+          >
+            <View style={styles.levelsModalHeader}>
+              <Text style={[styles.levelsModalTitle, { color: colors.text }]}>Niveles de exploración</Text>
+              <Pressable
+                onPress={() => setShowLevelsModal(false)}
+                style={({ pressed }) => [
+                  styles.levelsModalCloseButton,
+                  { backgroundColor: colors.background },
+                  pressed ? styles.levelsModalCloseButtonPressed : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Cerrar niveles de exploración"
+              >
+                <X size={20} color={colors.text} strokeWidth={2.2} />
+              </Pressable>
+            </View>
+            <ScrollView
+              style={styles.levelsList}
+              contentContainerStyle={styles.levelsListContent}
+              onLayout={(event) => setLevelsViewportHeight(Math.round(event.nativeEvent.layout.height))}
+              onContentSizeChange={(_, h) => setLevelsContentHeight(Math.round(h))}
+              scrollEnabled={isLevelsScrollable}
+              showsVerticalScrollIndicator={isLevelsScrollable}
+            >
+              {TRAVELER_LEVELS.map((level) => {
+                const isCurrent = level.level === currentTravelerLevel.level;
+                return (
+                  <View
+                    key={level.level}
+                    style={[
+                      styles.levelRow,
+                      {
+                        backgroundColor: isCurrent ? colors.background : "transparent",
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.levelRowTitle, { color: isCurrent ? colors.text : colors.textSecondary }]}>
+                      {`Nivel ${level.level}: ${level.label}`}
+                    </Text>
+                    <Text style={[styles.levelRowRange, { color: colors.textSecondary }]}>
+                      {formatTravelerLevelPointsRange(level)}
+                    </Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Animated.View>
   );
 }
@@ -521,8 +622,35 @@ const styles = StyleSheet.create({
   progressCopy: {
     fontSize: 11,
     lineHeight: 14,
+    fontWeight: "400",
+  },
+  progressCopyLevelName: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: "700",
+  },
+  progressMetaRow: {
+    marginTop: 2,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: Spacing.sm,
+  },
+  progressLevelButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  progressLevelButtonPressed: {
+    opacity: 0.72,
+  },
+  progressLevelButtonText: {
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: "600",
-    textAlign: "center",
   },
   summaryChipPressed: {
     opacity: 0.82,
@@ -554,6 +682,80 @@ const styles = StyleSheet.create({
   progressWrap: {
     marginTop: Spacing.sm,
     marginBottom: Spacing.md,
+    paddingHorizontal: Spacing.base,
+  },
+  levelsModalBackdrop: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: Spacing.base,
+  },
+  levelsModalDismiss: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.48)",
+  },
+  levelsModalCard: {
+    width: "100%",
+    maxWidth: 460,
+    maxHeight: "72%",
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  levelsModalHeader: {
+    paddingHorizontal: Spacing.base,
+    paddingTop: Spacing.base,
+    paddingBottom: Spacing.base,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  levelsModalTitle: {
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: "800",
+    flex: 1,
+  },
+  levelsModalCloseButton: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  levelsModalCloseButtonPressed: {
+    opacity: 0.72,
+  },
+  levelsList: {
+    width: "100%",
+  },
+  levelsListContent: {
+    paddingHorizontal: 0,
+    paddingBottom: Spacing.base,
+    gap: 0,
+  },
+  levelRow: {
+    minHeight: 44,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.sm,
+  },
+  levelRowTitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "600",
+    flex: 1,
+  },
+  levelRowRange: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+    minWidth: 92,
+    textAlign: "right",
   },
   emptyText: {
     fontSize: 14,
@@ -585,17 +787,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemCount: {
-    fontSize: 13,
+    fontSize: 12,
     lineHeight: 18,
-    fontWeight: "700",
-    minWidth: 22,
+    fontWeight: "600",
+    minWidth: 64,
     textAlign: "right",
   },
   itemRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    minWidth: 42,
+    gap: 8,
+    minWidth: 88,
     justifyContent: "flex-end",
   },
 });
