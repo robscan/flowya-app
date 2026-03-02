@@ -16,6 +16,8 @@ import { Colors, Shadow, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 const SIZE_DEFAULT = 44;
+const SAVE_PIN_ACTIVE_TO_VISIT = Colors.dark.stateToVisit;
+const SAVE_PIN_ACTIVE_VISITED = Colors.dark.stateSuccess;
 
 /** Color del icono en estado pressed (contraste sobre primary). */
 const PRESSED_ICON_COLOR = '#ffffff';
@@ -68,9 +70,9 @@ export const IconButton = forwardRef<View, IconButtonProps>(function IconButton(
       ? colors.tint
       : variant === 'savePin'
         ? savePinState === 'toVisit'
-          ? colors.stateToVisit
+          ? SAVE_PIN_ACTIVE_TO_VISIT
           : savePinState === 'visited'
-            ? colors.stateSuccess
+            ? SAVE_PIN_ACTIVE_VISITED
             : colors.text
         : colors.backgroundElevated;
 

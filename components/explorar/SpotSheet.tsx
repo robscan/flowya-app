@@ -97,6 +97,9 @@ const ACTION_PILL_HEIGHT = 46;
 const ACTION_PILL_GAP = 12;
 const ACTION_ICON_SIZE = 20;
 const BODY_ROW_GAP = 14;
+const ACTIVE_STATE_TO_VISIT = Colors.dark.stateToVisit;
+const ACTIVE_STATE_VISITED = Colors.dark.stateSuccess;
+const ACTIVE_STATE_FOREGROUND = Colors.light.text;
 
 /** Anchors para drag/snap (MOTION_SHEET): collapsed px, medium/expanded % viewport. */
 const ANCHOR_COLLAPSED_PX = SHEET_PEEK_HEIGHT;
@@ -253,7 +256,7 @@ function MediumBodyContent({
               styles.actionPill,
               {
                 backgroundColor: isSaved
-                  ? colors.stateToVisit
+                  ? ACTIVE_STATE_TO_VISIT
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isSaved ? 0 : 1,
@@ -266,13 +269,13 @@ function MediumBodyContent({
           >
             <Pin
               size={ACTION_ICON_SIZE}
-              color={isSaved ? "#ffffff" : colors.text}
+              color={isSaved ? ACTIVE_STATE_FOREGROUND : colors.text}
               strokeWidth={2}
             />
             <Text
               style={[
                 styles.actionPillText,
-                { color: isSaved ? "#ffffff" : colors.text },
+                { color: isSaved ? ACTIVE_STATE_FOREGROUND : colors.text },
               ]}
               numberOfLines={1}
             >
@@ -284,7 +287,7 @@ function MediumBodyContent({
               styles.actionPill,
               {
                 backgroundColor: isVisited
-                  ? colors.stateSuccess
+                  ? ACTIVE_STATE_VISITED
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isVisited ? 0 : 1,
@@ -297,13 +300,13 @@ function MediumBodyContent({
           >
             <CheckCircle
               size={ACTION_ICON_SIZE}
-              color={isVisited ? "#ffffff" : colors.text}
+              color={isVisited ? ACTIVE_STATE_FOREGROUND : colors.text}
               strokeWidth={2}
             />
             <Text
               style={[
                 styles.actionPillText,
-                { color: isVisited ? "#ffffff" : colors.text },
+                { color: isVisited ? ACTIVE_STATE_FOREGROUND : colors.text },
               ]}
               numberOfLines={1}
             >
@@ -418,7 +421,7 @@ function DraftInlineEditor({
     try {
       const ImagePicker = await import("expo-image-picker");
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         quality: 1,
       });
@@ -512,7 +515,7 @@ function PoiBodyContent({
       <View style={[styles.poiLoadingWrap, { marginTop: Spacing.md }]}>
         <ActivityIndicator size="small" color={colors.primary} />
         <Text style={[styles.poiLoadingText, { color: colors.textSecondary }]}>
-          Creando spot…
+          Guardando spot…
         </Text>
       </View>
     );

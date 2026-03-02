@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { CheckCircle, ChevronRight, ImagePlus, Landmark, MapPin, Pencil, Pin } from 'lucide-react-native';
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
@@ -45,6 +45,7 @@ export function SearchListCard({
   isLandmark = false,
   quickActions = [],
 }: SearchListCardProps) {
+  const INLINE_ACTION_SUPPRESS_MS = 650;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [imageError, setImageError] = useState(false);
@@ -58,6 +59,7 @@ export function SearchListCard({
   const editDescriptionAction = quickActions.find((action) => action.kind === 'edit_description');
   const hasLeadingMediaBlock = hasImage || addImageAction != null;
   const showPinStatusChip = pinStatus === 'to_visit' || pinStatus === 'visited';
+  const suppressCardPressUntilRef = useRef(0);
   const statusColor =
     pinStatus === 'visited'
       ? colors.countriesCounterVisitedBackground
@@ -65,10 +67,33 @@ export function SearchListCard({
   const statusForeground = colors.text;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
+  const markInlineActionIntent = () => {
+    suppressCardPressUntilRef.current = Date.now() + INLINE_ACTION_SUPPRESS_MS;
+  };
+  const handleCardPress = () => {
+    if (Date.now() < suppressCardPressUntilRef.current) {
+      return;
+    }
+    onPress();
+  };
   const triggerInlineAction = (action: (() => void) | undefined) => {
     if (!action) return;
+    markInlineActionIntent();
     action();
   };
+  const webInlineActionStopProps =
+    Platform.OS === 'web'
+      ? ({
+          onClickCapture: (event: any) => {
+            event?.stopPropagation?.();
+            markInlineActionIntent();
+          },
+          onPointerDownCapture: (event: any) => {
+            event?.stopPropagation?.();
+            markInlineActionIntent();
+          },
+        } as any)
+      : null;
 
   return (
     <Pressable
@@ -88,7 +113,7 @@ export function SearchListCard({
         },
         focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
       ]}
-      onPress={onPress}
+      onPress={handleCardPress}
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
       onFocus={() => setFocused(true)}
@@ -116,7 +141,12 @@ export function SearchListCard({
               backgroundColor: colors.background,
             },
           ]}
+          {...webInlineActionStopProps}
           onStartShouldSetResponder={() => true}
+          onStartShouldSetResponderCapture={() => {
+            markInlineActionIntent();
+            return true;
+          }}
           onResponderRelease={(event) => {
             event.stopPropagation?.();
             triggerInlineAction(addImageAction.onPress);
@@ -142,7 +172,12 @@ export function SearchListCard({
         ) : editDescriptionAction ? (
           <View
             style={styles.descriptionCtaRow}
+            {...webInlineActionStopProps}
             onStartShouldSetResponder={() => true}
+            onStartShouldSetResponderCapture={() => {
+              markInlineActionIntent();
+              return true;
+            }}
             onResponderRelease={(event) => {
               event.stopPropagation?.();
               triggerInlineAction(editDescriptionAction.onPress);
@@ -151,7 +186,7 @@ export function SearchListCard({
           >
             <Pencil size={12} color={colors.primary} strokeWidth={2} />
             <Text style={[styles.descriptionCtaText, { color: colors.primary }]}>
-              Agregar una descripción corta.
+              Escribe una nota personal breve.
             </Text>
           </View>
         ) : null}
@@ -248,12 +283,13 @@ const styles = StyleSheet.create({
     width: 88,
     alignSelf: 'stretch',
     overflow: 'hidden',
+    borderTopLeftRadius: Radius.lg,
+    borderBottomLeftRadius: Radius.lg,
   },
   imagePlaceholderWrap: {
     width: 88,
     alignSelf: 'stretch',
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    borderRightWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,

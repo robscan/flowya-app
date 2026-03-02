@@ -492,6 +492,7 @@ export function MapScreenVNext() {
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<ExploreSheetState>("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
+  const preserveOutOfFilterSelectionSpotIdRef = useRef<string | null>(null);
   const lastStatusSpotIdRef = useRef<{
     saved: string | null;
     visited: string | null;
@@ -539,6 +540,7 @@ export function MapScreenVNext() {
   const [quickDescSpot, setQuickDescSpot] = useState<Spot | null>(null);
   const [quickDescValue, setQuickDescValue] = useState("");
   const [quickDescSaving, setQuickDescSaving] = useState(false);
+  const quickDescBackdropGuardUntilRef = useRef(0);
 
   const clearFilterWaitFallbackTimer = useCallback(() => {
     if (filterWaitFallbackTimerRef.current) {
@@ -1061,6 +1063,10 @@ export function MapScreenVNext() {
         selectedSpot && filteredSpots.some((s) => s.id === selectedSpot.id),
       ),
     });
+    const isPreservedSelection =
+      selectedSpot != null &&
+      preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id;
+    if (isPreservedSelection) return;
     if (shouldClearSelection) {
       setSelectedSpot(null);
       setSheetState("peek");
@@ -1084,10 +1090,24 @@ export function MapScreenVNext() {
     if (pinFilter === "all") return;
     const stillInActiveFilter = filteredSpots.some((spot) => spot.id === selectedSpot.id);
     if (stillInActiveFilter) return;
+    if (preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id) return;
     setSelectedSpot(null);
     setSheetState("peek");
     setSheetHeight(SHEET_PEEK_HEIGHT);
   }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
+
+  useEffect(() => {
+    if (!selectedSpot) {
+      preserveOutOfFilterSelectionSpotIdRef.current = null;
+      return;
+    }
+    if (
+      preserveOutOfFilterSelectionSpotIdRef.current != null &&
+      preserveOutOfFilterSelectionSpotIdRef.current !== selectedSpot.id
+    ) {
+      preserveOutOfFilterSelectionSpotIdRef.current = null;
+    }
+  }, [selectedSpot]);
 
   const spotsProvider = useMemo(
     () =>
@@ -2207,19 +2227,36 @@ export function MapScreenVNext() {
       try {
         const ImagePicker = await import("expo-image-picker");
         const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ["images"],
           allowsEditing: true,
           aspect: [1, 1],
           quality: 0.85,
         });
-        if (result.canceled || !result.assets?.[0]?.uri) return;
-        const res = await fetch(result.assets[0].uri);
-        if (!res.ok) {
-          if (!suppressToastRef.current) toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+        if (result.canceled || !result.assets?.[0]) return;
+        const asset = result.assets[0] as (typeof result.assets)[number] & { file?: Blob };
+        let sourceBlob: Blob | null = null;
+
+        if (asset.file instanceof Blob) {
+          sourceBlob = asset.file;
+        } else if (asset.uri) {
+          const res = await fetch(asset.uri);
+          if (!res.ok) {
+            if (!suppressToastRef.current) {
+              toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+            }
+            return;
+          }
+          sourceBlob = await res.blob();
+        }
+
+        if (!sourceBlob) {
+          if (!suppressToastRef.current) {
+            toast.show("No se detectó una imagen válida para subir.", { type: "error" });
+          }
           return;
         }
-        const blob = await res.blob();
-        const optimized = await optimizeSpotImage(blob);
+
+        const optimized = await optimizeSpotImage(sourceBlob);
         const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
         if (!toUpload) {
           if (!suppressToastRef.current) toast.show("No se pudo procesar la imagen.", { type: "error" });
@@ -2248,6 +2285,7 @@ export function MapScreenVNext() {
   );
 
   const handleQuickEditDescriptionOpen = useCallback((spot: Spot) => {
+    quickDescBackdropGuardUntilRef.current = Date.now() + 350;
     setQuickDescSpot(spot);
     setQuickDescValue(spot.description_short?.trim() ?? "");
   }, []);
@@ -2257,6 +2295,11 @@ export function MapScreenVNext() {
     setQuickDescSpot(null);
     setQuickDescValue("");
   }, [quickDescSaving]);
+
+  const handleQuickEditDescriptionBackdropPress = useCallback(() => {
+    if (Date.now() < quickDescBackdropGuardUntilRef.current) return;
+    handleQuickEditDescriptionClose();
+  }, [handleQuickEditDescriptionClose]);
 
   const handleQuickEditDescriptionSave = useCallback(async () => {
     if (!quickDescSpot) return;
@@ -3026,6 +3069,13 @@ export function MapScreenVNext() {
       }
       const nextState = await setPinState(spot.id, normalizedState);
       if (!nextState) return;
+      const isExplicitClearAction =
+        targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
+      if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
+        preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
+      } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
+        preserveOutOfFilterSelectionSpotIdRef.current = null;
+      }
 
       const hasDestination = nextState.saved || nextState.visited;
       const destinationFilter = hasDestination
@@ -3788,10 +3838,10 @@ export function MapScreenVNext() {
                     ? [
                         {
                           id: `edit-desc-${spot.id}`,
-                          label: "Agregar una descripción corta",
+                          label: "Escribir nota breve",
                           kind: "edit_description" as const,
                           onPress: () => handleQuickEditDescriptionOpen(spot),
-                          accessibilityLabel: `Agregar una descripción corta a ${spot.title}`,
+                          accessibilityLabel: `Escribir una nota breve sobre ${spot.title}`,
                         },
                       ]
                     : []),
@@ -3842,7 +3892,7 @@ export function MapScreenVNext() {
         >
           <Pressable
             style={styles.quickEditDescBackdrop}
-            onPress={handleQuickEditDescriptionClose}
+            onPress={handleQuickEditDescriptionBackdropPress}
             accessibilityLabel="Cerrar editor de descripción"
           />
           <View
@@ -3860,7 +3910,7 @@ export function MapScreenVNext() {
             <TextInput
               value={quickDescValue}
               onChangeText={setQuickDescValue}
-              placeholder={`Agrega una descripción breve para ${quickDescSpot.title}`}
+              placeholder={`Escribe una nota personal breve sobre ${quickDescSpot.title}.`}
               placeholderTextColor={Colors[colorScheme ?? "light"].textSecondary}
               style={[
                 styles.quickEditDescInput,
