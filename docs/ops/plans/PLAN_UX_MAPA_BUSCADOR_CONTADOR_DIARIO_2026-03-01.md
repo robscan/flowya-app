@@ -1,5 +1,42 @@
 # Plan Integral: UX de Filtros + Buscador + Contador Países + Base para Diario Privado
 
+## Estado de cobertura (cruce al 2026-03-01)
+
+### Bloque A (UX crítica, sin migración DB)
+
+- Toasts por contexto de filtro: **Cubierto**.
+- CTA de estado en sheet con toggles explícitos y remover estado: **Cubierto**.
+- Casuísticas de navegación/filtro: **Cubierto** (con ajustes iterativos).
+- Fix quick action `Agregar imagen` desde visitados: **Cubierto**.
+- Quick action descripción corta + estabilidad de foco/teclado: **Cubierto**.
+- Ajustes visuales/posición de contadores en mapa y buscador: **Cubierto**.
+- Bloqueo de zoom confuso web en mini-mapa: **Cubierto**.
+
+### Bloque B (Mapa y pines)
+
+- Pin Flowya inactivo sin filtro activo: **Cubierto**.
+- Tap en mini-mapa con encuadre por zona (no hit estricto de país): **Cubierto**.
+- KPI países en buscador y enlace a lista: **Cubierto**.
+- Contador de spots sobre mapa + desduplicación con dropdown activo: **Cubierto**.
+
+### Bloque C (privacidad Mi Diario)
+
+- `description_short` y `why_it_matters` privados por usuario: **Pendiente**.
+- Contrato de campos enriquecidos no editables: **Pendiente**.
+- DTOs separados `SpotPublicData` / `SpotPrivateJournalData`: **Pendiente**.
+- RLS/policies + pruebas A/B de privacidad: **Pendiente**.
+
+### Bloque D (perfil y OAuth social)
+
+- `username`, foto de perfil, OAuth social: **Pendiente** (fase separada).
+
+### Pendientes operativos para declarar cierre de este plan
+
+1. Cerrar QA final y freeze de `OL-P3-002.B`.
+2. Ejecutar `OL-CONTENT-001` (Mi diario v1) para cubrir Bloque C inicial.
+3. Abrir contrato específico de diario privado (si se mantiene como contrato nuevo).
+4. Mantener V2 de gamificación solo documentada (sin implementación) hasta tener telemetría.
+
 ## Resumen
 - Objetivo: cerrar fricciones críticas de uso en mapa/buscador/filtros sin romper contratos actuales, y dejar lista la base para “Mi diario” privado.
 - Decisiones cerradas:

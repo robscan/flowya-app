@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-01
+**Fecha de actualización:** 2026-03-02
 
 ---
 
@@ -37,6 +37,8 @@
 - Chip de flows sobre perfil con mensaje de incentivo por tap.
 - En `por visitar`: KPI muestra `flows por obtener` y no se dibuja barra de nivel.
 - Orden canónico KPI sincronizado en sheet/share: `países -> spots -> flows`.
+- Mapa `Todos`: default vinculados a POI ocultos; default Flowya sin link visibles.
+- Estilo pin default Flowya sin link refinado (`+` centrado + ajuste final de label).
 
 ### Documentación de gamificación
 
@@ -74,6 +76,11 @@
 - `docs/bitacora/2026/03/264-gamification-v2-docs-analytics-y-ajuste-inset-horizontal-mapa.md`
 - `docs/bitacora/2026/03/265-gamification-flows-v1-consolidacion-sheet-modal-share-y-overlay-mapa.md`
 - `docs/bitacora/2026/03/266-gamification-kpi-order-countriessheet-share-y-toast-flows.md`
+- `docs/bitacora/2026/03/267-qa-fix-toast-flows-safari-imagepicker-target-nota-y-share-map-border.md`
+- `docs/bitacora/2026/03/268-map-default-pins-hide-linked-poi-and-blue-unlinked-flowya.md`
+- `docs/bitacora/2026/03/269-fix-keyboard-owner-paso-0-create-spot-sin-colision-quick-edit.md`
+- `docs/bitacora/2026/03/270-map-pin-default-flowya-unlinked-style-plus-bluegray.md`
+- `docs/bitacora/2026/03/271-map-pin-default-label-swap-fill-halo-final.md`
 
 ---
 

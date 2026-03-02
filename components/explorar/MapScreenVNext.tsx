@@ -325,6 +325,12 @@ function isLinkedUnsavedSpot(spot: Spot): boolean {
   );
 }
 
+function isDefaultLinkedPoiSpot(spot: Spot): boolean {
+  const hasLinkedPlace =
+    typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
+  return hasLinkedPlace && !spot.saved && !spot.visited;
+}
+
 function hasLinkedPlaceId(spot: Spot | null): boolean {
   if (!spot) return false;
   return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
@@ -543,6 +549,7 @@ export function MapScreenVNext() {
   const [quickDescValue, setQuickDescValue] = useState("");
   const [quickDescSaving, setQuickDescSaving] = useState(false);
   const quickDescBackdropGuardUntilRef = useRef(0);
+  const wasCreateSpotOverlayOpenRef = useRef(false);
 
   const clearFilterWaitFallbackTimer = useCallback(() => {
     if (filterWaitFallbackTimerRef.current) {
@@ -734,10 +741,15 @@ export function MapScreenVNext() {
     const visibilityFiltered = canHideLinkedUnsaved
       ? filteredSpots.filter((s) => !isLinkedUnsavedSpot(s))
       : filteredSpots;
-    const base =
-      visibilityFiltered.length > MAP_PIN_CAP
-        ? visibilityFiltered.slice(0, MAP_PIN_CAP)
+    // Filtro "Todos": no mostrar defaults derivados de POI (vinculados); solo Flowya default sin link.
+    const allFilterWithoutLinkedDefaults =
+      pinFilter === "all"
+        ? visibilityFiltered.filter((s) => !isDefaultLinkedPoiSpot(s))
         : visibilityFiltered;
+    const base =
+      allFilterWithoutLinkedDefaults.length > MAP_PIN_CAP
+        ? allFilterWithoutLinkedDefaults.slice(0, MAP_PIN_CAP)
+        : allFilterWithoutLinkedDefaults;
     if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
     /**
      * POI match: incluir selectedSpot si está fuera de filtro.
@@ -747,6 +759,7 @@ export function MapScreenVNext() {
       pinFilter === "all" &&
       selectedSpot &&
       !(canHideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
+      !isDefaultLinkedPoiSpot(selectedSpot) &&
       !base.some((s) => s.id === selectedSpot.id)
     ) {
       return [...base, selectedSpot];
@@ -1173,12 +1186,16 @@ export function MapScreenVNext() {
    * Si Paso 0 se abre, Search se cierra y se libera foco activo para evitar teclados empalmados.
    */
   useEffect(() => {
-    if (!createSpotNameOverlayOpen) return;
+    const isOpening = createSpotNameOverlayOpen && !wasCreateSpotOverlayOpenRef.current;
+    wasCreateSpotOverlayOpenRef.current = createSpotNameOverlayOpen;
+    if (!isOpening) return;
     if (searchV2.isOpen) searchV2.setOpen(false);
     if (quickDescSpot) {
       setQuickDescSpot(null);
       setQuickDescValue("");
     }
+    // Keyboard ownership transfer: blur solo una vez al abrir Paso 0.
+    // Evita cerrar teclado durante escritura por re-renders del input.
     blurActiveElement();
   }, [createSpotNameOverlayOpen, quickDescSpot, searchV2]);
 
@@ -2232,32 +2249,65 @@ export function MapScreenVNext() {
     [],
   );
 
+  const pickImageBlobFromWeb = useCallback(async (): Promise<Blob | null> => {
+    if (Platform.OS !== "web" || typeof document === "undefined") return null;
+    return await new Promise<Blob | null>((resolve) => {
+      const input = document.createElement("input");
+      input.type = "file";
+      input.accept = "image/*";
+      input.style.position = "fixed";
+      input.style.left = "-9999px";
+      let settled = false;
+      const finalize = (blob: Blob | null) => {
+        if (settled) return;
+        settled = true;
+        input.onchange = null;
+        input.oncancel = null;
+        input.remove();
+        resolve(blob);
+      };
+      input.onchange = () => {
+        const file = input.files?.[0];
+        finalize(file instanceof Blob ? file : null);
+      };
+      input.oncancel = () => finalize(null);
+      document.body.appendChild(input);
+      input.click();
+      window.setTimeout(() => finalize(null), 30000);
+    });
+  }, []);
+
   const handleQuickAddImageFromSearch = useCallback(
     async (spot: Spot) => {
-      if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
+      if (!isAuthUser && !(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
       try {
-        const ImagePicker = await import("expo-image-picker");
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ["images"],
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.85,
-        });
-        if (result.canceled || !result.assets?.[0]) return;
-        const asset = result.assets[0] as (typeof result.assets)[number] & { file?: Blob };
         let sourceBlob: Blob | null = null;
-
-        if (asset.file instanceof Blob) {
-          sourceBlob = asset.file;
-        } else if (asset.uri) {
-          const res = await fetch(asset.uri);
-          if (!res.ok) {
-            if (!suppressToastRef.current) {
-              toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+        if (Platform.OS === "web") {
+          sourceBlob = await pickImageBlobFromWeb();
+          if (!sourceBlob) return;
+        } else {
+          const ImagePicker = await import("expo-image-picker");
+          const mediaTypes = (ImagePicker as unknown as { MediaType?: { Images?: unknown } }).MediaType?.Images ?? ["images"];
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.85,
+          });
+          if (result.canceled || !result.assets?.[0]) return;
+          const asset = result.assets[0] as (typeof result.assets)[number] & { file?: Blob };
+          if (asset.file instanceof Blob) {
+            sourceBlob = asset.file;
+          } else if (asset.uri) {
+            const res = await fetch(asset.uri);
+            if (!res.ok) {
+              if (!suppressToastRef.current) {
+                toast.show("No se pudo leer la imagen seleccionada.", { type: "error" });
+              }
+              return;
             }
-            return;
+            sourceBlob = await res.blob();
           }
-          sourceBlob = await res.blob();
         }
 
         if (!sourceBlob) {
@@ -2292,14 +2342,15 @@ export function MapScreenVNext() {
         if (!suppressToastRef.current) toast.show("No se pudo completar la carga de imagen.", { type: "error" });
       }
     },
-    [patchSpotSearchMetadata, requireAuthOrModal, toast],
+    [isAuthUser, patchSpotSearchMetadata, pickImageBlobFromWeb, requireAuthOrModal, toast],
   );
 
   const handleQuickEditDescriptionOpen = useCallback((spot: Spot) => {
+    if (createSpotNameOverlayOpen) return;
     quickDescBackdropGuardUntilRef.current = Date.now() + 350;
     setQuickDescSpot(spot);
     setQuickDescValue(spot.description_short?.trim() ?? "");
-  }, []);
+  }, [createSpotNameOverlayOpen]);
 
   const handleQuickEditDescriptionClose = useCallback(() => {
     if (quickDescSaving) return;
@@ -3013,7 +3064,7 @@ export function MapScreenVNext() {
   }, [requireAuthOrModal, showLogoutOption, toast]);
   const handleTravelerPointsHintPress = useCallback(() => {
     if (suppressToastRef.current) return;
-    toast.show("Suma flows marcando spots como visitados desde el mapa o buscador.", {
+    toast.show("Marca tus lugares visitados.", {
       type: "default",
       replaceVisible: true,
     });
