@@ -310,6 +310,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
     marginTop: 2,
+    minHeight: 34,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginLeft: -6,
+    borderRadius: 8,
   },
   descriptionCtaText: {
     fontSize: 12,

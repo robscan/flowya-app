@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-01
+**Fecha:** 2026-03-02
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -67,6 +67,11 @@ Reglas:
 - V2 documentada + ajuste inset horizontal mapa: bitácora `264`.
 - Consolidación flows V1 (sheet/modal/share/overlay): bitácora `265`.
 - Orden canónico KPI (`países -> spots -> flows`) en sheet/share + toast flows con guía mapa/buscador: bitácora `266`.
+- QA fixes: toast flows simplificado + selector imagen Safari web + target nota breve ampliado + eliminación de borde mapa en share: bitácora `267`.
+- Regla mapa en `Todos`: ocultar default vinculados a POI y dejar default Flowya no vinculados en azul: bitácora `268`.
+- Fix de arquitectura teclado/foco en Paso 0 (owner único, blur solo en apertura): bitácora `269`.
+- Ajuste visual pin default Flowya sin link (`+` y paleta base): bitácora `270`.
+- Ajuste final de label default (swap relleno/sombra): bitácora `271`.
 
 ---
 
@@ -74,3 +79,18 @@ Reglas:
 
 - `P3-002.A` completado (MVP base + locale/drilldown + reconstrucción canónica): bitácoras `236`, `237`, `238`.
 - `P3-002.B` en cierre de QA y saneamiento final de experiencia.
+
+---
+
+## QA de cierre (hoy)
+
+- Checklist operativo de cierre: `docs/ops/plans/CHECKLIST_QA_P3_002_B_COUNTRIES_GAMIFICATION_2026-03-01.md`
+- Regla de cierre:
+  - Si el checklist pasa completo, se congela `P3-002.B` y se abre `OL-CONTENT-001`.
+  - Si hay hallazgos, se corrigen en bloque corto y se repite QA antes de cerrar loop.
+
+## Arranque mañana (ready state)
+
+1. Ejecutar smoke final de checklist (`light/dark`, long-press create, search create, share).
+2. Si todo pasa, cerrar `OL-P3-002.B` en bitácora de cierre.
+3. Abrir rama de `OL-CONTENT-001` (Mi diario v1) y mantener 1 loop activo.

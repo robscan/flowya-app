@@ -179,15 +179,6 @@ function drawCard(
     ctx.fillRect(mapLeft, mapTop, mapWidth, mapHeight);
   }
   ctx.restore();
-  // Soft edge pass to avoid hard clipping feel on map bounds.
-  ctx.save();
-  drawRoundedClip(ctx, mapLeft, mapTop, mapWidth, mapHeight, mapRadius);
-  ctx.shadowColor = "rgba(255,255,255,0.08)";
-  ctx.shadowBlur = 16;
-  ctx.strokeStyle = "rgba(255,255,255,0.08)";
-  ctx.lineWidth = 1.25;
-  ctx.stroke();
-  ctx.restore();
 
   if (!isToVisit) {
     ctx.fillStyle = "rgba(255,255,255,0.16)";

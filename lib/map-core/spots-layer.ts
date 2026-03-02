@@ -23,6 +23,7 @@ export type SpotForLayer = {
 
 const SOURCE_ID = 'flowya-spots';
 const CIRCLES_LAYER_ID = 'flowya-spots-circles';
+const DEFAULT_PLUS_LAYER_ID = 'flowya-spots-default-plus';
 const MAKIS_LAYER_ID = 'flowya-spots-makis';
 const LABELS_LAYER_ID = 'flowya-spots-labels';
 const LABEL_FONT_STACK_STRONG = ['Open Sans Bold', 'Arial Unicode MS Bold'];
@@ -113,7 +114,7 @@ const circleColorExpression: [string, ...unknown[]] = [
   '#e6862b',
   'visited',
   '#34c759',
-  '#1d1d1f', // default
+  '#9CB2C8', // default (Flowya own spot without filters)
 ];
 
 /** Colores para dark mode. */
@@ -124,8 +125,36 @@ const circleColorExpressionDark: [string, ...unknown[]] = [
   '#ff9f0a',
   'visited',
   '#30d158',
-  '#f5f5f7', // default
+  '#9CB2C8', // default (Flowya own spot without filters)
 ];
+
+const circleStrokeColorExpression: [string, ...unknown[]] = [
+  'match',
+  ['get', 'pinStatus'],
+  'default',
+  '#1A2330',
+  'rgba(255,255,255,0.95)',
+];
+
+const circleStrokeColorExpressionDark: [string, ...unknown[]] = [
+  'match',
+  ['get', 'pinStatus'],
+  'default',
+  '#0E1520',
+  'rgba(0,0,0,0.5)',
+];
+
+function buildLabelTextColorExpression(defaultColor: string, fallbackColor: string): [string, ...unknown[]] {
+  return ['match', ['get', 'pinStatus'], 'default', defaultColor, fallbackColor];
+}
+
+function buildLabelHaloColorExpression(defaultHaloColor: string, fallbackHaloColor: string): [string, ...unknown[]] {
+  return ['match', ['get', 'pinStatus'], 'default', defaultHaloColor, fallbackHaloColor];
+}
+
+function buildLabelHaloWidthExpression(defaultHaloWidth: number, fallbackHaloWidth: number): [string, ...unknown[]] {
+  return ['match', ['get', 'pinStatus'], 'default', defaultHaloWidth, fallbackHaloWidth];
+}
 
 type GeoJSONSource = import('mapbox-gl').GeoJSONSource;
 
@@ -170,7 +199,7 @@ export function setupSpotsLayer(
               2.5,
               1.5,
             ],
-            'circle-stroke-color': isDark ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.95)',
+            'circle-stroke-color': isDark ? circleStrokeColorExpressionDark : circleStrokeColorExpression,
             'circle-emissive-strength': 1,
           },
         },
@@ -188,6 +217,36 @@ export function setupSpotsLayer(
       map.on('mouseleave', CIRCLES_LAYER_ID, () => {
         map.getCanvas().style.cursor = '';
       });
+    }
+
+    if (!map.getLayer(DEFAULT_PLUS_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: DEFAULT_PLUS_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          layout: {
+            'text-field': '+',
+            'text-size': [
+              'case',
+              ['get', 'selected'],
+              16,
+              14,
+            ],
+            'text-font': ['literal', LABEL_FONT_STACK_STRONG],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+            'text-anchor': 'center',
+          },
+          paint: {
+            'text-color': '#131A24',
+            'text-halo-color': 'rgba(255,255,255,0.25)',
+            'text-halo-width': 0.8,
+          },
+          filter: ['==', ['get', 'pinStatus'], 'default'],
+        },
+        beforeId
+      );
     }
 
     if (showMakiIcon) {
@@ -239,14 +298,9 @@ export function setupSpotsLayer(
       'literal',
       LABEL_FONT_STACK_STRONG,
     ];
-    const textHaloColorExpression: [string, ...unknown[]] = [
-      'literal',
-      strongLabelHaloColor,
-    ];
-    const textHaloWidthExpression: [string, ...unknown[]] = [
-      'literal',
-      1.15,
-    ];
+    const textColorExpression = buildLabelTextColorExpression('#A6BFD8', labelStyle.textColor);
+    const textHaloColorExpression = buildLabelHaloColorExpression('rgba(15, 26, 41, 0.88)', strongLabelHaloColor);
+    const textHaloWidthExpression = buildLabelHaloWidthExpression(0.62, 1.15);
     if (!map.getLayer(LABELS_LAYER_ID)) {
       map.addLayer(
         {
@@ -264,7 +318,7 @@ export function setupSpotsLayer(
             visibility: showLabels ? 'visible' : 'none',
           },
           paint: {
-            'text-color': labelStyle.textColor,
+            'text-color': textColorExpression,
             'text-halo-color': textHaloColorExpression,
             'text-halo-width': textHaloWidthExpression,
           },
@@ -275,6 +329,7 @@ export function setupSpotsLayer(
       map.setLayoutProperty(LABELS_LAYER_ID, 'text-size', textSizeExpression);
       map.setLayoutProperty(LABELS_LAYER_ID, 'text-offset', textOffsetExpression);
       map.setLayoutProperty(LABELS_LAYER_ID, 'text-font', textFontExpression);
+      map.setPaintProperty(LABELS_LAYER_ID, 'text-color', textColorExpression);
       map.setPaintProperty(LABELS_LAYER_ID, 'text-halo-color', textHaloColorExpression);
       map.setPaintProperty(LABELS_LAYER_ID, 'text-halo-width', textHaloWidthExpression);
       map.setLayoutProperty(LABELS_LAYER_ID, 'visibility', showLabels ? 'visible' : 'none');
