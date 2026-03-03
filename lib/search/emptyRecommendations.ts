@@ -3,7 +3,6 @@ import type { Map as MapboxMap } from "mapbox-gl";
 import { distanceKm } from "@/lib/geo-utils";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
 import {
-  classifyTappedFeatureKind,
   dedupeExternalPlacesAgainstSpots,
   getTappedFeatureId,
   getTappedFeatureMaki,
@@ -27,6 +26,38 @@ type GeoFeature = {
 
 export const EMPTY_LANDMARK_MIN_RESULTS = 4;
 const EMPTY_LANDMARK_MAX_VISIBLE = 10;
+const LANDMARK_HINTS = [
+  "landmark",
+  "monument",
+  "museum",
+  "religious",
+  "historic",
+  "cathedral",
+  "church",
+  "basilica",
+  "castle",
+  "theatre",
+  "theater",
+  "gallery",
+  "memorial",
+  "archaeological",
+  "attraction",
+  "tourism",
+  "university",
+  "park",
+];
+const EXCLUDED_HINTS = [
+  "road",
+  "street",
+  "highway",
+  "motorway",
+  "bus",
+  "train",
+  "station",
+  "airport",
+  "terminal",
+  "taxi",
+];
 
 function pickName(props?: Record<string, unknown>): string | null {
   const raw =
@@ -68,6 +99,25 @@ function pickCategories(props?: Record<string, unknown>): string[] | undefined {
   return undefined;
 }
 
+function buildBag(feature: GeoFeature, props?: Record<string, unknown>): string {
+  const layerId = feature.layer?.id ?? "";
+  const cls = typeof props?.class === "string" ? props.class : "";
+  const category = typeof props?.category === "string" ? props.category : "";
+  const featureType = pickFeatureType(props) ?? "";
+  const maki = getTappedFeatureMaki(props) ?? "";
+  const categories = (pickCategories(props) ?? []).join(" ");
+  return `${layerId} ${cls} ${category} ${featureType} ${maki} ${categories}`
+    .toLowerCase()
+    .trim();
+}
+
+function isInterestingVisibleFeature(feature: GeoFeature, props?: Record<string, unknown>): boolean {
+  const bag = buildBag(feature, props);
+  if (!bag) return false;
+  if (EXCLUDED_HINTS.some((hint) => bag.includes(hint))) return false;
+  return LANDMARK_HINTS.some((hint) => bag.includes(hint));
+}
+
 export function collectVisibleLandmarks(map: MapboxMap, maxItems = EMPTY_LANDMARK_MAX_VISIBLE): PlaceResult[] {
   let features: GeoFeature[];
   try {
@@ -93,11 +143,9 @@ export function collectVisibleLandmarks(map: MapboxMap, maxItems = EMPTY_LANDMAR
 
   for (const feature of features) {
     const props = feature.properties ?? undefined;
-    const kind = classifyTappedFeatureKind(feature.layer?.id, props);
-    if (kind !== "landmark") continue;
-
     const name = pickName(props);
     if (!name) continue;
+    if (!isInterestingVisibleFeature(feature, props)) continue;
 
     const geometry = feature.geometry;
     if (geometry?.type !== "Point" || !Array.isArray(geometry.coordinates)) continue;
