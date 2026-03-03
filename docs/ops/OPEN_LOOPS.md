@@ -9,19 +9,18 @@
 
 ## Foco inmediato (P0 -> P2)
 
-1. **P0 único:** `OL-P3-002.B` — cierre de QA visual/funcional de CountriesSheet + share card + overlays de mapa (bloque países).
-2. **P1:** `OL-CONTENT-002` (Galería v1) en preparación documental/técnica sin ejecución paralela.
-3. **P2:** preparación secuencial de `OL-CONTENT-003..006`.
+1. **P0 único:** `OL-CONTENT-001` — Mi diario v1 (privado) con secuencia interna `001.A -> 001.B -> 001.C`.
+2. **P1:** `OL-EXPLORE-SEARCH-BATCH-001` — selección múltiple en búsqueda filtrada para marcar varios spots (`Por visitar` / `Visitados`).
+3. **P2:** `OL-EXPLORE-TAGS-001` — tags personales en listados (chips en card + menú de chips + creador `#`) sin categorías Mapbox.
 
 ---
 
 ## Loops activos
 
 - `OL-CONTENT-001` activo:
-  - Mi diario v1 por spot (nota breve),
-  - persistencia y edición estable,
-  - integración controlada con SpotSheet (sin romper UX existente),
-  - alcance secuencial sin abrir contenido en paralelo.
+  - `001.A` foundation de persistencia privada por usuario,
+  - `001.B` edición rápida accesible en SpotSheet/Search (imagen + nota breve + "por qué importa"),
+  - `001.C` QA de estabilidad UX (teclado/overlays/sesión).
 - Gamificación V1 activa en runtime:
   - score por países + spots,
   - niveles `X/12`,
@@ -33,15 +32,21 @@
 
 ## Próxima cola (secuencial; no paralelizar)
 
-1. `OL-CONTENT-001` — Mi diario v1 (notas por spot + persistencia).
-2. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
-3. `OL-CONTENT-003` — Tourism schema v1.
-4. `OL-CONTENT-004` — Entity resolution v1.
-5. `OL-CONTENT-005` — Enrichment pipeline v1.
-6. `OL-CONTENT-006` — Directions v1.
+1. `OL-CONTENT-001.A` — foundation de identidad + ownership (anon auth + tablas user-owned) para diario privado sin tocar copy global de `spots`.
+2. `OL-CONTENT-001.B` — quick edit en SpotSheet/Search para `imagen pública + nota breve privada + por qué importa (diario privado)`.
+3. `OL-CONTENT-001.C` — cierre QA/validación de experiencia y persistencia.
+4. `OL-EXPLORE-SEARCH-BATCH-001` — batch status en búsqueda filtrada (`saved/visited`) con guardrails de sticky context + no-regresión de selección unitaria.
+5. `OL-EXPLORE-TAGS-001` — tags personales por usuario para filtrar listados (sin categorías Mapbox en esta fase).
+6. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
+7. `OL-CONTENT-003` — Tourism schema v1.
+8. `OL-CONTENT-004` — Entity resolution v1.
+9. `OL-CONTENT-005` — Enrichment pipeline v1.
+10. `OL-CONTENT-006` — Directions v1.
 
 Reglas:
 - 1 loop activo por vez.
+- `OL-EXPLORE-SEARCH-BATCH-001` inicia solo después de cerrar `OL-CONTENT-001.A/B/C`.
+- `OL-EXPLORE-TAGS-001` inicia solo después de cerrar `OL-EXPLORE-SEARCH-BATCH-001`.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
 
@@ -89,4 +94,4 @@ Reglas:
 
 1. Ejecutar `OL-CONTENT-001` como único loop activo.
 2. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-3. No abrir implementación de `OL-CONTENT-002` hasta cerrar evidencia mínima de `OL-CONTENT-001`.
+3. Cerrar `OL-CONTENT-001` por subfases (`001.A -> 001.B -> 001.C`) antes de abrir `OL-EXPLORE-SEARCH-BATCH-001`.
