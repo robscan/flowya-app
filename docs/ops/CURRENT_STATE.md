@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-02
+**Fecha de actualización:** 2026-03-03
 
 ---
 
@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **`OL-P3-002.B`** (bloque países, QA final).
+- Loop activo real: **`OL-CONTENT-001`** (Mi diario v1: notas por spot + persistencia).
 
 ---
 
@@ -49,14 +49,14 @@
 
 ## Riesgos vigentes
 
-1. **Desalineación de UX entre sheet y share card tras iteraciones rápidas**.
-- Mitigación: cierre QA visual final de `OL-P3-002.B` antes de abrir nuevo loop.
+1. **Riesgo de desalineación entre alcance Recordar-lite y scope expandido de diario**.
+- Mitigación: mantener `OL-CONTENT-001` en nota breve + persistencia, sin abrir timeline/feed ni editor complejo.
 
 2. **Confusión de alcance V1/V2 de gamificación**.
 - Mitigación: contrato con separación explícita (V1 activa vs V2 diferida).
 
-3. **Regresión por ajustes de overlay/animaciones en mapa**.
-- Mitigación: smoke QA manual por tema (`light/dark`) y por modo (`all/por visitar/visitados`).
+3. **Regresión de UX map-first por integración de entrada de notas en SpotSheet**.
+- Mitigación: validar no-apilamiento de overlays y estabilidad de transición de sheet (`peek/medium/expanded`).
 
 4. **Deriva documental diaria**.
 - Mitigación: actualizar bitácora + `OPEN_LOOPS` + `CURRENT_STATE` en cada cierre de bloque.
@@ -81,10 +81,13 @@
 - `docs/bitacora/2026/03/269-fix-keyboard-owner-paso-0-create-spot-sin-colision-quick-edit.md`
 - `docs/bitacora/2026/03/270-map-pin-default-flowya-unlinked-style-plus-bluegray.md`
 - `docs/bitacora/2026/03/271-map-pin-default-label-swap-fill-halo-final.md`
+- `docs/bitacora/2026/03/272-map-pins-zoom-architecture-and-filter-badge-light-contrast.md`
+- `docs/bitacora/2026/03/273-sticky-context-and-recent-mutation-visibility-for-core-spots.md`
+- `docs/bitacora/2026/03/274-followup-core-default-labels-visible-in-filtered-contexts.md`
 
 ---
 
 ## Siguiente paso operativo
 
-- Cerrar QA final de `OL-P3-002.B`.
-- Si QA pasa sin regresiones, congelar bloque países/gamificación V1 y abrir `OL-CONTENT-001`.
+- Ejecutar `OL-CONTENT-001` como único loop activo.
+- Mantener freeze de `OL-P3-002.B` salvo bug crítico.
