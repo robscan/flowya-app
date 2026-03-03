@@ -330,6 +330,12 @@ function isDefaultLinkedPoiSpot(spot: Spot): boolean {
   return hasLinkedPlace && !spot.saved && !spot.visited;
 }
 
+function isCoreDefaultUnlinkedSpot(spot: Spot): boolean {
+  const hasLinkedPlace =
+    typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
+  return !hasLinkedPlace && !spot.saved && !spot.visited;
+}
+
 function hasLinkedPlaceId(spot: Spot | null): boolean {
   if (!spot) return false;
   return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
@@ -763,9 +769,16 @@ export function MapScreenVNext() {
       pinFilter !== "all" &&
       featureFlags.hideLinkedUnsaved &&
       featureFlags.mapLandmarkLabels;
+    const scopeByFilter =
+      pinFilter === "all"
+        ? spots
+        : [
+            ...filteredSpots,
+            ...spots.filter((spot) => isCoreDefaultUnlinkedSpot(spot)),
+          ].filter((spot, index, arr) => arr.findIndex((it) => it.id === spot.id) === index);
     const visibilityFiltered = canHideLinkedUnsaved
-      ? filteredSpots.filter((s) => !isLinkedUnsavedSpot(s))
-      : filteredSpots;
+      ? scopeByFilter.filter((s) => !isLinkedUnsavedSpot(s))
+      : scopeByFilter;
     // Filtro "Todos": no mostrar defaults derivados de POI (vinculados); solo Flowya default sin link.
     const allFilterWithoutLinkedDefaults =
       pinFilter === "all"
@@ -803,7 +816,7 @@ export function MapScreenVNext() {
       return result;
     }
     return [...result, recentMutationSpot];
-  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter, recentMutationSpot]);
+  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter, recentMutationSpot, spots]);
 
   const forceVisibleSpotIds = useMemo(() => {
     const ids = new Set<string>();
@@ -830,16 +843,18 @@ export function MapScreenVNext() {
   >(() => {});
   const onPinClickHandlerRef = useRef<(spot: Spot) => void>(() => {});
   const collapseCountriesSheetOnMapGestureRef = useRef<() => void>(() => {});
+  const hasActivePoiSelection = poiTapped != null && selectedSpot == null;
   const hasLinkedSelection = hasLinkedPlaceId(selectedSpot);
-  const shouldSuppressMapboxPoiLabels = Boolean(poiTapped || hasLinkedSelection || isSelectedSpotHiddenOnMap);
-  const shouldShowFlowyaSpotLabels = selectedSpot == null && poiTapped == null;
+  const shouldSuppressMapboxPoiLabels = Boolean(
+    hasActivePoiSelection || hasLinkedSelection || isSelectedSpotHiddenOnMap,
+  );
+  // Mantener labels de spots Flowya al seleccionar un spot para evitar "apagón" visual del resto.
+  const shouldShowFlowyaSpotLabels = !hasActivePoiSelection;
   const resolveEffectivePinStatus = useCallback(
     (status: SpotPinStatus | undefined): SpotPinStatus => {
-      if (pinFilter === "saved") return "to_visit";
-      if (pinFilter === "visited") return "visited";
       return status ?? "default";
     },
-    [pinFilter],
+    [],
   );
   /** No centrar en usuario durante intake de deep link (incluye geoloc tardía). */
   const skipCenterOnUser = deepLinkCenterLockRef.current;
@@ -866,7 +881,9 @@ export function MapScreenVNext() {
         pinStatus: resolveEffectivePinStatus(s.pinStatus),
         linkedPlaceId: s.linked_place_id ?? null,
         linkedMaki: s.linked_maki ?? null,
-        forceVisible: forceVisibleSpotIds.has(s.id),
+        forceVisible:
+          forceVisibleSpotIds.has(s.id) ||
+          (pinFilter !== "all" && isCoreDefaultUnlinkedSpot(s)),
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
@@ -1138,7 +1155,9 @@ export function MapScreenVNext() {
       hasSelectedSpot: Boolean(selectedSpot),
       isDraftSpot: Boolean(selectedSpot?.id.startsWith("draft_")),
       isSelectedVisibleInNextFilter: Boolean(
-        selectedSpot && filteredSpots.some((s) => s.id === selectedSpot.id),
+        selectedSpot &&
+          (filteredSpots.some((s) => s.id === selectedSpot.id) ||
+            (pinFilter !== "all" && isCoreDefaultUnlinkedSpot(selectedSpot))),
       ),
     });
     const isPreservedSelection =
@@ -1171,7 +1190,9 @@ export function MapScreenVNext() {
       recentMutationUntil != null &&
       recentMutationUntil > Date.now();
     if (isRecentSelection) return;
-    const stillInActiveFilter = filteredSpots.some((spot) => spot.id === selectedSpot.id);
+    const stillInActiveFilter =
+      filteredSpots.some((spot) => spot.id === selectedSpot.id) ||
+      isCoreDefaultUnlinkedSpot(selectedSpot);
     if (stillInActiveFilter) return;
     if (preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id) return;
     setSelectedSpot(null);
@@ -1576,6 +1597,7 @@ export function MapScreenVNext() {
     searchV2.setOnSelect((spot: Spot) => {
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
+      setPoiTapped(null);
       setSelectedSpot(spot);
       recordExploreSelectionChanged({
         entityType: "spot",
@@ -3104,6 +3126,7 @@ export function MapScreenVNext() {
           pinFilter,
           hasSelection: true,
         });
+        setPoiTapped(null);
         setSelectedSpot(spot);
         recordExploreSelectionChanged({
           entityType: "spot",
@@ -3320,20 +3343,12 @@ export function MapScreenVNext() {
       recordExploreDecisionCompleted({ outcome, pinFilter });
       setSheetState("medium");
       if (!suppressToastRef.current) {
-        const ctaByFilter: Record<"all" | "saved" | "visited", string> = {
-          all: "Ver Todos",
-          saved: "Ver Por visitar",
-          visited: "Ver Visitados",
-        };
-        const cta = transition.ctaTargetFilter
-          ? `. ${ctaByFilter[transition.ctaTargetFilter]}`
-          : "";
         const toastText =
           outcome === "visited"
-            ? `Marcado como visitado${cta}`
+            ? "Marcado como visitado."
             : outcome === "saved"
-              ? `Agregado a Por visitar${cta}`
-              : `Estado limpiado${cta}`;
+              ? "Agregado a Por visitar."
+              : "Estado actualizado.";
         toast.show(toastText, { type: "success", replaceVisible: true });
       }
     },
