@@ -51,6 +51,12 @@ const pinPlannedLight = '#e6862b';
 const pinVisitedLight = '#34c759';
 const pinOutlineLight = '#ffffff';
 const locationPrimaryLight = '#007AFF';
+const mapPinSpotDefaultFillLight = '#7FB4DC';
+const mapPinSpotDefaultStrokeLight = '#4E6F8A';
+const mapPinSpotDefaultLabelTextLight = '#73A9D2';
+const mapPinSpotDefaultLabelHaloLight = 'rgba(255,255,255,0.95)';
+const mapPinSpotDefaultPlusTextLight = '#F7FBFF';
+const mapPinSpotDefaultPlusHaloLight = 'rgba(58,96,128,0.3)';
 
 // — Paleta Dark
 const primaryDark = '#2997ff';
@@ -97,6 +103,12 @@ const pinPlannedDark = '#e6862b';
 const pinVisitedDark = '#34c759';
 const pinOutlineDark = '#ffffff';
 const locationPrimaryDark = '#0a84ff';
+const mapPinSpotDefaultFillDark = '#6D8FAF';
+const mapPinSpotDefaultStrokeDark = '#0E1520';
+const mapPinSpotDefaultLabelTextDark = '#C8D9EA';
+const mapPinSpotDefaultLabelHaloDark = 'rgba(7,12,18,0.9)';
+const mapPinSpotDefaultPlusTextDark = '#EFF6FD';
+const mapPinSpotDefaultPlusHaloDark = 'rgba(7,12,18,0.55)';
 
 export const Colors = {
   light: {
@@ -148,6 +160,44 @@ export const Colors = {
       planned: pinPlannedLight,
       visited: pinVisitedLight,
       outline: pinOutlineLight,
+    },
+    mapPinSpot: {
+      default: {
+        fill: mapPinSpotDefaultFillLight,
+        stroke: mapPinSpotDefaultStrokeLight,
+        labelText: mapPinSpotDefaultLabelTextLight,
+        labelHalo: mapPinSpotDefaultLabelHaloLight,
+        labelHaloWidth: 1.1,
+        plusText: mapPinSpotDefaultPlusTextLight,
+        plusHalo: mapPinSpotDefaultPlusHaloLight,
+        plusHaloWidth: 0.9,
+      },
+      toVisit: {
+        fill: pinPlannedLight,
+        stroke: 'rgba(255,255,255,0.95)',
+      },
+      visited: {
+        fill: pinVisitedLight,
+        stroke: 'rgba(255,255,255,0.95)',
+      },
+      selected: {
+        radius: 12,
+        strokeWidth: 2.5,
+        defaultStroke: '#355774',
+        toVisitStroke: 'rgba(255,255,255,1)',
+        visitedStroke: 'rgba(255,255,255,1)',
+        plusTextSize: 16,
+        makiIconSize: 0.95,
+        labelSizeDelta: 1,
+        labelOffsetY: 1.08,
+      },
+      unselected: {
+        radius: 8,
+        strokeWidth: 1.5,
+        plusTextSize: 14,
+        makiIconSize: 0.8,
+        labelOffsetY: 0.94,
+      },
     },
     location: { primary: locationPrimaryLight },
     pinUserLocation: locationPrimaryLight,
@@ -205,6 +255,44 @@ export const Colors = {
       planned: pinPlannedDark,
       visited: pinVisitedDark,
       outline: pinOutlineDark,
+    },
+    mapPinSpot: {
+      default: {
+        fill: mapPinSpotDefaultFillDark,
+        stroke: mapPinSpotDefaultStrokeDark,
+        labelText: mapPinSpotDefaultLabelTextDark,
+        labelHalo: mapPinSpotDefaultLabelHaloDark,
+        labelHaloWidth: 0.95,
+        plusText: mapPinSpotDefaultPlusTextDark,
+        plusHalo: mapPinSpotDefaultPlusHaloDark,
+        plusHaloWidth: 0.75,
+      },
+      toVisit: {
+        fill: pinPlannedDark,
+        stroke: 'rgba(0,0,0,0.5)',
+      },
+      visited: {
+        fill: pinVisitedDark,
+        stroke: 'rgba(0,0,0,0.5)',
+      },
+      selected: {
+        radius: 12,
+        strokeWidth: 2.5,
+        defaultStroke: '#D6E3EF',
+        toVisitStroke: 'rgba(255,255,255,0.9)',
+        visitedStroke: 'rgba(255,255,255,0.9)',
+        plusTextSize: 16,
+        makiIconSize: 0.95,
+        labelSizeDelta: 1,
+        labelOffsetY: 1.08,
+      },
+      unselected: {
+        radius: 8,
+        strokeWidth: 1.5,
+        plusTextSize: 14,
+        makiIconSize: 0.8,
+        labelOffsetY: 0.94,
+      },
     },
     location: { primary: locationPrimaryDark },
     pinUserLocation: locationPrimaryDark,

@@ -69,7 +69,8 @@ export type MapPinFilterInlineProps = {
 
 export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInlineProps) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const resolvedScheme = colorScheme ?? 'light';
+  const colors = Colors[resolvedScheme];
   const prevValueRef = useRef(value);
   const selectedScale = useSharedValue(1);
 
@@ -118,10 +119,18 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
     text: colors.text,
     border: colors.borderSubtle,
   });
-  const countBadgeColors = {
-    background: colors.surfaceOnMap,
-    text: colors.pin.default,
-  };
+  const countBadgeColors =
+    resolvedScheme === 'light'
+      ? {
+          background: colors.surfaceMuted,
+          text: colors.text,
+          border: colors.borderSubtle,
+        }
+      : {
+          background: colors.surfaceOnMap,
+          text: colors.pin.default,
+          border: 'rgba(255,255,255,0.16)',
+        };
 
   return (
     <View style={styles.row}>
@@ -170,6 +179,7 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
                   styles.countBadge,
                   {
                     backgroundColor: countBadgeColors.background,
+                    borderColor: countBadgeColors.border,
                   },
                 ]}
               >
@@ -228,6 +238,7 @@ const styles = StyleSheet.create({
     minWidth: 22,
     height: 22,
     borderRadius: 11,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,

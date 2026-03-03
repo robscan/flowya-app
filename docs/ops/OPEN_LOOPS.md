@@ -72,6 +72,7 @@ Reglas:
 - Fix de arquitectura teclado/foco en Paso 0 (owner único, blur solo en apertura): bitácora `269`.
 - Ajuste visual pin default Flowya sin link (`+` y paleta base): bitácora `270`.
 - Ajuste final de label default (swap relleno/sombra): bitácora `271`.
+- Refactor arquitectura de capas para default no enlazado (zoom canónico sin artefactos) + contraste de contadores de filtro en light: bitácora `272`.
 
 ---
 

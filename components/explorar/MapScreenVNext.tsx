@@ -812,6 +812,7 @@ export function MapScreenVNext() {
         latitude: s.latitude,
         longitude: s.longitude,
         pinStatus: resolveEffectivePinStatus(s.pinStatus),
+        linkedPlaceId: s.linked_place_id ?? null,
         linkedMaki: s.linked_maki ?? null,
       })),
     selectedSpotId: selectedSpot?.id ?? null,

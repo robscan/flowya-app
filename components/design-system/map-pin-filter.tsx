@@ -108,7 +108,8 @@ export function MapPinFilter({
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const resolvedScheme = colorScheme ?? 'light';
+  const colors = Colors[resolvedScheme];
   const prevValueRef = useRef(value);
   const prevPulseNonceRef = useRef(pulseNonce);
 
@@ -155,10 +156,18 @@ export function MapPinFilter({
   };
 
   const selectedColors = getSelectedColors(value);
-  const countBadgeColors = {
-    background: colors.surfaceOnMap,
-    text: colors.pin.default,
-  };
+  const countBadgeColors =
+    resolvedScheme === 'light'
+      ? {
+          background: colors.surfaceMuted,
+          text: colors.text,
+          border: colors.borderSubtle,
+        }
+      : {
+          background: colors.surfaceOnMap,
+          text: colors.pin.default,
+          border: 'rgba(255,255,255,0.16)',
+        };
   const currentLabel = OPTIONS.find((o) => o.value === value)!.label;
   const triggerCount = hideActiveCount ? undefined : getCount(value, counts);
   const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
@@ -226,6 +235,7 @@ export function MapPinFilter({
                 styles.triggerCountBadge,
                 {
                   backgroundColor: countBadgeColors.background,
+                  borderColor: countBadgeColors.border,
                 },
               ]}
             >
@@ -347,6 +357,7 @@ export function MapPinFilter({
                           styles.countBadge,
                           {
                             backgroundColor: countBadgeColors.background,
+                            borderColor: countBadgeColors.border,
                           },
                         ]}
                       >
@@ -442,6 +453,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 'auto',
