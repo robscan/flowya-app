@@ -22,6 +22,7 @@ export type SpotForLayer = {
   pinStatus?: 'default' | 'to_visit' | 'visited';
   linkedPlaceId?: string | null;
   linkedMaki?: string | null;
+  forceVisible?: boolean;
 };
 
 const SOURCE_ID = 'flowya-spots';
@@ -84,14 +85,15 @@ function spotsToGeoJSON(
   availableImageIds?: Set<string>
 ): GeoJSON.FeatureCollection<
   GeoJSON.Point,
-  {
-    id: string;
-    title: string;
-    pinStatus: string;
-    selected: boolean;
-    isUnlinkedDefault: boolean;
-    makiIcon: string;
-  }
+    {
+      id: string;
+      title: string;
+      pinStatus: string;
+      selected: boolean;
+      isUnlinkedDefault: boolean;
+      makiIcon: string;
+      forceVisible: boolean;
+    }
 > {
   return {
     type: 'FeatureCollection',
@@ -111,6 +113,7 @@ function spotsToGeoJSON(
           selected: s.id === selectedSpotId,
           isUnlinkedDefault: status === 'default' && !s.linkedPlaceId,
           makiIcon,
+          forceVisible: Boolean(s.forceVisible),
         },
       };
     }),
@@ -163,13 +166,23 @@ function buildLabelHaloWidthExpression(defaultHaloWidth: number, fallbackHaloWid
   return ['match', ['get', 'pinStatus'], 'default', defaultHaloWidth, fallbackHaloWidth];
 }
 
-function filterDefaultUnlinked(selected: boolean): [string, ...unknown[]] {
+function defaultUnlinkedVisibilityByZoomOrForce(): [string, ...unknown[]] {
   return [
+    'any',
+    ['>=', ['zoom'], DEFAULT_UNLINKED_MIN_ZOOM],
+    ['==', ['get', 'forceVisible'], true],
+  ];
+}
+
+function filterDefaultUnlinked(selected: boolean): [string, ...unknown[]] {
+  const base: [string, ...unknown[]] = [
     'all',
     ['==', ['get', 'pinStatus'], 'default'],
     ['==', ['get', 'isUnlinkedDefault'], true],
     ['==', ['get', 'selected'], selected],
   ];
+  if (selected) return base;
+  return [...base, defaultUnlinkedVisibilityByZoomOrForce()];
 }
 
 function filterSavedVisited(): [string, ...unknown[]] {
@@ -249,7 +262,7 @@ export function setupSpotsLayer(
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-color', palette.default.fill);
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-stroke-width', palette.unselected.strokeWidth);
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-stroke-color', palette.default.stroke);
-      setLayerMinZoom(map, CIRCLES_DEFAULT_UNLINKED_LAYER_ID, DEFAULT_UNLINKED_MIN_ZOOM);
+      setLayerMinZoom(map, CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 0);
     }
 
     if (!map.getLayer(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID)) {
@@ -366,7 +379,7 @@ export function setupSpotsLayer(
       map.setPaintProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-color', palette.default.plusText);
       map.setPaintProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-halo-color', palette.default.plusHalo);
       map.setPaintProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-halo-width', palette.default.plusHaloWidth);
-      setLayerMinZoom(map, DEFAULT_PLUS_UNLINKED_LAYER_ID, DEFAULT_UNLINKED_MIN_ZOOM);
+      setLayerMinZoom(map, DEFAULT_PLUS_UNLINKED_LAYER_ID, 0);
     }
 
     if (!map.getLayer(DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID)) {
@@ -490,7 +503,7 @@ export function setupSpotsLayer(
           id: LABELS_DEFAULT_UNLINKED_LAYER_ID,
           type: 'symbol',
           source: SOURCE_ID,
-          minzoom: Math.max(LABEL_MIN_ZOOM, DEFAULT_UNLINKED_MIN_ZOOM),
+          minzoom: LABEL_MIN_ZOOM,
           filter: filterDefaultUnlinked(false),
           layout: {
             'text-field': ['get', 'title'],
@@ -513,7 +526,7 @@ export function setupSpotsLayer(
     if (map.getLayer(LABELS_DEFAULT_UNLINKED_LAYER_ID)) {
       map.setFilter(LABELS_DEFAULT_UNLINKED_LAYER_ID, filterDefaultUnlinked(false));
       applyLabelLayerStyle(LABELS_DEFAULT_UNLINKED_LAYER_ID);
-      setLayerMinZoom(map, LABELS_DEFAULT_UNLINKED_LAYER_ID, Math.max(LABEL_MIN_ZOOM, DEFAULT_UNLINKED_MIN_ZOOM));
+      setLayerMinZoom(map, LABELS_DEFAULT_UNLINKED_LAYER_ID, LABEL_MIN_ZOOM);
     }
 
     if (!map.getLayer(LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID)) {

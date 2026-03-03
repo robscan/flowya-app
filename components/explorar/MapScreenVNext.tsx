@@ -92,14 +92,13 @@ import { createSpotsStrategyProvider } from "@/core/shared/search/providers/spot
 import { onlyVisible } from "@/core/shared/visibility-softdelete";
 import {
   INITIAL_EXPLORE_RUNTIME_STATE,
+  RECENT_MUTATION_TTL_MS,
   evaluateVisitedCountries,
   exploreRuntimeReducer,
-  resolveDestinationFilterForStatus,
+  resolveFilterTransitionPolicy,
   shouldClearSelectedSpotOnFilterChange,
   shouldMarkPendingBadge,
-  shouldPulseFilterOnStatusTransition,
   shouldRestoreSelectionOnSearchClose,
-  shouldSwitchFilterOnStatusTransition,
   type ExploreSheetState,
   validateExploreRuntimeState,
 } from "@/core/explore/runtime";
@@ -450,6 +449,8 @@ export function MapScreenVNext() {
   );
   const pinFilter = runtimeState.pinFilter;
   const sheetState = runtimeState.sheetState;
+  const recentlyMutatedSpotId = runtimeState.recentlyMutatedSpotId;
+  const recentMutationUntil = runtimeState.recentMutationUntil;
   const setPinFilter = useCallback((nextFilter: MapPinFilterValue) => {
     dispatchRuntimeIntent({
       type: "EXPLORE_RUNTIME/SET_PIN_FILTER",
@@ -461,6 +462,20 @@ export function MapScreenVNext() {
       type: "EXPLORE_RUNTIME/SET_SHEET_STATE",
       sheetState: nextState,
     });
+  }, []);
+  const setRecentMutation = useCallback(
+    (spotId: string, originFilter: MapPinFilterValue) => {
+      dispatchRuntimeIntent({
+        type: "EXPLORE_RUNTIME/SET_RECENT_MUTATION",
+        spotId,
+        until: Date.now() + RECENT_MUTATION_TTL_MS,
+        originFilter,
+      });
+    },
+    [],
+  );
+  const clearRecentMutation = useCallback(() => {
+    dispatchRuntimeIntent({ type: "EXPLORE_RUNTIME/CLEAR_RECENT_MUTATION" });
   }, []);
   const [pendingFilterBadges, setPendingFilterBadges] = useState<{
     saved: boolean;
@@ -718,6 +733,16 @@ export function MapScreenVNext() {
     if (pinFilter === "saved") return spots.filter((s) => s.saved);
     return spots.filter((s) => s.visited);
   }, [spots, pinFilter]);
+  const isRecentMutationActive = Boolean(
+    recentlyMutatedSpotId && recentMutationUntil && recentMutationUntil > Date.now(),
+  );
+  const recentMutationSpot = useMemo(
+    () =>
+      isRecentMutationActive && recentlyMutatedSpotId
+        ? spots.find((spot) => spot.id === recentlyMutatedSpotId) ?? null
+        : null,
+    [isRecentMutationActive, recentlyMutatedSpotId, spots],
+  );
   const [countriesDrilldown, setCountriesDrilldown] = useState<{
     key: string;
     label: string;
@@ -755,17 +780,44 @@ export function MapScreenVNext() {
      * POI match: incluir selectedSpot si está fuera de filtro.
      * Guardrail: no reinsertar selectedSpot si está oculto por regla linked+unsaved.
      */
+    const isPreservedSelection =
+      selectedSpot != null &&
+      preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id;
+    let result = base;
     if (
       pinFilter === "all" &&
       selectedSpot &&
       !(canHideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
-      !isDefaultLinkedPoiSpot(selectedSpot) &&
+      (!isDefaultLinkedPoiSpot(selectedSpot) || isPreservedSelection) &&
       !base.some((s) => s.id === selectedSpot.id)
     ) {
-      return [...base, selectedSpot];
+      result = [...base, selectedSpot];
     }
-    return base;
-  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter]);
+    if (!recentMutationSpot || result.some((s) => s.id === recentMutationSpot.id)) {
+      return result;
+    }
+    const shouldKeepLinkedDefaultOnlyWhileSelected =
+      isDefaultLinkedPoiSpot(recentMutationSpot) &&
+      selectedSpot?.id !== recentMutationSpot.id;
+    if (shouldKeepLinkedDefaultOnlyWhileSelected) {
+      return result;
+    }
+    return [...result, recentMutationSpot];
+  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter, recentMutationSpot]);
+
+  const forceVisibleSpotIds = useMemo(() => {
+    const ids = new Set<string>();
+    if (selectedSpot && !selectedSpot.id.startsWith("draft_")) {
+      ids.add(selectedSpot.id);
+    }
+    if (
+      recentMutationSpot &&
+      (!isDefaultLinkedPoiSpot(recentMutationSpot) || selectedSpot?.id === recentMutationSpot.id)
+    ) {
+      ids.add(recentMutationSpot.id);
+    }
+    return ids;
+  }, [selectedSpot, recentMutationSpot]);
 
   const isSelectedSpotHiddenOnMap = Boolean(
     selectedSpot &&
@@ -814,6 +866,7 @@ export function MapScreenVNext() {
         pinStatus: resolveEffectivePinStatus(s.pinStatus),
         linkedPlaceId: s.linked_place_id ?? null,
         linkedMaki: s.linked_maki ?? null,
+        forceVisible: forceVisibleSpotIds.has(s.id),
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
@@ -1113,13 +1166,25 @@ export function MapScreenVNext() {
     if (!selectedSpot) return;
     if (selectedSpot.id.startsWith("draft_")) return;
     if (pinFilter === "all") return;
+    const isRecentSelection =
+      recentlyMutatedSpotId === selectedSpot.id &&
+      recentMutationUntil != null &&
+      recentMutationUntil > Date.now();
+    if (isRecentSelection) return;
     const stillInActiveFilter = filteredSpots.some((spot) => spot.id === selectedSpot.id);
     if (stillInActiveFilter) return;
     if (preserveOutOfFilterSelectionSpotIdRef.current === selectedSpot.id) return;
     setSelectedSpot(null);
     setSheetState("peek");
     setSheetHeight(SHEET_PEEK_HEIGHT);
-  }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
+  }, [
+    pinFilter,
+    filteredSpots,
+    selectedSpot,
+    setSheetState,
+    recentlyMutatedSpotId,
+    recentMutationUntil,
+  ]);
 
   useEffect(() => {
     if (!selectedSpot) {
@@ -1133,6 +1198,26 @@ export function MapScreenVNext() {
       preserveOutOfFilterSelectionSpotIdRef.current = null;
     }
   }, [selectedSpot]);
+
+  useEffect(() => {
+    if (!recentlyMutatedSpotId || !recentMutationUntil) return;
+    const remaining = recentMutationUntil - Date.now();
+    if (remaining <= 0) {
+      clearRecentMutation();
+      return;
+    }
+    const timer = setTimeout(() => {
+      clearRecentMutation();
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [recentlyMutatedSpotId, recentMutationUntil, clearRecentMutation]);
+
+  useEffect(() => {
+    if (!recentlyMutatedSpotId) return;
+    if (!selectedSpot) return;
+    if (selectedSpot.id === recentlyMutatedSpotId) return;
+    clearRecentMutation();
+  }, [selectedSpot, recentlyMutatedSpotId, clearRecentMutation]);
 
   const spotsProvider = useMemo(
     () =>
@@ -3167,6 +3252,17 @@ export function MapScreenVNext() {
       }
       const nextState = await setPinState(spot.id, normalizedState);
       if (!nextState) return;
+      const nextPinStatus: SpotPinStatus = nextState.visited
+        ? "visited"
+        : nextState.saved
+          ? "to_visit"
+          : "default";
+      const nextSpotSelection: Spot = {
+        ...spot,
+        saved: nextState.saved,
+        visited: nextState.visited,
+        pinStatus: nextPinStatus,
+      };
       const isExplicitClearAction =
         targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
       if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
@@ -3175,12 +3271,14 @@ export function MapScreenVNext() {
         preserveOutOfFilterSelectionSpotIdRef.current = null;
       }
 
-      const hasDestination = nextState.saved || nextState.visited;
-      const destinationFilter = hasDestination
-        ? resolveDestinationFilterForStatus(nextState.visited ? "visited" : "to_visit")
-        : null;
+      const transition = resolveFilterTransitionPolicy({
+        currentFilter: pinFilter,
+        nextSaved: nextState.saved,
+        nextVisited: nextState.visited,
+        policy: "sticky",
+      });
 
-      if (!hasDestination) {
+      if (!nextState.saved && !nextState.visited) {
         if (lastStatusSpotIdRef.current.saved === spot.id) {
           lastStatusSpotIdRef.current.saved = null;
         }
@@ -3188,7 +3286,8 @@ export function MapScreenVNext() {
           lastStatusSpotIdRef.current.visited = null;
         }
         updatePendingFilterBadges((prev) => ({ ...prev, saved: false, visited: false }));
-      } else if (destinationFilter) {
+      } else if (transition.ctaTargetFilter && transition.ctaTargetFilter !== "all") {
+        const destinationFilter = transition.ctaTargetFilter;
         lastStatusSpotIdRef.current[destinationFilter] = spot.id;
         if (destinationFilter === "visited" && lastStatusSpotIdRef.current.saved === spot.id) {
           lastStatusSpotIdRef.current.saved = null;
@@ -3198,30 +3297,21 @@ export function MapScreenVNext() {
             ...prev,
             [destinationFilter]: true,
           }));
-        } else if (
-          shouldSwitchFilterOnStatusTransition({
-            currentFilter: pinFilter,
-            destinationFilter,
-          })
-        ) {
-          setPinFilter(destinationFilter);
-          if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
-            flyToUnlessActMode(
-              { lng: spot.longitude, lat: spot.latitude },
-              { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-            );
-          }
-        } else if (
-          shouldPulseFilterOnStatusTransition({
-            currentFilter: pinFilter,
-            destinationFilter,
-          })
-        ) {
-          setPinFilterPulseNonce((n) => n + 1);
         }
+      }
+      if (transition.shouldPulse) {
+        setPinFilterPulseNonce((n) => n + 1);
       }
 
       updateSpotPinState(spot.id, nextState);
+      setSelectedSpot(nextSpotSelection);
+      setRecentMutation(spot.id, pinFilter);
+      if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+        flyToUnlessActMode(
+          { lng: spot.longitude, lat: spot.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+        );
+      }
       const outcome = nextState.visited
         ? "visited"
         : nextState.saved
@@ -3230,12 +3320,20 @@ export function MapScreenVNext() {
       recordExploreDecisionCompleted({ outcome, pinFilter });
       setSheetState("medium");
       if (!suppressToastRef.current) {
+        const ctaByFilter: Record<"all" | "saved" | "visited", string> = {
+          all: "Ver Todos",
+          saved: "Ver Por visitar",
+          visited: "Ver Visitados",
+        };
+        const cta = transition.ctaTargetFilter
+          ? `. ${ctaByFilter[transition.ctaTargetFilter]}`
+          : "";
         const toastText =
           outcome === "visited"
-            ? "¡Marcado como visitado!"
+            ? `Marcado como visitado${cta}`
             : outcome === "saved"
-              ? "Agregado a Por visitar"
-              : "Listo, ya no está en tu lista";
+              ? `Agregado a Por visitar${cta}`
+              : `Estado limpiado${cta}`;
         toast.show(toastText, { type: "success", replaceVisible: true });
       }
     },
@@ -3247,7 +3345,7 @@ export function MapScreenVNext() {
       mapInstance,
       flyToUnlessActMode,
       updatePendingFilterBadges,
-      setPinFilter,
+      setRecentMutation,
       setSheetState,
     ],
   );

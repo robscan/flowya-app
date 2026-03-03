@@ -1,11 +1,42 @@
 import type { PinFilter } from "../state";
 
 export type PinStatusTransition = "to_visit" | "visited";
+export type FilterTransitionPolicy = "sticky";
+export type FilterTransitionCtaTarget = PinFilter | null;
 
 export function resolveDestinationFilterForStatus(
   status: PinStatusTransition,
 ): Exclude<PinFilter, "all"> {
   return status === "to_visit" ? "saved" : "visited";
+}
+
+export function resolveFilterTransitionPolicy(args: {
+  currentFilter: PinFilter;
+  nextSaved: boolean;
+  nextVisited: boolean;
+  policy?: FilterTransitionPolicy;
+}): {
+  nextFilter: PinFilter;
+  shouldPulse: boolean;
+  ctaTargetFilter: FilterTransitionCtaTarget;
+} {
+  const { currentFilter, nextSaved, nextVisited } = args;
+  const hasDestination = nextSaved || nextVisited;
+  if (!hasDestination) {
+    return {
+      nextFilter: currentFilter,
+      shouldPulse: currentFilter === "all",
+      ctaTargetFilter: "all",
+    };
+  }
+  const destinationFilter = resolveDestinationFilterForStatus(
+    nextVisited ? "visited" : "to_visit",
+  );
+  return {
+    nextFilter: currentFilter,
+    shouldPulse: currentFilter === destinationFilter,
+    ctaTargetFilter: destinationFilter,
+  };
 }
 
 export function shouldClearSelectedSpotOnFilterChange(args: {
@@ -56,6 +87,7 @@ export function shouldMarkPendingBadge(args: {
   return args.currentFilter === "all";
 }
 
+/** @deprecated Usa resolveFilterTransitionPolicy(). */
 export function shouldSwitchFilterOnStatusTransition(args: {
   currentFilter: PinFilter;
   destinationFilter: Exclude<PinFilter, "all">;
@@ -64,6 +96,7 @@ export function shouldSwitchFilterOnStatusTransition(args: {
   return currentFilter !== "all" && currentFilter !== destinationFilter;
 }
 
+/** @deprecated Usa resolveFilterTransitionPolicy(). */
 export function shouldPulseFilterOnStatusTransition(args: {
   currentFilter: PinFilter;
   destinationFilter: Exclude<PinFilter, "all">;
