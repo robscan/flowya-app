@@ -18,4 +18,6 @@ export const featureFlags = {
   searchExternalPoiResults: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS', true),
   searchMixedRanking: envEnabled('EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING'),
   searchExternalDedupe: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE'),
+  /** OFF por defecto: fallback en cadena para empty reco (landmarks visibles -> category local -> category amplia). */
+  searchEmptyRecoPanamaFixV1: envEnabled('EXPO_PUBLIC_FF_EMPTY_RECO_PANAMA_FIX_V1'),
 } as const;
