@@ -1558,20 +1558,60 @@ export function MapScreenVNext() {
             /* fallback: global search */
           }
         }
-        // attraction + museum en paralelo para más landmarks (monumentos, museos, etc.)
-        const [attractionResults, museumResults] = await Promise.all([
-          searchPlacesByCategory("attraction", baseOpts),
-          searchPlacesByCategory("museum", { ...baseOpts, limit: 6 }),
-        ]);
-        if (cancelled) return;
-        const seen = new Set<string>();
-        const merged: PlaceResult[] = [];
-        for (const p of [...attractionResults, ...museumResults]) {
-          if (seen.has(p.id)) continue;
-          seen.add(p.id);
-          merged.push(p);
+        const mergeUnique = (items: PlaceResult[]) => {
+          const seen = new Set<string>();
+          const merged: PlaceResult[] = [];
+          for (const item of items) {
+            if (seen.has(item.id)) continue;
+            seen.add(item.id);
+            merged.push(item);
+          }
+          return merged;
+        };
+        const fetchByCategories = async (
+          categories: string[],
+          opts: typeof baseOpts,
+        ): Promise<PlaceResult[]> => {
+          const results = await Promise.all(
+            categories.map((cat) => searchPlacesByCategory(cat, opts)),
+          );
+          return mergeUnique(results.flat());
+        };
+
+        let merged: PlaceResult[] = await fetchByCategories(
+          ["attraction", "museum"],
+          baseOpts,
+        );
+
+        if (featureFlags.searchEmptyRecoPanamaFixV1) {
+          const totalWithVisible = visibleLandmarksEmpty.length + merged.length;
+          if (totalWithVisible < EMPTY_LANDMARK_MIN_RESULTS) {
+            const wideOpts: typeof baseOpts = {
+              limit: 10,
+              proximity: baseOpts.proximity,
+            };
+            // Widen search area only when local bbox under-delivers; keep category scope tourism-first.
+            const widened = await fetchByCategories(
+              ["attraction", "museum", "landmark"],
+              wideOpts,
+            );
+            merged = mergeUnique([...merged, ...widened]);
+          }
         }
-        const deduped = dedupeExternalPlacesAgainstSpots(merged, filteredSpots);
+
+        if (cancelled) return;
+        let deduped = dedupeExternalPlacesAgainstSpots(merged, filteredSpots);
+        deduped = rankExternalPlacesByIntent(deduped, "");
+        if (__DEV__ && featureFlags.searchEmptyRecoPanamaFixV1) {
+          console.log(
+            "[empty-reco-v1]",
+            JSON.stringify({
+              visible: visibleLandmarksEmpty.length,
+              fallback: deduped.length,
+              minTarget: EMPTY_LANDMARK_MIN_RESULTS,
+            }),
+          );
+        }
         setNearbyPlacesEmpty(deduped);
       } catch {
         if (!cancelled) setNearbyPlacesEmpty([]);
