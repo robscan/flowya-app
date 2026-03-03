@@ -37,16 +37,20 @@
 3. `OL-CONTENT-001.C` — cierre QA/validación de experiencia y persistencia.
 4. `OL-EXPLORE-SEARCH-BATCH-001` — batch status en búsqueda filtrada (`saved/visited`) con guardrails de sticky context + no-regresión de selección unitaria.
 5. `OL-EXPLORE-TAGS-001` — tags personales por usuario para filtrar listados (sin categorías Mapbox en esta fase).
-6. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
-7. `OL-CONTENT-003` — Tourism schema v1.
-8. `OL-CONTENT-004` — Entity resolution v1.
-9. `OL-CONTENT-005` — Enrichment pipeline v1.
-10. `OL-CONTENT-006` — Directions v1.
+6. `OL-SEARCHV2-001` — ajuste ASAP: `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro (sin lógica paralela fuera de SearchV2).
+7. `OL-SEARCHV2-002` — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada en SearchV2.
+8. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
+9. `OL-CONTENT-003` — Tourism schema v1.
+10. `OL-CONTENT-004` — Entity resolution v1.
+11. `OL-CONTENT-005` — Enrichment pipeline v1.
+12. `OL-CONTENT-006` — Directions v1.
 
 Reglas:
 - 1 loop activo por vez.
 - `OL-EXPLORE-SEARCH-BATCH-001` inicia solo después de cerrar `OL-CONTENT-001.A/B/C`.
 - `OL-EXPLORE-TAGS-001` inicia solo después de cerrar `OL-EXPLORE-SEARCH-BATCH-001`.
+- `OL-SEARCHV2-001` inicia después de cerrar `OL-EXPLORE-TAGS-001` o antes solo si se aprueba excepción por bug UX crítico (sin abrir paralelo con P0 activo).
+- `OL-SEARCHV2-002` inicia solo después de cerrar `OL-SEARCHV2-001`.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
 
