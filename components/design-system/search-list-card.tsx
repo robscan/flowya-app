@@ -6,6 +6,9 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
+const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
+
 export type SearchListCardProps = {
   title: string;
   subtitle?: string | null;
@@ -62,9 +65,9 @@ export function SearchListCard({
   const suppressCardPressUntilRef = useRef(0);
   const statusColor =
     pinStatus === 'visited'
-      ? colors.countriesCounterVisitedBackground
-      : colors.countriesCounterToVisitBackground;
-  const statusForeground = colors.text;
+      ? FILTER_SELECTED_VISITED
+      : FILTER_SELECTED_TO_VISIT;
+  const statusForeground = colors.pin.default;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
   const markInlineActionIntent = () => {
