@@ -127,6 +127,12 @@ import {
   recordSearchStarted,
 } from "@/lib/search/metrics";
 import {
+  collectVisibleLandmarks,
+  EMPTY_LANDMARK_MIN_RESULTS,
+  mergeEmptyExternalPlaces,
+  shouldFetchEmptyFallback,
+} from "@/lib/search/emptyRecommendations";
+import {
   recordExploreDecisionCompleted,
   recordExploreDecisionStarted,
   recordExploreSelectionChanged,
@@ -1338,13 +1344,28 @@ export function MapScreenVNext() {
     defaultSpots,
   ]);
 
+  /** SearchV2 ASAP: fuente primaria en empty-state = landmarks visibles del viewport (sin costo API). */
+  const visibleLandmarksEmpty = useMemo<PlaceResult[]>(() => {
+    void viewportNonce; // fuerza recálculo tras moveend para reflejar landmarks visibles actuales
+    const q = searchV2.query.trim();
+    const canUseVisibleLandmarks =
+      searchV2.isOpen && q.length === 0 && pinFilter === "all" && mapInstance != null;
+    if (!canUseVisibleLandmarks || !mapInstance) return [];
+    return collectVisibleLandmarks(mapInstance);
+  }, [searchV2.isOpen, searchV2.query, pinFilter, mapInstance, viewportNonce]);
+
   /** OL-WOW-F2-001-EMPTY: isEmpty merge spots + POIs por categoría cuando pinFilter=all. */
   const defaultItemsForEmpty = useMemo<(Spot | PlaceResult)[]>(() => {
     const isCountryDrilldownActive =
       searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
     if (isCountryDrilldownActive) return countryDrilldownItems;
     if (pinFilter !== "all") return defaultSpotsForEmpty;
-    return mergeSearchResults(defaultSpotsForEmpty, nearbyPlacesEmpty, "");
+    const externalPlaces = mergeEmptyExternalPlaces(
+      visibleLandmarksEmpty,
+      nearbyPlacesEmpty,
+      filteredSpots,
+    );
+    return mergeSearchResults(defaultSpotsForEmpty, externalPlaces, "");
   }, [
     searchV2.isOpen,
     searchV2.query,
@@ -1352,7 +1373,9 @@ export function MapScreenVNext() {
     countryDrilldownItems,
     pinFilter,
     defaultSpotsForEmpty,
+    visibleLandmarksEmpty,
     nearbyPlacesEmpty,
+    filteredSpots,
   ]);
 
   /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
@@ -1503,8 +1526,9 @@ export function MapScreenVNext() {
    */
   useEffect(() => {
     const q = searchV2.query.trim();
+    const needsFallback = shouldFetchEmptyFallback(visibleLandmarksEmpty, EMPTY_LANDMARK_MIN_RESULTS);
     const shouldFetchEmpty =
-      searchV2.isOpen && q.length === 0 && pinFilter === "all";
+      searchV2.isOpen && q.length === 0 && pinFilter === "all" && needsFallback;
     if (!shouldFetchEmpty) {
       setNearbyPlacesEmpty([]);
       return;
@@ -1556,7 +1580,14 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [searchV2.isOpen, searchV2.query, pinFilter, mapInstance, filteredSpots]);
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    pinFilter,
+    mapInstance,
+    filteredSpots,
+    visibleLandmarksEmpty,
+  ]);
 
   useEffect(() => {
     const q = searchV2.query.trim().toLowerCase();
