@@ -68,6 +68,18 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Al activar `Visitado`, prevalece sobre `Por visitar` (normalización de estado).
 - Al desactivar el estado activo dentro de un filtro (`saved` o `visited`), el spot sale de esa lista y la vista permanece en el filtro actual.
 
+9. **Sticky Context (2026-03-02, cierre definitivo)**
+- Política canónica de transición de filtro: `sticky`.
+- Al mutar estado (`default ↔ to_visit ↔ visited`), el filtro activo no cambia automáticamente.
+- La navegación entre filtros es explícita por acción de usuario (pills/dropdown), no por side effects de guardado.
+- Se permite feedback textual con CTA sugerido (`Ver Visitados`, `Ver Por visitar`, `Ver Todos`) sin auto-switch.
+
+10. **Excepción temporal de visibilidad post-mutación**
+- Runtime mantiene `recentlyMutatedSpotId`, `recentMutationUntil` y `recentMutationOriginFilter`.
+- El spot mutado reciente se mantiene visible temporalmente (TTL canónico: `10s`) para evitar desaparición percibida.
+- La excepción es de un solo spot (última mutación gana).
+- Si el spot default está enlazado a POI Mapbox, la excepción no persiste fuera de selección activa.
+
 ## Core puro recomendado
 
 - `reducePendingBadges(prev, event) => next`

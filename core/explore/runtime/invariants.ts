@@ -19,5 +19,22 @@ export function validateExploreRuntimeState(
       reason: `Invalid sheetState: ${String(state.sheetState)}`,
     };
   }
+  if (
+    state.recentMutationOriginFilter != null &&
+    !PIN_FILTERS.has(state.recentMutationOriginFilter)
+  ) {
+    return {
+      ok: false,
+      reason: `Invalid recentMutationOriginFilter: ${String(state.recentMutationOriginFilter)}`,
+    };
+  }
+  if (
+    (state.recentlyMutatedSpotId == null) !== (state.recentMutationUntil == null)
+  ) {
+    return {
+      ok: false,
+      reason: "recentlyMutatedSpotId and recentMutationUntil must be both set or both null",
+    };
+  }
   return { ok: true };
 }

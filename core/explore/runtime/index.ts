@@ -1,5 +1,5 @@
 export type { ExploreRuntimeState, ExploreSheetState } from "./state";
-export { INITIAL_EXPLORE_RUNTIME_STATE } from "./state";
+export { INITIAL_EXPLORE_RUNTIME_STATE, RECENT_MUTATION_TTL_MS } from "./state";
 
 export type { ExploreIntent } from "./intents";
 
@@ -9,9 +9,14 @@ export { exploreRuntimeReducer } from "./reducer";
 export type { ExploreInvariantResult } from "./invariants";
 export { validateExploreRuntimeState } from "./invariants";
 
-export type { PinStatusTransition } from "./transitions";
+export type {
+  PinStatusTransition,
+  FilterTransitionPolicy,
+  FilterTransitionCtaTarget,
+} from "./transitions";
 export {
   resolveDestinationFilterForStatus,
+  resolveFilterTransitionPolicy,
   shouldClearSelectedSpotOnFilterChange,
   shouldRestoreSelectionOnSearchClose,
   shouldMarkPendingBadge,

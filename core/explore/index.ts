@@ -30,6 +30,8 @@ export type {
   ExploreReducer as ExploreRuntimeReducer,
   ExploreInvariantResult,
   PinStatusTransition,
+  FilterTransitionPolicy,
+  FilterTransitionCtaTarget,
   CountriesQuality,
   ActivitySummaryCountrySource,
   ActivitySummarySpotInput,
@@ -38,9 +40,11 @@ export type {
 
 export {
   INITIAL_EXPLORE_RUNTIME_STATE,
+  RECENT_MUTATION_TTL_MS,
   exploreRuntimeReducer,
   validateExploreRuntimeState,
   resolveDestinationFilterForStatus,
+  resolveFilterTransitionPolicy,
   shouldClearSelectedSpotOnFilterChange,
   shouldRestoreSelectionOnSearchClose,
   shouldMarkPendingBadge,

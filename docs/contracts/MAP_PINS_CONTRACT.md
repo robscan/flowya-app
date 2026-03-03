@@ -108,3 +108,14 @@ Estado visual temporal:
 - `uncertain` y `unlinked` nunca se ocultan automáticamente.
 - Guardrail de seguridad: no ocultar un spot `linked+unsaved` si no existe `linked_place_id` válido.
 - Cuando hay `saved` o `visited`, el pin FLOWYA siempre se mantiene visible.
+
+## 8) Zoom y excepción `forceVisible` (Track A, 2026-03-02)
+
+- `default` no enlazado usa comportamiento tipo POI:
+  - visible por zoom desde `DEFAULT_UNLINKED_MIN_ZOOM = 13`.
+- Excepción canónica para continuidad post-acción:
+  - `SpotForLayer.forceVisible=true` permite bypass temporal del gating de zoom.
+  - Se aplica solo a selección activa o spot mutado reciente.
+- Alcance y límites:
+  - máximo 1 spot mutado reciente (TTL `10s`) + selección activa;
+  - no convertir en visibilidad persistente para defaults enlazados a POI cuando no están seleccionados.
