@@ -55,8 +55,9 @@ export function MapControls({
   const nextReframeModeRef = useRef<'spot' | 'spot+user'>('spot');
 
   useEffect(() => {
-    if (selectedSpot == null) nextReframeModeRef.current = 'spot';
-  }, [selectedSpot]);
+    // Al cambiar de selección (o limpiar selección), el primer tap siempre prioriza spot.
+    nextReframeModeRef.current = 'spot';
+  }, [selectedSpot?.id]);
 
   const handleReframePress = () => {
     if (!showReframe) return;

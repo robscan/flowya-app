@@ -435,7 +435,9 @@ export function useMapCore(
     if (!mapInstance) return;
     programmaticMoveRef.current = true;
     const center = mapInstance.getCenter();
-    if (worldZoomActiveRef.current) {
+    const currentZoom = mapInstance.getZoom();
+    const isAlreadyWorldZoom = currentZoom <= GLOBE_ZOOM_WORLD + 0.05;
+    if (worldZoomActiveRef.current && isAlreadyWorldZoom) {
       // Volver a zoom inicial
       mapInstance.flyTo({
         center: [center.lng, center.lat],
@@ -445,7 +447,7 @@ export function useMapCore(
       worldZoomActiveRef.current = false;
       setActiveMapControl(null);
     } else {
-      // Ver mundo: mantener posición, solo cambiar zoom
+      // Primer tap efectivo: mantener posición y mostrar zoom-out global.
       mapInstance.flyTo({
         center: [center.lng, center.lat],
         zoom: GLOBE_ZOOM_WORLD,

@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-03
+**Fecha de actualización:** 2026-03-04
 
 ---
 
@@ -84,6 +84,7 @@
 - `docs/bitacora/2026/03/272-map-pins-zoom-architecture-and-filter-badge-light-contrast.md`
 - `docs/bitacora/2026/03/273-sticky-context-and-recent-mutation-visibility-for-core-spots.md`
 - `docs/bitacora/2026/03/274-followup-core-default-labels-visible-in-filtered-contexts.md`
+- `docs/bitacora/2026/03/285-search-empty-local-pois-y-ajustes-map-controls-world-fallback.md`
 
 ---
 

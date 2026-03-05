@@ -13,8 +13,8 @@ export const FLOWYA_MAP_STYLE_LIGHT =
 export const FLOWYA_MAP_STYLE_DARK =
   "mapbox://styles/robscan/cmlyfk2g1000i01rzcgy0d8cl";
 
-/** Fallback cuando geolocalización está denegada o no disponible (Riviera Maya). */
-export const FALLBACK_VIEW = { longitude: -87.2, latitude: 20.4, zoom: 10 };
+/** Fallback cuando geolocalización está denegada o no disponible (Torre Eiffel). */
+export const FALLBACK_VIEW = { longitude: 2.2945, latitude: 48.8584, zoom: 1 };
 
 /** Pitch y bearing iniciales para estilo FLOWYA (navegación 3D). */
 export const INITIAL_PITCH = 45;
@@ -27,10 +27,10 @@ export const WORLD_BOUNDS: [[number, number], [number, number]] = [
 ];
 
 /** Globe toggle: zoom para ver todo el mundo. Mantiene posición, solo cambia zoom. */
-export const GLOBE_ZOOM_WORLD = 4;
+export const GLOBE_ZOOM_WORLD = 1;
 
 /** Globe toggle: zoom para estado inicial. Mantiene posición, solo cambia zoom. */
-export const GLOBE_ZOOM_INITIAL = 10;
+export const GLOBE_ZOOM_INITIAL = 4;
 
 /** Zoom mínimo para mostrar nombres de spots (labels solo cuando hay espacio). */
 export const LABEL_MIN_ZOOM = 12;
