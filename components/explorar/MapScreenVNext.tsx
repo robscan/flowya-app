@@ -68,7 +68,6 @@ import {
   searchPlacesPOI,
   type PlaceResultV2,
 } from "@/lib/places/searchPlacesPOI";
-import { searchPlacesByCategory } from "@/lib/places/searchPlacesCategory";
 import {
     FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
@@ -128,9 +127,7 @@ import {
 } from "@/lib/search/metrics";
 import {
   collectVisibleLandmarks,
-  EMPTY_LANDMARK_MIN_RESULTS,
   mergeEmptyExternalPlaces,
-  shouldFetchEmptyFallback,
 } from "@/lib/search/emptyRecommendations";
 import {
   recordExploreDecisionCompleted,
@@ -567,8 +564,8 @@ export function MapScreenVNext() {
   /** Valor actual del input en Paso 0 (para label del pin de preview). */
   const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
-  /** OL-WOW-F2-001-EMPTY: POIs por categoría cuando isEmpty (query vacía, pinFilter=all). */
-  const [nearbyPlacesEmpty, setNearbyPlacesEmpty] = useState<PlaceResult[]>([]);
+  /** Empty-state local: sin fallback externo; solo visibles del mapa para costo controlado. */
+  const nearbyPlacesEmpty = useMemo<PlaceResult[]>(() => [], []);
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
   const [draftCoverUri, setDraftCoverUri] = useState<string | null>(null);
   const [showBetaModal, setShowBetaModal] = useState(false);
@@ -1354,7 +1351,7 @@ export function MapScreenVNext() {
     return collectVisibleLandmarks(mapInstance);
   }, [searchV2.isOpen, searchV2.query, pinFilter, mapInstance, viewportNonce]);
 
-  /** OL-WOW-F2-001-EMPTY: isEmpty merge spots + POIs por categoría cuando pinFilter=all. */
+  /** Empty-state: mezcla spots + lugares visibles en mapa (sin llamadas externas). */
   const defaultItemsForEmpty = useMemo<(Spot | PlaceResult)[]>(() => {
     const isCountryDrilldownActive =
       searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
@@ -1518,115 +1515,6 @@ export function MapScreenVNext() {
     searchV2.results,
     pinFilter,
     mapInstance,
-  ]);
-
-  /**
-   * OL-WOW-F2-001-EMPTY: fetch POIs SOLO al abrir search (isEmpty, pinFilter=all).
-   * NO en pan/zoom: evita muchas consultas. Usuario cierra search → ve mapa → abre search → fetch.
-   */
-  useEffect(() => {
-    const q = searchV2.query.trim();
-    const needsFallback = shouldFetchEmptyFallback(visibleLandmarksEmpty, EMPTY_LANDMARK_MIN_RESULTS);
-    const shouldFetchEmpty =
-      searchV2.isOpen && q.length === 0 && pinFilter === "all" && needsFallback;
-    if (!shouldFetchEmpty) {
-      setNearbyPlacesEmpty([]);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const baseOpts: {
-          limit: number;
-          proximity?: { lat: number; lng: number };
-          bbox?: { west: number; south: number; east: number; north: number };
-        } = { limit: 8 };
-        if (mapInstance) {
-          try {
-            const c = mapInstance.getCenter();
-            const b = mapInstance.getBounds();
-            baseOpts.proximity = { lat: c.lat, lng: c.lng };
-            baseOpts.bbox = b
-              ? {
-                  west: b.getWest(),
-                  south: b.getSouth(),
-                  east: b.getEast(),
-                  north: b.getNorth(),
-                }
-              : undefined;
-          } catch {
-            /* fallback: global search */
-          }
-        }
-        const mergeUnique = (items: PlaceResult[]) => {
-          const seen = new Set<string>();
-          const merged: PlaceResult[] = [];
-          for (const item of items) {
-            if (seen.has(item.id)) continue;
-            seen.add(item.id);
-            merged.push(item);
-          }
-          return merged;
-        };
-        const fetchByCategories = async (
-          categories: string[],
-          opts: typeof baseOpts,
-        ): Promise<PlaceResult[]> => {
-          const results = await Promise.all(
-            categories.map((cat) => searchPlacesByCategory(cat, opts)),
-          );
-          return mergeUnique(results.flat());
-        };
-
-        let merged: PlaceResult[] = await fetchByCategories(
-          ["attraction", "museum"],
-          baseOpts,
-        );
-
-        if (featureFlags.searchEmptyRecoPanamaFixV1) {
-          const totalWithVisible = visibleLandmarksEmpty.length + merged.length;
-          if (totalWithVisible < EMPTY_LANDMARK_MIN_RESULTS) {
-            const wideOpts: typeof baseOpts = {
-              limit: 10,
-              proximity: baseOpts.proximity,
-            };
-            // Widen search area only when local bbox under-delivers; keep category scope tourism-first.
-            const widened = await fetchByCategories(
-              ["attraction", "museum", "landmark"],
-              wideOpts,
-            );
-            merged = mergeUnique([...merged, ...widened]);
-          }
-        }
-
-        if (cancelled) return;
-        let deduped = dedupeExternalPlacesAgainstSpots(merged, filteredSpots);
-        deduped = rankExternalPlacesByIntent(deduped, "");
-        if (__DEV__ && featureFlags.searchEmptyRecoPanamaFixV1) {
-          console.log(
-            "[empty-reco-v1]",
-            JSON.stringify({
-              visible: visibleLandmarksEmpty.length,
-              fallback: deduped.length,
-              minTarget: EMPTY_LANDMARK_MIN_RESULTS,
-            }),
-          );
-        }
-        setNearbyPlacesEmpty(deduped);
-      } catch {
-        if (!cancelled) setNearbyPlacesEmpty([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    searchV2.isOpen,
-    searchV2.query,
-    pinFilter,
-    mapInstance,
-    filteredSpots,
-    visibleLandmarksEmpty,
   ]);
 
   useEffect(() => {
