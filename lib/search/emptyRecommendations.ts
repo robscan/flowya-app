@@ -1,6 +1,7 @@
 import type { Map as MapboxMap } from "mapbox-gl";
 
 import { distanceKm } from "@/lib/geo-utils";
+import { POI_LAYER_PREFIXES } from "@/lib/map-core/constants";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
 import {
   dedupeExternalPlacesAgainstSpots,
@@ -58,6 +59,18 @@ const EXCLUDED_HINTS = [
   "terminal",
   "taxi",
 ];
+const EXCLUDED_FEATURE_TYPE_HINTS = [
+  "country",
+  "region",
+  "place",
+  "locality",
+  "district",
+  "neighborhood",
+  "postcode",
+  "address",
+  "street",
+  "road",
+];
 
 function pickName(props?: Record<string, unknown>): string | null {
   const raw =
@@ -111,11 +124,29 @@ function buildBag(feature: GeoFeature, props?: Record<string, unknown>): string 
     .trim();
 }
 
+function hasPoiSignals(feature: GeoFeature, props?: Record<string, unknown>): boolean {
+  const layerId = (feature.layer?.id ?? "").toLowerCase();
+  const hasLayerHint = POI_LAYER_PREFIXES.some((prefix) => layerId.includes(prefix));
+  const featureType = (pickFeatureType(props) ?? "").toLowerCase();
+  const maki = (getTappedFeatureMaki(props) ?? "").toLowerCase();
+  const categories = (pickCategories(props) ?? []).map((item) => item.toLowerCase());
+  const hasCategories = categories.length > 0;
+  const hasFeatureTypePoi = featureType.includes("poi") || featureType.includes("landmark");
+  const hasMaki = maki.length > 0;
+  const hasMapboxId = typeof props?.mapbox_id === "string" && props.mapbox_id.trim().length > 0;
+  return hasLayerHint || hasFeatureTypePoi || hasMaki || hasCategories || hasMapboxId;
+}
+
 function isInterestingVisibleFeature(feature: GeoFeature, props?: Record<string, unknown>): boolean {
   const bag = buildBag(feature, props);
   if (!bag) return false;
   if (EXCLUDED_HINTS.some((hint) => bag.includes(hint))) return false;
-  return LANDMARK_HINTS.some((hint) => bag.includes(hint));
+  const featureType = (pickFeatureType(props) ?? "").toLowerCase();
+  const isBroadGeoLabel = EXCLUDED_FEATURE_TYPE_HINTS.some((hint) => featureType.includes(hint));
+  const hasTourismHint = LANDMARK_HINTS.some((hint) => bag.includes(hint));
+  const hasPoiHint = hasPoiSignals(feature, props);
+  if (isBroadGeoLabel && !hasTourismHint) return false;
+  return hasTourismHint || hasPoiHint;
 }
 
 export function collectVisibleLandmarks(map: MapboxMap, maxItems = EMPTY_LANDMARK_MAX_VISIBLE): PlaceResult[] {
