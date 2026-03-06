@@ -31,6 +31,7 @@
 - Buscador con copy explícito de alcance: `Busca: países, regiones o lugares` (entrada coherente con capacidades geográficas/lugares en filtro `all`).
 - Search cold-start global activo: en primer arranque sin interacción (y sin ubicación) muestra `Paises populares` y `Lugares populares`; al primer gesto/intención vuelve al flujo local/contextual normal.
 - Selección de país/región desde búsqueda: encuadre completo del territorio con `fitBounds` cuando hay `bbox` (fallback a zoom geográfico amplio si no hay `bbox`).
+- Branding de entrada en Explore: slogan `SIGUE LO QUE TE MUEVE...` aparece temporalmente con fade y se posiciona debajo del filtro superior sin bloquear interacción.
 
 ### Gamificación (V1)
 
@@ -95,6 +96,7 @@
 - `docs/bitacora/2026/03/288-search-copy-paises-regiones-lugares.md`
 - `docs/bitacora/2026/03/289-search-cold-start-world-trending-with-randomized-seeds.md`
 - `docs/bitacora/2026/03/290-search-country-region-fit-bounds-selection.md`
+- `docs/bitacora/2026/03/291-explore-slogan-intro-fade-under-filter.md`
 
 ---
 
