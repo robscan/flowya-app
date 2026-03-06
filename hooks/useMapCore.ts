@@ -25,21 +25,17 @@ import {
   set3DBuildingsEnabled,
   SPOT_FOCUS_PADDING_BOTTOM,
   SPOT_FOCUS_ZOOM,
-  tryCenterOnUser,
   type UserCoords,
   GLOBE_ZOOM_INITIAL,
   GLOBE_ZOOM_WORLD,
 } from '@/lib/map-core/constants';
+import { requestCurrentLocation, type RequestCurrentLocationResult } from '@/lib/geolocation/request-user-location';
 import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
 export type MapCoreSelectedSpot = { id: string; longitude: number; latitude: number } | null;
 
 export type UseMapCoreOptions = {
   onLongPress: (coords: { lat: number; lng: number }) => void;
-  /** Si true, no se llama tryCenterOnUser en onMapLoad (ej. cuando params.created). */
-  skipCenterOnUser?: boolean;
-  /** Guard dinámico evaluado cuando geoloc resuelve; permite bloquear auto-center tardío. */
-  shouldCenterOnUser?: () => boolean;
   /** Llamado cuando el usuario inicia pan/zoom (no programático). */
   onUserMapGestureStart?: () => void;
   /** Si true, activa showLandmarkIcons/showLandmarkIconLabels (estilo FLOWYA/Standard). */
@@ -59,6 +55,10 @@ export type UseMapCoreOptions = {
   /** Si false, oculta labels de spots Flowya para evitar competencia visual con labels externas. */
   showSpotLabels?: boolean;
 };
+
+export type MapLocateResult =
+  | { status: 'moved' }
+  | Exclude<RequestCurrentLocationResult, { status: 'ok' }>;
 
 const GEO_OPTIONS: PositionOptions = {
   enableHighAccuracy: true,
@@ -117,8 +117,6 @@ export function useMapCore(
 ) {
   const {
     onLongPress,
-    skipCenterOnUser = false,
-    shouldCenterOnUser,
     onUserMapGestureStart,
     enableLandmarkLabels = false,
     isDarkStyle = false,
@@ -207,13 +205,8 @@ export function useMapCore(
       applyGlobeAndAtmosphere(map);
       hideNoiseLayers(map, { preservePoiLabels: enableLandmarkLabels });
       setLandmarkLabelsEnabled(map, enableLandmarkLabels);
-      if (!skipCenterOnUser) {
-        tryCenterOnUser(map, (coords) => {
-          if (mountedRef.current) setUserCoords(coords);
-        }, () => shouldCenterOnUser?.() ?? true);
-      }
     },
-    [skipCenterOnUser, enableLandmarkLabels, shouldCenterOnUser]
+    [enableLandmarkLabels]
   );
 
   useEffect(() => {
@@ -287,8 +280,8 @@ export function useMapCore(
     updateSpotsLayerData(map, spots, selectedSpotId, zoom, showSpotLabels);
   }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels]);
 
-  const handleLocate = useCallback(() => {
-    if (!mapInstance) return;
+  const handleLocate = useCallback(async (): Promise<MapLocateResult> => {
+    if (!mapInstance) return { status: 'unsupported' };
     programmaticMoveRef.current = true;
 
     // Press 3 (north → location): restaurar vista guardada tras press 1
@@ -303,7 +296,7 @@ export function useMapCore(
       });
       locationCycleRef.current = 'location';
       setActiveMapControl('location');
-      return;
+      return { status: 'moved' };
     }
 
     // Press 2 (location → north): orientación norte
@@ -311,60 +304,58 @@ export function useMapCore(
       mapInstance.easeTo({ bearing: 0, duration: 600 });
       locationCycleRef.current = 'location-north';
       setActiveMapControl('location-north');
-      return;
+      return { status: 'moved' };
     }
 
     // Press 1 (idle → location): flyTo user, guardar vista
-    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
     setActiveMapControl('location');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const coords: UserCoords = {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        };
-        setUserCoords(coords);
-        const center: [number, number] = [coords.longitude, coords.latitude];
-        locationSavedViewRef.current = {
-          center,
-          zoom: 15,
-          bearing: mapInstance.getBearing(),
-          pitch: mapInstance.getPitch(),
-        };
-        locationCycleRef.current = 'location';
-        mapInstance.flyTo({
-          center,
-          zoom: 15,
-          duration: 1500,
-          ...(is3DEnabled && {
-            pitch: INITIAL_PITCH,
-            padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
-          }),
-        });
-      },
-      () => {
-        if (userCoords) {
-          const center: [number, number] = [userCoords.longitude, userCoords.latitude];
-          locationSavedViewRef.current = {
-            center,
-            zoom: 15,
-            bearing: mapInstance.getBearing(),
-            pitch: mapInstance.getPitch(),
-          };
-          locationCycleRef.current = 'location';
-          mapInstance.flyTo({
-            center,
-            zoom: 15,
-            duration: 1500,
-            ...(is3DEnabled && {
-              pitch: INITIAL_PITCH,
-              padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
-            }),
-          });
-        }
-      },
-      GEO_OPTIONS
-    );
+    const result = await requestCurrentLocation(GEO_OPTIONS);
+    if (result.status === 'ok') {
+      const coords: UserCoords = {
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+      };
+      if (mountedRef.current) setUserCoords(coords);
+      const center: [number, number] = [coords.longitude, coords.latitude];
+      locationSavedViewRef.current = {
+        center,
+        zoom: 15,
+        bearing: mapInstance.getBearing(),
+        pitch: mapInstance.getPitch(),
+      };
+      locationCycleRef.current = 'location';
+      mapInstance.flyTo({
+        center,
+        zoom: 15,
+        duration: 1500,
+        ...(is3DEnabled && {
+          pitch: INITIAL_PITCH,
+          padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+        }),
+      });
+      return { status: 'moved' };
+    }
+    if (userCoords) {
+      const center: [number, number] = [userCoords.longitude, userCoords.latitude];
+      locationSavedViewRef.current = {
+        center,
+        zoom: 15,
+        bearing: mapInstance.getBearing(),
+        pitch: mapInstance.getPitch(),
+      };
+      locationCycleRef.current = 'location';
+      mapInstance.flyTo({
+        center,
+        zoom: 15,
+        duration: 1500,
+        ...(is3DEnabled && {
+          pitch: INITIAL_PITCH,
+          padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
+        }),
+      });
+      return { status: 'moved' };
+    }
+    return result;
   }, [mapInstance, userCoords, is3DEnabled]);
 
   const handleReframeSpot = useCallback(() => {
