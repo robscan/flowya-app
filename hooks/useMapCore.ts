@@ -282,10 +282,10 @@ export function useMapCore(
 
   const handleLocate = useCallback(async (): Promise<MapLocateResult> => {
     if (!mapInstance) return { status: 'unsupported' };
-    programmaticMoveRef.current = true;
 
     // Press 3 (north → location): restaurar vista guardada tras press 1
     if (locationCycleRef.current === 'location-north' && locationSavedViewRef.current) {
+      programmaticMoveRef.current = true;
       const saved = locationSavedViewRef.current;
       mapInstance.flyTo({
         center: saved.center,
@@ -301,6 +301,7 @@ export function useMapCore(
 
     // Press 2 (location → north): orientación norte
     if (locationCycleRef.current === 'location') {
+      programmaticMoveRef.current = true;
       mapInstance.easeTo({ bearing: 0, duration: 600 });
       locationCycleRef.current = 'location-north';
       setActiveMapControl('location-north');
@@ -308,9 +309,10 @@ export function useMapCore(
     }
 
     // Press 1 (idle → location): flyTo user, guardar vista
-    setActiveMapControl('location');
     const result = await requestCurrentLocation(GEO_OPTIONS);
     if (result.status === 'ok') {
+      programmaticMoveRef.current = true;
+      setActiveMapControl('location');
       const coords: UserCoords = {
         latitude: result.coords.latitude,
         longitude: result.coords.longitude,
@@ -336,6 +338,8 @@ export function useMapCore(
       return { status: 'moved' };
     }
     if (userCoords) {
+      programmaticMoveRef.current = true;
+      setActiveMapControl('location');
       const center: [number, number] = [userCoords.longitude, userCoords.latitude];
       locationSavedViewRef.current = {
         center,
