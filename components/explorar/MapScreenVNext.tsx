@@ -416,6 +416,9 @@ const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
+const FLOWYA_SLOGAN_FADE_IN_MS = 520;
+const FLOWYA_SLOGAN_HOLD_MS = 2400;
+const FLOWYA_SLOGAN_FADE_OUT_MS = 980;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -520,10 +523,44 @@ export function MapScreenVNext() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
   const filterOverlayEntry = useRef(new Animated.Value(0)).current;
+  const sloganEntryOpacity = useRef(new Animated.Value(0)).current;
+  const sloganEntryAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [showEntrySlogan, setShowEntrySlogan] = useState(true);
   const filterOverlayHasAnimatedInRef = useRef(false);
   const [isFilterWaitingForCamera, setIsFilterWaitingForCamera] = useState(true);
   const filterWaitActiveRef = useRef(true);
   const filterWaitFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    sloganEntryAnimationRef.current?.stop();
+    sloganEntryOpacity.setValue(0);
+    setShowEntrySlogan(true);
+    const sequence = Animated.sequence([
+      Animated.timing(sloganEntryOpacity, {
+        toValue: 1,
+        duration: FLOWYA_SLOGAN_FADE_IN_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.delay(FLOWYA_SLOGAN_HOLD_MS),
+      Animated.timing(sloganEntryOpacity, {
+        toValue: 0,
+        duration: FLOWYA_SLOGAN_FADE_OUT_MS,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]);
+    sloganEntryAnimationRef.current = sequence;
+    sequence.start(({ finished }) => {
+      if (!finished) return;
+      setShowEntrySlogan(false);
+    });
+    return () => {
+      sloganEntryAnimationRef.current?.stop();
+      sloganEntryAnimationRef.current = null;
+      sloganEntryOpacity.stopAnimation();
+    };
+  }, [sloganEntryOpacity]);
 
   useEffect(() => {
     setMapPinFilterPreference(pinFilter);
@@ -3460,6 +3497,10 @@ export function MapScreenVNext() {
   const shouldOpenFilterMenuUp =
     availableSpaceAboveFilter >= FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP &&
     availableSpaceBelowFilter < FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP;
+  const sloganTop = Math.max(
+    insets.top + TOP_OVERLAY_INSET_Y + 40,
+    Math.max(filterMinimumTop, filterTop) + FILTER_TRIGGER_ESTIMATED_HEIGHT + 48,
+  );
   const shouldShowFilterDropdown =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
@@ -3818,6 +3859,20 @@ export function MapScreenVNext() {
               hideActiveCount={showCountriesCounterBubble}
             />
           </View>
+        </Animated.View>
+      ) : null}
+      {showEntrySlogan && !createSpotNameOverlayOpen ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.sloganOverlay,
+            { top: sloganTop },
+            { opacity: sloganEntryOpacity },
+          ]}
+        >
+          <Text style={[TypographyStyles.heading2, styles.sloganText, { color: Colors[colorScheme ?? "light"].text }]}>
+            SIGUE LO QUE TE MUEVE...
+          </Text>
         </Animated.View>
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
@@ -4462,6 +4517,21 @@ const styles = StyleSheet.create({
     zIndex: EXPLORE_LAYER_Z.FLOWYA_LABEL,
     alignSelf: "flex-start",
     padding: 8,
+  },
+  sloganOverlay: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
+    paddingHorizontal: 24,
+  },
+  sloganText: {
+    letterSpacing: 0.6,
+    textAlign: "center",
+    textShadowColor: "rgba(0,0,0,0.28)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   countriesCircle: {
     width: 64,
