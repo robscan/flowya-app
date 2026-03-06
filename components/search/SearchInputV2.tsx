@@ -34,7 +34,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
     value,
     onChangeText,
     onClear,
-    placeholder = "Buscar spots",
+    placeholder = "Busca: países, regiones o lugares",
     autoFocus = false,
     editable = true,
     accessibilityLabel = "Buscar",

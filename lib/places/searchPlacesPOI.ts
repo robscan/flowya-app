@@ -16,6 +16,7 @@ export type PlaceResultV2 = {
   fullName?: string;
   lat: number;
   lng: number;
+  bbox?: { west: number; south: number; east: number; north: number };
   source: 'mapbox_geocoding' | 'mapbox_searchbox';
   maki?: string;
   featureType?: string;
@@ -28,6 +29,7 @@ export type SearchPlacesPOIOptions = SearchPlacesOptions & {
 
 type SearchBoxFeature = {
   id?: string;
+  bbox?: [number, number, number, number];
   geometry?: { coordinates?: [number, number] };
   properties?: {
     mapbox_id?: string;
@@ -39,6 +41,7 @@ type SearchBoxFeature = {
     maki?: string;
     poi_category_ids?: string[];
     poi_category?: string[];
+    bbox?: [number, number, number, number];
   };
 };
 
@@ -127,6 +130,7 @@ function toLegacyPlace(item: PlaceResultV2): PlaceResult {
     fullName: item.fullName,
     lat: item.lat,
     lng: item.lng,
+    bbox: item.bbox,
     source: 'mapbox',
     maki: item.maki,
     featureType: item.featureType,
@@ -141,11 +145,26 @@ function mapLegacyToV2(item: PlaceResult): PlaceResultV2 {
     fullName: item.fullName,
     lat: item.lat,
     lng: item.lng,
+    bbox: item.bbox,
     source: 'mapbox_geocoding',
     maki: item.maki,
     featureType: item.featureType,
     categories: item.categories,
   };
+}
+
+function parseBBox(
+  bbox: [number, number, number, number] | undefined
+): { west: number; south: number; east: number; north: number } | undefined {
+  if (!bbox || bbox.length !== 4) return undefined;
+  const [west, south, east, north] = bbox;
+  const values = [west, south, east, north];
+  if (!values.every((value) => typeof value === 'number' && Number.isFinite(value))) return undefined;
+  if (west >= east || south >= north) return undefined;
+  if (Math.abs(west) > 180 || Math.abs(east) > 180 || Math.abs(south) > 90 || Math.abs(north) > 90) {
+    return undefined;
+  }
+  return { west, south, east, north };
 }
 
 export function placeResultV2ToLegacy(item: PlaceResultV2): PlaceResult {
@@ -169,6 +188,7 @@ function parseSearchBoxForward(data: SearchBoxForwardResponse, fallbackQuery: st
       fullName,
       lat,
       lng,
+      bbox: parseBBox(p?.bbox ?? f.bbox),
       source: 'mapbox_searchbox',
       maki: p?.maki?.trim() || undefined,
       featureType: p?.feature_type?.trim() || undefined,

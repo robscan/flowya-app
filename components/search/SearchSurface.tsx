@@ -88,6 +88,12 @@ export function SearchSurface<T>({
   const displayResults = resultsOverride ?? controller.results;
   const showPlaceRecommendations = pinFilter == null || pinFilter === 'all';
   const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
+  const searchPlaceholder =
+    pinFilter === 'saved'
+      ? 'Busca en tus spots por visitar'
+      : pinFilter === 'visited'
+        ? 'Busca en tus spots visitados'
+        : 'Busca: países, regiones o lugares';
   const hideListTitles = isFilteredPinSearch;
   /** isEmpty: mostrar "Spots en la zona" (ocultar solo cuando saved/visited). */
   const hideDefaultListTitle = hideListTitles;
@@ -135,7 +141,7 @@ export function SearchSurface<T>({
             value={controller.query}
             onChangeText={controller.setQuery}
             onClear={controller.clear}
-            placeholder="Buscar spots"
+            placeholder={searchPlaceholder}
             autoFocus
             embedded
             onFocus={onInputFocus}

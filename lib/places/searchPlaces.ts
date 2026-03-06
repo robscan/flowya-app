@@ -12,6 +12,7 @@ export type PlaceResult = {
   fullName?: string;
   lat: number;
   lng: number;
+  bbox?: { west: number; south: number; east: number; north: number };
   source: 'mapbox';
   maki?: string;
   featureType?: string;
@@ -21,6 +22,7 @@ export type PlaceResult = {
 type ForwardFeature = {
   type: string;
   id?: string;
+  bbox?: [number, number, number, number];
   geometry?: { type: string; coordinates?: [number, number] };
   properties?: {
     name?: string;
@@ -31,6 +33,20 @@ type ForwardFeature = {
     poi_category?: string[] | string;
   };
 };
+
+function parseBBox(
+  bbox: [number, number, number, number] | undefined
+): { west: number; south: number; east: number; north: number } | undefined {
+  if (!bbox || bbox.length !== 4) return undefined;
+  const [west, south, east, north] = bbox;
+  const values = [west, south, east, north];
+  if (!values.every((value) => typeof value === 'number' && Number.isFinite(value))) return undefined;
+  if (west >= east || south >= north) return undefined;
+  if (Math.abs(west) > 180 || Math.abs(east) > 180 || Math.abs(south) > 90 || Math.abs(north) > 90) {
+    return undefined;
+  }
+  return { west, south, east, north };
+}
 
 type ForwardResponse = {
   type: string;
@@ -116,6 +132,7 @@ export async function searchPlaces(
         fullName: fullName || undefined,
         lat,
         lng,
+        bbox: parseBBox(f.bbox),
         source: 'mapbox',
         maki: f.properties?.maki?.trim() || undefined,
         featureType: f.properties?.feature_type?.trim() || undefined,
