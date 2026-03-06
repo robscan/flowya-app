@@ -4476,7 +4476,13 @@ export function MapScreenVNext() {
               !poiSheetLoading
             ) {
               setSheetState("expanded");
-              void handleCreateSpotFromPoi(undefined, "expanded");
+              const autoStatusForFilter =
+                pinFilter === "saved"
+                  ? "to_visit"
+                  : pinFilter === "visited"
+                    ? "visited"
+                    : undefined;
+              void handleCreateSpotFromPoi(autoStatusForFilter, "expanded");
             } else {
               setSheetState(newState);
             }
