@@ -1,4 +1,4 @@
-# 292 — Fix: estado programático de locate solo cuando hay movimiento real
+# 294 — Fix: estado programático de locate solo cuando hay movimiento real
 
 Fecha: 2026-03-06
 Tipo: Fix funcional (sin loop nuevo)
