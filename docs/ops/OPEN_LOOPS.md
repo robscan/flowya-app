@@ -86,6 +86,7 @@ Reglas:
 - Follow-up visibilidad de labels para spots core `default` en filtros `saved/visited` (sin apagado al seleccionar): bitácora `274`.
 - Search empty local sin fallback API + ajustes de Map Controls (`reframe`/world) + fallback inicial Torre Eiffel: bitácora `285`.
 - Fix transversal permisos geoloc on-demand (sin prompt en carga) + guía en `denied` persistente: bitácora `286`.
+- Fix transversal copy auth (guardar/marcar + enlace seguro sin contraseña): bitácora `287`.
 
 ---
 
