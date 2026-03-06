@@ -27,6 +27,7 @@
 - No-ensamble de sheets (regla de colisión activa).
 - Share card web con fallback de descarga local cuando no hay share nativo.
 - Geolocalización por intención explícita: no se solicita permiso en carga; `Mi ubicación` dispara request on-demand con guía en `denied` persistente.
+- Auth modal con copy actualizado: foco en guardar/marcar spots + claridad de acceso por enlace seguro al correo (sin contraseña).
 
 ### Gamificación (V1)
 
@@ -87,6 +88,7 @@
 - `docs/bitacora/2026/03/274-followup-core-default-labels-visible-in-filtered-contexts.md`
 - `docs/bitacora/2026/03/285-search-empty-local-pois-y-ajustes-map-controls-world-fallback.md`
 - `docs/bitacora/2026/03/286-geolocation-permissions-on-demand-and-denied-guidance.md`
+- `docs/bitacora/2026/03/287-auth-copy-save-mark-magic-link-clarity.md`
 
 ---
 

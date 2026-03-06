@@ -35,10 +35,10 @@ type AuthModalState = 'idle' | 'loading' | 'success' | 'error';
  * profile: al tocar icono de perfil sin sesión.
  */
 export const AUTH_MODAL_MESSAGES = {
-  savePin: 'Crea una cuenta para guardar tus lugares',
-  profile: 'Ingresa a tu cuenta de FLOWYA',
-  createSpot: 'Inicia sesión para crear un spot',
-  editSpot: 'Inicia sesión para editar este spot',
+  savePin: 'Inicia sesión para guardar y marcar spots',
+  profile: 'Inicia sesión en FLOWYA',
+  createSpot: 'Inicia sesión para guardar este spot',
+  editSpot: 'Inicia sesión para editar y guardar este spot',
 } as const;
 
 type AuthModalContextValue = {
@@ -235,11 +235,13 @@ function AuthModalView({
             {state === 'success' ? (
               <>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  Revisa tu correo electrónico
+                  Revisa tu correo
                 </Text>
                 <Text style={[styles.hint, { color: colors.text }]}>
-                  Te enviamos un enlace para entrar a FLOWYA. Abre el correo y haz clic en el
-                  enlace para continuar.
+                  Te enviamos un enlace seguro para entrar a FLOWYA.
+                </Text>
+                <Text style={[styles.hint, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
+                  Solo usamos tu correo para validar tu acceso.
                 </Text>
                 <Text style={[styles.hint, { color: colors.textSecondary, marginTop: Spacing.sm }]}>
                   Si no lo ves en tu bandeja de entrada, revisa tu carpeta de Spam o Correo no
@@ -258,7 +260,7 @@ function AuthModalView({
               <>
                 <Text style={[styles.title, { color: colors.text }]}>{message}</Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Recibirás un correo con un enlace para entrar.
+                  Te enviaremos un enlace seguro a tu correo. No necesitas contraseña.
                 </Text>
                 <TextInput
                   style={[
@@ -294,12 +296,12 @@ function AuthModalView({
                   ]}
                   onPress={handleSubmit}
                   disabled={state === 'loading'}
-                  accessibilityLabel="Enviar enlace"
+                  accessibilityLabel="Enviar enlace seguro"
                 >
                   {state === 'loading' ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <Text style={styles.ctaLabel}>Enviar enlace</Text>
+                    <Text style={styles.ctaLabel}>Enviar enlace seguro</Text>
                   )}
                 </Pressable>
               </>
