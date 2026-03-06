@@ -28,6 +28,9 @@
 - Share card web con fallback de descarga local cuando no hay share nativo.
 - Geolocalización por intención explícita: no se solicita permiso en carga; `Mi ubicación` dispara request on-demand con guía en `denied` persistente.
 - Auth modal con copy actualizado: foco en guardar/marcar spots + claridad de acceso por enlace seguro al correo (sin contraseña).
+- Buscador con copy explícito de alcance: `Busca: países, regiones o lugares` (entrada coherente con capacidades geográficas/lugares en filtro `all`).
+- Search cold-start global activo: en primer arranque sin interacción (y sin ubicación) muestra `Paises populares` y `Lugares populares`; al primer gesto/intención vuelve al flujo local/contextual normal.
+- Selección de país/región desde búsqueda: encuadre completo del territorio con `fitBounds` cuando hay `bbox` (fallback a zoom geográfico amplio si no hay `bbox`).
 
 ### Gamificación (V1)
 
@@ -89,6 +92,9 @@
 - `docs/bitacora/2026/03/285-search-empty-local-pois-y-ajustes-map-controls-world-fallback.md`
 - `docs/bitacora/2026/03/286-geolocation-permissions-on-demand-and-denied-guidance.md`
 - `docs/bitacora/2026/03/287-auth-copy-save-mark-magic-link-clarity.md`
+- `docs/bitacora/2026/03/288-search-copy-paises-regiones-lugares.md`
+- `docs/bitacora/2026/03/289-search-cold-start-world-trending-with-randomized-seeds.md`
+- `docs/bitacora/2026/03/290-search-country-region-fit-bounds-selection.md`
 
 ---
 

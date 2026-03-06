@@ -16,13 +16,13 @@ const ON_DARK_BG_PRESSED = 'rgba(0, 0, 0, 0.06)';
 const ON_DARK_TEXT = '#1d1d1f';
 const ON_DARK_BORDER = 'rgba(0, 0, 0, 0.08)';
 
-/** Ancho mínimo que acomoda "Buscar spots" + icono + padding sin colapso. */
+/** Ancho mínimo que acomoda "Buscar lugares" + icono + padding sin colapso. */
 const PILL_MIN_WIDTH = 150;
 
 export type SearchPillVariant = 'default' | 'onDark';
 
 export type SearchPillProps = {
-  /** Label del pill (default "Buscar spots"). */
+  /** Label del pill (default "Buscar lugares"). */
   label?: string;
   onPress: () => void;
   /** Override para accessibility (default = label). */
@@ -35,7 +35,7 @@ export type SearchPillProps = {
 };
 
 export function SearchPill({
-  label = 'Buscar spots',
+  label = 'Buscar lugares',
   onPress,
   accessibilityLabel,
   fill = false,

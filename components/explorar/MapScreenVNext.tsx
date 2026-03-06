@@ -130,6 +130,10 @@ import {
   mergeEmptyExternalPlaces,
 } from "@/lib/search/emptyRecommendations";
 import {
+  buildColdStartWorldSections,
+  isWorldSeedPlace,
+} from "@/lib/search/coldStartWorldRecommendations";
+import {
   recordExploreDecisionCompleted,
   recordExploreDecisionStarted,
   recordExploreSelectionChanged,
@@ -439,6 +443,11 @@ function isPlaceLandmark(place: PlaceResult): boolean {
   return false;
 }
 
+function isCountryOrRegionPlace(place: PlaceResult): boolean {
+  const featureType = (place.featureType ?? "").toLowerCase();
+  return featureType.includes("country") || featureType.includes("region");
+}
+
 export function MapScreenVNext() {
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -564,6 +573,15 @@ export function MapScreenVNext() {
   /** Valor actual del input en Paso 0 (para label del pin de preview). */
   const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
+  const [isSearchColdStartBootstrapActive, setIsSearchColdStartBootstrapActive] = useState(true);
+  const coldStartSeedRef = useRef<number>(Math.floor(Math.random() * 1_000_000_000));
+  const deactivateSearchColdStartBootstrap = useCallback(() => {
+    setIsSearchColdStartBootstrapActive((prev) => (prev ? false : prev));
+  }, []);
+  const coldStartWorldSections = useMemo<SearchSection<Spot | PlaceResult>[]>(
+    () => buildColdStartWorldSections(coldStartSeedRef.current) as SearchSection<Spot | PlaceResult>[],
+    [],
+  );
   /** Empty-state local: sin fallback externo; solo visibles del mapa para costo controlado. */
   const nearbyPlacesEmpty = useMemo<PlaceResult[]>(() => [], []);
   const [isPlacingDraftSpot, setIsPlacingDraftSpot] = useState(false);
@@ -863,6 +881,7 @@ export function MapScreenVNext() {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => {
+      deactivateSearchColdStartBootstrap();
       setSheetState("peek");
       collapseCountriesSheetOnMapGestureRef.current?.();
     },
@@ -1347,7 +1366,16 @@ export function MapScreenVNext() {
   }, [searchV2.isOpen, searchV2.query, pinFilter, mapInstance, viewportNonce]);
 
   /** Empty-state: mezcla spots + lugares visibles en mapa (sin llamadas externas). */
+  const shouldShowSearchColdStartBootstrap =
+    searchV2.isOpen &&
+    searchV2.query.trim().length === 0 &&
+    pinFilter === "all" &&
+    countriesDrilldown == null &&
+    userCoords == null &&
+    isSearchColdStartBootstrapActive;
+
   const defaultItemsForEmpty = useMemo<(Spot | PlaceResult)[]>(() => {
+    if (shouldShowSearchColdStartBootstrap) return [];
     const isCountryDrilldownActive =
       searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
     if (isCountryDrilldownActive) return countryDrilldownItems;
@@ -1363,6 +1391,7 @@ export function MapScreenVNext() {
     searchV2.query,
     countriesDrilldown,
     countryDrilldownItems,
+    shouldShowSearchColdStartBootstrap,
     pinFilter,
     defaultSpotsForEmpty,
     visibleLandmarksEmpty,
@@ -1372,6 +1401,7 @@ export function MapScreenVNext() {
 
   /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
   const defaultSectionsForEmpty = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
+    if (shouldShowSearchColdStartBootstrap) return coldStartWorldSections;
     const isCountryDrilldownActive =
       searchV2.isOpen && countriesDrilldown != null && searchV2.query.trim().length === 0;
     if (isCountryDrilldownActive) {
@@ -1419,6 +1449,8 @@ export function MapScreenVNext() {
   }, [
     searchV2.isOpen,
     searchV2.query,
+    shouldShowSearchColdStartBootstrap,
+    coldStartWorldSections,
     countriesDrilldown,
     countryDrilldownItems,
     pinFilter,
@@ -1514,6 +1546,9 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     const q = searchV2.query.trim().toLowerCase();
+    if (q.length > 0 && isSearchColdStartBootstrapActive) {
+      deactivateSearchColdStartBootstrap();
+    }
     if (!searchV2.isOpen || q.length < 3) return;
     if (lastSearchStartKeyRef.current !== q) {
       lastSearchStartKeyRef.current = q;
@@ -1535,6 +1570,8 @@ export function MapScreenVNext() {
     searchV2.query,
     searchV2.isLoading,
     searchV2.results.length,
+    isSearchColdStartBootstrapActive,
+    deactivateSearchColdStartBootstrap,
     pinFilter,
     selectedSpot,
     poiTapped,
@@ -1549,6 +1586,7 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     searchV2.setOnSelect((spot: Spot) => {
+      deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
       setPoiTapped(null);
@@ -1572,7 +1610,7 @@ export function MapScreenVNext() {
         );
       }
     });
-  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2, setSheetState, pinFilter]);
+  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2, setSheetState, pinFilter, deactivateSearchColdStartBootstrap]);
 
   useEffect(() => {
     invalidateSpotIdRef.current = searchV2.invalidateSpotId;
@@ -1800,13 +1838,36 @@ export function MapScreenVNext() {
 
   /** Lugar sugerido en búsqueda: mostrar POI sheet (card medium con Por visitar) y encuadrar mapa en el lugar. */
   const handleCreateFromPlace = useCallback(
-    (place: PlaceResult) => {
-      const stablePlaceId = getStablePlaceId(place);
+    async (place: PlaceResult) => {
+      deactivateSearchColdStartBootstrap();
+      let targetPlace = place;
+      if (isWorldSeedPlace(place)) {
+        try {
+          const resolved = featureFlags.searchExternalPoiResults
+            ? (await searchPlacesPOI(place.name, { limit: 1 })).map((item: PlaceResultV2) =>
+                placeResultV2ToLegacy(item),
+              )
+            : await searchPlaces(place.name, { limit: 1 });
+          const best = resolved[0];
+          if (
+            best &&
+            Number.isFinite(best.lat) &&
+            Number.isFinite(best.lng) &&
+            Math.abs(best.lat) <= 90 &&
+            Math.abs(best.lng) <= 180
+          ) {
+            targetPlace = { ...place, ...best };
+          }
+        } catch {
+          // Si falla resolución, usar coords seed.
+        }
+      }
+      const stablePlaceId = getStablePlaceId(targetPlace);
       searchV2.setOpen(false);
       const existingSpot = resolveTappedSpotMatch(spots, {
-        lat: place.lat,
-        lng: place.lng,
-        name: place.name,
+        lat: targetPlace.lat,
+        lng: targetPlace.lng,
+        name: targetPlace.name,
         placeId: stablePlaceId,
       });
       if (existingSpot) {
@@ -1833,12 +1894,12 @@ export function MapScreenVNext() {
       setSelectedSpot(null);
       recordSearchExternalClick();
       setPoiTapped({
-        name: place.name,
-        lat: place.lat,
-        lng: place.lng,
-        kind: inferTappedKindFromPlace(place),
+        name: targetPlace.name,
+        lat: targetPlace.lat,
+        lng: targetPlace.lng,
+        kind: inferTappedKindFromPlace(targetPlace),
         placeId: stablePlaceId,
-        maki: place.maki ?? null,
+        maki: targetPlace.maki ?? null,
         visualState: "default",
         source: "search_suggestion",
       });
@@ -1849,12 +1910,43 @@ export function MapScreenVNext() {
         toFilter: pinFilter,
       });
       setSheetState("medium");
+      const shouldFrameArea = isCountryOrRegionPlace(targetPlace);
+      if (shouldFrameArea && mapInstance && targetPlace.bbox) {
+        const { west, south, east, north } = targetPlace.bbox;
+        try {
+          suspendFilterUntilCameraSettles();
+          mapInstance.fitBounds(
+            [
+              [west, south],
+              [east, north],
+            ],
+            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
+          );
+          return;
+        } catch {
+          // fallback a flyTo con zoom amplio
+        }
+      }
       flyToUnlessActMode(
-        { lng: place.lng, lat: place.lat },
-        { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
+        { lng: targetPlace.lng, lat: targetPlace.lat },
+        {
+          zoom: shouldFrameArea
+            ? ((targetPlace.featureType ?? "").toLowerCase().includes("country") ? 3.6 : 5.5)
+            : SPOT_FOCUS_ZOOM,
+          duration: FIT_BOUNDS_DURATION_MS,
+        }
       );
     },
-    [searchV2, spots, flyToUnlessActMode, setSheetState, pinFilter],
+    [
+      deactivateSearchColdStartBootstrap,
+      searchV2,
+      spots,
+      flyToUnlessActMode,
+      setSheetState,
+      pinFilter,
+      mapInstance,
+      suspendFilterUntilCameraSettles,
+    ],
   );
 
   /** Tap en mapa: draft placement (mover pin) o detección de POI (SpotSheet si ya existe, SpotSheet modo POI si no). */
@@ -3458,6 +3550,7 @@ export function MapScreenVNext() {
   ]);
 
   const handleLocateWithFilterDelay = useCallback(async () => {
+    deactivateSearchColdStartBootstrap();
     suspendFilterUntilCameraSettles();
     const result = await handleLocate();
     if (result.status === "moved") return;
@@ -3471,12 +3564,13 @@ export function MapScreenVNext() {
     if (result.status === "timeout" || result.status === "unavailable") {
       toast.show("No pudimos obtener tu ubicación. Intenta de nuevo.", { type: "error" });
     }
-  }, [handleLocate, suspendFilterUntilCameraSettles, toast]);
+  }, [deactivateSearchColdStartBootstrap, handleLocate, suspendFilterUntilCameraSettles, toast]);
 
   const handleViewWorldWithFilterDelay = useCallback(() => {
+    deactivateSearchColdStartBootstrap();
     suspendFilterUntilCameraSettles();
     handleViewWorld();
-  }, [handleViewWorld, suspendFilterUntilCameraSettles]);
+  }, [deactivateSearchColdStartBootstrap, handleViewWorld, suspendFilterUntilCameraSettles]);
 
   useEffect(() => {
     if (!shouldShowFilterDropdown) {
@@ -3913,7 +4007,7 @@ export function MapScreenVNext() {
           <IconButton
             variant="default"
             onPress={openSearchPreservingCountriesSheet}
-            accessibilityLabel="Buscar spots"
+            accessibilityLabel="Buscar lugares"
           >
             <Search size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
           </IconButton>

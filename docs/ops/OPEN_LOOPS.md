@@ -87,6 +87,9 @@ Reglas:
 - Search empty local sin fallback API + ajustes de Map Controls (`reframe`/world) + fallback inicial Torre Eiffel: bitácora `285`.
 - Fix transversal permisos geoloc on-demand (sin prompt en carga) + guía en `denied` persistente: bitácora `286`.
 - Fix transversal copy auth (guardar/marcar + enlace seguro sin contraseña): bitácora `287`.
+- Fix transversal copy buscador (placeholder/entry): `países, regiones o lugares`: bitácora `288`.
+- Fix runtime de búsqueda en cold-start global: tendencias de `paises/lugares` con desactivación por primera interacción: bitácora `289`.
+- Fix UX de selección geográfica en búsqueda: `country/region` ahora encuadra territorio completo (`fitBounds` + fallback seguro): bitácora `290`.
 
 ---
 
