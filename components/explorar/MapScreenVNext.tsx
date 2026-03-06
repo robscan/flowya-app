@@ -3870,7 +3870,7 @@ export function MapScreenVNext() {
             { opacity: sloganEntryOpacity },
           ]}
         >
-          <Text style={[TypographyStyles.heading2, styles.sloganText, { color: Colors[colorScheme ?? "light"].text }]}>
+          <Text style={[TypographyStyles.heading2, styles.sloganText]}>
             SIGUE LO QUE TE MUEVE...
           </Text>
         </Animated.View>
@@ -4527,11 +4527,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   sloganText: {
+    color: "#FFFFFF",
+    fontSize: 40,
+    lineHeight: 44,
+    fontWeight: "500",
     letterSpacing: 0.6,
     textAlign: "center",
-    textShadowColor: "rgba(0,0,0,0.28)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
+    textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
   },
   countriesCircle: {
     width: 64,
