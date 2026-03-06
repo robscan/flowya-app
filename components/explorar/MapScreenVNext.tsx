@@ -3871,7 +3871,10 @@ export function MapScreenVNext() {
           ]}
         >
           <Text style={[TypographyStyles.heading2, styles.sloganText]}>
-            {"SIGUE LO QUE\nTE MUEVE"}
+            <Text style={styles.sloganLineLight}>
+              {"SIGUE LO QUE\n"}
+            </Text>
+            <Text style={styles.sloganLineStrong}>TE MUEVE</Text>
           </Text>
         </Animated.View>
       ) : null}
@@ -4530,10 +4533,15 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 32,
     lineHeight: 32,
-    fontWeight: "700",
     letterSpacing: 0.6,
     textAlign: "center",
     textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
+  },
+  sloganLineLight: {
+    fontWeight: "300",
+  },
+  sloganLineStrong: {
+    fontWeight: "700",
   },
   countriesCircle: {
     width: 64,
