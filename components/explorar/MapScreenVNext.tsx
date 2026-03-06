@@ -3871,7 +3871,7 @@ export function MapScreenVNext() {
           ]}
         >
           <Text style={[TypographyStyles.heading2, styles.sloganText]}>
-            SIGUE LO QUE TE MUEVE...
+            {"SIGUE LO QUE\nTE MUEVE"}
           </Text>
         </Animated.View>
       ) : null}
@@ -4528,9 +4528,9 @@ const styles = StyleSheet.create({
   },
   sloganText: {
     color: "#FFFFFF",
-    fontSize: 40,
-    lineHeight: 44,
-    fontWeight: "500",
+    fontSize: 32,
+    lineHeight: 32,
+    fontWeight: "700",
     letterSpacing: 0.6,
     textAlign: "center",
     textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
