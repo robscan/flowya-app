@@ -859,13 +859,8 @@ export function MapScreenVNext() {
     },
     [],
   );
-  /** No centrar en usuario durante intake de deep link (incluye geoloc tardía). */
-  const skipCenterOnUser = deepLinkCenterLockRef.current;
-
   const mapCore = useMapCore(selectedSpot, {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
-    skipCenterOnUser,
-    shouldCenterOnUser: () => !deepLinkCenterLockRef.current,
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => {
       setSheetState("peek");
@@ -3462,10 +3457,21 @@ export function MapScreenVNext() {
     shouldCenterCountriesWithPeekSheet,
   ]);
 
-  const handleLocateWithFilterDelay = useCallback(() => {
+  const handleLocateWithFilterDelay = useCallback(async () => {
     suspendFilterUntilCameraSettles();
-    handleLocate();
-  }, [handleLocate, suspendFilterUntilCameraSettles]);
+    const result = await handleLocate();
+    if (result.status === "moved") return;
+    if (result.status === "denied") {
+      toast.show(
+        "Activa ubicación para este sitio en tu navegador y vuelve a intentar.",
+        { type: "default" },
+      );
+      return;
+    }
+    if (result.status === "timeout" || result.status === "unavailable") {
+      toast.show("No pudimos obtener tu ubicación. Intenta de nuevo.", { type: "error" });
+    }
+  }, [handleLocate, suspendFilterUntilCameraSettles, toast]);
 
   const handleViewWorldWithFilterDelay = useCallback(() => {
     suspendFilterUntilCameraSettles();

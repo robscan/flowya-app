@@ -77,19 +77,6 @@ export function MapControls({
 
   const handleLocate = () => {
     if (onLocate) onLocate();
-    else if (enabled && map && typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          map.flyTo({
-            center: [pos.coords.longitude, pos.coords.latitude],
-            zoom: 14,
-            duration: 1500,
-          });
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-      );
-    }
   };
 
   return (

@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-04
+**Fecha:** 2026-03-06
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -85,6 +85,7 @@ Reglas:
 - Cierre definitivo de visibilidad spots core + política Sticky Context en transiciones de filtro (sin autoswitch): bitácora `273`.
 - Follow-up visibilidad de labels para spots core `default` en filtros `saved/visited` (sin apagado al seleccionar): bitácora `274`.
 - Search empty local sin fallback API + ajustes de Map Controls (`reframe`/world) + fallback inicial Torre Eiffel: bitácora `285`.
+- Fix transversal permisos geoloc on-demand (sin prompt en carga) + guía en `denied` persistente: bitácora `286`.
 
 ---
 

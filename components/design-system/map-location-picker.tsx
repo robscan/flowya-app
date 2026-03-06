@@ -1,7 +1,7 @@
 /**
  * Design System: MapLocationPicker (canónico).
  * Selección de ubicación en mapa: un solo pin, tap para colocar/mover.
- * Si hay ubicación del usuario, el pin inicia ahí; si no, región default.
+ * El pin inicia en coordenadas iniciales (si existen) o en región default.
  * Estados: empty | selecting | confirmed. Navegación solo por header (flecha atrás).
  */
 
@@ -14,8 +14,10 @@ import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
 import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { requestCurrentLocation } from '@/lib/geolocation/request-user-location';
 import { reverseGeocode } from '@/lib/mapbox-geocoding';
 import { getSpotsNearby, type SpotNearby } from '@/lib/spot-duplicate-check';
 
@@ -58,27 +60,6 @@ export type MapLocationPickerProps = {
   externalCenter?: { lat: number; lng: number } | null;
 };
 
-function tryCenterOnUser(
-  map: MapboxMap,
-  onCoords?: (lng: number, lat: number) => void
-) {
-  if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(
-    (pos) => {
-      const lng = pos.coords.longitude;
-      const lat = pos.coords.latitude;
-      map.flyTo({
-        center: [lng, lat],
-        zoom: 14,
-        duration: 1500,
-      });
-      onCoords?.(lng, lat);
-    },
-    () => {},
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
-  );
-}
-
 export function MapLocationPicker({
   onConfirm,
   spotTitle,
@@ -94,6 +75,7 @@ export function MapLocationPicker({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const insets = useSafeAreaInsets();
+  const toast = useSystemStatus();
   const hasInitialCoords =
     initialLatitude != null && initialLongitude != null;
   const preserveView =
@@ -146,11 +128,6 @@ export function MapLocationPicker({
           zoom: 14,
           duration: 0,
         });
-      } else {
-        tryCenterOnUser(map, (lng, lat) => {
-          setLngLat({ lng, lat });
-          setState('selecting');
-        });
       }
     },
     [preserveView, hasInitialCoords, initialLatitude, initialLongitude]
@@ -191,6 +168,31 @@ export function MapLocationPicker({
       address,
     });
   }, [lngLat, onConfirm]);
+
+  const handleLocate = useCallback(async () => {
+    if (!mapInstance) return;
+    const result = await requestCurrentLocation();
+    if (result.status === 'ok') {
+      const { latitude, longitude } = result.coords;
+      mapInstance.flyTo({
+        center: [longitude, latitude],
+        zoom: 14,
+        duration: 1500,
+      });
+      setLngLat({ lng: longitude, lat: latitude });
+      setState('selecting');
+      return;
+    }
+    if (result.status === 'denied') {
+      toast.show('Activa ubicación para este sitio en tu navegador y vuelve a intentar.', {
+        type: 'default',
+      });
+      return;
+    }
+    if (result.status === 'timeout' || result.status === 'unavailable') {
+      toast.show('No pudimos obtener tu ubicación. Intenta de nuevo.', { type: 'error' });
+    }
+  }, [mapInstance, toast]);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -261,7 +263,7 @@ export function MapLocationPicker({
       <View
         style={[styles.controlsOverlay, { zIndex: CONTROLS_Z_INDEX, pointerEvents: 'box-none' }] as StyleProp<ViewStyle>}
       >
-        <MapControls map={mapInstance} />
+        <MapControls map={mapInstance} onLocate={handleLocate} />
       </View>
       {lngLat ? (
       <View

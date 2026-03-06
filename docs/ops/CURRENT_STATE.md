@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-04
+**Fecha de actualización:** 2026-03-06
 
 ---
 
@@ -26,6 +26,7 @@
 - Interacción de mapa mundial activa para drilldown.
 - No-ensamble de sheets (regla de colisión activa).
 - Share card web con fallback de descarga local cuando no hay share nativo.
+- Geolocalización por intención explícita: no se solicita permiso en carga; `Mi ubicación` dispara request on-demand con guía en `denied` persistente.
 
 ### Gamificación (V1)
 
@@ -85,6 +86,7 @@
 - `docs/bitacora/2026/03/273-sticky-context-and-recent-mutation-visibility-for-core-spots.md`
 - `docs/bitacora/2026/03/274-followup-core-default-labels-visible-in-filtered-contexts.md`
 - `docs/bitacora/2026/03/285-search-empty-local-pois-y-ajustes-map-controls-world-fallback.md`
+- `docs/bitacora/2026/03/286-geolocation-permissions-on-demand-and-denied-guidance.md`
 
 ---
 

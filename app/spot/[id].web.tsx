@@ -34,6 +34,7 @@ import {
   formatDistanceKm,
   getMapsDirectionsUrl,
 } from "@/lib/geo-utils";
+import { requestCurrentLocation } from "@/lib/geolocation/request-user-location";
 import {
   getCurrentUserId,
   getPin,
@@ -71,14 +72,17 @@ function SpotDetailMapSlot({
   longitude,
   pinStatus = "default",
   userCoords,
+  onUserCoords,
 }: {
   latitude: number;
   longitude: number;
   pinStatus?: SpotPinStatus;
   userCoords: UserCoords;
+  onUserCoords: (coords: { latitude: number; longitude: number }) => void;
 }) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const toast = useSystemStatus();
   const [mapInstance, setMapInstance] = useState<MapboxMap | null>(null);
   const mapStyle =
     colorScheme === "dark"
@@ -89,25 +93,33 @@ function SpotDetailMapSlot({
     setMapInstance(e.target);
   }, []);
 
-  const handleLocate = useCallback(() => {
-    if (
-      !mapInstance ||
-      typeof navigator === "undefined" ||
-      !navigator.geolocation
-    )
+  const handleLocate = useCallback(async () => {
+    if (!mapInstance) return;
+    const result = await requestCurrentLocation();
+    if (result.status === "ok") {
+      const coords = {
+        latitude: result.coords.latitude,
+        longitude: result.coords.longitude,
+      };
+      onUserCoords(coords);
+      mapInstance.flyTo({
+        center: [coords.longitude, coords.latitude],
+        zoom: 15,
+        duration: 1500,
+      });
       return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        mapInstance.flyTo({
-          center: [pos.coords.longitude, pos.coords.latitude],
-          zoom: 15,
-          duration: 1500,
-        });
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-  }, [mapInstance]);
+    }
+    if (result.status === "denied") {
+      toast.show(
+        "Activa ubicación para este sitio en tu navegador y vuelve a intentar.",
+        { type: "default" },
+      );
+      return;
+    }
+    if (result.status === "timeout" || result.status === "unavailable") {
+      toast.show("No pudimos obtener tu ubicación. Intenta de nuevo.", { type: "error" });
+    }
+  }, [mapInstance, onUserCoords, toast]);
 
   const handleOpenMaps = useCallback(() => {
     const url = getMapsDirectionsUrl(latitude, longitude);
@@ -324,24 +336,6 @@ function SpotDetailScreenContent({
     return () => subscription.unsubscribe();
   }, []);
 
-  /** Ubicación del usuario: una sola vez al cargar el spot. No watchPosition. */
-  useEffect(() => {
-    if (!spot || typeof navigator === "undefined" || !navigator.geolocation)
-      return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setUserCoords({
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- spot used for guard; setUserCoords stable; avoid re-run on spot change
-  }, [spot?.id]);
-
-
   /** Distancia al spot: calculada una vez con userCoords. No recalcular en re-renders/scroll. */
   const distanceText =
     spot && userCoords
@@ -489,6 +483,7 @@ function SpotDetailScreenContent({
             longitude={spot.longitude}
             pinStatus={spot.pinStatus}
             userCoords={userCoords}
+            onUserCoords={setUserCoords}
           />
         }
         distanceText={distanceText}
