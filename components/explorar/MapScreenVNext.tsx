@@ -74,6 +74,8 @@ import {
     FALLBACK_VIEW,
     FLOWYA_MAP_STYLE_DARK,
     FLOWYA_MAP_STYLE_LIGHT,
+    GLOBE_ZOOM_INITIAL,
+    GLOBE_ZOOM_WORLD,
     INITIAL_BEARING,
     INITIAL_PITCH,
     SPOT_FOCUS_ZOOM,
@@ -416,9 +418,11 @@ const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
-const FLOWYA_SLOGAN_FADE_IN_MS = 520;
+const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 780;
+const FLOWYA_SLOGAN_FADE_IN_MS = 1450;
 const FLOWYA_SLOGAN_HOLD_MS = 2400;
 const FLOWYA_SLOGAN_FADE_OUT_MS = 980;
+const FLOWYA_SLOGAN_RISE_IN_PX = 18;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -524,24 +528,39 @@ export function MapScreenVNext() {
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
   const filterOverlayEntry = useRef(new Animated.Value(0)).current;
   const sloganEntryOpacity = useRef(new Animated.Value(0)).current;
+  const sloganEntryTranslateY = useRef(new Animated.Value(FLOWYA_SLOGAN_RISE_IN_PX)).current;
   const sloganEntryAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
   const [showEntrySlogan, setShowEntrySlogan] = useState(true);
   const filterOverlayHasAnimatedInRef = useRef(false);
   const [isFilterWaitingForCamera, setIsFilterWaitingForCamera] = useState(true);
   const filterWaitActiveRef = useRef(true);
   const filterWaitFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const globeEntryMotionPlayedRef = useRef(false);
+  const globeEntryMotionInFlightRef = useRef(false);
+  const globeEntryMotionDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isGlobeEntryMotionSettled, setIsGlobeEntryMotionSettled] = useState(false);
 
   useEffect(() => {
     sloganEntryAnimationRef.current?.stop();
     sloganEntryOpacity.setValue(0);
+    sloganEntryTranslateY.setValue(FLOWYA_SLOGAN_RISE_IN_PX);
     setShowEntrySlogan(true);
     const sequence = Animated.sequence([
-      Animated.timing(sloganEntryOpacity, {
-        toValue: 1,
-        duration: FLOWYA_SLOGAN_FADE_IN_MS,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: Platform.OS !== "web",
-      }),
+      Animated.delay(FLOWYA_SLOGAN_ENTRY_DELAY_MS),
+      Animated.parallel([
+        Animated.timing(sloganEntryOpacity, {
+          toValue: 1,
+          duration: FLOWYA_SLOGAN_FADE_IN_MS,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+        Animated.timing(sloganEntryTranslateY, {
+          toValue: 0,
+          duration: FLOWYA_SLOGAN_FADE_IN_MS,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: Platform.OS !== "web",
+        }),
+      ]),
       Animated.delay(FLOWYA_SLOGAN_HOLD_MS),
       Animated.timing(sloganEntryOpacity, {
         toValue: 0,
@@ -559,8 +578,9 @@ export function MapScreenVNext() {
       sloganEntryAnimationRef.current?.stop();
       sloganEntryAnimationRef.current = null;
       sloganEntryOpacity.stopAnimation();
+      sloganEntryTranslateY.stopAnimation();
     };
-  }, [sloganEntryOpacity]);
+  }, [sloganEntryOpacity, sloganEntryTranslateY]);
 
   useEffect(() => {
     setMapPinFilterPreference(pinFilter);
@@ -918,6 +938,13 @@ export function MapScreenVNext() {
     onLongPress: (coords) => onLongPressHandlerRef.current?.(coords),
     // CONTRATO map->peek: pan/zoom mapa colapsa sheet a peek (EXPLORE_SHEET §4)
     onUserMapGestureStart: () => {
+      if (globeEntryMotionDelayRef.current != null) {
+        clearTimeout(globeEntryMotionDelayRef.current);
+        globeEntryMotionDelayRef.current = null;
+      }
+      globeEntryMotionPlayedRef.current = true;
+      globeEntryMotionInFlightRef.current = false;
+      setIsGlobeEntryMotionSettled(true);
       deactivateSearchColdStartBootstrap();
       setSheetState("peek");
       collapseCountriesSheetOnMapGestureRef.current?.();
@@ -974,6 +1001,12 @@ export function MapScreenVNext() {
     return () => clearTimeout(id);
   }, [viewportNonce, clearFilterWaitFallbackTimer]);
 
+  useEffect(() => {
+    if (!globeEntryMotionInFlightRef.current) return;
+    globeEntryMotionInFlightRef.current = false;
+    setIsGlobeEntryMotionSettled(true);
+  }, [viewportNonce]);
+
   /** OL-WOW-F2-005 act: no programmaticFlyTo durante create/edit/placing. */
   const flyToUnlessActMode = useCallback(
     (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => {
@@ -991,6 +1024,63 @@ export function MapScreenVNext() {
     },
     [onMapLoad, suspendFilterUntilCameraSettles],
   );
+
+  const shouldSkipGlobeEntryMotion = Boolean(
+    params.spotId ||
+      params.created ||
+      selectedSpot != null ||
+      poiTapped != null ||
+      searchIsOpenRef.current ||
+      createSpotNameOverlayOpen,
+  );
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    if (globeEntryMotionPlayedRef.current) return;
+    if (shouldSkipGlobeEntryMotion) {
+      globeEntryMotionPlayedRef.current = true;
+      setIsGlobeEntryMotionSettled(true);
+      return;
+    }
+
+    globeEntryMotionDelayRef.current = setTimeout(() => {
+      if (
+        globeEntryMotionPlayedRef.current ||
+        shouldSkipGlobeEntryMotion ||
+        !mapInstance
+      ) {
+        globeEntryMotionPlayedRef.current = true;
+        return;
+      }
+      globeEntryMotionPlayedRef.current = true;
+      globeEntryMotionInFlightRef.current = true;
+      suspendFilterUntilCameraSettles();
+      try {
+        const center = mapInstance.getCenter();
+        // Usar fly programático canónico para no disparar handlers de gesto de usuario
+        // que desactivan el bootstrap de sugerencias globales en cold-start.
+        programmaticFlyTo(
+          { lng: center.lng, lat: center.lat },
+          { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
+        );
+      } catch {
+        globeEntryMotionInFlightRef.current = false;
+        setIsGlobeEntryMotionSettled(true);
+      }
+    }, 160);
+
+    return () => {
+      if (globeEntryMotionDelayRef.current != null) {
+        clearTimeout(globeEntryMotionDelayRef.current);
+        globeEntryMotionDelayRef.current = null;
+      }
+    };
+  }, [
+    mapInstance,
+    programmaticFlyTo,
+    shouldSkipGlobeEntryMotion,
+    suspendFilterUntilCameraSettles,
+  ]);
 
   const queueDeepLinkFocus = useCallback(
     (spot: Spot) => {
@@ -3504,6 +3594,7 @@ export function MapScreenVNext() {
   const shouldShowFilterDropdown =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
+    isGlobeEntryMotionSettled &&
     !isFilterWaitingForCamera &&
     filterTop >= filterMinimumTop;
   const filterOverlayAnimatedStyle = useMemo(
@@ -3762,9 +3853,18 @@ export function MapScreenVNext() {
   const mapStyle =
     colorScheme === "dark" ? FLOWYA_MAP_STYLE_DARK : FLOWYA_MAP_STYLE_LIGHT;
 
+  const hasDeepLinkBootIntent = Boolean(params.spotId || params.created);
+  const initialCameraZoom = hasDeepLinkBootIntent
+    ? FALLBACK_VIEW.zoom
+    : GLOBE_ZOOM_INITIAL;
   const initialViewState = is3DEnabled
-    ? { ...FALLBACK_VIEW, pitch: INITIAL_PITCH, bearing: INITIAL_BEARING }
-    : FALLBACK_VIEW;
+    ? {
+        ...FALLBACK_VIEW,
+        zoom: initialCameraZoom,
+        pitch: INITIAL_PITCH,
+        bearing: INITIAL_BEARING,
+      }
+    : { ...FALLBACK_VIEW, zoom: initialCameraZoom };
 
   const selectedSpotOverlayState: "default" | "to_visit" | "visited" =
     resolveEffectivePinStatus(selectedSpot?.pinStatus) === "visited"
@@ -3868,6 +3968,7 @@ export function MapScreenVNext() {
             styles.sloganOverlay,
             { top: sloganTop },
             { opacity: sloganEntryOpacity },
+            { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
         >
           <Text style={[TypographyStyles.heading2, styles.sloganText]}>

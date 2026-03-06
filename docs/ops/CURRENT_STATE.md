@@ -35,6 +35,7 @@
 - Branding de entrada en Explore: slogan final `SIGUE LO QUE` / `TE MUEVE` aparece temporalmente con fade y se posiciona debajo del filtro superior sin bloquear interacción.
 - Fix de `Mi ubicación` en Explore: estado programático del mapa solo se activa cuando hay movimiento real de cámara.
 - Política UX vigente para activación: lectura libre de mapa/sheet sin auth inicial; auth modal solo en mutaciones (`guardar`, `visitar`, `editar`, `crear`).
+- Entrada de Explore con motion de cámara en globo: arranque en `GLOBE_ZOOM_INITIAL` + `flyTo` a vista world, con guardrails para no interferir deep links ni interacción manual temprana.
 
 ### Gamificación (V1)
 
@@ -107,6 +108,7 @@
 - `docs/bitacora/2026/03/293-explore-slogan-copy-and-typography-final-tuning.md`
 - `docs/bitacora/2026/03/294-fix-locate-programmatic-state-on-permission-failure.md`
 - `docs/bitacora/2026/03/295-plan-gate-spotsheet-expanded-sin-auth-y-loader-neutral.md`
+- `docs/bitacora/2026/03/296-explore-globe-entry-motion-flyto-world-safe-guardrails.md`
 
 ---
 
