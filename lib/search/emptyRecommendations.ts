@@ -7,6 +7,7 @@ import {
   dedupeExternalPlacesAgainstSpots,
   getTappedFeatureId,
   getTappedFeatureMaki,
+  getTappedFeatureNameByLocale,
   rankExternalPlacesByIntent,
 } from "@/lib/explore/map-screen-orchestration";
 
@@ -73,6 +74,8 @@ const EXCLUDED_FEATURE_TYPE_HINTS = [
 ];
 
 function pickName(props?: Record<string, unknown>): string | null {
+  const byLocale = getTappedFeatureNameByLocale(props ?? null);
+  if (byLocale) return byLocale;
   const raw =
     (typeof props?.name === "string" && props.name.trim()) ||
     (typeof props?.name_en === "string" && props.name_en.trim()) ||
@@ -192,6 +195,8 @@ export function collectVisibleLandmarks(map: MapboxMap, maxItems = EMPTY_LANDMAR
     out.push({
       id: stableId,
       name,
+      name_es: typeof props?.name_es === "string" && props.name_es.trim() ? props.name_es.trim() : undefined,
+      name_en: typeof props?.name_en === "string" && props.name_en.trim() ? props.name_en.trim() : undefined,
       lat: latRaw,
       lng: lngRaw,
       source: "mapbox",

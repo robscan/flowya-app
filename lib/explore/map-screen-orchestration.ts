@@ -1,3 +1,4 @@
+import { getCurrentLanguage } from "@/lib/i18n/locale-config";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
 import { distanceKm } from "@/lib/geo-utils";
 
@@ -96,6 +97,46 @@ export function classifyTappedFeatureKind(
         : "";
   if (cls.includes("landmark")) return "landmark";
   return "poi";
+}
+
+/**
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: elige nombre para PlaceResult/poi según locale.
+ * PlaceResult puede tener name_es, name_en opcionales (p. ej. desde tiles); si no, usa name.
+ */
+export function getDisplayNameForPlace(place: {
+  name?: string | null;
+  name_es?: string | null;
+  name_en?: string | null;
+}): string {
+  const props = place && typeof place === "object"
+    ? {
+        name: place.name,
+        name_es: place.name_es,
+        name_en: place.name_en,
+      }
+    : null;
+  const byLocale = getTappedFeatureNameByLocale(props as Record<string, unknown>);
+  if (byLocale) return byLocale;
+  const n = place?.name;
+  return typeof n === "string" && n.trim() ? n.trim() : "";
+}
+
+/**
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: elige nombre de feature por locale.
+ * Mapbox tiles: name_es, name_en, name_ja, name, etc.
+ */
+export function getTappedFeatureNameByLocale(props?: Record<string, unknown> | null): string | null {
+  if (!props) return null;
+  const lang = getCurrentLanguage();
+  const candidates: (string | undefined)[] = [
+    lang ? (props[`name_${lang}`] as string) : undefined,
+    props.name_en as string,
+    props.name as string,
+  ];
+  for (const v of candidates) {
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return null;
 }
 
 export function getTappedFeatureId(

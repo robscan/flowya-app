@@ -10,18 +10,26 @@ Consistencia de idioma entre mapa, nombre seleccionado y dirección (política c
 ## Cambios aplicados
 
 1. **lib/mapbox-geocoding.ts**
-   - `resolveAddress` (reverse geocoding): añadido parámetro `language` desde `getCurrentLanguage()`.
-   - `resolvePlaceForCreate` (forward geocoding): añadido parámetro `language` desde `getCurrentLanguage()`.
+   - `resolveAddress`, `resolvePlaceForCreate`: parámetro `language` con fallback `es,en`.
 
 2. **lib/places/searchPlaces.ts**
-   - `searchPlaces`: añadido parámetro `language` en request a Geocoding v6.
+   - `searchPlaces`: `language` con fallback `${lang},en` para evitar nombres locales en regiones sin traducción.
 
-3. **lib/places/searchPlacesPOI.ts**
-   - Search Box forward: reemplazado `language: 'es,en'` hardcoded por `language: \`${getCurrentLanguage()},en\``.
+3. **lib/explore/map-screen-orchestration.ts**
+   - `getTappedFeatureNameByLocale`: elige `name_es`, `name_en`, `name` según locale.
+   - `getDisplayNameForPlace`: helper para PlaceResult con `name_es`/`name_en` opcionales.
 
-4. **hooks/useMapCore.ts**
-   - Re-activado `MapboxLanguage` con `defaultLanguage: getCurrentLanguage()` en onMapLoad.
-   - Envolto en try/catch para no bloquear carga si el estilo custom no soporta el plugin.
+4. **lib/search/emptyRecommendations.ts**
+   - `pickName`: usa `getTappedFeatureNameByLocale` para landmarks visibles (lista de búsqueda).
+   - `collectVisibleLandmarks`: añade `name_es`, `name_en` a PlaceResult cuando existen en tiles.
+
+5. **lib/places/searchPlaces.ts** (PlaceResult)
+   - Tipos opcionales `name_es`, `name_en` para soporte multiidioma.
+
+6. **components/explorar/MapScreenVNext.tsx**
+   - Popup POI y setPoiTapped: usan `getTappedFeatureNameByLocale` / `getDisplayNameForPlace`.
+   - `handleCreateFromNoResults`: usa `getDisplayNameForPlace(targetPlace)` para nombre del sheet.
+   - `handleMapClick`: prioriza la feature con `name_es` o `name_en` (igual que etiquetas del mapa) para que el sheet muestre el mismo nombre que se ve en el mapa.
 
 ## Fuente única
 
@@ -34,4 +42,4 @@ Todas las llamadas usan `lib/i18n/locale-config.ts`: `getCurrentLanguage()` y `g
 
 ## Rollback
 
-Revertir cambios en los 4 archivos. No hay migraciones.
+Revertir cambios en: `lib/mapbox-geocoding.ts`, `lib/places/searchPlaces.ts`, `lib/explore/map-screen-orchestration.ts`, `lib/search/emptyRecommendations.ts`, `components/explorar/MapScreenVNext.tsx`. No hay migraciones.

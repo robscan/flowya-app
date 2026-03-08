@@ -12,6 +12,9 @@ const FORWARD_URL = 'https://api.mapbox.com/search/geocode/v6/forward';
 export type PlaceResult = {
   id: string;
   name: string;
+  /** Nombres por locale (map tiles); usado por getDisplayNameForPlace. */
+  name_es?: string;
+  name_en?: string;
   fullName?: string;
   lat: number;
   lng: number;
@@ -93,7 +96,7 @@ export async function searchPlaces(
     access_token: MAPBOX_TOKEN,
   });
   const lang = getCurrentLanguage();
-  if (lang) params.set('language', lang);
+  params.set('language', lang ? `${lang},en` : 'en');
 
   if (opts?.proximity) {
     params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);

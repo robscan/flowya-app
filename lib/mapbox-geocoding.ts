@@ -41,7 +41,7 @@ export async function resolveAddress(
     access_token: MAPBOX_TOKEN,
   });
   const lang = getCurrentLanguage();
-  if (lang) params.set('language', lang);
+  if (lang) params.set('language', lang === 'en' ? 'en' : `${lang},en`);
   try {
     const res = await fetch(`${REVERSE_URL}?${params.toString()}`);
     if (!res.ok) return null;
@@ -105,7 +105,7 @@ export async function resolvePlaceForCreate(
     access_token: MAPBOX_TOKEN,
   });
   const lang = getCurrentLanguage();
-  if (lang) params.set('language', lang);
+  if (lang) params.set('language', lang === 'en' ? 'en' : `${lang},en`);
   if (opts?.proximity) {
     params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);
   }
