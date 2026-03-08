@@ -2,7 +2,10 @@
  * Mapbox Reverse Geocoding: resuelve lat/lng a dirección humana una sola vez.
  * Usar al crear un spot; no llamar al abrir Spot Detail.
  * Token: EXPO_PUBLIC_MAPBOX_TOKEN.
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: usa language de locale-config.
  */
+
+import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const REVERSE_URL = 'https://api.mapbox.com/search/geocode/v6/reverse';
@@ -37,6 +40,8 @@ export async function resolveAddress(
     latitude: String(latitude),
     access_token: MAPBOX_TOKEN,
   });
+  const lang = getCurrentLanguage();
+  if (lang) params.set('language', lang);
   try {
     const res = await fetch(`${REVERSE_URL}?${params.toString()}`);
     if (!res.ok) return null;
@@ -99,6 +104,8 @@ export async function resolvePlaceForCreate(
     limit: '1',
     access_token: MAPBOX_TOKEN,
   });
+  const lang = getCurrentLanguage();
+  if (lang) params.set('language', lang);
   if (opts?.proximity) {
     params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);
   }

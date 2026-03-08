@@ -9,7 +9,7 @@
 
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
-- **OL-EXPLORE-LOCALE-CONSISTENCY-001** — consistencia de idioma entre mapa, nombre seleccionado y dirección (política canónica de locale + fallback).
+- **OL-EXPLORE-LOCALE-CONSISTENCY-001** — consistencia de idioma entre mapa, nombre seleccionado y dirección (política canónica de locale + fallback). Implementado: bitácora `297`.
 - **OL-SEARCHV2-EMPTY-VIEWPORT-001** — alinear spots con viewport en empty-state (Todos, query vacía) cuando zoom <= umbral; mantener center+radius en zoom cercano. Plan: [PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md](plans/PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md).
 - **OL-SEARCHV2-001** — `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro.
 - **OL-SEARCHV2-002** — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada.
@@ -98,6 +98,7 @@
 - Fix técnico de `Mi ubicación` en Explore: estado programático solo cuando existe movimiento real de cámara: bitácora `294`.
 - Plan de gate de activación SpotSheet (`expanded` sin auth + loader neutral): bitácora `295`.
 - Avance P0 entrada globo con motion de cámara (`flyTo` world con guardrails anti-regresión): bitácora `296`.
+- OL-EXPLORE-LOCALE-CONSISTENCY-001 (unificar idioma mapa/buscador/dirección): bitácora `297`.
 
 ---
 

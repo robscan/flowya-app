@@ -1,7 +1,10 @@
 /**
  * Búsqueda de lugares/POIs para Create Spot (mode="places").
  * Mapbox Geocoding API v6 forward, múltiples resultados.
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: usa language de locale-config.
  */
+
+import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const FORWARD_URL = 'https://api.mapbox.com/search/geocode/v6/forward';
@@ -89,6 +92,8 @@ export async function searchPlaces(
     limit: String(limit),
     access_token: MAPBOX_TOKEN,
   });
+  const lang = getCurrentLanguage();
+  if (lang) params.set('language', lang);
 
   if (opts?.proximity) {
     params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);
