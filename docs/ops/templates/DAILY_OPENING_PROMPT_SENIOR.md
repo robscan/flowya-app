@@ -60,6 +60,24 @@ Nota: riesgos de sincronización documental deben reportarse al final de la list
 - Antes de cerrar el día: actualización obligatoria de `OPEN_LOOPS` + bitácora del día (y `CURRENT_STATE` si cambia foco macro).
 - No promover cierre de loop sin validar riesgo de regresión en la superficie tocada.
 
+### Pre-evaluación técnica antes de implementar (MANDATORY)
+Antes de escribir o modificar código, ejecutar y reportar explícitamente:
+1. Comportamiento actual verificable (baseline) por estado/sesión/filtro relevantes.
+2. Contratos y superficies afectadas (`docs/contracts/*` + componentes/runtime impactados).
+3. Riesgos de regresión específicos y plan de mitigación/prueba por riesgo.
+4. Alcance mínimo de cambio (qué se toca y qué **no** se toca).
+5. Criterio de rollback acotado (archivo/flag/commit de reversión).
+
+Si esta pre-evaluación no está completa, **no implementar**.
+
+### Regla de competencia técnica (MANDATORY)
+Si no existe certeza técnica suficiente para ejecutar un cambio sin alto riesgo de regresión:
+- declararlo explícitamente como “insuficiente certeza técnica para implementar de forma segura”;
+- explicar por qué falta certeza (laguna de contrato, falta de reproducibilidad, dependencia no observada, etc.);
+- proponer ruta segura (instrumentación, reproducciones mínimas, reducción de alcance, o escalamiento).
+
+No simular certeza ni continuar con “parches exploratorios” sobre runtime crítico.
+
 ## Disciplina Git (MANDATORY)
 - Trabajar siempre en rama (nunca directo en `main`).
 - Si el usuario indica “aplicar flujo git” o “proceso git”, ejecutar esta secuencia completa:
