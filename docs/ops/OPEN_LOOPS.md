@@ -1,75 +1,59 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-06
+**Fecha:** 2026-03-07
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
 
 ---
 
-## Foco inmediato (P0 -> P2)
+## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
-1. **P0 crítico (máxima prioridad):** `OL-EXPLORE-GLOBE-ENTRY-MOTION-001` — entrada de Explore con animación de cámara (`flyTo/fit world`) para evitar percepción estática del globo, manteniendo legibilidad y control del usuario.
-2. **P0 crítico (bloqueante web):** `OL-EXPLORE-WEB-ZOOM-GUARD-001` — prevenir zoom del navegador por doble tap/doble click en modales/cards para evitar pérdida de controles.
-3. **P0 gate de activación:** `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` — eliminar auth prematuro al expandir sheet (`medium -> expanded`); lectura libre de detalle y auth solo en mutaciones.
-4. **P0 único de producto:** `OL-CONTENT-001` — Mi diario v1 (privado) con secuencia interna `001.A -> 001.B -> 001.C` (retomar solo tras cerrar gates P0).
-5. **P1:** `OL-EXPLORE-LOCALE-CONSISTENCY-001` — consistencia de idioma entre mapa, nombre seleccionado y dirección (política canónica de locale + fallback).
-6. **P2:** `OL-I18N-UI-001` — base de internacionalización de interfaz (ES canónico actual, EN target) para UI/sheets/copy de producto con diccionario y fallback controlado.
-7. **P2 siguiente:** `OL-EXPLORE-SEARCH-BATCH-001` — selección múltiple en búsqueda filtrada para marcar varios spots (`Por visitar` / `Visitados`).
-8. **P2 siguiente:** `OL-EXPLORE-TAGS-001` — tags personales en listados (chips en card + menú de chips + creador `#`) sin categorías Mapbox.
+- **OL-EXPLORE-LOCALE-CONSISTENCY-001** — consistencia de idioma entre mapa, nombre seleccionado y dirección (política canónica de locale + fallback).
+- **OL-SEARCHV2-EMPTY-VIEWPORT-001** — alinear spots con viewport en empty-state (Todos, query vacía) cuando zoom <= umbral; mantener center+radius en zoom cercano. Plan: [PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md](plans/PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md).
+- **OL-SEARCHV2-001** — `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro.
+- **OL-SEARCHV2-002** — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada.
+- **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
 
 ---
 
-## Loops activos
+## Proyecto: Auth
 
-- `OL-CONTENT-001` activo:
-  - `001.A` foundation de persistencia privada por usuario,
-  - `001.B` edición rápida accesible en SpotSheet/Search (imagen + nota breve + "por qué importa"),
-  - `001.C` QA de estabilidad UX (teclado/overlays/sesión).
-- Gamificación V1 activa en runtime:
-  - score por países + spots,
-  - niveles `X/12`,
-  - chip de flows en perfil,
-  - modal de niveles.
-- V2 de gamificación: **solo documentación** (telemetría + calibración), sin implementación.
+- **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001** — eliminar auth prematuro al expandir sheet (`medium -> expanded`); lectura libre de detalle y auth solo en mutaciones. Revisar solución que no genere fricción; considerar login con redes sociales para entrada más veloz.
+- **Social login** — investigación y revisión para acelerar activación.
 
 ---
 
-## Próxima cola (secuencial; no paralelizar)
+## Proyecto: Detalle de spot
 
-1. `OL-CONTENT-001.A` — foundation de identidad + ownership (anon auth + tablas user-owned) para diario privado sin tocar copy global de `spots`.
-2. `OL-EXPLORE-GLOBE-ENTRY-MOTION-001` — animar entrada inicial del globo con política de cámara canónica de intención (`flyTo` o `fit world`, no ambos encadenados), sin romper controles/overlays/sheets.
-3. `OL-EXPLORE-WEB-ZOOM-GUARD-001` — hotfix fatal web: bloquear zoom por double-tap/double-click en modales/cards y preservar visibilidad/operabilidad de controles.
-4. `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` — gate UX/activación: `medium -> expanded` sin auth, loader neutral `Cargando información...`, auth solo en mutaciones (`guardar/visitar/editar/crear`).
-5. `OL-CONTENT-001.B` — quick edit en SpotSheet/Search para `imagen pública + nota breve privada + por qué importa (diario privado)`.
-6. `OL-CONTENT-001.C` — cierre QA/validación de experiencia y persistencia.
-7. `OL-EXPLORE-LOCALE-CONSISTENCY-001` — unificar idioma visible de nombre/dirección seleccionada con política de locale de producto (`es` actual + fallback controlado).
-8. `OL-I18N-UI-001` — habilitar infraestructura i18n (`es`/`en`) en interfaz y sheets con extracción de strings, claves canónicas y fallback por locale.
-9. `OL-EXPLORE-SEARCH-BATCH-001` — batch status en búsqueda filtrada (`saved/visited`) con guardrails de sticky context + no-regresión de selección unitaria.
-10. `OL-EXPLORE-TAGS-001` — tags personales por usuario para filtrar listados (sin categorías Mapbox en esta fase).
-11. `OL-SEARCHV2-001` — ajuste ASAP: `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro (sin lógica paralela fuera de SearchV2).
-12. `OL-SEARCHV2-002` — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada en SearchV2.
-13. `OL-CONTENT-002` — Galería v1 (múltiples fotos por spot).
-14. `OL-CONTENT-003` — Tourism schema v1.
-15. `OL-CONTENT-004` — Entity resolution v1.
-16. `OL-CONTENT-005` — Enrichment pipeline v1.
-17. `OL-CONTENT-006` — Directions v1.
+- **Contenido:** descripción, fotos, galería (OL-CONTENT-002).
+- **Diario y nota personal (OL-CONTENT-001)** — postergado; retomar tras cerrar experiencia de búsqueda y auth.
+- **Otros ajustes** — según prioridad operativa.
 
-Reglas:
+---
+
+## Cierres y postergados
+
+- **OL-EXPLORE-GLOBE-ENTRY-MOTION-001:** cerrado con QA en prod.
+- **OL-EXPLORE-WEB-ZOOM-GUARD-001:** fallo en implementación (solución aplicada ayer no se reflejó en sitio). Agenda retry cuando sea prudente; diagnosticar deploy/cache/viewport.
+- **OL-CONTENT-001:** postergado estratégicamente.
+
+---
+
+## Loops activos / contexto
+
+- Gamificación V1 activa en runtime: score por países + spots, niveles `X/12`, chip de flows en perfil, modal de niveles.
+- V2 de gamificación: solo documentación (telemetría + calibración), sin implementación.
+
+---
+
+## Reglas
+
 - 1 loop activo por vez.
-- `OL-EXPLORE-GLOBE-ENTRY-MOTION-001` es gate visual-principal: no abrir trabajo nuevo mientras la entrada de globo siga percibiéndose estática y sin política de cámara validada.
-- `OL-EXPLORE-GLOBE-ENTRY-MOTION-001` debe respetar contrato de cámara: una intención por transición (`flyTo` o `fitBounds`), sin encadenar ambos en el mismo evento.
-- `OL-EXPLORE-WEB-ZOOM-GUARD-001` es gate de seguridad web: no continuar `OL-CONTENT-001` si el bug fatal de pérdida de controles sigue reproducible.
-- `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` es gate de activación: no continuar `OL-CONTENT-001.B/C` ni abrir features nuevas mientras se reproduzca auth en expansión `medium -> expanded` sin mutación explícita.
-- `OL-EXPLORE-SEARCH-BATCH-001` inicia solo después de cerrar `OL-CONTENT-001.A/B/C` y `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`.
-- `OL-EXPLORE-LOCALE-CONSISTENCY-001` inicia solo después de cerrar `OL-CONTENT-001.A/B/C` y antes de abrir batch/tags para evitar propagar strings/direcciones inconsistentes.
-- `OL-I18N-UI-001` inicia solo después de cerrar `OL-EXPLORE-LOCALE-CONSISTENCY-001`.
-- `OL-EXPLORE-SEARCH-BATCH-001` inicia solo después de cerrar `OL-I18N-UI-001`.
-- `OL-EXPLORE-TAGS-001` inicia solo después de cerrar `OL-EXPLORE-SEARCH-BATCH-001`.
-- `OL-SEARCHV2-001` inicia después de cerrar `OL-EXPLORE-TAGS-001` o antes solo si se aprueba excepción por bug UX crítico (sin abrir paralelo con P0 activo).
-- `OL-SEARCHV2-002` inicia solo después de cerrar `OL-SEARCHV2-001`.
+- Máxima prioridad estratégica: experiencia de búsqueda.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
+- OL-SEARCHV2-EMPTY-VIEWPORT-001 y OL-SEARCHV2-001 pueden coordinarse (spots + landmarks en mismo empty-state).
 
 ---
 
@@ -79,6 +63,7 @@ Reglas:
 - `OL-P1-006` — Migración POI DB (maki/categorías).
 - `OL-P1-007` — Pipeline turístico sin Google.
 - `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha.
+- `OL-EXPLORE-SEARCH-BATCH-001`, `OL-EXPLORE-TAGS-001`, `OL-I18N-UI-001` — tras cerrar búsqueda y auth.
 
 ---
 
@@ -123,14 +108,10 @@ Reglas:
 
 ---
 
-## Arranque activo (hoy)
+## Arranque activo (2026-03-07)
 
-1. Cerrar `OL-CONTENT-001.A`.
-2. Ejecutar `OL-EXPLORE-GLOBE-ENTRY-MOTION-001` como máxima prioridad visual de entrada.
-3. Ejecutar `OL-EXPLORE-WEB-ZOOM-GUARD-001` como hotfix bloqueante y validar no-regresión web.
-4. Ejecutar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` como gate de activación (sin auth prematuro en `expanded`).
-5. Retomar `OL-CONTENT-001.B -> 001.C`.
-6. Ejecutar `OL-EXPLORE-LOCALE-CONSISTENCY-001`.
-7. Ejecutar `OL-I18N-UI-001` (infra de idioma UI/sheets).
-8. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-9. Abrir `OL-EXPLORE-SEARCH-BATCH-001` solo después de cerrar los gates anteriores.
+1. Proyecto Experiencia de búsqueda: ejecutar `OL-EXPLORE-LOCALE-CONSISTENCY-001` y `OL-SEARCHV2-EMPTY-VIEWPORT-001`.
+2. Proyecto Auth: revisar e implementar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`.
+3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
+4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
+5. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados (recomendaciones por intereses) — fase exploratoria.
