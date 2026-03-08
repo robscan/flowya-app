@@ -110,9 +110,11 @@ import { uploadSpotCover } from "@/lib/spot-image-upload";
 import {
   classifyTappedFeatureKind,
   dedupeExternalPlacesAgainstSpots,
+  getDisplayNameForPlace,
   getStablePlaceId,
   getTappedFeatureId,
   getTappedFeatureMaki,
+  getTappedFeatureNameByLocale,
   inferTappedKindFromPlace,
   mergeSearchResults,
   rankExternalPlacesByIntent,
@@ -2021,7 +2023,7 @@ export function MapScreenVNext() {
       setSelectedSpot(null);
       recordSearchExternalClick();
       setPoiTapped({
-        name: targetPlace.name,
+        name: getDisplayNameForPlace(targetPlace) || targetPlace.name,
         lat: targetPlace.lat,
         lng: targetPlace.lng,
         kind: inferTappedKindFromPlace(targetPlace),
@@ -2091,29 +2093,39 @@ export function MapScreenVNext() {
       if (!mapInstance || !e.point) return;
       try {
         const features = mapInstance.queryRenderedFeatures(e.point);
+        const lang = getCurrentLanguage();
+        const hasLocaleField = (p: Record<string, unknown>) =>
+          (lang && typeof p[`name_${lang}`] === "string" && String(p[`name_${lang}`]).trim()) ||
+          (typeof p.name_en === "string" && p.name_en.trim());
+        /** Preferir feature con name_es/name_en (como las etiquetas del mapa); si no, usar la primera válida. */
+        let best: { f: (typeof features)[0]; props: Record<string, unknown>; name: string; lng: number; lat: number } | null = null;
         for (const f of features) {
-          const props = f.properties;
+          const props = f.properties as Record<string, unknown> | undefined;
           if (!props) continue;
           const name =
-            (typeof props.name === "string" && props.name.trim()) ||
-            (typeof props.name_en === "string" && props.name_en.trim()) ||
+            getTappedFeatureNameByLocale(props) ||
             (typeof props.title === "string" && props.title.trim());
           if (!name) continue;
           const geom = f.geometry;
           if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) continue;
           const [lng, lat] = geom.coordinates;
           if (typeof lat !== "number" || typeof lng !== "number") continue;
-          const tappedFeatureId = getTappedFeatureId(
-            f.id,
-            props as Record<string, unknown>,
-          );
+          const candidate = { f, props, name: name.trim(), lng, lat };
+          if (!best || (hasLocaleField(props) && !hasLocaleField(best.props))) {
+            best = candidate;
+            if (hasLocaleField(props)) break;
+          }
+        }
+        if (best) {
+          const { f, props, name, lng, lat } = best;
+          const tappedFeatureId = getTappedFeatureId(f.id, props);
           const match = resolveTappedSpotMatch(spots, {
             lat,
             lng,
-            name: name.trim(),
+            name,
             placeId: tappedFeatureId,
           });
-          const kind = classifyTappedFeatureKind(f.layer?.id, props as Record<string, unknown>);
+          const kind = classifyTappedFeatureKind(f.layer?.id, props);
           const matchBelongsToActiveFilter =
             pinFilter === "all" ||
             (pinFilter === "saved" ? Boolean(match?.saved) : Boolean(match?.visited));
@@ -2133,15 +2145,14 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
-            // Si el match existe pero no pertenece al filtro activo, abrir POI sheet en lugar de cerrar por guardrails.
             setSelectedSpot(null);
             setPoiTapped({
-              name: name.trim(),
+              name,
               lat,
               lng,
               kind,
               placeId: tappedFeatureId,
-              maki: getTappedFeatureMaki(props as Record<string, unknown>),
+              maki: getTappedFeatureMaki(props),
               visualState: "default",
               source: "map_tap",
             });
@@ -2153,7 +2164,6 @@ export function MapScreenVNext() {
             });
             setSheetState("medium");
           }
-          return;
         }
       } catch {
         /* ignore query errors */

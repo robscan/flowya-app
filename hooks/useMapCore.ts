@@ -1,8 +1,10 @@
 /**
  * useMapCore — hook que encapsula estado y handlers del núcleo del mapa (Explorar).
  * MapControls sigue en el contenedor; el core solo expone handlers y estado.
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: idioma del mapa según locale-config.
  */
 
+import MapboxLanguage from '@mapbox/mapbox-gl-language';
 import type { ActiveMapControl } from '@/components/design-system/map-controls';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -30,6 +32,7 @@ import {
   GLOBE_ZOOM_WORLD,
 } from '@/lib/map-core/constants';
 import { requestCurrentLocation, type RequestCurrentLocationResult } from '@/lib/geolocation/request-user-location';
+import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
 export type MapCoreSelectedSpot = { id: string; longitude: number; latitude: number } | null;
@@ -205,6 +208,15 @@ export function useMapCore(
       applyGlobeAndAtmosphere(map);
       hideNoiseLayers(map, { preservePoiLabels: enableLandmarkLabels });
       setLandmarkLabelsEnabled(map, enableLandmarkLabels);
+      try {
+        const lang = getCurrentLanguage();
+        if (lang) {
+          const languageControl = new MapboxLanguage({ defaultLanguage: lang });
+          map.addControl(languageControl);
+        }
+      } catch {
+        // MapboxLanguage puede fallar con estilos custom; no bloquear carga.
+      }
     },
     [enableLandmarkLabels]
   );

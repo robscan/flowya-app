@@ -1,8 +1,10 @@
 /**
  * Adapter externo POI-first (Track B / Search V2).
  * Estrategia simplificada: Search Box /forward (single request) + fallback Geocoding.
+ * OL-EXPLORE-LOCALE-CONSISTENCY-001: usa language de locale-config.
  */
 
+import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 import { searchPlaces, type PlaceResult, type SearchPlacesOptions } from './searchPlaces';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -210,7 +212,7 @@ async function searchBoxForward(
     q: query,
     access_token: MAPBOX_TOKEN,
     limit: String(Math.max(1, Math.min(opts.limit ?? 6, 12))),
-    language: 'es,en',
+    language: `${getCurrentLanguage()},en`,
     auto_complete: 'true',
   });
 
