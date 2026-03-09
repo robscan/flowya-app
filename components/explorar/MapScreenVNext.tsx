@@ -136,10 +136,7 @@ import {
   collectVisibleLandmarks,
   mergeEmptyExternalPlaces,
 } from "@/lib/search/emptyRecommendations";
-import {
-  buildColdStartWorldSections,
-  isWorldSeedPlace,
-} from "@/lib/search/coldStartWorldRecommendations";
+import { buildColdStartWorldSections } from "@/lib/search/coldStartWorldRecommendations";
 import {
   fetchMostVisitedSpots,
   type FlowyaPopularSpot,
@@ -645,9 +642,19 @@ export function MapScreenVNext() {
   const deactivateSearchColdStartBootstrap = useCallback(() => {
     setIsSearchColdStartBootstrapActive((prev) => (prev ? false : prev));
   }, []);
+  const visitedSpotCoords = useMemo(
+    () =>
+      spots
+        .filter((s) => s.visited)
+        .map((s) => ({ lat: s.latitude, lng: s.longitude })),
+    [spots],
+  );
   const coldStartWorldSections = useMemo<SearchSection<Spot | PlaceResult>[]>(
-    () => buildColdStartWorldSections(coldStartSeedRef.current) as SearchSection<Spot | PlaceResult>[],
-    [],
+    () =>
+      buildColdStartWorldSections(coldStartSeedRef.current, {
+        excludeNearVisitedSpots: visitedSpotCoords,
+      }) as SearchSection<Spot | PlaceResult>[],
+    [visitedSpotCoords],
   );
   /** Empty-state local: sin fallback externo; solo visibles del mapa para costo controlado. */
   const nearbyPlacesEmpty = useMemo<PlaceResult[]>(() => [], []);
@@ -2047,31 +2054,11 @@ export function MapScreenVNext() {
   }, [requireAuthOrModal, searchV2, getFallbackCoords]);
 
   /** Lugar sugerido en búsqueda: mostrar POI sheet (card medium con Por visitar) y encuadrar mapa en el lugar. */
+  /** Para world-seeds: usar siempre coords del seed (evita que "Taj Mahal" lleve a hotel homónimo). */
   const handleCreateFromPlace = useCallback(
     async (place: PlaceResult) => {
       deactivateSearchColdStartBootstrap();
-      let targetPlace = place;
-      if (isWorldSeedPlace(place)) {
-        try {
-          const resolved = featureFlags.searchExternalPoiResults
-            ? (await searchPlacesPOI(place.name, { limit: 1 })).map((item: PlaceResultV2) =>
-                placeResultV2ToLegacy(item),
-              )
-            : await searchPlaces(place.name, { limit: 1 });
-          const best = resolved[0];
-          if (
-            best &&
-            Number.isFinite(best.lat) &&
-            Number.isFinite(best.lng) &&
-            Math.abs(best.lat) <= 90 &&
-            Math.abs(best.lng) <= 180
-          ) {
-            targetPlace = { ...place, ...best };
-          }
-        } catch {
-          // Si falla resolución, usar coords seed.
-        }
-      }
+      const targetPlace = place;
       const stablePlaceId = getStablePlaceId(targetPlace);
       searchV2.setOpen(false);
       const existingSpot = resolveTappedSpotMatch(spots, {
