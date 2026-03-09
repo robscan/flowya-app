@@ -141,6 +141,10 @@ import {
   isWorldSeedPlace,
 } from "@/lib/search/coldStartWorldRecommendations";
 import {
+  fetchMostVisitedSpots,
+  type FlowyaPopularSpot,
+} from "@/lib/search/flowyaPopularSpots";
+import {
   recordExploreDecisionCompleted,
   recordExploreDecisionStarted,
   recordExploreSelectionChanged,
@@ -636,6 +640,7 @@ export function MapScreenVNext() {
   const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
   const [isSearchColdStartBootstrapActive, setIsSearchColdStartBootstrapActive] = useState(true);
+  const [flowyaPopularSpots, setFlowyaPopularSpots] = useState<FlowyaPopularSpot[]>([]);
   const coldStartSeedRef = useRef<number>(Math.floor(Math.random() * 1_000_000_000));
   const deactivateSearchColdStartBootstrap = useCallback(() => {
     setIsSearchColdStartBootstrapActive((prev) => (prev ? false : prev));
@@ -1539,6 +1544,7 @@ export function MapScreenVNext() {
   ]);
 
   /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
+  /** OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001: cuando all + pocos resultados locales, sección "Lugares populares en Flowya". */
   const defaultSectionsForEmpty = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
     if (shouldShowSearchColdStartBootstrap) return coldStartWorldSections;
     const isCountryDrilldownActive =
@@ -1552,6 +1558,36 @@ export function MapScreenVNext() {
           items: countryDrilldownItems,
         },
       ];
+    }
+    if (pinFilter === "all") {
+      const localCount =
+        defaultSpotsForEmpty.length + visibleLandmarksEmpty.length + nearbyPlacesEmpty.length;
+      const fewLocalResults = localCount < 4;
+      if (fewLocalResults) {
+        const flowyaNotVisited = flowyaPopularSpots.filter((s) => !s.visited);
+        const porVisitar = spots.filter((s) => s.saved);
+        const deLaZona = defaultSpotsForEmpty;
+        const merged: (Spot | PlaceResult)[] = [];
+        const seen = new Set<string>();
+        for (const s of [...flowyaNotVisited, ...porVisitar, ...deLaZona]) {
+          const id = s.id;
+          if (!seen.has(id)) {
+            seen.add(id);
+            merged.push(s);
+          }
+        }
+        const items = merged.slice(0, 10);
+        if (items.length > 0) {
+          return [
+            {
+              id: "flowya-popular",
+              title: "Lugares populares en Flowya",
+              items,
+            },
+          ];
+        }
+      }
+      return [];
     }
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
     if (!mapInstance || filteredSpots.length === 0) return [];
@@ -1596,6 +1632,11 @@ export function MapScreenVNext() {
     mapInstance,
     filteredSpots,
     userCoords,
+    flowyaPopularSpots,
+    defaultSpotsForEmpty,
+    visibleLandmarksEmpty,
+    nearbyPlacesEmpty,
+    spots,
   ]);
 
   const searchHistory = useSearchHistory();
@@ -1714,6 +1755,33 @@ export function MapScreenVNext() {
     pinFilter,
     selectedSpot,
     poiTapped,
+  ]);
+
+  /** OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001: cuando empty-state (all + query vacía, sin cold start), cargar Lugares populares en Flowya. */
+  useEffect(() => {
+    const shouldFetch =
+      searchV2.isOpen &&
+      searchV2.query.trim().length === 0 &&
+      pinFilter === "all" &&
+      !shouldShowSearchColdStartBootstrap &&
+      countriesDrilldown == null;
+    if (!shouldFetch) {
+      setFlowyaPopularSpots([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMostVisitedSpots(10).then((list) => {
+      if (!cancelled) setFlowyaPopularSpots(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    pinFilter,
+    shouldShowSearchColdStartBootstrap,
+    countriesDrilldown,
   ]);
 
   const recentViewedSpots = useMemo(() => {
