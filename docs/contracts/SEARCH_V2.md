@@ -70,17 +70,18 @@ Reglas QA agregadas (2026-02-25):
 
 Track B usa flags de rollout seguro:
 
-- `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`: habilita adapter externo POI en sin-resultados.
+- `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`: habilita adapter externo POI para fetch de resultados externos en `query >= 3` con filtro `all` (y en chooser de sin-resultados cuando aplica).
 - `EXPO_PUBLIC_FF_SEARCH_MIXED_RANKING`: reserva para ranking mixto (interno + externo) por secciones.
 - `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE`: habilita deduplicación externa antes de render.
 
 Estado actual (Fase A-B):
 
-- Adapter `searchPlacesPOI` integrado para sin-resultados.
+- Adapter `searchPlacesPOI` integrado para resultados externos de búsqueda textual (`query >= 3`, filtro `all`).
 - Fuente principal externa: Search Box `/forward` (una llamada por query).
 - Fallback estable a Geocoding v6.
 - Guardrail 429: cooldown temporal de Search Box y fallback automático para evitar degradación total.
-- UI/contrato de chooser no cambia.
+- Flujo operativo: intento local con `bbox/proximity` del viewport y, si no hay match, reintento global sin `bbox`.
+- UI/contrato de chooser de sin-resultados no cambia.
 
 Estado actual (Fase C):
 
@@ -152,3 +153,54 @@ Regla web:
 
 - Tras guardar imagen o descripción, Search debe reflejar el cambio (patch local + refresh coherente) sin sacar al usuario del contexto actual.
 - `Agregar imagen` debe abrir picker y persistir sin navegación adicional; si falla, feedback de error por toast y continuidad en lista.
+
+---
+
+## 10) Empty-state con query vacía (`all`) — pipeline canónico
+
+Cuando Search está abierto con `query === ""` y `pinFilter === "all"`, la prioridad de fuentes es:
+
+1. **Cold start bootstrap** (si está activo): secciones globales de descubrimiento.
+2. **Local-first sin costo API extra**:
+   - spots en zona (`defaultSpotsForEmpty`, radio `SPOTS_ZONA_RADIUS_KM`, top 10),
+   - landmarks/POI visibles del viewport (`collectVisibleLandmarks` sobre `queryRenderedFeatures`).
+3. **Fallback "Lugares populares en Flowya"** cuando hay pocos resultados locales:
+   - criterio: `localCount < 4`,
+   - sección única con merge estable + dedupe por id (orden: `flowyaNotVisited` -> `porVisitar` -> `deLaZona`),
+   - límite visual: 10 items.
+
+Guardrails del fallback Flowya:
+
+- Se calcula solo cuando se cumple: Search abierto + query vacía + filtro `all` + sin cold start + sin country drilldown activo.
+- Si el fetch falla o devuelve vacío, el fallback no rompe UI: la sección simplemente no se renderiza.
+- No se muestran spots ocultos (`is_hidden=true`) porque el RPC ya los excluye.
+
+---
+
+## 11) Interfaz pública: `get_most_visited_spots` (Supabase RPC)
+
+Contrato operativo actual:
+
+- Nombre: `public.get_most_visited_spots(p_limit int DEFAULT 10)`.
+- Rango efectivo de `p_limit`: `1..50` (clamp server-side).
+- Respuesta: columnas públicas de spot + `visit_count`.
+- Privacidad mínima: umbral `HAVING COUNT(*) >= 3` (k-anonymity).
+- Seguridad: `SECURITY DEFINER`, sin exponer `user_id`.
+
+Uso en cliente:
+
+- `lib/search/flowyaPopularSpots.ts` (`fetchMostVisitedSpots(limit = 10)`).
+- `MapScreenVNext` lo usa solo para empty-state en `all` con query vacía y pocos resultados locales.
+
+---
+
+## 12) Troubleshooting rápido (Search empty-state)
+
+- No aparece "Lugares populares en Flowya":
+  - verificar condiciones de entrada (Search abierto, query vacía, filtro `all`, sin cold start, sin country drilldown),
+  - verificar que `localCount < 4` (si hay suficientes locales, no se muestra por diseño),
+  - revisar que el RPC tenga datos con `visit_count >= 3` (k-anonymity puede dejar vacío en entornos con poco tráfico).
+- Resultados externos inconsistentes con viewport:
+  - confirmar que en `query >= 3` se usa intento con `bbox/proximity` y luego fallback global si el intento local devuelve 0.
+- Duplicados entre spots internos y externos:
+  - validar `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE=true`.

@@ -144,7 +144,8 @@ Fase A-B (actual):
   - fallback estable a `searchPlaces` (Geocoding v6)
   - guardrail anti-rate-limit: cooldown temporal cuando Search Box devuelve `429`
 - Integración actual:
-  - Search no-results en Explore usa adapter externo detrás de flag (`EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`)
+  - Search en Explore usa adapter externo detrás de flag (`EXPO_PUBLIC_FF_SEARCH_EXTERNAL_POI_RESULTS`) cuando `query >= 3`, `pinFilter=all` y Search está abierto.
+  - orden de fetch externo: intento local con `bbox/proximity` del viewport -> reintento global si local devuelve `0`.
   - dedupe opcional detrás de `EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE`
 
 Implementado en Fase C:
@@ -184,3 +185,34 @@ Regla crítica:
 - Guardrail canónico de landmark:
   - boost explícito a candidato landmark canónico cuando coincide nombre + ciudad esperada (ej. `Torre Eiffel` + `Paris`).
 - En `landmark`, búsqueda externa opera en modo global (sin `bbox/proximity`) para evitar sesgo por ubicación actual del usuario.
+
+---
+
+## Empty-state con query vacía (`all`) — estado operativo (2026-03)
+
+Pipeline activo:
+
+1. Si cold start bootstrap está activo, usar secciones globales de descubrimiento.
+2. Si no, usar local-first:
+   - spots de zona (`SPOTS_ZONA_RADIUS_KM`, top 10),
+   - landmarks/POI visibles del viewport (`collectVisibleLandmarks`).
+3. Si los resultados locales son pocos (`localCount < 4`), habilitar sección:
+   - **"Lugares populares en Flowya"**.
+
+Detalles del fallback "Lugares populares en Flowya":
+
+- Fuente: RPC `public.get_most_visited_spots`.
+- Criterio de entrada: Search abierto + query vacía + `pinFilter=all` + sin cold start + sin country drilldown.
+- Merge de items en UI (dedupe por id):
+  - spots populares no visitados por el usuario,
+  - spots del usuario `saved`,
+  - spots locales de zona.
+- Límite visual: 10 items.
+- Si falla RPC o retorna vacío, no se renderiza sección (degradación segura).
+
+Contrato RPC mínimo:
+
+- `get_most_visited_spots(p_limit int DEFAULT 10)`, clamp server-side `1..50`.
+- Excluye spots ocultos.
+- Aplica k-anonymity con `HAVING COUNT(*) >= 3`.
+- No expone `user_id`; solo columnas públicas de spot + `visit_count`.
