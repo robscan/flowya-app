@@ -1,6 +1,16 @@
+import type { Map as MapboxMap } from "mapbox-gl";
 import { getCurrentLanguage } from "@/lib/i18n/locale-config";
+import { getLabelLayerScore } from "@/lib/map-core/constants";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
 import { distanceKm } from "@/lib/geo-utils";
+
+/** Regex: CJK (Hiragana, Katakana, CJK Unified) + Cirílico. No incluye diacríticos latinos. */
+const NON_LATIN_SCRIPT_RE = /[\u0400-\u04FF\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/u;
+
+/** Detecta si el texto contiene caracteres no latinos (CJK, cirílico). */
+export function containsNonLatinScript(s: string): boolean {
+  return NON_LATIN_SCRIPT_RE.test(s);
+}
 
 export type TappedMapFeatureKind = "poi" | "landmark";
 
@@ -97,6 +107,64 @@ export function classifyTappedFeatureKind(
         : "";
   if (cls.includes("landmark")) return "landmark";
   return "poi";
+}
+
+/** Radio en píxeles para queryRenderedFeatures al buscar POI cerca de unas coords. */
+const RESOLVE_POI_BBOX_PX = 24;
+
+/**
+ * Resuelve el nombre del POI desde los tiles del mapa en las coordenadas dadas.
+ * Usa el mismo criterio que las etiquetas del mapa (name_es, name_en, name).
+ * Devuelve null si no hay feature o el punto está fuera del viewport.
+ */
+export function resolvePoiNameFromMapAtCoords(
+  map: MapboxMap,
+  lat: number,
+  lng: number
+): string | null {
+  try {
+    const pt = map.project([lng, lat]);
+    const size = map.getContainer()?.getBoundingClientRect();
+    if (!size || size.width <= 0 || size.height <= 0) return null;
+    const pad = RESOLVE_POI_BBOX_PX;
+    if (
+      pt.x < -pad || pt.x > size.width + pad ||
+      pt.y < -pad || pt.y > size.height + pad
+    )
+      return null;
+    const bbox: [[number, number], [number, number]] = [
+      [pt.x - pad, pt.y - pad],
+      [pt.x + pad, pt.y + pad],
+    ];
+    const features = map.queryRenderedFeatures(bbox);
+    const lang = getCurrentLanguage();
+    const hasLocaleField = (p: Record<string, unknown>) =>
+      (lang && typeof p[`name_${lang}`] === "string" && String(p[`name_${lang}`]).trim()) ||
+      (typeof p.name_en === "string" && p.name_en.trim());
+    let best: string | null = null;
+    let bestScore = 0;
+    for (const f of features) {
+      const props = f.properties as Record<string, unknown> | undefined;
+      if (!props) continue;
+      const geom = f.geometry;
+      if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) continue;
+      const name = getTappedFeatureNameByLocale(props) ||
+        (typeof props.name === "string" && props.name.trim()) ||
+        (typeof props.title === "string" && props.title.trim());
+      if (!name) continue;
+      const hasLocale = hasLocaleField(props);
+      const layerScore = getLabelLayerScore(f.layer?.id ?? "");
+      const score = (hasLocale ? 10 : 0) + layerScore;
+      if (score > bestScore) {
+        best = name;
+        bestScore = score;
+        if (score >= 12) break;
+      }
+    }
+    return best;
+  } catch {
+    return null;
+  }
 }
 
 /**

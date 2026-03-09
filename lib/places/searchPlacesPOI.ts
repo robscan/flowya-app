@@ -208,11 +208,12 @@ async function searchBoxForward(
   if (!MAPBOX_TOKEN) return [];
   if (Date.now() < searchBoxCooldownUntil) return [];
 
+  const lang = getCurrentLanguage();
   const params = new URLSearchParams({
     q: query,
     access_token: MAPBOX_TOKEN,
     limit: String(Math.max(1, Math.min(opts.limit ?? 6, 12))),
-    language: `${getCurrentLanguage()},en`,
+    language: lang ? (lang === 'en' ? 'en' : `${lang},en`) : 'en',
     auto_complete: 'true',
   });
 

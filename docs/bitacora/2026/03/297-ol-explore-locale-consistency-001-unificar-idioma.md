@@ -40,6 +40,10 @@ Todas las llamadas usan `lib/i18n/locale-config.ts`: `getCurrentLanguage()` y `g
 - `npm run lint` — OK.
 - QA manual: cambiar `APP_MANUAL_LOCALE` en locale-config y verificar que búsqueda, direcciones y labels del mapa reflejen el idioma.
 
+## Documento de arquitectura
+
+Ver: `docs/ops/analysis/OL_EXPLORE_LOCALE_ARCHITECTURE.md` (flujo, fuente de verdad, estrategia unificada, limitaciones).
+
 ## Rollback
 
 Revertir cambios en: `lib/mapbox-geocoding.ts`, `lib/places/searchPlaces.ts`, `lib/explore/map-screen-orchestration.ts`, `lib/search/emptyRecommendations.ts`, `components/explorar/MapScreenVNext.tsx`. No hay migraciones.

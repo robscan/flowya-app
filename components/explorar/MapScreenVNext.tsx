@@ -69,7 +69,7 @@ import {
   type PlaceResultV2,
 } from "@/lib/places/searchPlacesPOI";
 import {
-    FIT_BOUNDS_PADDING,
+  FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
     FALLBACK_VIEW,
     FLOWYA_MAP_STYLE_DARK,
@@ -79,6 +79,8 @@ import {
     INITIAL_BEARING,
     INITIAL_PITCH,
     SPOT_FOCUS_ZOOM,
+    getLabelLayerIds,
+    getLabelLayerScore,
     SPOTS_ZONA_RADIUS_KM,
     isPointVisibleInViewport,
 } from "@/lib/map-core/constants";
@@ -118,6 +120,7 @@ import {
   inferTappedKindFromPlace,
   mergeSearchResults,
   rankExternalPlacesByIntent,
+  resolvePoiNameFromMapAtCoords,
   type TappedMapFeatureKind,
   resolveTappedSpotMatch,
 } from "@/lib/explore/map-screen-orchestration";
@@ -1198,6 +1201,13 @@ export function MapScreenVNext() {
 
   const countriesFilterForActiveCounter = pinFilter === "visited" ? "visited" : "saved";
 
+  /** Título del spot resuelto desde tiles del mapa (igual que labels), si está en viewport. */
+  const spotDisplayTitleFromMap = useMemo(() => {
+    const spot = selectedSpot;
+    if (!spot || spot.id.startsWith("draft_") || !mapInstance) return null;
+    return resolvePoiNameFromMapAtCoords(mapInstance, spot.latitude, spot.longitude);
+  }, [selectedSpot, mapInstance]);
+
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
       let next = prev;
@@ -2022,8 +2032,9 @@ export function MapScreenVNext() {
       }
       setSelectedSpot(null);
       recordSearchExternalClick();
+      const displayName = getDisplayNameForPlace(targetPlace) || targetPlace.name;
       setPoiTapped({
-        name: getDisplayNameForPlace(targetPlace) || targetPlace.name,
+        name: displayName,
         lat: targetPlace.lat,
         lng: targetPlace.lng,
         kind: inferTappedKindFromPlace(targetPlace),
@@ -2092,12 +2103,22 @@ export function MapScreenVNext() {
       }
       if (!mapInstance || !e.point) return;
       try {
-        const features = mapInstance.queryRenderedFeatures(e.point);
+        const labelLayers = getLabelLayerIds(mapInstance);
+        let features = labelLayers.length > 0
+          ? mapInstance.queryRenderedFeatures(e.point, { layers: labelLayers })
+          : mapInstance.queryRenderedFeatures(e.point);
+        if (labelLayers.length > 0 && features.length === 0) {
+          features = mapInstance.queryRenderedFeatures(e.point);
+        }
         const lang = getCurrentLanguage();
         const hasLocaleField = (p: Record<string, unknown>) =>
           (lang && typeof p[`name_${lang}`] === "string" && String(p[`name_${lang}`]).trim()) ||
           (typeof p.name_en === "string" && p.name_en.trim());
-        /** Preferir feature con name_es/name_en (como las etiquetas del mapa); si no, usar la primera válida. */
+        /** Preferir feature con name_es/name_en y capas label (place-label*, poi-label*). */
+        const layerScore = (f: (typeof features)[0]) =>
+          getLabelLayerScore(typeof f.layer?.id === "string" ? f.layer.id : "");
+        const score = (c: { props: Record<string, unknown>; f: (typeof features)[0] }) =>
+          (hasLocaleField(c.props) ? 10 : 0) + layerScore(c.f);
         let best: { f: (typeof features)[0]; props: Record<string, unknown>; name: string; lng: number; lat: number } | null = null;
         for (const f of features) {
           const props = f.properties as Record<string, unknown> | undefined;
@@ -2111,10 +2132,7 @@ export function MapScreenVNext() {
           const [lng, lat] = geom.coordinates;
           if (typeof lat !== "number" || typeof lng !== "number") continue;
           const candidate = { f, props, name: name.trim(), lng, lat };
-          if (!best || (hasLocaleField(props) && !hasLocaleField(best.props))) {
-            best = candidate;
-            if (hasLocaleField(props)) break;
-          }
+          if (!best || score(candidate) > score(best)) best = candidate;
         }
         if (best) {
           const { f, props, name, lng, lat } = best;
@@ -3892,6 +3910,7 @@ export function MapScreenVNext() {
       <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
+        mapLanguage={getCurrentLanguage() === "es" ? "es" : "en"}
         initialViewState={initialViewState}
         onLoad={handleMapLoadWithFilterDelay}
         onPointerDown={handleMapPointerDown}
@@ -4427,6 +4446,7 @@ export function MapScreenVNext() {
         <SpotSheet
           spot={selectedSpot}
           poi={poiTapped}
+          displayTitleOverride={spotDisplayTitleFromMap}
           onClose={() => {
             recordExploreDecisionCompleted({
               outcome: "dismissed",

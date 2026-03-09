@@ -96,7 +96,7 @@ export async function searchPlaces(
     access_token: MAPBOX_TOKEN,
   });
   const lang = getCurrentLanguage();
-  params.set('language', lang ? `${lang},en` : 'en');
+  params.set('language', lang ? (lang === 'en' ? 'en' : `${lang},en`) : 'en');
 
   if (opts?.proximity) {
     params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);

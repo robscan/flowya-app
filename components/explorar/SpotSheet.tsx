@@ -175,6 +175,8 @@ export type SpotSheetProps = {
   onPoiVisitado?: () => void | Promise<void>;
   onPoiShare?: () => void | Promise<void>;
   poiLoading?: boolean;
+  /** Override del título mostrado (p. ej. nombre resuelto desde tiles del mapa). */
+  displayTitleOverride?: string | null;
 };
 
 type BodyContentProps = {
@@ -845,6 +847,7 @@ export function SpotSheet({
   onPoiVisitado,
   onPoiShare,
   poiLoading = false,
+  displayTitleOverride,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -1180,7 +1183,8 @@ export function SpotSheet({
       : null;
   const whyText = spot ? ((spot.why ?? spot.description_long)?.trim() || null) : null;
   const addressText = spot ? (spot.address?.trim() || null) : null;
-  const displayTitle = isPoiMode && poi ? poi.name : spot?.title ?? "";
+  const baseTitle = isPoiMode && poi ? poi.name : spot?.title ?? "";
+  const displayTitle = displayTitleOverride ?? baseTitle;
 
   const handleShare = () => {
     if (isPoiMode && onPoiShare) onPoiShare();
