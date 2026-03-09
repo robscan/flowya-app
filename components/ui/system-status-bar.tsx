@@ -195,16 +195,7 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
                     style={[
                       styles.textSubtitle,
                       { color: palette.textColor },
-                      Platform.select({
-                        web: {
-                          textShadow: `0px 1px 8px ${palette.textShadowColor}`,
-                        },
-                        default: {
-                          textShadowColor: palette.textShadowColor,
-                          textShadowRadius: 8,
-                          textShadowOffset: { width: 0, height: 1 },
-                        },
-                      }),
+                      { textShadow: `0px 1px 8px ${palette.textShadowColor}` },
                     ]}
                     numberOfLines={2}
                   >

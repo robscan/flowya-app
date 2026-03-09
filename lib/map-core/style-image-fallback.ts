@@ -1,11 +1,28 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 
+import { layouts, svgArray } from '@mapbox/maki/browser.esm.js';
+
 const FLOWYA_FALLBACK_ICON_RE = /^flowya-fallback-[a-z0-9-]+$/i;
+/** Maki ids del sprite Mapbox: park-15, museum-11, etc. Estilos custom pueden no incluirlos. */
+const MAKI_SPRITE_ID_RE = /^[a-z0-9_-]+-(11|15)$/i;
+
+const LAYOUT_INDEX = new Map<string, number>();
+for (let i = 0; i < layouts.length; i++) {
+  LAYOUT_INDEX.set(layouts[i], i);
+}
+
+function getMakiSvg(makiId: string): string | null {
+  const key = makiId.replace(/_/g, '-');
+  const idx = LAYOUT_INDEX.get(key);
+  if (idx == null) return null;
+  return svgArray[idx] ?? null;
+}
 
 function shouldProvideFallbackImage(id: string): boolean {
   if (!id) return false;
   if (id === 'marker-15') return true;
   if (FLOWYA_FALLBACK_ICON_RE.test(id)) return true;
+  if (MAKI_SPRITE_ID_RE.test(id)) return true;
   return false;
 }
 
@@ -59,7 +76,6 @@ function drawCenterShape(
     ctx.restore();
     return;
   }
-  // diamond
   ctx.beginPath();
   ctx.moveTo(cx, cy - half);
   ctx.lineTo(cx + half, cy);
@@ -70,7 +86,7 @@ function drawCenterShape(
   ctx.restore();
 }
 
-function createFallbackImage(id: string, sizePx = 32): ImageData | null {
+function createGenericFallbackImage(id: string, sizePx = 32): ImageData | null {
   if (typeof document === 'undefined') return null;
   const canvas = document.createElement('canvas');
   canvas.width = sizePx;
@@ -78,29 +94,70 @@ function createFallbackImage(id: string, sizePx = 32): ImageData | null {
   const ctx = canvas.getContext('2d');
   if (!ctx) return null;
   const style = resolveFallbackStyle(id);
-
   const cx = sizePx / 2;
   const cy = sizePx / 2;
   const radius = sizePx * 0.26;
-
-  // White-only fallback glyph over pin circle background.
   ctx.clearRect(0, 0, sizePx, sizePx);
   drawCenterShape(ctx, cx, cy, radius * 1.1, style);
-
   return ctx.getImageData(0, 0, sizePx, sizePx);
 }
 
+/** Añade icono Maki real (park, museum, etc.) o fallback genérico. */
+function addFallbackImage(map: MapboxMap, id: string): void {
+  try {
+    if (map.hasImage(id)) return;
+
+    const makiKey = normalizeMakiId(id);
+    const svg = getMakiSvg(makiKey);
+
+    if (svg && typeof document !== 'undefined') {
+      const img = document.createElement('img');
+      const svgWhite = svg.replace(/<svg /, '<svg fill="#FFFFFF" ');
+      const dataUrl = `data:image/svg+xml;base64,${btoa(svgWhite)}`;
+      img.onload = () => {
+        try {
+          if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 2 });
+        } catch {
+          /* ignore */
+        }
+      };
+      img.onerror = () => {
+        const fallback = createGenericFallbackImage(id);
+        if (fallback) map.addImage(id, fallback, { pixelRatio: 2 });
+      };
+      img.src = dataUrl;
+      return;
+    }
+
+    const imageData = createGenericFallbackImage(id);
+    if (imageData) map.addImage(id, imageData, { pixelRatio: 2 });
+  } catch {
+    /* ignore */
+  }
+}
+
+const FALLBACK_IDS_TO_PRELOAD = [
+  'marker-15',
+  'flowya-fallback-generic',
+  'flowya-fallback-park',
+  'flowya-fallback-museum',
+  'flowya-fallback-monument',
+];
+
 export function installStyleImageFallback(map: MapboxMap): () => void {
+  if (typeof document !== 'undefined') {
+    for (const id of FALLBACK_IDS_TO_PRELOAD) {
+      addFallbackImage(map, id);
+    }
+  }
   const onStyleImageMissing = (e: { id?: string }) => {
     const id = typeof e?.id === 'string' ? e.id : '';
     if (!shouldProvideFallbackImage(id)) return;
     try {
       if (map.hasImage(id)) return;
-      const imageData = createFallbackImage(id, 32);
-      if (!imageData) return;
-      map.addImage(id, imageData, { pixelRatio: 2 });
+      addFallbackImage(map, id);
     } catch {
-      // ignore addImage races/style swaps
+      /* ignore */
     }
   };
 
@@ -109,7 +166,7 @@ export function installStyleImageFallback(map: MapboxMap): () => void {
     try {
       map.off('styleimagemissing', onStyleImageMissing);
     } catch {
-      // ignore
+      /* ignore */
     }
   };
 }

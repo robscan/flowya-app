@@ -24,6 +24,7 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
+import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/design-system/icon-button";
@@ -120,7 +121,6 @@ import {
   inferTappedKindFromPlace,
   mergeSearchResults,
   rankExternalPlacesByIntent,
-  resolvePoiNameFromMapAtCoords,
   type TappedMapFeatureKind,
   resolveTappedSpotMatch,
 } from "@/lib/explore/map-screen-orchestration";
@@ -991,6 +991,7 @@ export function MapScreenVNext() {
     is3DEnabled,
     showMakiIcon: featureFlags.flowyaPinMakiIcon,
     showSpotLabels: shouldShowFlowyaSpotLabels,
+    pinFilter,
   });
   const {
     mapInstance,
@@ -1215,13 +1216,6 @@ export function MapScreenVNext() {
   }, [spots]);
 
   const countriesFilterForActiveCounter = pinFilter === "visited" ? "visited" : "saved";
-
-  /** Título del spot resuelto desde tiles del mapa (igual que labels), si está en viewport. */
-  const spotDisplayTitleFromMap = useMemo(() => {
-    const spot = selectedSpot;
-    if (!spot || spot.id.startsWith("draft_") || !mapInstance) return null;
-    return resolvePoiNameFromMapAtCoords(mapInstance, spot.latitude, spot.longitude);
-  }, [selectedSpot, mapInstance]);
 
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
@@ -1818,9 +1812,9 @@ export function MapScreenVNext() {
       recordSearchSpotClick();
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
-      /** OL-WOW-F2-005 inspect: centrar solo si spot no visible en viewport. */
       /** OL-WOW-F2-005 act: no flyTo durante create/edit/placing. */
-      if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+      /** Desde buscador: siempre flyTo (usuario viene de otra ventana). Pin en mapa: sin flyTo. */
+      if (mapInstance) {
         flyToUnlessActMode(
           { lng: spot.longitude, lat: spot.latitude },
           { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
@@ -4407,6 +4401,7 @@ export function MapScreenVNext() {
               subtitle={place.fullName}
               distanceText={distanceText}
               isLandmark={isLandmark}
+              maki={place.maki ?? undefined}
               onPress={() => handleCreateFromPlace(place)}
               accessibilityLabel={`Ver: ${place.name}`}
             />
@@ -4507,7 +4502,7 @@ export function MapScreenVNext() {
         <SpotSheet
           spot={selectedSpot}
           poi={poiTapped}
-          displayTitleOverride={spotDisplayTitleFromMap}
+          displayTitleOverride={null}
           onClose={() => {
             recordExploreDecisionCompleted({
               outcome: "dismissed",
@@ -4733,10 +4728,8 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     letterSpacing: 0.6,
     textAlign: "center",
-    textShadowColor: "rgba(0,0,0,0.28)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
+    textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
+  } as TextStyle,
   sloganLineLight: {
     fontWeight: "300",
   },

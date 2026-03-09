@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-08
+**Fecha:** 2026-03-09
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -9,8 +9,10 @@
 
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
+- **OL-URGENT-MAKI-001** — Iconos Maki en listas: ResultRow y SearchResultCard usan `place.maki` / `spot.linked_maki` para mostrar icono de categoría (park, museum, etc.) en lugar de MapPin genérico. **Abordado** — bitácora 302.
+- **OL-URGENT-CLUSTER-001** — Densidad de pins en mapa: clustering Mapbox nativo para agrupar pins cercanos a zoom bajo; clic en cluster hace zoom. **Abordado** — bitácora 303. Bug z-index (iconos sobre pines) documentado para sesión posterior.
 - **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Umbral k-anonymity `HAVING COUNT(*) >= 3` ya en 016; 017 redundante. Con pocos usuarios el empty-state puede no mostrar spots Flowya; comportamiento aceptado.
-- **OL-SEARCHV2-002** — optimización API/costo: requiere **fase de investigación profunda** antes de cualquier ajuste en código. Puede que no sea necesaria ninguna optimización. Plan: [PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md](plans/PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md).
+- **OL-SEARCHV2-002** — optimización API/costo: fase investigación en curso. Inventario + instrumentación listos (bitácora `301`). Plan: [PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md](plans/PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md). Inventario: [OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md](investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md).
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
 
 ---
@@ -31,7 +33,7 @@
 
 ## Cierres y postergados
 
-- **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001:** eliminado. Abordar solo con nueva definición completa y basada en pruebas.
+- **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001:** proyecto eliminado por completo. Tendencia: todo dentro de auth; por ahora anon permitido para testing. Política vigente: auth en mutaciones.
 - **OL-EXPLORE-GLOBE-ENTRY-MOTION-001:** cerrado con QA en prod.
 - **OL-EXPLORE-WEB-ZOOM-GUARD-001:** fallo en implementación (solución aplicada ayer no se reflejó en sitio). Agenda retry cuando sea prudente; diagnosticar deploy/cache/viewport.
 - **OL-CONTENT-001:** postergado estratégicamente.
@@ -58,6 +60,7 @@
 
 ## Postergados estratégicos (no ejecutar ahora)
 
+- `OL-METRICS-001` — Proyecto métricas y telemetría. Plan: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). No urgente.
 - `OL-P0-002` — Create Spot canónico.
 - `OL-P1-006` — Migración POI DB (maki/categorías).
 - `OL-P1-007` — Pipeline turístico sin Google.
@@ -71,6 +74,9 @@
 - `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado y mergeado (PR #86). Bitácora `298`.
 - `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` cerrado: migración 016 ejecutada, smoke OK. Bitácora `299`.
 - `OL-SEARCHV2-001` cerrado: abordado con ajustes recientes (landmarks visibles + fallback). Plan OL-SEARCHV2-002 investigation-first: bitácora `300`.
+- OL-SEARCHV2-002 investigación fase 1: inventario API Mapbox + instrumentación (`lib/mapbox-api-metrics.ts`): bitácora `301`.
+- OL-URGENT-MAKI-001 (iconos Maki en listas ResultRow/SearchResultCard): bitácora `302`.
+- OL-URGENT-CLUSTER-001 (clustering Mapbox pins + densidad): bitácora `303`.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
@@ -111,9 +117,9 @@
 
 ---
 
-## Arranque activo (2026-03-08)
+## Arranque activo (2026-03-09)
 
-1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — fase de investigación (no implementación).
+1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — ejecutar sesiones de prueba con instrumentación; informe con recomendación optimizar/no optimizar.
 2. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
 3. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
 4. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados (recomendaciones por intereses) — fase exploratoria.

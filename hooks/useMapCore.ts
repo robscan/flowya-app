@@ -55,6 +55,8 @@ export type UseMapCoreOptions = {
   showMakiIcon?: boolean;
   /** Si false, oculta labels de spots Flowya para evitar competencia visual con labels externas. */
   showSpotLabels?: boolean;
+  /** Filtro activo: all | saved (por visitar) | visited. Afecta color de clusters. */
+  pinFilter?: 'all' | 'saved' | 'visited';
 };
 
 export type MapLocateResult =
@@ -127,6 +129,7 @@ export function useMapCore(
     is3DEnabled = false,
     showMakiIcon = false,
     showSpotLabels = true,
+    pinFilter = 'all',
   } = options;
 
   const flyToOptions = useMemo(
@@ -261,12 +264,13 @@ export function useMapCore(
       isDarkStyle,
       showMakiIcon,
       showSpotLabels,
+      pinFilter,
       (spotId) => {
         const s = spotsRef.current.find((sp) => sp.id === spotId);
         if (s) onPinClickRef.current?.(s);
       }
     );
-  }, [mapInstance, onPinClick, isDarkStyle, showMakiIcon, showSpotLabels]);
+  }, [mapInstance, onPinClick, isDarkStyle, showMakiIcon, showSpotLabels, pinFilter]);
 
   useEffect(() => {
     const map = mapInstance;

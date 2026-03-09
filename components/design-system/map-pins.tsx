@@ -43,14 +43,7 @@ const CREATING_PIN_LABEL_GAP = 3;
 const CREATING_PIN_LABEL_MAX_WIDTH = 100;
 
 function makeTextShadowStyle(color: string, radius: number, offsetX = 0, offsetY = 0) {
-  if (Platform.OS === 'web') {
-    return { textShadow: `${offsetX}px ${offsetY}px ${radius}px ${color}` } as const;
-  }
-  return {
-    textShadowColor: color,
-    textShadowOffset: { width: offsetX, height: offsetY } as const,
-    textShadowRadius: radius,
-  } as const;
+  return { textShadow: `${offsetX}px ${offsetY}px ${radius}px ${color}` } as const;
 }
 
 /** Pin de ubicación del usuario: círculo azul clásico. No reutiliza MapPinSpot. */
