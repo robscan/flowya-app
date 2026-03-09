@@ -14,8 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **`OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001`** (Lugares populares en Flowya implementado; pendiente migración + bitácora).
-- Gate de activación inmediato: **`OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`** (evitar auth prematuro al pasar `medium -> expanded`).
+- Loop activo real: **`OL-SEARCHV2-001`** o **`OL-SEARCHV2-002`** (experiencia de búsqueda).
 
 ---
 
@@ -31,7 +30,7 @@
 - Auth modal con copy actualizado: foco en guardar/marcar spots + claridad de acceso por enlace seguro al correo (sin contraseña).
 - Buscador con copy explícito de alcance: `Busca: países, regiones o lugares` (entrada coherente con capacidades geográficas/lugares en filtro `all`).
 - Search cold-start global activo: en primer arranque sin interacción (y sin ubicación) muestra `Paises populares` y `Lugares populares`; al primer gesto/intención vuelve al flujo local/contextual normal.
-- Search empty-state: cuando pocos resultados locales (all + query vacía), sección "Lugares populares en Flowya" con spots más visitados (RPC get_most_visited_spots). Pendiente migración 016 en Supabase.
+- Search empty-state: cuando pocos resultados locales (all + query vacía), sección "Lugares populares en Flowya" con spots más visitados (RPC get_most_visited_spots). Migración 016 ejecutada.
 - Selección de país/región desde búsqueda: encuadre completo del territorio con `fitBounds` cuando hay `bbox` (fallback a zoom geográfico amplio si no hay `bbox`).
 - Branding de entrada en Explore: slogan final `SIGUE LO QUE` / `TE MUEVE` aparece temporalmente con fade y se posiciona debajo del filtro superior sin bloquear interacción.
 - Fix de `Mi ubicación` en Explore: estado programático del mapa solo se activa cuando hay movimiento real de cámara.
@@ -72,9 +71,6 @@
 4. **Deriva documental diaria**.
 - Mitigación: actualizar bitácora + `OPEN_LOOPS` + `CURRENT_STATE` en cada cierre de bloque.
 
-5. **Fricción de activación por auth prematuro en SpotSheet expanded**.
-- Mitigación: cerrar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` y validar que `medium -> expanded` no dispare auth si no hay mutación explícita.
-
 ---
 
 ## Referencias activas
@@ -110,12 +106,12 @@
 - `docs/bitacora/2026/03/294-fix-locate-programmatic-state-on-permission-failure.md`
 - `docs/bitacora/2026/03/295-plan-gate-spotsheet-expanded-sin-auth-y-loader-neutral.md`
 - `docs/bitacora/2026/03/296-explore-globe-entry-motion-flyto-world-safe-guardrails.md`
+- `docs/bitacora/2026/03/299-ol-searchv2-empty-flowya-popular-001-cierre.md`
 
 ---
 
 ## Siguiente paso operativo
 
-- Ejecutar migración 016 (RPC get_most_visited_spots) en Supabase; smoke empty-state; bitácora.
-- Cerrar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` como gate de activación antes de abrir features nuevas.
-- Retomar `OL-CONTENT-001` tras cierre del gate.
+- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-001` (landmarks + fallback) o `OL-SEARCHV2-002` (cache/API).
+- Retomar `OL-CONTENT-001` según prioridad.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.
