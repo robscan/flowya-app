@@ -123,8 +123,6 @@ export const reverseGeocode = resolveAddress;
  * Usa types=country,region,place para evitar address (suele venir en script local).
  * Fallback cuando tiles/búsqueda devuelven nombre en script local (CJK, cirílico).
  */
-const LOCALE_DEBUG = false;
-
 export async function resolvePlaceNameAtCoords(
   latitude: number,
   longitude: number
@@ -145,26 +143,6 @@ export async function resolvePlaceNameAtCoords(
     const feature = data?.features?.[0];
     const context = feature?.properties?.context;
 
-    if (LOCALE_DEBUG) {
-      const ctx = context as Record<string, unknown> | undefined;
-      const ctxKeys = ctx ? Object.keys(ctx) : [];
-      const ctxNames = ctxKeys.reduce((acc, k) => {
-        const v = ctx[k] as { name?: string; translations?: Record<string, { name?: string }> } | undefined;
-        acc[k] = { name: v?.name, trans: v?.translations ? Object.keys(v.translations) : [] };
-        return acc;
-      }, {} as Record<string, { name?: string; trans: string[] }>);
-      console.log('[LOCALE-DEBUG] resolvePlaceNameAtCoords', {
-        lat: latitude,
-        lng: longitude,
-        lang,
-        url: `${REVERSE_URL}?types=country,region,place&language=${params.get('language')}`,
-        featureType: feature?.properties?.feature_type,
-        featureName: feature?.properties?.name,
-        contextKeys: ctxKeys,
-        contextNames: ctxNames,
-      });
-    }
-
     const pickName = (item?: ReverseContextItem): string | null => {
       if (!item) return null;
       const t = item.translations;
@@ -177,17 +155,12 @@ export async function resolvePlaceNameAtCoords(
     const levels: (keyof ReverseContext)[] = ['place', 'region', 'country'];
     for (const level of levels) {
       const name = pickName(context?.[level]);
-      if (name) {
-        if (LOCALE_DEBUG) console.log('[LOCALE-DEBUG] resolvePlaceNameAtCoords ->', level, name);
-        return name;
-      }
+      if (name) return name;
     }
 
     const name = feature?.properties?.name?.trim();
-    if (LOCALE_DEBUG) console.log('[LOCALE-DEBUG] resolvePlaceNameAtCoords -> fallback name', name);
     return name || null;
-  } catch (err) {
-    if (LOCALE_DEBUG) console.log('[LOCALE-DEBUG] resolvePlaceNameAtCoords error', err);
+  } catch {
     return null;
   }
 }
