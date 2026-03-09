@@ -9,8 +9,7 @@
 
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
-- **OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001** — empty-state con "Lugares populares en Flowya" (spots más visitados). Implementado: RPC `get_most_visited_spots`, `lib/search/flowyaPopularSpots.ts`, sección en MapScreenVNext cuando pocos resultados locales. Plan: [PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md](plans/PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md).
-- **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Aplicar migración `017_get_most_visited_spots_k_anonymity.sql` cuando haya usuarios suficientes. El umbral `HAVING COUNT(*) >= 3` evita inferir visitas individuales; con un solo usuario no se vería nada en el empty-state. Por ahora 016 (sin umbral) en Supabase; 017 lista en repo.
+- **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Umbral k-anonymity `HAVING COUNT(*) >= 3` ya en 016; 017 redundante. Con pocos usuarios el empty-state puede no mostrar spots Flowya; comportamiento aceptado.
 - **OL-SEARCHV2-001** — `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro.
 - **OL-SEARCHV2-002** — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada.
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
@@ -19,7 +18,6 @@
 
 ## Proyecto: Auth
 
-- **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001** — eliminar auth prematuro al expandir sheet (`medium -> expanded`); lectura libre de detalle y auth solo en mutaciones. Revisar solución que no genere fricción; considerar login con redes sociales para entrada más veloz.
 - **Social login** — investigación y revisión para acelerar activación.
 
 ---
@@ -34,6 +32,7 @@
 
 ## Cierres y postergados
 
+- **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001:** eliminado. Abordar solo con nueva definición completa y basada en pruebas.
 - **OL-EXPLORE-GLOBE-ENTRY-MOTION-001:** cerrado con QA en prod.
 - **OL-EXPLORE-WEB-ZOOM-GUARD-001:** fallo en implementación (solución aplicada ayer no se reflejó en sitio). Agenda retry cuando sea prudente; diagnosticar deploy/cache/viewport.
 - **OL-CONTENT-001:** postergado estratégicamente.
@@ -54,7 +53,6 @@
 - Máxima prioridad estratégica: experiencia de búsqueda.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
-- OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001 y OL-SEARCHV2-001 pueden coordinarse (lugares Flowya + landmarks en mismo empty-state).
 
 ---
 
@@ -71,7 +69,7 @@
 ## Cierres recientes (trazabilidad)
 
 - `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado y mergeado (PR #86). Bitácora `298`.
-- `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` implementado: RPC get_most_visited_spots, lib/search/flowyaPopularSpots.ts, sección "Lugares populares en Flowya" en empty-state. Pendiente migración + bitácora.
+- `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` cerrado: migración 016 ejecutada, smoke OK. Bitácora `299`.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
@@ -114,8 +112,7 @@
 
 ## Arranque activo (2026-03-08)
 
-1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` implementado. Ejecutar migración 016 en Supabase, smoke en empty-state, bitácora.
-2. Proyecto Auth: revisar e implementar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`.
-3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
-4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-5. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados (recomendaciones por intereses) — fase exploratoria.
+1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-001` (landmarks visibles + fallback) o `OL-SEARCHV2-002` (cache/API).
+2. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
+3. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
+4. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados (recomendaciones por intereses) — fase exploratoria.
