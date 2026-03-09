@@ -978,7 +978,7 @@ export function MapScreenVNext() {
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spotForLayer) => {
-      const fullSpot = spots.find((s) => s.id === spotForLayer.id);
+      const fullSpot = displayedSpots.find((s) => s.id === spotForLayer.id);
       if (fullSpot) onPinClickHandlerRef.current?.(fullSpot);
     },
     is3DEnabled,
@@ -3992,7 +3992,7 @@ export function MapScreenVNext() {
         userCoords={userCoords}
         zoom={zoom}
         onPinClick={(spotForLayer) => {
-          const s = spots.find((x) => x.id === spotForLayer.id);
+          const s = displayedSpots.find((x) => x.id === spotForLayer.id);
           if (s) handlePinClick(s);
         }}
         styleMap={styles.map}
