@@ -10,6 +10,7 @@
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
 - **OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001** — empty-state con "Lugares populares en Flowya" (spots más visitados). Implementado: RPC `get_most_visited_spots`, `lib/search/flowyaPopularSpots.ts`, sección en MapScreenVNext cuando pocos resultados locales. Plan: [PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md](plans/PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md).
+- **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Aplicar migración `017_get_most_visited_spots_k_anonymity.sql` cuando haya usuarios suficientes. El umbral `HAVING COUNT(*) >= 3` evita inferir visitas individuales; con un solo usuario no se vería nada en el empty-state. Por ahora 016 (sin umbral) en Supabase; 017 lista en repo.
 - **OL-SEARCHV2-001** — `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro.
 - **OL-SEARCHV2-002** — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada.
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
