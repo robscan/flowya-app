@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **`OL-SEARCHV2-001`** o **`OL-SEARCHV2-002`** (experiencia de búsqueda).
+- Loop activo real: **`OL-SEARCHV2-002`** (fase investigación; sin implementación hasta evidencia).
 
 ---
 
@@ -107,11 +107,12 @@
 - `docs/bitacora/2026/03/295-plan-gate-spotsheet-expanded-sin-auth-y-loader-neutral.md`
 - `docs/bitacora/2026/03/296-explore-globe-entry-motion-flyto-world-safe-guardrails.md`
 - `docs/bitacora/2026/03/299-ol-searchv2-empty-flowya-popular-001-cierre.md`
+- `docs/bitacora/2026/03/300-ops-cierre-sesion-ol-searchv2-001-002-investigation.md`
 
 ---
 
 ## Siguiente paso operativo
 
-- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-001` (landmarks + fallback) o `OL-SEARCHV2-002` (cache/API).
+- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — fase de investigación (no implementación). Ver plan `PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md`.
 - Retomar `OL-CONTENT-001` según prioridad.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.
