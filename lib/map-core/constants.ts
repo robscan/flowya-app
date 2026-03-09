@@ -55,6 +55,36 @@ export const LONG_PRESS_DRAG_THRESHOLD_PX = 10;
 /** Layer IDs o prefijos para filtrar features POI/place en queryRenderedFeatures. */
 export const POI_LAYER_PREFIXES = ['poi', 'place', 'symbol'];
 
+/** Prefijos de capas que muestran etiquetas de texto en el mapa (place-label, poi-label). */
+export const LABEL_LAYER_PREFIXES = ['place-label', 'poi-label'];
+
+/**
+ * IDs de capas que muestran labels (symbol = texto renderizado).
+ * Prioriza place-label*, poi-label*; fallback a capas type=symbol.
+ */
+export function getLabelLayerIds(map: MapboxMap): string[] {
+  try {
+    const layers = map.getStyle().layers ?? [];
+    const byPrefix = layers.filter((l) =>
+      LABEL_LAYER_PREFIXES.some((p) => (l.id ?? '').toLowerCase().startsWith(p))
+    );
+    if (byPrefix.length > 0) return byPrefix.map((l) => l.id);
+    const symbolLayers = layers.filter((l) => l.type === 'symbol').map((l) => l.id);
+    return symbolLayers;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Score para priorizar features de capas label (como las etiquetas visibles del mapa).
+ * Usar en handleMapClick y resolvePoiNameFromMapAtCoords.
+ */
+export function getLabelLayerScore(layerId: string): number {
+  const id = (layerId ?? '').toLowerCase();
+  return LABEL_LAYER_PREFIXES.some((p) => id.startsWith(p)) ? 2 : 1;
+}
+
 /** IDs de capa donde insertar flowya-spots (debajo de POIs). Primera coincidencia. */
 const POI_LAYER_IDS_TO_INSERT_BEFORE = [
   'poi-label',

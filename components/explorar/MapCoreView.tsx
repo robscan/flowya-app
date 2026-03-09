@@ -35,6 +35,8 @@ export type PreviewPinState = 'default' | 'to_visit' | 'visited';
 export type MapCoreViewProps = {
   mapboxAccessToken: string;
   mapStyle: string;
+  /** Idioma para labels del mapa (es/en); alinea con locale de la app. */
+  mapLanguage?: string;
   initialViewState: { longitude: number; latitude: number; zoom: number; pitch?: number; bearing?: number };
   onLoad: (e: import('react-map-gl/mapbox-legacy').MapEvent) => void;
   onPointerDown: (e: MapMouseEvent | MapTouchEvent) => void;
@@ -63,6 +65,7 @@ export type MapCoreViewProps = {
 export function MapCoreView({
   mapboxAccessToken,
   mapStyle,
+  mapLanguage,
   initialViewState,
   onLoad,
   onPointerDown,
@@ -93,6 +96,7 @@ export function MapCoreView({
         key={mapStyle}
         mapboxAccessToken={mapboxAccessToken}
         mapStyle={mapStyle}
+        {...(mapLanguage ? { language: mapLanguage } as const : {})}
         styleDiffing={false}
         projection="globe"
         initialViewState={initialViewState}
