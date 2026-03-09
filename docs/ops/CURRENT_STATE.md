@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-06
+**Fecha de actualización:** 2026-03-08
 
 ---
 
@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **`OL-CONTENT-001`** (Mi diario v1: notas por spot + persistencia).
+- Loop activo real: **`OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001`** (Lugares populares en Flowya implementado; pendiente migración + bitácora).
 - Gate de activación inmediato: **`OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`** (evitar auth prematuro al pasar `medium -> expanded`).
 
 ---
@@ -31,6 +31,7 @@
 - Auth modal con copy actualizado: foco en guardar/marcar spots + claridad de acceso por enlace seguro al correo (sin contraseña).
 - Buscador con copy explícito de alcance: `Busca: países, regiones o lugares` (entrada coherente con capacidades geográficas/lugares en filtro `all`).
 - Search cold-start global activo: en primer arranque sin interacción (y sin ubicación) muestra `Paises populares` y `Lugares populares`; al primer gesto/intención vuelve al flujo local/contextual normal.
+- Search empty-state: cuando pocos resultados locales (all + query vacía), sección "Lugares populares en Flowya" con spots más visitados (RPC get_most_visited_spots). Pendiente migración 016 en Supabase.
 - Selección de país/región desde búsqueda: encuadre completo del territorio con `fitBounds` cuando hay `bbox` (fallback a zoom geográfico amplio si no hay `bbox`).
 - Branding de entrada en Explore: slogan final `SIGUE LO QUE` / `TE MUEVE` aparece temporalmente con fade y se posiciona debajo del filtro superior sin bloquear interacción.
 - Fix de `Mi ubicación` en Explore: estado programático del mapa solo se activa cuando hay movimiento real de cámara.
@@ -114,6 +115,7 @@
 
 ## Siguiente paso operativo
 
+- Ejecutar migración 016 (RPC get_most_visited_spots) en Supabase; smoke empty-state; bitácora.
 - Cerrar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001` como gate de activación antes de abrir features nuevas.
-- Retomar `OL-CONTENT-001` inmediatamente después del cierre del gate.
+- Retomar `OL-CONTENT-001` tras cierre del gate.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.

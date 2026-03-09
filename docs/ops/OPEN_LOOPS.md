@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-07
+**Fecha:** 2026-03-08
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -9,7 +9,8 @@
 
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
-- **OL-SEARCHV2-EMPTY-VIEWPORT-001** — alinear spots con viewport en empty-state (Todos, query vacía) cuando zoom <= umbral; mantener center+radius en zoom cercano. Plan: [PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md](plans/PLAN_SEARCH_EMPTY_SPOTS_VIEWPORT_ZOOM_THRESHOLD_2026-03-07.md).
+- **OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001** — empty-state con "Lugares populares en Flowya" (spots más visitados). Implementado: RPC `get_most_visited_spots`, `lib/search/flowyaPopularSpots.ts`, sección en MapScreenVNext cuando pocos resultados locales. Plan: [PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md](plans/PLAN_SEARCH_EMPTY_FLOWYA_POPULAR_2026-03-08.md).
+- **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Aplicar migración `017_get_most_visited_spots_k_anonymity.sql` cuando haya usuarios suficientes. El umbral `HAVING COUNT(*) >= 3` evita inferir visitas individuales; con un solo usuario no se vería nada en el empty-state. Por ahora 016 (sin umbral) en Supabase; 017 lista en repo.
 - **OL-SEARCHV2-001** — `Todos + query vacía` con prioridad en landmarks visibles + fallback externo seguro.
 - **OL-SEARCHV2-002** — optimización API/costo: cache híbrida (L1+L2), TTL y frescura controlada.
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
@@ -36,6 +37,7 @@
 - **OL-EXPLORE-GLOBE-ENTRY-MOTION-001:** cerrado con QA en prod.
 - **OL-EXPLORE-WEB-ZOOM-GUARD-001:** fallo en implementación (solución aplicada ayer no se reflejó en sitio). Agenda retry cuando sea prudente; diagnosticar deploy/cache/viewport.
 - **OL-CONTENT-001:** postergado estratégicamente.
+- **OL-SEARCHV2-EMPTY-VIEWPORT-001:** postergado (sustituido por OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001). Plan viewport/zoom descartado: preferir datos Flowya propios vs viewport sin intención de búsqueda.
 
 ---
 
@@ -52,7 +54,7 @@
 - Máxima prioridad estratégica: experiencia de búsqueda.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
-- OL-SEARCHV2-EMPTY-VIEWPORT-001 y OL-SEARCHV2-001 pueden coordinarse (spots + landmarks en mismo empty-state).
+- OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001 y OL-SEARCHV2-001 pueden coordinarse (lugares Flowya + landmarks en mismo empty-state).
 
 ---
 
@@ -68,7 +70,8 @@
 
 ## Cierres recientes (trazabilidad)
 
-- `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado: nombre POI + dirección en regiones CJK (mapLanguage, resolveAddress con types=place,region,country + language=en). Bitácora `298`. Pendiente PR → boots → merge.
+- `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado y mergeado (PR #86). Bitácora `298`.
+- `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` implementado: RPC get_most_visited_spots, lib/search/flowyaPopularSpots.ts, sección "Lugares populares en Flowya" en empty-state. Pendiente migración + bitácora.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
@@ -109,9 +112,9 @@
 
 ---
 
-## Arranque activo (2026-03-07)
+## Arranque activo (2026-03-08)
 
-1. Proyecto Experiencia de búsqueda: `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado (bitácora 298); pendiente PR → boots → merge. Ejecutar `OL-SEARCHV2-EMPTY-VIEWPORT-001`.
+1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` implementado. Ejecutar migración 016 en Supabase, smoke en empty-state, bitácora.
 2. Proyecto Auth: revisar e implementar `OL-SPOTSHEET-EXPANDED-AUTH-GATE-001`.
 3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
 4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.

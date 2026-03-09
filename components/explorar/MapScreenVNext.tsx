@@ -49,7 +49,7 @@ import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
 import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
 import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
-import { useSearchControllerV2 } from "@/hooks/search/useSearchControllerV2";
+import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
 import { Colors, Radius, Spacing, WebTouchManipulation } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -140,6 +140,10 @@ import {
   buildColdStartWorldSections,
   isWorldSeedPlace,
 } from "@/lib/search/coldStartWorldRecommendations";
+import {
+  fetchMostVisitedSpots,
+  type FlowyaPopularSpot,
+} from "@/lib/search/flowyaPopularSpots";
 import {
   recordExploreDecisionCompleted,
   recordExploreDecisionStarted,
@@ -636,6 +640,7 @@ export function MapScreenVNext() {
   const [createSpotNameValue, setCreateSpotNameValue] = useState("");
   const [placeSuggestions, setPlaceSuggestions] = useState<PlaceResult[]>([]);
   const [isSearchColdStartBootstrapActive, setIsSearchColdStartBootstrapActive] = useState(true);
+  const [flowyaPopularSpots, setFlowyaPopularSpots] = useState<FlowyaPopularSpot[]>([]);
   const coldStartSeedRef = useRef<number>(Math.floor(Math.random() * 1_000_000_000));
   const deactivateSearchColdStartBootstrap = useCallback(() => {
     setIsSearchColdStartBootstrapActive((prev) => (prev ? false : prev));
@@ -786,7 +791,7 @@ export function MapScreenVNext() {
       };
     });
 
-    const visible = onlyVisible(withPins);
+    const visible = onlyVisible(withPins as (Spot & { isHidden?: boolean })[]);
     const nextIds = new Set(visible.map((s) => s.id));
     const prevIds = prevSpotIdsRef.current;
     const disappeared = [...prevIds].filter((id) => !nextIds.has(id));
@@ -972,7 +977,10 @@ export function MapScreenVNext() {
           (pinFilter !== "all" && isCoreDefaultUnlinkedSpot(s)),
       })),
     selectedSpotId: selectedSpot?.id ?? null,
-    onPinClick: (spot) => onPinClickHandlerRef.current?.(spot),
+    onPinClick: (spotForLayer) => {
+      const fullSpot = spots.find((s) => s.id === spotForLayer.id);
+      if (fullSpot) onPinClickHandlerRef.current?.(fullSpot);
+    },
     is3DEnabled,
     showMakiIcon: featureFlags.flowyaPinMakiIcon,
     showSpotLabels: shouldShowFlowyaSpotLabels,
@@ -1182,7 +1190,7 @@ export function MapScreenVNext() {
     };
   }, [spots]);
   const travelerPoints = useMemo(
-    () => computeTravelerPoints(countriesSummaryByFilter.visited.count, pinCounts.visited),
+    () => computeTravelerPoints(countriesSummaryByFilter.visited.count ?? 0, pinCounts.visited),
     [countriesSummaryByFilter.visited.count, pinCounts.visited],
   );
   const travelerPointsLabel = useMemo(
@@ -1539,6 +1547,7 @@ export function MapScreenVNext() {
   ]);
 
   /** isEmpty con saved/visited: dos grupos "Spots en la zona" (radio fijo) y "Spots en el mapa", ordenados por distancia. */
+  /** OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001: cuando all + pocos resultados locales, sección "Lugares populares en Flowya". */
   const defaultSectionsForEmpty = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
     if (shouldShowSearchColdStartBootstrap) return coldStartWorldSections;
     const isCountryDrilldownActive =
@@ -1552,6 +1561,36 @@ export function MapScreenVNext() {
           items: countryDrilldownItems,
         },
       ];
+    }
+    if (pinFilter === "all") {
+      const localCount =
+        defaultSpotsForEmpty.length + visibleLandmarksEmpty.length + nearbyPlacesEmpty.length;
+      const fewLocalResults = localCount < 4;
+      if (fewLocalResults) {
+        const flowyaNotVisited = flowyaPopularSpots.filter((s) => !s.visited);
+        const porVisitar = spots.filter((s) => s.saved);
+        const deLaZona = defaultSpotsForEmpty;
+        const merged: (Spot | PlaceResult)[] = [];
+        const seen = new Set<string>();
+        for (const s of [...flowyaNotVisited, ...porVisitar, ...deLaZona]) {
+          const id = s.id;
+          if (!seen.has(id)) {
+            seen.add(id);
+            merged.push(s);
+          }
+        }
+        const items = merged.slice(0, 10);
+        if (items.length > 0) {
+          return [
+            {
+              id: "flowya-popular",
+              title: "Lugares populares en Flowya",
+              items,
+            },
+          ];
+        }
+      }
+      return [];
     }
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
     if (!mapInstance || filteredSpots.length === 0) return [];
@@ -1596,6 +1635,11 @@ export function MapScreenVNext() {
     mapInstance,
     filteredSpots,
     userCoords,
+    flowyaPopularSpots,
+    defaultSpotsForEmpty,
+    visibleLandmarksEmpty,
+    nearbyPlacesEmpty,
+    spots,
   ]);
 
   const searchHistory = useSearchHistory();
@@ -1714,6 +1758,33 @@ export function MapScreenVNext() {
     pinFilter,
     selectedSpot,
     poiTapped,
+  ]);
+
+  /** OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001: cuando empty-state (all + query vacía, sin cold start), cargar Lugares populares en Flowya. */
+  useEffect(() => {
+    const shouldFetch =
+      searchV2.isOpen &&
+      searchV2.query.trim().length === 0 &&
+      pinFilter === "all" &&
+      !shouldShowSearchColdStartBootstrap &&
+      countriesDrilldown == null;
+    if (!shouldFetch) {
+      setFlowyaPopularSpots([]);
+      return;
+    }
+    let cancelled = false;
+    fetchMostVisitedSpots(10).then((list) => {
+      if (!cancelled) setFlowyaPopularSpots(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    searchV2.isOpen,
+    searchV2.query,
+    pinFilter,
+    shouldShowSearchColdStartBootstrap,
+    countriesDrilldown,
   ]);
 
   const recentViewedSpots = useMemo(() => {
@@ -2104,11 +2175,12 @@ export function MapScreenVNext() {
       if (!mapInstance || !e.point) return;
       try {
         const labelLayers = getLabelLayerIds(mapInstance);
+        const point: [number, number] = [e.point.x, e.point.y];
         let features = labelLayers.length > 0
-          ? mapInstance.queryRenderedFeatures(e.point, { layers: labelLayers })
-          : mapInstance.queryRenderedFeatures(e.point);
+          ? mapInstance.queryRenderedFeatures(point, { layers: labelLayers })
+          : mapInstance.queryRenderedFeatures(point);
         if (labelLayers.length > 0 && features.length === 0) {
-          features = mapInstance.queryRenderedFeatures(e.point);
+          features = mapInstance.queryRenderedFeatures(point);
         }
         const lang = getCurrentLanguage();
         const hasLocaleField = (p: Record<string, unknown>) =>
@@ -2284,7 +2356,7 @@ export function MapScreenVNext() {
         .then(({ error }) => {
           if (!error) {
             setSelectedSpot((prev) =>
-              prev?.id === newId ? { ...prev, address } : prev,
+              prev?.id === newId && prev ? { ...prev, address } : prev,
             );
           }
         });
@@ -2407,7 +2479,7 @@ export function MapScreenVNext() {
             .then(({ error }) => {
               if (!error) {
                 setSelectedSpot((prev) =>
-                  prev?.id === newId ? { ...prev, address } : prev,
+                  prev?.id === newId && prev ? { ...prev, address } : prev,
                 );
               }
             });
@@ -2596,9 +2668,8 @@ export function MapScreenVNext() {
           if (!sourceBlob) return;
         } else {
           const ImagePicker = await import("expo-image-picker");
-          const mediaTypes = (ImagePicker as unknown as { MediaType?: { Images?: unknown } }).MediaType?.Images ?? ["images"];
           const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes,
+            mediaTypes: ["images"],
             allowsEditing: true,
             aspect: [1, 1],
             quality: 0.85,
@@ -3234,7 +3305,7 @@ export function MapScreenVNext() {
     mapInstance,
     filteredSpots,
   ]);
-  const searchResultSections = useMemo<SearchSection<Spot>[]>(() => {
+  const searchResultSections = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
     const normalizedQuery = normalizeCountryToken(searchV2.query);
     const isCountryDrilldownQuery =
       countriesDrilldown != null &&
@@ -3268,7 +3339,7 @@ export function MapScreenVNext() {
         const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
         return distanceKm(center.lat, center.lng, lat, lng) > SPOTS_ZONA_RADIUS_KM;
       });
-      const sections: SearchSection<Spot>[] = [];
+      const sections: SearchSection<Spot | PlaceResult>[] = [];
       if (nearby.length > 0) {
         sections.push({ id: "nearby", title: "Spots en la zona", items: nearby });
       }
@@ -3920,7 +3991,10 @@ export function MapScreenVNext() {
         selectedSpotId={selectedSpot?.id ?? null}
         userCoords={userCoords}
         zoom={zoom}
-        onPinClick={handlePinClick}
+        onPinClick={(spotForLayer) => {
+          const s = spots.find((x) => x.id === spotForLayer.id);
+          if (s) handlePinClick(s);
+        }}
         styleMap={styles.map}
         onClick={handleMapClick}
         previewPinCoords={
@@ -4267,7 +4341,7 @@ export function MapScreenVNext() {
       />
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot | PlaceResult>
-        controller={searchV2}
+        controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult>}
         defaultItems={defaultItemsForEmpty}
         defaultItemSections={defaultSectionsForEmpty}
         recentQueries={searchHistory.recentQueries}
@@ -4672,7 +4746,9 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     letterSpacing: 0.6,
     textAlign: "center",
-    textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
+    textShadowColor: "rgba(0,0,0,0.28)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   sloganLineLight: {
     fontWeight: "300",
