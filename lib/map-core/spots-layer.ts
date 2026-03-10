@@ -10,6 +10,7 @@ import { layouts } from '@mapbox/maki/browser.esm.js';
 import { Colors } from '@/constants/theme';
 
 import {
+  CLUSTER_ENABLED,
   CLUSTER_MAX_ZOOM,
   CLUSTER_RADIUS,
   getPoiLayerBeforeId,
@@ -17,6 +18,7 @@ import {
   MAPBOX_LABEL_STYLE_DARK,
   MAPBOX_LABEL_STYLE_LIGHT,
 } from './constants';
+import { FLOWYA_PIN_TO_VISIT, FLOWYA_PIN_VISITED } from './pin-status-images';
 
 export type SpotForLayer = {
   id: string;
@@ -30,8 +32,23 @@ export type SpotForLayer = {
 };
 
 const SOURCE_ID = 'flowya-spots';
+const SOURCE_DEFAULT_ID = 'flowya-spots-default';
 const CLUSTERS_LAYER_ID = 'flowya-spots-clusters';
 const CLUSTERS_COUNT_LAYER_ID = 'flowya-spots-clusters-count';
+
+/** Spots con estado (por visitar o visitado) van a clustering; default no. Solo se consideran los del filtro activo. */
+function isClusterable(status?: string): boolean {
+  return status === 'to_visit' || status === 'visited';
+}
+
+/** Default con Maki: para capa de iconos desde fuente default (sin cluster). */
+function filterDefaultWithMaki(): [string, ...unknown[]] {
+  return [
+    'all',
+    ['==', ['get', 'pinStatus'], 'default'],
+    ['==', ['get', 'hasLinkedMaki'], true],
+  ];
+}
 
 /** Filtro para excluir clusters (solo puntos individuales). OL-URGENT-CLUSTER-001. */
 function filterNonCluster(): [string, ...unknown[]] {
@@ -44,9 +61,12 @@ function andNonCluster(filter: [string, ...unknown[]]): [string, ...unknown[]] {
 const CIRCLES_DEFAULT_UNLINKED_LAYER_ID = 'flowya-spots-circles-default-unlinked';
 const CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-circles-default-unlinked-selected';
 const CIRCLES_SAVED_VISITED_LAYER_ID = 'flowya-spots-circles-saved-visited';
+/** Capa única chip+icono compuesto (Pin/CheckCircle) para por visitar/visitados. Resuelve traslape. */
+const PINS_SAVED_VISITED_LAYER_ID = 'flowya-spots-pins-saved-visited';
 const DEFAULT_PLUS_UNLINKED_LAYER_ID = 'flowya-spots-default-plus-unlinked';
 const DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-default-plus-unlinked-selected';
 const MAKIS_LAYER_ID = 'flowya-spots-makis';
+const MAKIS_DEFAULT_LAYER_ID = 'flowya-spots-makis-default';
 const LABELS_DEFAULT_UNLINKED_LAYER_ID = 'flowya-spots-labels-default-unlinked';
 const LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-labels-default-unlinked-selected';
 const LABELS_SAVED_VISITED_LAYER_ID = 'flowya-spots-labels-saved-visited';
@@ -252,11 +272,12 @@ export function setupSpotsLayer(
 ): void {
   try {
     const availableImageIds = new Set(map.listImages());
-    const data = spotsToGeoJSON(spots, selectedSpotId, availableImageIds);
+    const clusterableSpots = spots.filter((s) => isClusterable(s.pinStatus ?? 'default'));
+    const defaultSpots = spots.filter((s) => !isClusterable(s.pinStatus ?? 'default'));
+    const dataCluster = spotsToGeoJSON(clusterableSpots, selectedSpotId, availableImageIds);
+    const dataDefault = spotsToGeoJSON(defaultSpots, selectedSpotId, availableImageIds);
     const beforeId = getPoiLayerBeforeId(map);
     const palette = isDark ? Colors.dark.mapPinSpot : Colors.light.mapPinSpot;
-    const circleColorExpression = buildCircleColorExpression(palette);
-    const circleStrokeColorExpression = buildCircleStrokeColorExpression(palette);
 
     const addCircleInteractivity = (layerId: string) => {
       map.on('click', layerId, (e) => {
@@ -275,13 +296,24 @@ export function setupSpotsLayer(
     if (!map.getSource(SOURCE_ID)) {
       map.addSource(SOURCE_ID, {
         type: 'geojson',
-        data,
-        cluster: true,
-        clusterRadius: CLUSTER_RADIUS,
-        clusterMaxZoom: CLUSTER_MAX_ZOOM,
+        data: dataCluster,
+        cluster: CLUSTER_ENABLED,
+        ...(CLUSTER_ENABLED
+          ? { clusterRadius: CLUSTER_RADIUS, clusterMaxZoom: CLUSTER_MAX_ZOOM }
+          : {}),
       });
     } else {
-      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(data);
+      (map.getSource(SOURCE_ID) as GeoJSONSource).setData(dataCluster);
+    }
+
+    if (!map.getSource(SOURCE_DEFAULT_ID)) {
+      map.addSource(SOURCE_DEFAULT_ID, {
+        type: 'geojson',
+        data: dataDefault,
+        cluster: false,
+      });
+    } else {
+      (map.getSource(SOURCE_DEFAULT_ID) as GeoJSONSource).setData(dataDefault);
     }
 
     const clusterStyle = palette.cluster;
@@ -352,11 +384,13 @@ export function setupSpotsLayer(
             'text-ignore-placement': true,
           },
           paint: {
-            'text-color': '#ffffff',
+            'text-color': clusterStyle.textColor ?? (isDark ? '#1d1d1f' : '#ffffff'),
           },
         },
         beforeId
       );
+    } else {
+      map.setPaintProperty(CLUSTERS_COUNT_LAYER_ID, 'text-color', clusterStyle.textColor ?? (isDark ? '#1d1d1f' : '#ffffff'));
     }
 
     if (!map.getLayer(CIRCLES_DEFAULT_UNLINKED_LAYER_ID)) {
@@ -364,7 +398,7 @@ export function setupSpotsLayer(
         {
           id: CIRCLES_DEFAULT_UNLINKED_LAYER_ID,
           type: 'circle',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           filter: andNonCluster(filterDefaultUnlinked(false)),
           paint: {
             'circle-radius': palette.unselected.radius,
@@ -392,7 +426,7 @@ export function setupSpotsLayer(
         {
           id: CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID,
           type: 'circle',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           filter: andNonCluster(filterDefaultUnlinked(true)),
           paint: {
             'circle-radius': palette.selected.radius,
@@ -423,52 +457,61 @@ export function setupSpotsLayer(
       setLayerMinZoom(map, CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID, 0);
     }
 
-    if (!map.getLayer(CIRCLES_SAVED_VISITED_LAYER_ID)) {
+    if (map.getLayer(CIRCLES_SAVED_VISITED_LAYER_ID)) {
+      map.removeLayer(CIRCLES_SAVED_VISITED_LAYER_ID);
+    }
+    if (map.getLayer(MAKIS_LAYER_ID)) {
+      map.removeLayer(MAKIS_LAYER_ID);
+    }
+    if (!map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
       map.addLayer(
         {
-          id: CIRCLES_SAVED_VISITED_LAYER_ID,
-          type: 'circle',
+          id: PINS_SAVED_VISITED_LAYER_ID,
+          type: 'symbol',
           source: SOURCE_ID,
           filter: andNonCluster(filterSavedVisited()),
-          paint: {
-            'circle-radius': [
+          layout: {
+            'icon-image': [
+              'match',
+              ['get', 'pinStatus'],
+              'visited',
+              FLOWYA_PIN_VISITED,
+              FLOWYA_PIN_TO_VISIT,
+            ],
+            'icon-size': [
               'case',
               ['get', 'selected'],
-              palette.selected.radius,
-              palette.unselected.radius,
+              palette.selected.makiIconSize,
+              palette.unselected.makiIconSize,
             ],
-            'circle-color': circleColorExpression,
-            'circle-stroke-width': [
-              'case',
-              ['get', 'selected'],
-              palette.selected.strokeWidth,
-              palette.unselected.strokeWidth,
-            ],
-            'circle-stroke-color': circleStrokeColorExpression,
-            'circle-emissive-strength': 1,
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'center',
           },
         },
         beforeId
       );
-      addCircleInteractivity(CIRCLES_SAVED_VISITED_LAYER_ID);
+      map.on('click', PINS_SAVED_VISITED_LAYER_ID, (e) => {
+        const f = e.features?.[0];
+        const id = f?.properties?.id;
+        if (typeof id === 'string') onPinClickBySpotId(id);
+      });
+      map.on('mouseenter', PINS_SAVED_VISITED_LAYER_ID, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', PINS_SAVED_VISITED_LAYER_ID, () => {
+        map.getCanvas().style.cursor = '';
+      });
     }
-    if (map.getLayer(CIRCLES_SAVED_VISITED_LAYER_ID)) {
-      map.setFilter(CIRCLES_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
-      map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-color', circleColorExpression);
-      map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-stroke-color', circleStrokeColorExpression);
-      map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-radius', [
+    if (map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
+      map.setFilter(PINS_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
+      map.setLayoutProperty(PINS_SAVED_VISITED_LAYER_ID, 'icon-size', [
         'case',
         ['get', 'selected'],
-        palette.selected.radius,
-        palette.unselected.radius,
+        palette.selected.makiIconSize,
+        palette.unselected.makiIconSize,
       ]);
-      map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-stroke-width', [
-        'case',
-        ['get', 'selected'],
-        palette.selected.strokeWidth,
-        palette.unselected.strokeWidth,
-      ]);
-      setLayerMinZoom(map, CIRCLES_SAVED_VISITED_LAYER_ID, 0);
+      setLayerMinZoom(map, PINS_SAVED_VISITED_LAYER_ID, 0);
     }
 
     if (!map.getLayer(DEFAULT_PLUS_UNLINKED_LAYER_ID)) {
@@ -476,7 +519,7 @@ export function setupSpotsLayer(
         {
           id: DEFAULT_PLUS_UNLINKED_LAYER_ID,
           type: 'symbol',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           filter: andNonCluster(filterDefaultUnlinked(false)),
           layout: {
             'text-field': '+',
@@ -509,7 +552,7 @@ export function setupSpotsLayer(
         {
           id: DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID,
           type: 'symbol',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           filter: andNonCluster(filterDefaultUnlinked(true)),
           layout: {
             'text-field': '+',
@@ -550,13 +593,13 @@ export function setupSpotsLayer(
     }
 
     if (showMakiIcon) {
-      if (!map.getLayer(MAKIS_LAYER_ID)) {
+      if (!map.getLayer(MAKIS_DEFAULT_LAYER_ID)) {
         map.addLayer(
           {
-            id: MAKIS_LAYER_ID,
+            id: MAKIS_DEFAULT_LAYER_ID,
             type: 'symbol',
-            source: SOURCE_ID,
-            filter: andNonCluster(filterMakiVisible()),
+            source: SOURCE_DEFAULT_ID,
+            filter: filterDefaultWithMaki(),
             layout: {
               'icon-image': ['coalesce', ['image', ['get', 'makiIcon']], ['image', 'marker-15']],
               'icon-size': [
@@ -574,17 +617,17 @@ export function setupSpotsLayer(
           beforeId
         );
       }
-      if (map.getLayer(MAKIS_LAYER_ID)) {
-        map.setFilter(MAKIS_LAYER_ID, andNonCluster(filterMakiVisible()));
-        map.setLayoutProperty(MAKIS_LAYER_ID, 'icon-size', [
+      if (map.getLayer(MAKIS_DEFAULT_LAYER_ID)) {
+        map.setFilter(MAKIS_DEFAULT_LAYER_ID, filterDefaultWithMaki());
+        map.setLayoutProperty(MAKIS_DEFAULT_LAYER_ID, 'icon-size', [
           'case',
           ['get', 'selected'],
           palette.selected.makiIconSize,
           palette.unselected.makiIconSize,
         ]);
       }
-    } else if (map.getLayer(MAKIS_LAYER_ID)) {
-      map.removeLayer(MAKIS_LAYER_ID);
+    } else if (map.getLayer(MAKIS_DEFAULT_LAYER_ID)) {
+      map.removeLayer(MAKIS_DEFAULT_LAYER_ID);
     }
 
     const labelStyle = isDark ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;
@@ -624,7 +667,7 @@ export function setupSpotsLayer(
         {
           id: LABELS_DEFAULT_UNLINKED_LAYER_ID,
           type: 'symbol',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           minzoom: LABEL_MIN_ZOOM,
           filter: andNonCluster(filterDefaultUnlinked(false)),
           layout: {
@@ -656,7 +699,7 @@ export function setupSpotsLayer(
         {
           id: LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID,
           type: 'symbol',
-          source: SOURCE_ID,
+          source: SOURCE_DEFAULT_ID,
           minzoom: LABEL_MIN_ZOOM,
           filter: andNonCluster(filterDefaultUnlinked(true)),
           layout: {
@@ -727,10 +770,16 @@ export function updateSpotsLayerData(
   showLabels: boolean
 ): void {
   try {
-    const source = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
-    if (source) {
-      const availableImageIds = new Set(map.listImages());
-      source.setData(spotsToGeoJSON(spots, selectedSpotId, availableImageIds));
+    const availableImageIds = new Set(map.listImages());
+    const clusterableSpots = spots.filter((s) => isClusterable(s.pinStatus ?? 'default'));
+    const defaultSpots = spots.filter((s) => !isClusterable(s.pinStatus ?? 'default'));
+    const sourceCluster = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
+    if (sourceCluster) {
+      sourceCluster.setData(spotsToGeoJSON(clusterableSpots, selectedSpotId, availableImageIds));
+    }
+    const sourceDefault = map.getSource(SOURCE_DEFAULT_ID) as GeoJSONSource | undefined;
+    if (sourceDefault) {
+      sourceDefault.setData(spotsToGeoJSON(defaultSpots, selectedSpotId, availableImageIds));
     }
     for (const layerId of LABEL_LAYER_IDS) {
       if (map.getLayer(layerId)) {

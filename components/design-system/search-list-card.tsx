@@ -72,7 +72,9 @@ export function SearchListCard({
     pinStatus === 'visited'
       ? FILTER_SELECTED_VISITED
       : FILTER_SELECTED_TO_VISIT;
-  const statusForeground = colors.pin.default;
+  /** Negro en light para contraste sobre chip naranja/verde (por visitar/visitados). */
+  const statusForeground =
+    colorScheme === 'light' && showPinStatusChip ? '#1d1d1f' : colors.pin.default;
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
   const markInlineActionIntent = () => {

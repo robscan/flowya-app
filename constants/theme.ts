@@ -205,6 +205,8 @@ export const Colors = {
         fill: 'rgba(29,29,31,0.85)',
         stroke: 'rgba(255,255,255,0.9)',
         textSize: 12,
+        /** Light: fondo oscuro → texto blanco. */
+        textColor: '#ffffff',
       },
     },
     location: { primary: locationPrimaryLight },
@@ -308,6 +310,8 @@ export const Colors = {
         fill: 'rgba(214,227,239,0.9)',
         stroke: 'rgba(0,0,0,0.4)',
         textSize: 12,
+        /** Dark: fondo claro → texto negro para contraste. */
+        textColor: '#1d1d1f',
       },
     },
     location: { primary: locationPrimaryDark },

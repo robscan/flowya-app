@@ -2,6 +2,12 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 
 import { layouts, svgArray } from '@mapbox/maki/browser.esm.js';
 
+import {
+  addPinStatusImage,
+  FLOWYA_PIN_TO_VISIT,
+  FLOWYA_PIN_VISITED,
+} from './pin-status-images';
+
 const FLOWYA_FALLBACK_ICON_RE = /^flowya-fallback-[a-z0-9-]+$/i;
 /** Maki ids del sprite Mapbox: park-15, museum-11, etc. Estilos custom pueden no incluirlos. */
 const MAKI_SPRITE_ID_RE = /^[a-z0-9_-]+-(11|15)$/i;
@@ -21,6 +27,7 @@ function getMakiSvg(makiId: string): string | null {
 function shouldProvideFallbackImage(id: string): boolean {
   if (!id) return false;
   if (id === 'marker-15') return true;
+  if (id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_VISITED) return true;
   if (FLOWYA_FALLBACK_ICON_RE.test(id)) return true;
   if (MAKI_SPRITE_ID_RE.test(id)) return true;
   return false;
@@ -107,6 +114,11 @@ function addFallbackImage(map: MapboxMap, id: string): void {
   try {
     if (map.hasImage(id)) return;
 
+    if (id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_VISITED) {
+      addPinStatusImage(map, id);
+      return;
+    }
+
     const makiKey = normalizeMakiId(id);
     const svg = getMakiSvg(makiKey);
 
@@ -142,6 +154,8 @@ const FALLBACK_IDS_TO_PRELOAD = [
   'flowya-fallback-park',
   'flowya-fallback-museum',
   'flowya-fallback-monument',
+  FLOWYA_PIN_TO_VISIT,
+  FLOWYA_PIN_VISITED,
 ];
 
 export function installStyleImageFallback(map: MapboxMap): () => void {
