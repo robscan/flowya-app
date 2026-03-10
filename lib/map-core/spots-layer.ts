@@ -5,6 +5,8 @@
 
 import type { Map as MapboxMap } from 'mapbox-gl';
 
+import { layouts } from '@mapbox/maki/browser.esm.js';
+
 import { Colors } from '@/constants/theme';
 
 import {
@@ -54,6 +56,9 @@ const DEFAULT_UNLINKED_MIN_ZOOM = 13;
 type GeoJSONSource = import('mapbox-gl').GeoJSONSource;
 type MapPinSpotTokens = (typeof Colors)['light']['mapPinSpot'];
 
+/** Allowlist Maki: mitiga DoS por IDs arbitrarios (plan validación linked_maki). */
+const MAKI_ALLOWLIST = new Set(layouts);
+
 function buildMakiIconCandidates(maki?: string | null): {
   primary: string;
   alternate: string;
@@ -68,6 +73,14 @@ function buildMakiIconCandidates(maki?: string | null): {
     };
   }
   const base = normalized.replace(/-(11|15)$/i, '');
+  const makiKey = base.replace(/_/g, '-');
+  if (!MAKI_ALLOWLIST.has(makiKey)) {
+    return {
+      primary: 'marker-15',
+      alternate: 'marker-15',
+      fallback: 'flowya-fallback-generic',
+    };
+  }
   const hasSuffix = /-(11|15)$/i.test(normalized);
   if (hasSuffix) {
     const primary = normalized;
