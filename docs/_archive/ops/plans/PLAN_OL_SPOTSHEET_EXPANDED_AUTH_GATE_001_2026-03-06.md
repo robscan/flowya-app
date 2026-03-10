@@ -1,6 +1,10 @@
 # PLAN — OL-SPOTSHEET-EXPANDED-AUTH-GATE-001 (2026-03-06)
 
-Estado: PLANIFICADO  
+**ARCHIVADO** — Proyecto eliminado por completo. Tendencia: todo dentro de auth; por ahora anon permitido para testing. Política vigente: auth en mutaciones. Ver OPEN_LOOPS.
+
+---
+
+Estado original: PLANIFICADO  
 Objetivo: eliminar fricción de activación en Explore asegurando que `medium -> expanded` no solicite auth cuando el usuario solo consulta información.
 
 ---
