@@ -5,6 +5,7 @@
  */
 
 import { getCurrentLanguage } from '@/lib/i18n/locale-config';
+import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const FORWARD_URL = 'https://api.mapbox.com/search/geocode/v6/forward';
@@ -114,6 +115,7 @@ export async function searchPlaces(
     }
   }
 
+  recordMapboxApiCall('geocode/v6/forward', 'searchPlaces');
   try {
     const res = await fetch(`${FORWARD_URL}?${params.toString()}`);
     if (!res.ok) return [];

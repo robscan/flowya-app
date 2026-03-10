@@ -6,6 +6,7 @@
  */
 
 import { getCurrentLanguage } from '@/lib/i18n/locale-config';
+import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const REVERSE_URL = 'https://api.mapbox.com/search/geocode/v6/reverse';
@@ -70,6 +71,7 @@ export async function resolveAddress(
   const langEnOnly = 'en';
 
   const fetchReverse = (types?: string, useEnForLatin = false) => {
+    recordMapboxApiCall('geocode/v6/reverse', 'resolveAddress');
     const params = new URLSearchParams({
       longitude: String(longitude),
       latitude: String(latitude),
@@ -128,6 +130,7 @@ export async function resolvePlaceNameAtCoords(
   longitude: number
 ): Promise<string | null> {
   if (!MAPBOX_TOKEN) return null;
+  recordMapboxApiCall('geocode/v6/reverse', 'resolvePlaceNameAtCoords');
   const params = new URLSearchParams({
     longitude: String(longitude),
     latitude: String(latitude),
@@ -215,6 +218,7 @@ export async function resolvePlaceForCreate(
     const { west, south, east, north } = opts.bbox;
     params.set('bbox', `${west},${south},${east},${north}`);
   }
+  recordMapboxApiCall('geocode/v6/forward', 'resolvePlaceForCreate');
   try {
     const res = await fetch(`${FORWARD_URL}?${params.toString()}`);
     if (!res.ok) return null;

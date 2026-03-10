@@ -1,8 +1,10 @@
 /**
  * OL-WOW-F2-001-EMPTY: búsqueda de POIs por categoría Mapbox Search Box Category API.
  * Usado en isEmpty para fusionar spots Flowya + POIs cercanos (attraction/landmark).
+ * Nota: actualmente no invocado (nearbyPlacesEmpty = []).
  */
 
+import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
 import type { PlaceResult } from './searchPlaces';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -64,6 +66,7 @@ export async function searchPlacesByCategory(
     params.set('bbox', `${west},${south},${east},${north}`);
   }
 
+  recordMapboxApiCall('searchbox/v1/category', 'searchPlacesByCategory');
   try {
     const res = await fetch(`${CATEGORY_URL}/${encodeURIComponent(cat)}?${params.toString()}`);
     if (!res.ok) return [];
