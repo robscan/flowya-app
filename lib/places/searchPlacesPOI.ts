@@ -5,6 +5,7 @@
  */
 
 import { getCurrentLanguage } from '@/lib/i18n/locale-config';
+import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
 import { searchPlaces, type PlaceResult, type SearchPlacesOptions } from './searchPlaces';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
@@ -230,6 +231,7 @@ async function searchBoxForward(
     }
   }
 
+  recordMapboxApiCall('searchbox/v1/forward', 'searchPlacesPOI');
   const res = await fetch(`${SEARCHBOX_FORWARD_URL}?${params.toString()}`);
   if (res.status === 429) {
     searchBoxCooldownUntil = Date.now() + 30_000;
