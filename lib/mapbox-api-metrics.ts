@@ -3,7 +3,8 @@
  * Registrar llamadas a APIs Mapbox para cuantificar consumo.
  *
  * Uso: llamar recordMapboxApiCall() justo antes de cada fetch a Mapbox.
- * Inspección: globalThis.__flowyaMapboxApiMetrics (dev) o getMapboxApiMetricsSnapshot().
+ * Inspección: getMapboxApiMetricsSnapshot(). En dev con EXPO_PUBLIC_DEBUG_MAPBOX_METRICS=true
+ * también en globalThis.__flowyaMapboxApiMetrics (acotado a debug para minimizar superficie).
  *
  * Referencia: docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md
  */
@@ -50,7 +51,12 @@ const initialState = (): MapboxApiMetricsState => ({
 const state = initialState();
 
 function exposeToGlobal(): void {
-  if (typeof globalThis === 'undefined') return;
+  if (
+    typeof globalThis === 'undefined' ||
+    process.env.EXPO_PUBLIC_DEBUG_MAPBOX_METRICS !== 'true'
+  ) {
+    return;
+  }
   try {
     (globalThis as Record<string, unknown>).__flowyaMapboxApiMetrics = {
       ...state,
