@@ -71,14 +71,7 @@ export function SearchSurface<T>({
   const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
   const sectionHeaderGlowColor =
     colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-  const sectionHeaderGlowStyle =
-    Platform.OS === 'web'
-      ? ({ textShadow: `0px 1px 6px ${sectionHeaderGlowColor}` } as const)
-      : ({
-          textShadowColor: sectionHeaderGlowColor,
-          textShadowRadius: 6,
-          textShadowOffset: { width: 0, height: 1 } as const,
-        } as const);
+  const sectionHeaderGlowStyle = { textShadow: `0px 1px 6px ${sectionHeaderGlowColor}` } as const;
 
   const q = controller.query.trim();
   const len = q.length;

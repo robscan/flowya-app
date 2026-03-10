@@ -1,5 +1,7 @@
 import { Image } from 'expo-image';
 import { CheckCircle, ChevronRight, ImagePlus, Landmark, MapPin, Pencil, Pin } from 'lucide-react-native';
+
+import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
 import React, { useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -23,6 +25,8 @@ export type SearchListCardProps = {
   distanceText?: string | null;
   /** Señal "landmark": POI destacado. */
   isLandmark?: boolean;
+  /** Maki id (Mapbox) para icono de categoría (park, museum, etc.). Fallback: MapPin. */
+  maki?: string | null;
   quickActions?: {
     id: string;
     label: string;
@@ -46,6 +50,7 @@ export function SearchListCard({
   disabled = false,
   distanceText = null,
   isLandmark = false,
+  maki = null,
   quickActions = [],
 }: SearchListCardProps) {
   const INLINE_ACTION_SUPPRESS_MS = 650;
@@ -161,7 +166,10 @@ export function SearchListCard({
         </View>
       ) : (
         <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
-          <MapPin size={18} color={colors.textSecondary} strokeWidth={2} />
+          {(() => {
+            const IconComponent = getMakiLucideIcon(maki ?? null);
+            return <IconComponent size={18} color={colors.textSecondary} strokeWidth={2} />;
+          })()}
         </View>
       )}
       <View style={[styles.content, hasLeadingMediaBlock ? styles.contentWithMedia : null]}>

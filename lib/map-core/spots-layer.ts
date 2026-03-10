@@ -5,9 +5,13 @@
 
 import type { Map as MapboxMap } from 'mapbox-gl';
 
+import { layouts } from '@mapbox/maki/browser.esm.js';
+
 import { Colors } from '@/constants/theme';
 
 import {
+  CLUSTER_MAX_ZOOM,
+  CLUSTER_RADIUS,
   getPoiLayerBeforeId,
   LABEL_MIN_ZOOM,
   MAPBOX_LABEL_STYLE_DARK,
@@ -26,6 +30,17 @@ export type SpotForLayer = {
 };
 
 const SOURCE_ID = 'flowya-spots';
+const CLUSTERS_LAYER_ID = 'flowya-spots-clusters';
+const CLUSTERS_COUNT_LAYER_ID = 'flowya-spots-clusters-count';
+
+/** Filtro para excluir clusters (solo puntos individuales). OL-URGENT-CLUSTER-001. */
+function filterNonCluster(): [string, ...unknown[]] {
+  return ['!', ['has', 'point_count']];
+}
+
+function andNonCluster(filter: [string, ...unknown[]]): [string, ...unknown[]] {
+  return ['all', filter, filterNonCluster()];
+}
 const CIRCLES_DEFAULT_UNLINKED_LAYER_ID = 'flowya-spots-circles-default-unlinked';
 const CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-circles-default-unlinked-selected';
 const CIRCLES_SAVED_VISITED_LAYER_ID = 'flowya-spots-circles-saved-visited';
@@ -41,6 +56,9 @@ const DEFAULT_UNLINKED_MIN_ZOOM = 13;
 type GeoJSONSource = import('mapbox-gl').GeoJSONSource;
 type MapPinSpotTokens = (typeof Colors)['light']['mapPinSpot'];
 
+/** Allowlist Maki: mitiga DoS por IDs arbitrarios (plan validación linked_maki). */
+const MAKI_ALLOWLIST = new Set(layouts);
+
 function buildMakiIconCandidates(maki?: string | null): {
   primary: string;
   alternate: string;
@@ -55,6 +73,14 @@ function buildMakiIconCandidates(maki?: string | null): {
     };
   }
   const base = normalized.replace(/-(11|15)$/i, '');
+  const makiKey = base.replace(/_/g, '-');
+  if (!MAKI_ALLOWLIST.has(makiKey)) {
+    return {
+      primary: 'marker-15',
+      alternate: 'marker-15',
+      fallback: 'flowya-fallback-generic',
+    };
+  }
   const hasSuffix = /-(11|15)$/i.test(normalized);
   if (hasSuffix) {
     const primary = normalized;
@@ -92,6 +118,7 @@ function spotsToGeoJSON(
       selected: boolean;
       isUnlinkedDefault: boolean;
       makiIcon: string;
+      hasLinkedMaki: boolean;
       forceVisible: boolean;
     }
 > {
@@ -100,6 +127,7 @@ function spotsToGeoJSON(
     features: spots.map((s) => {
       const status = s.pinStatus ?? 'default';
       const makiIcon = resolveMakiIcon(s.linkedMaki, availableImageIds);
+      const hasLinkedMaki = Boolean(s.linkedMaki && String(s.linkedMaki).trim());
       return {
         type: 'Feature' as const,
         geometry: {
@@ -113,6 +141,7 @@ function spotsToGeoJSON(
           selected: s.id === selectedSpotId,
           isUnlinkedDefault: status === 'default' && !s.linkedPlaceId,
           makiIcon,
+          hasLinkedMaki,
           forceVisible: Boolean(s.forceVisible),
         },
       };
@@ -189,6 +218,15 @@ function filterSavedVisited(): [string, ...unknown[]] {
   return ['in', ['get', 'pinStatus'], ['literal', ['to_visit', 'visited']]];
 }
 
+/** Maki visible: to_visit/visited siempre, o default con linked_maki. OL-URGENT-MAKI-001. */
+function filterMakiVisible(): [string, ...unknown[]] {
+  return [
+    'any',
+    filterSavedVisited(),
+    ['all', ['==', ['get', 'pinStatus'], 'default'], ['==', ['get', 'hasLinkedMaki'], true]],
+  ];
+}
+
 function setLayerMinZoom(map: MapboxMap, layerId: string, minzoom: number) {
   map.setLayerZoomRange(layerId, minzoom, 24);
 }
@@ -199,6 +237,8 @@ const LABEL_LAYER_IDS = [
   LABELS_SAVED_VISITED_LAYER_ID,
 ] as const;
 
+type PinFilterValue = 'all' | 'saved' | 'visited';
+
 export function setupSpotsLayer(
   map: MapboxMap,
   spots: SpotForLayer[],
@@ -207,6 +247,7 @@ export function setupSpotsLayer(
   isDark: boolean,
   showMakiIcon: boolean,
   showLabels: boolean,
+  pinFilter: PinFilterValue,
   onPinClickBySpotId: (spotId: string) => void
 ): void {
   try {
@@ -232,9 +273,90 @@ export function setupSpotsLayer(
     };
 
     if (!map.getSource(SOURCE_ID)) {
-      map.addSource(SOURCE_ID, { type: 'geojson', data });
+      map.addSource(SOURCE_ID, {
+        type: 'geojson',
+        data,
+        cluster: true,
+        clusterRadius: CLUSTER_RADIUS,
+        clusterMaxZoom: CLUSTER_MAX_ZOOM,
+      });
     } else {
       (map.getSource(SOURCE_ID) as GeoJSONSource).setData(data);
+    }
+
+    const clusterStyle = palette.cluster;
+    const clusterColor =
+      pinFilter === 'saved' ? palette.toVisit.fill : pinFilter === 'visited' ? palette.visited.fill : clusterStyle.fill;
+    const clusterStroke =
+      pinFilter === 'saved' ? palette.toVisit.stroke : pinFilter === 'visited' ? palette.visited.stroke : clusterStyle.stroke;
+    if (!map.getLayer(CLUSTERS_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: CLUSTERS_LAYER_ID,
+          type: 'circle',
+          source: SOURCE_ID,
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': clusterColor,
+            'circle-radius': [
+              'interpolate',
+              ['linear'],
+              ['get', 'point_count'],
+              2,
+              clusterStyle.radiusMin,
+              clusterStyle.countMax,
+              clusterStyle.radiusMax,
+            ],
+            'circle-stroke-width': 1.5,
+            'circle-stroke-color': clusterStroke,
+            'circle-emissive-strength': 1,
+          },
+        },
+        beforeId
+      );
+      map.on('click', CLUSTERS_LAYER_ID, (e) => {
+        const features = e.features ?? [];
+        const cluster = features.find((f) => f.properties?.cluster);
+        if (!cluster) return;
+        const source = map.getSource(SOURCE_ID) as import('mapbox-gl').GeoJSONSource;
+        const coords = (cluster.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+        source.getClusterExpansionZoom(cluster.properties!.cluster_id, (err, zoom) => {
+          if (!err && zoom != null) {
+            map.flyTo({ center: coords, zoom });
+          }
+        });
+      });
+      map.on('mouseenter', CLUSTERS_LAYER_ID, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', CLUSTERS_LAYER_ID, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    } else {
+      map.setPaintProperty(CLUSTERS_LAYER_ID, 'circle-color', clusterColor);
+      map.setPaintProperty(CLUSTERS_LAYER_ID, 'circle-stroke-color', clusterStroke);
+    }
+
+    if (!map.getLayer(CLUSTERS_COUNT_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: CLUSTERS_COUNT_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': ['get', 'point_count_abbreviated'],
+            'text-size': clusterStyle.textSize,
+            'text-font': ['literal', LABEL_FONT_STACK_STRONG],
+            'text-allow-overlap': true,
+            'text-ignore-placement': true,
+          },
+          paint: {
+            'text-color': '#ffffff',
+          },
+        },
+        beforeId
+      );
     }
 
     if (!map.getLayer(CIRCLES_DEFAULT_UNLINKED_LAYER_ID)) {
@@ -243,7 +365,7 @@ export function setupSpotsLayer(
           id: CIRCLES_DEFAULT_UNLINKED_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
-          filter: filterDefaultUnlinked(false),
+          filter: andNonCluster(filterDefaultUnlinked(false)),
           paint: {
             'circle-radius': palette.unselected.radius,
             'circle-color': palette.default.fill,
@@ -257,7 +379,7 @@ export function setupSpotsLayer(
       addCircleInteractivity(CIRCLES_DEFAULT_UNLINKED_LAYER_ID);
     }
     if (map.getLayer(CIRCLES_DEFAULT_UNLINKED_LAYER_ID)) {
-      map.setFilter(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, filterDefaultUnlinked(false));
+      map.setFilter(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, andNonCluster(filterDefaultUnlinked(false)));
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-radius', palette.unselected.radius);
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-color', palette.default.fill);
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_LAYER_ID, 'circle-stroke-width', palette.unselected.strokeWidth);
@@ -271,7 +393,7 @@ export function setupSpotsLayer(
           id: CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
-          filter: filterDefaultUnlinked(true),
+          filter: andNonCluster(filterDefaultUnlinked(true)),
           paint: {
             'circle-radius': palette.selected.radius,
             'circle-color': palette.default.fill,
@@ -285,7 +407,7 @@ export function setupSpotsLayer(
       addCircleInteractivity(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID);
     }
     if (map.getLayer(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID)) {
-      map.setFilter(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID, filterDefaultUnlinked(true));
+      map.setFilter(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID, andNonCluster(filterDefaultUnlinked(true)));
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID, 'circle-radius', palette.selected.radius);
       map.setPaintProperty(CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID, 'circle-color', palette.default.fill);
       map.setPaintProperty(
@@ -307,7 +429,7 @@ export function setupSpotsLayer(
           id: CIRCLES_SAVED_VISITED_LAYER_ID,
           type: 'circle',
           source: SOURCE_ID,
-          filter: filterSavedVisited(),
+          filter: andNonCluster(filterSavedVisited()),
           paint: {
             'circle-radius': [
               'case',
@@ -331,7 +453,7 @@ export function setupSpotsLayer(
       addCircleInteractivity(CIRCLES_SAVED_VISITED_LAYER_ID);
     }
     if (map.getLayer(CIRCLES_SAVED_VISITED_LAYER_ID)) {
-      map.setFilter(CIRCLES_SAVED_VISITED_LAYER_ID, filterSavedVisited());
+      map.setFilter(CIRCLES_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
       map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-color', circleColorExpression);
       map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-stroke-color', circleStrokeColorExpression);
       map.setPaintProperty(CIRCLES_SAVED_VISITED_LAYER_ID, 'circle-radius', [
@@ -355,7 +477,7 @@ export function setupSpotsLayer(
           id: DEFAULT_PLUS_UNLINKED_LAYER_ID,
           type: 'symbol',
           source: SOURCE_ID,
-          filter: filterDefaultUnlinked(false),
+          filter: andNonCluster(filterDefaultUnlinked(false)),
           layout: {
             'text-field': '+',
             'text-size': palette.unselected.plusTextSize,
@@ -374,7 +496,7 @@ export function setupSpotsLayer(
       );
     }
     if (map.getLayer(DEFAULT_PLUS_UNLINKED_LAYER_ID)) {
-      map.setFilter(DEFAULT_PLUS_UNLINKED_LAYER_ID, filterDefaultUnlinked(false));
+      map.setFilter(DEFAULT_PLUS_UNLINKED_LAYER_ID, andNonCluster(filterDefaultUnlinked(false)));
       map.setLayoutProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-size', palette.unselected.plusTextSize);
       map.setPaintProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-color', palette.default.plusText);
       map.setPaintProperty(DEFAULT_PLUS_UNLINKED_LAYER_ID, 'text-halo-color', palette.default.plusHalo);
@@ -388,7 +510,7 @@ export function setupSpotsLayer(
           id: DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID,
           type: 'symbol',
           source: SOURCE_ID,
-          filter: filterDefaultUnlinked(true),
+          filter: andNonCluster(filterDefaultUnlinked(true)),
           layout: {
             'text-field': '+',
             'text-size': palette.selected.plusTextSize,
@@ -407,7 +529,7 @@ export function setupSpotsLayer(
       );
     }
     if (map.getLayer(DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID)) {
-      map.setFilter(DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID, filterDefaultUnlinked(true));
+      map.setFilter(DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID, andNonCluster(filterDefaultUnlinked(true)));
       map.setLayoutProperty(
         DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID,
         'text-size',
@@ -434,9 +556,9 @@ export function setupSpotsLayer(
             id: MAKIS_LAYER_ID,
             type: 'symbol',
             source: SOURCE_ID,
-            filter: filterSavedVisited(),
+            filter: andNonCluster(filterMakiVisible()),
             layout: {
-              'icon-image': ['get', 'makiIcon'],
+              'icon-image': ['coalesce', ['image', ['get', 'makiIcon']], ['image', 'marker-15']],
               'icon-size': [
                 'case',
                 ['get', 'selected'],
@@ -453,7 +575,7 @@ export function setupSpotsLayer(
         );
       }
       if (map.getLayer(MAKIS_LAYER_ID)) {
-        map.setFilter(MAKIS_LAYER_ID, filterSavedVisited());
+        map.setFilter(MAKIS_LAYER_ID, andNonCluster(filterMakiVisible()));
         map.setLayoutProperty(MAKIS_LAYER_ID, 'icon-size', [
           'case',
           ['get', 'selected'],
@@ -504,7 +626,7 @@ export function setupSpotsLayer(
           type: 'symbol',
           source: SOURCE_ID,
           minzoom: LABEL_MIN_ZOOM,
-          filter: filterDefaultUnlinked(false),
+          filter: andNonCluster(filterDefaultUnlinked(false)),
           layout: {
             'text-field': ['get', 'title'],
             'text-size': textSizeExpression,
@@ -524,7 +646,7 @@ export function setupSpotsLayer(
       );
     }
     if (map.getLayer(LABELS_DEFAULT_UNLINKED_LAYER_ID)) {
-      map.setFilter(LABELS_DEFAULT_UNLINKED_LAYER_ID, filterDefaultUnlinked(false));
+      map.setFilter(LABELS_DEFAULT_UNLINKED_LAYER_ID, andNonCluster(filterDefaultUnlinked(false)));
       applyLabelLayerStyle(LABELS_DEFAULT_UNLINKED_LAYER_ID);
       setLayerMinZoom(map, LABELS_DEFAULT_UNLINKED_LAYER_ID, LABEL_MIN_ZOOM);
     }
@@ -536,7 +658,7 @@ export function setupSpotsLayer(
           type: 'symbol',
           source: SOURCE_ID,
           minzoom: LABEL_MIN_ZOOM,
-          filter: filterDefaultUnlinked(true),
+          filter: andNonCluster(filterDefaultUnlinked(true)),
           layout: {
             'text-field': ['get', 'title'],
             'text-size': textSizeExpression,
@@ -556,7 +678,7 @@ export function setupSpotsLayer(
       );
     }
     if (map.getLayer(LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID)) {
-      map.setFilter(LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID, filterDefaultUnlinked(true));
+      map.setFilter(LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID, andNonCluster(filterDefaultUnlinked(true)));
       applyLabelLayerStyle(LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID);
       setLayerMinZoom(map, LABELS_DEFAULT_UNLINKED_SELECTED_LAYER_ID, LABEL_MIN_ZOOM);
     }
@@ -568,7 +690,7 @@ export function setupSpotsLayer(
           type: 'symbol',
           source: SOURCE_ID,
           minzoom: LABEL_MIN_ZOOM,
-          filter: filterSavedVisited(),
+          filter: andNonCluster(filterSavedVisited()),
           layout: {
             'text-field': ['get', 'title'],
             'text-size': textSizeExpression,
@@ -588,7 +710,7 @@ export function setupSpotsLayer(
       );
     }
     if (map.getLayer(LABELS_SAVED_VISITED_LAYER_ID)) {
-      map.setFilter(LABELS_SAVED_VISITED_LAYER_ID, filterSavedVisited());
+      map.setFilter(LABELS_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
       applyLabelLayerStyle(LABELS_SAVED_VISITED_LAYER_ID);
       setLayerMinZoom(map, LABELS_SAVED_VISITED_LAYER_ID, LABEL_MIN_ZOOM);
     }

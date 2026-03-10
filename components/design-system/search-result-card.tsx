@@ -13,6 +13,8 @@ export type SearchResultCardProps = {
     cover_image_url?: string | null;
     pinStatus?: 'default' | 'to_visit' | 'visited';
     description_short?: string | null;
+    /** Maki (Mapbox) para icono de categoría cuando no hay cover. OL-URGENT-MAKI-001. */
+    linked_maki?: string | null;
   };
   onPress?: () => void;
   /** Señal "cerca": ej. "1.2 km". OL-WOW-F2-002. */
@@ -44,6 +46,7 @@ export function SearchResultCard({
         imageUri={spot.cover_image_url}
         pinStatus={spot.pinStatus}
         distanceText={distanceText}
+        maki={spot.linked_maki ?? undefined}
         quickActions={quickActions}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
