@@ -93,6 +93,9 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
     transform: [{ scale: selectedScale.value }],
   }));
 
+  /** Negro en light para contraste sobre fondo naranja/verde (por visitar/visitados). */
+  const chipTextOnColored = resolvedScheme === 'light' ? '#1d1d1f' : colors.pin.default;
+
   const getSelectedColors = (optValue: MapPinFilterValue) => {
     switch (optValue) {
       case 'all':
@@ -100,13 +103,13 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
       case 'saved':
         return {
           bg: FILTER_SELECTED_TO_VISIT,
-          text: colors.pin.default,
+          text: chipTextOnColored,
           border: FILTER_SELECTED_TO_VISIT,
         };
       case 'visited':
         return {
           bg: FILTER_SELECTED_VISITED,
-          text: colors.pin.default,
+          text: chipTextOnColored,
           border: FILTER_SELECTED_VISITED,
         };
       default:
