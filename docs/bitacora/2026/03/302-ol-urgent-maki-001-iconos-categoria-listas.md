@@ -42,3 +42,4 @@
 
 - Con `EXPO_PUBLIC_FF_HIDE_LINKED_UNSAVED=true` (default), los spots default+linked suelen estar ocultos; el cambio de filtro maki aplica cuando el flag está off o cuando el spot pasa a to_visit/visited.
 - **Persistencia `linked_maki`:** Create-from-search ya persiste `linked_maki` (poi.maki → insertPayload, bitácora 129). Verificado en MapScreenVNext líneas 2091, 2396, 2502, 2540.
+- **Allowlist DoS:** bitácora `304` — `linked_maki` se valida contra catálogo Maki oficial; valores no reconocidos usan fallback único.

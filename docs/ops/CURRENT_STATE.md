@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-08
+**Fecha de actualización:** 2026-03-09
 
 ---
 
@@ -108,11 +108,20 @@
 - `docs/bitacora/2026/03/296-explore-globe-entry-motion-flyto-world-safe-guardrails.md`
 - `docs/bitacora/2026/03/299-ol-searchv2-empty-flowya-popular-001-cierre.md`
 - `docs/bitacora/2026/03/300-ops-cierre-sesion-ol-searchv2-001-002-investigation.md`
+- `docs/bitacora/2026/03/301-ol-searchv2-002-investigacion-fase1-inventario.md`
+- `docs/bitacora/2026/03/304-ol-maki-allowlist-dos-mitigation-seguridad-pr92.md`
+- `docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md`
+
+---
+
+## Ajustes del día (2026-03-09)
+
+- **PR #92** (Maki + cluster): mergeado. Allowlist Maki en spots-layer para mitigar DoS por `linked_maki` arbitrario. Revisión de seguridad completada — sin vulnerabilidades de alta confianza.
 
 ---
 
 ## Siguiente paso operativo
 
-- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — fase de investigación (no implementación). Ver plan `PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md`.
+- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — ejecutar sesiones con instrumentación (`EXPO_PUBLIC_DEBUG_MAPBOX_METRICS=true`), registrar consumo, redactar informe con recomendación. Inventario: `docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md`.
 - Retomar `OL-CONTENT-001` según prioridad.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.

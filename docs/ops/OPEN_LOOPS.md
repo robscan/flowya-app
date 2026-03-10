@@ -9,8 +9,8 @@
 
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
-- **OL-URGENT-MAKI-001** — Iconos Maki en listas: ResultRow y SearchResultCard usan `place.maki` / `spot.linked_maki` para mostrar icono de categoría (park, museum, etc.) en lugar de MapPin genérico. **Abordado** — bitácora 302.
-- **OL-URGENT-CLUSTER-001** — Densidad de pins en mapa: clustering Mapbox nativo para agrupar pins cercanos a zoom bajo; clic en cluster hace zoom. **Abordado** — bitácora 303. Bug z-index (iconos sobre pines) documentado para sesión posterior.
+- **OL-URGENT-MAKI-001** — Iconos Maki en listas: ResultRow y SearchResultCard usan `place.maki` / `spot.linked_maki` para mostrar icono de categoría. **Abordado** — bitácoras 302, 304. Allowlist Maki en spots-layer (mitigación DoS); revisión de seguridad PR #92 OK.
+- **OL-URGENT-CLUSTER-001** — Densidad de pins en mapa: clustering Mapbox nativo para agrupar pins cercanos a zoom bajo; clic en cluster hace zoom. **Abordado** — bitácora 303. Bug z-index (iconos sobre pines) documentado para sesión posterior. PR #92 mergeado.
 - **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Umbral k-anonymity `HAVING COUNT(*) >= 3` ya en 016; 017 redundante. Con pocos usuarios el empty-state puede no mostrar spots Flowya; comportamiento aceptado.
 - **OL-SEARCHV2-002** — optimización API/costo: fase investigación en curso. Inventario + instrumentación listos (bitácora `301`). Plan: [PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md](plans/PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md). Inventario: [OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md](investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md).
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
@@ -75,7 +75,7 @@
 - `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` cerrado: migración 016 ejecutada, smoke OK. Bitácora `299`.
 - `OL-SEARCHV2-001` cerrado: abordado con ajustes recientes (landmarks visibles + fallback). Plan OL-SEARCHV2-002 investigation-first: bitácora `300`.
 - OL-SEARCHV2-002 investigación fase 1: inventario API Mapbox + instrumentación (`lib/mapbox-api-metrics.ts`): bitácora `301`.
-- OL-URGENT-MAKI-001 (iconos Maki en listas ResultRow/SearchResultCard): bitácora `302`.
+- OL-URGENT-MAKI-001 (iconos Maki en listas ResultRow/SearchResultCard): bitácora `302`. Allowlist Maki + revisión de seguridad PR #92: bitácora `304`.
 - OL-URGENT-CLUSTER-001 (clustering Mapbox pins + densidad): bitácora `303`.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
@@ -120,6 +120,7 @@
 ## Arranque activo (2026-03-09)
 
 1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — ejecutar sesiones de prueba con instrumentación; informe con recomendación optimizar/no optimizar.
-2. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
-3. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-4. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados (recomendaciones por intereses) — fase exploratoria.
+2. **PR #92** (Maki + cluster): mergeado. Allowlist Maki; revisión de seguridad OK.
+3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
+4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
+5. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados — fase exploratoria.
