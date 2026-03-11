@@ -35,12 +35,6 @@ export const GLOBE_ZOOM_INITIAL = 4;
 /** Zoom mínimo para mostrar nombres de spots (labels solo cuando hay espacio). */
 export const LABEL_MIN_ZOOM = 12;
 
-/** Clustering de pins: radio en px, zoom máximo donde se agrupan (arriba de este, pins individuales). OL-URGENT-CLUSTER-001. */
-export const CLUSTER_RADIUS = 50;
-export const CLUSTER_MAX_ZOOM = 14;
-/** Desactivar clustering para pruebas. Cambiar a true para reactivar. */
-export const CLUSTER_ENABLED = false;
-
 /** Tolerancia en km para considerar que un spot coincide con un POI tocado (~25 m). */
 export const SPOT_POI_MATCH_TOLERANCE_KM = 0.025;
 

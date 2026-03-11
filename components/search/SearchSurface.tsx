@@ -51,6 +51,7 @@ export function SearchSurface<T>({
   renderItem,
   resultsOverride,
   resultSections = [],
+  resultsSummaryLabel,
   showResultsOnEmpty = false,
   getItemKey,
   pinFilter,
@@ -234,7 +235,13 @@ export function SearchSurface<T>({
           </ScrollView>
         )}
         {shouldRenderResultsList && (
-          <ListView
+          <View style={styles.resultsListWrap}>
+            {resultsSummaryLabel ? (
+              <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                {resultsSummaryLabel}
+              </Text>
+            ) : null}
+            <ListView
             sections={resultSections}
             results={displayResults}
             renderItem={renderItem}
@@ -271,6 +278,7 @@ export function SearchSurface<T>({
               ) : null
             }
           />
+          </View>
         )}
         {isNoResults && (
           <View style={styles.noResultsWrap}>
@@ -393,6 +401,11 @@ const styles = StyleSheet.create({
   resultsArea: {
     flex: 1,
     minHeight: 0,
+  },
+  resultsListWrap: {
+    flex: 1,
+    minHeight: 0,
+    gap: Spacing.sm,
   },
   noResultsWrap: {
     flex: 1,

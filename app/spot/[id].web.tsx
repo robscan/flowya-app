@@ -34,7 +34,10 @@ import {
   formatDistanceKm,
   getMapsDirectionsUrl,
 } from "@/lib/geo-utils";
-import { requestCurrentLocation } from "@/lib/geolocation/request-user-location";
+import {
+  getGeolocationPermissionState,
+  requestCurrentLocation,
+} from "@/lib/geolocation/request-user-location";
 import {
   getCurrentUserId,
   getPin,
@@ -310,6 +313,21 @@ function SpotDetailScreenContent({
     longitude: number;
   } | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  /** Si el permiso ya está concedido (sesiones anteriores), obtener coords sin mostrar prompt. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const state = await getGeolocationPermissionState();
+      if (cancelled || state !== "granted") return;
+      const result = await requestCurrentLocation();
+      if (cancelled || result.status !== "ok") return;
+      setUserCoords(result.coords);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
