@@ -10,7 +10,7 @@
 ## Proyecto: Experiencia de búsqueda (máxima prioridad estratégica)
 
 - **OL-URGENT-MAKI-001** — Iconos Maki en listas: ResultRow y SearchResultCard usan `place.maki` / `spot.linked_maki` para mostrar icono de categoría. **Abordado** — bitácoras 302, 304. Allowlist Maki en spots-layer (mitigación DoS); revisión de seguridad PR #92 OK.
-- **OL-URGENT-CLUSTER-001** — Densidad de pins en mapa: clustering Mapbox nativo para agrupar pins cercanos a zoom bajo; clic en cluster hace zoom. **Abordado** — bitácora 303. Bug z-index (iconos sobre pines) documentado para sesión posterior. PR #92 mergeado.
+- **OL-URGENT-CLUSTER-001** — Clustering eliminado. Pins individuales únicos. Bitácora 303, 306.
 - **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Umbral k-anonymity `HAVING COUNT(*) >= 3` ya en 016; 017 redundante. Con pocos usuarios el empty-state puede no mostrar spots Flowya; comportamiento aceptado.
 - **OL-SEARCHV2-002** — optimización API/costo: fase investigación en curso. Inventario + instrumentación listos (bitácora `301`). Plan: [PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md](plans/PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md). Inventario: [OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md](investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md).
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
@@ -58,6 +58,12 @@
 
 ---
 
+## Proyecto: Política de privacidad / consentimiento
+
+- **OL-PRIVACY-001** — Crear política de privacidad con disclaimers necesarios: uso de geolocalización (solo cliente, sin persistencia ni envío a servidores), cookies, datos de sesión, analytics si aplica. Abordar tras búsqueda y auth. Plan: [docs/ops/plans/PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md).
+
+---
+
 ## Postergados estratégicos (no ejecutar ahora)
 
 - `OL-METRICS-001` — Proyecto métricas y telemetría. Plan: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). No urgente.
@@ -77,7 +83,8 @@
 - OL-SEARCHV2-002 investigación fase 1: inventario API Mapbox + instrumentación (`lib/mapbox-api-metrics.ts`): bitácora `301`.
 - OL-URGENT-MAKI-001 (iconos Maki en listas ResultRow/SearchResultCard): bitácora `302`. Allowlist Maki + revisión de seguridad PR #92: bitácora `304`.
 - OL-URGENT-CLUSTER-001 (clustering Mapbox pins + densidad): bitácora `303`.
-- Pins por visitar/visitados: iconos Pin/CheckCircle (Lucide), tipografía clusters/chips, clustering por estado: bitácora `305`.
+- Pins por visitar/visitados: iconos Pin/CheckCircle (Lucide), tipografía clusters/chips: bitácora `305`.
+- Feedback UX (distancia sin ubicación, etiqueta resultados), eliminación clustering, geoloc persiste entre sesiones: bitácora `306`. PR #97.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.

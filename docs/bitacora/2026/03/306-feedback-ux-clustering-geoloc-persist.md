@@ -51,6 +51,15 @@ Implementación del plan de feedback de apertura (distancia sin ubicación, etiq
 - Con ubicación: distancias correctas; etiqueta "N resultados de «query»" en Search.
 - Permiso concedido en sesión anterior: coords disponibles al cargar sin prompt.
 
+## Revisión de seguridad (PR #97)
+
+Sin vulnerabilidades de alta confianza. Observación de riesgo bajo:
+
+- **Geolocalización automática al montar** (useMapCore, spot/[id]) cuando permiso ya `granted`.
+- **Supuesto validado:** las coordenadas se usan solo en cliente (distancia, centrado); no se envían a backend, analytics ni logs.
+- **Validación recomendada:** confirmar en instrumentación/telemetría que `userCoords` no se serializa ni registra.
+- **Mitigación:** mantener minimización de datos; documentar en política de privacidad (ver OL-PRIVACY-001).
+
 ## Referencias
 
 - Plan: `.cursor/plans/eliminar_clustering_y_feedback_ux_1ab2ad5e.plan.md`
