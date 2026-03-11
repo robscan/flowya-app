@@ -10,9 +10,6 @@ import { layouts } from '@mapbox/maki/browser.esm.js';
 import { Colors } from '@/constants/theme';
 
 import {
-  CLUSTER_ENABLED,
-  CLUSTER_MAX_ZOOM,
-  CLUSTER_RADIUS,
   getPoiLayerBeforeId,
   LABEL_MIN_ZOOM,
   MAPBOX_LABEL_STYLE_DARK,
@@ -33,10 +30,8 @@ export type SpotForLayer = {
 
 const SOURCE_ID = 'flowya-spots';
 const SOURCE_DEFAULT_ID = 'flowya-spots-default';
-const CLUSTERS_LAYER_ID = 'flowya-spots-clusters';
-const CLUSTERS_COUNT_LAYER_ID = 'flowya-spots-clusters-count';
 
-/** Spots con estado (por visitar o visitado) van a clustering; default no. Solo se consideran los del filtro activo. */
+/** Spots con estado (por visitar o visitado) en fuente separada; default en otra. Split para capas PINS_SAVED_VISITED vs default. */
 function isClusterable(status?: string): boolean {
   return status === 'to_visit' || status === 'visited';
 }
@@ -297,10 +292,7 @@ export function setupSpotsLayer(
       map.addSource(SOURCE_ID, {
         type: 'geojson',
         data: dataCluster,
-        cluster: CLUSTER_ENABLED,
-        ...(CLUSTER_ENABLED
-          ? { clusterRadius: CLUSTER_RADIUS, clusterMaxZoom: CLUSTER_MAX_ZOOM }
-          : {}),
+        cluster: false,
       });
     } else {
       (map.getSource(SOURCE_ID) as GeoJSONSource).setData(dataCluster);
@@ -314,83 +306,6 @@ export function setupSpotsLayer(
       });
     } else {
       (map.getSource(SOURCE_DEFAULT_ID) as GeoJSONSource).setData(dataDefault);
-    }
-
-    const clusterStyle = palette.cluster;
-    const clusterColor =
-      pinFilter === 'saved' ? palette.toVisit.fill : pinFilter === 'visited' ? palette.visited.fill : clusterStyle.fill;
-    const clusterStroke =
-      pinFilter === 'saved' ? palette.toVisit.stroke : pinFilter === 'visited' ? palette.visited.stroke : clusterStyle.stroke;
-    if (!map.getLayer(CLUSTERS_LAYER_ID)) {
-      map.addLayer(
-        {
-          id: CLUSTERS_LAYER_ID,
-          type: 'circle',
-          source: SOURCE_ID,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': clusterColor,
-            'circle-radius': [
-              'interpolate',
-              ['linear'],
-              ['get', 'point_count'],
-              2,
-              clusterStyle.radiusMin,
-              clusterStyle.countMax,
-              clusterStyle.radiusMax,
-            ],
-            'circle-stroke-width': 1.5,
-            'circle-stroke-color': clusterStroke,
-            'circle-emissive-strength': 1,
-          },
-        },
-        beforeId
-      );
-      map.on('click', CLUSTERS_LAYER_ID, (e) => {
-        const features = e.features ?? [];
-        const cluster = features.find((f) => f.properties?.cluster);
-        if (!cluster) return;
-        const source = map.getSource(SOURCE_ID) as import('mapbox-gl').GeoJSONSource;
-        const coords = (cluster.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
-        source.getClusterExpansionZoom(cluster.properties!.cluster_id, (err, zoom) => {
-          if (!err && zoom != null) {
-            map.flyTo({ center: coords, zoom });
-          }
-        });
-      });
-      map.on('mouseenter', CLUSTERS_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', CLUSTERS_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
-    } else {
-      map.setPaintProperty(CLUSTERS_LAYER_ID, 'circle-color', clusterColor);
-      map.setPaintProperty(CLUSTERS_LAYER_ID, 'circle-stroke-color', clusterStroke);
-    }
-
-    if (!map.getLayer(CLUSTERS_COUNT_LAYER_ID)) {
-      map.addLayer(
-        {
-          id: CLUSTERS_COUNT_LAYER_ID,
-          type: 'symbol',
-          source: SOURCE_ID,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': ['get', 'point_count_abbreviated'],
-            'text-size': clusterStyle.textSize,
-            'text-font': ['literal', LABEL_FONT_STACK_STRONG],
-            'text-allow-overlap': true,
-            'text-ignore-placement': true,
-          },
-          paint: {
-            'text-color': clusterStyle.textColor ?? (isDark ? '#1d1d1f' : '#ffffff'),
-          },
-        },
-        beforeId
-      );
-    } else {
-      map.setPaintProperty(CLUSTERS_COUNT_LAYER_ID, 'text-color', clusterStyle.textColor ?? (isDark ? '#1d1d1f' : '#ffffff'));
     }
 
     if (!map.getLayer(CIRCLES_DEFAULT_UNLINKED_LAYER_ID)) {

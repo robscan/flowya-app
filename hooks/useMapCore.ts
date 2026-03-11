@@ -30,7 +30,11 @@ import {
   GLOBE_ZOOM_INITIAL,
   GLOBE_ZOOM_WORLD,
 } from '@/lib/map-core/constants';
-import { requestCurrentLocation, type RequestCurrentLocationResult } from '@/lib/geolocation/request-user-location';
+import {
+  getGeolocationPermissionState,
+  requestCurrentLocation,
+  type RequestCurrentLocationResult,
+} from '@/lib/geolocation/request-user-location';
 import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
 export type MapCoreSelectedSpot = { id: string; longitude: number; latitude: number } | null;
@@ -180,6 +184,17 @@ export function useMapCore(
     return () => {
       mountedRef.current = false;
     };
+  }, []);
+
+  /** Si el permiso ya está concedido (sesiones anteriores), obtener coords sin mostrar prompt. */
+  useEffect(() => {
+    (async () => {
+      const state = await getGeolocationPermissionState();
+      if (!mountedRef.current || state !== 'granted') return;
+      const result = await requestCurrentLocation(GEO_OPTIONS);
+      if (!mountedRef.current || result.status !== 'ok') return;
+      setUserCoords(result.coords);
+    })();
   }, []);
 
   const clearLongPressTimer = useCallback(() => {

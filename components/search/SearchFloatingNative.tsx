@@ -46,6 +46,7 @@ export function SearchFloatingNative<T>({
   stageLabel: _stageLabel,
   resultsOverride,
   resultSections = [],
+  resultsSummaryLabel,
   showResultsOnEmpty = false,
   getItemKey,
   pinFilter,
@@ -167,6 +168,7 @@ export function SearchFloatingNative<T>({
                     stageLabel=""
                     resultsOverride={resultsOverride}
                     resultSections={resultSections}
+                    resultsSummaryLabel={resultsSummaryLabel}
                     showResultsOnEmpty={showResultsOnEmpty}
                     getItemKey={getItemKey}
                     pinFilter={pinFilter}

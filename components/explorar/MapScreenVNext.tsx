@@ -4333,6 +4333,11 @@ export function MapScreenVNext() {
         onPinFilterChange={(next) => handlePinFilterChange(next, { reframe: false })}
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
+        resultsSummaryLabel={
+          searchV2.query.trim().length >= 3 && kpiSpotsSearchResults.length > 0
+            ? `${kpiSpotsSearchResults.length} resultados de «${searchV2.query.trim()}»`
+            : undefined
+        }
         showResultsOnEmpty={showFilteredResultsOnEmpty}
         placeSuggestions={pinFilter === "all" ? [] : placeSuggestions}
         onCreateFromPlace={handleCreateFromPlace}
@@ -4344,11 +4349,21 @@ export function MapScreenVNext() {
           isLoading: false,
         }}
         renderItem={(item: Spot | PlaceResult) => {
-          const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
+          const distanceText: string | null =
+            userCoords != null
+              ? (() => {
+                  if ("title" in item && "latitude" in item) {
+                    const spot = item as Spot;
+                    const km = distanceKm(userCoords.latitude, userCoords.longitude, spot.latitude, spot.longitude);
+                    return formatDistanceKm(km);
+                  }
+                  const place = item as PlaceResult;
+                  const km = distanceKm(userCoords.latitude, userCoords.longitude, place.lat, place.lng);
+                  return formatDistanceKm(km);
+                })()
+              : null;
           if ("title" in item && "latitude" in item) {
             const spot = item as Spot;
-            const km = distanceKm(ref.latitude, ref.longitude, spot.latitude, spot.longitude);
-            const distanceText = formatDistanceKm(km);
             const isVisitedFilter = pinFilter === "visited";
             const descriptionShort = spot.description_short?.trim() ?? "";
             const hasDescriptionShort = descriptionShort.length > 0;
@@ -4392,8 +4407,6 @@ export function MapScreenVNext() {
             );
           }
           const place = item as PlaceResult;
-          const km = distanceKm(ref.latitude, ref.longitude, place.lat, place.lng);
-          const distanceText = formatDistanceKm(km);
           const isLandmark = isPlaceLandmark(place);
           return (
             <ResultRow
