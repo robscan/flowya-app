@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-09
+**Fecha:** 2026-03-11
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -12,7 +12,7 @@
 - **OL-URGENT-MAKI-001** — Iconos Maki en listas: ResultRow y SearchResultCard usan `place.maki` / `spot.linked_maki` para mostrar icono de categoría. **Abordado** — bitácoras 302, 304. Allowlist Maki en spots-layer (mitigación DoS); revisión de seguridad PR #92 OK.
 - **OL-URGENT-CLUSTER-001** — Clustering eliminado. Pins individuales únicos. Bitácora 303, 306.
 - **OL-SEARCHV2-EMPTY-K-ANONYMITY-001** — Umbral k-anonymity `HAVING COUNT(*) >= 3` ya en 016; 017 redundante. Con pocos usuarios el empty-state puede no mostrar spots Flowya; comportamiento aceptado.
-- **OL-SEARCHV2-002** — optimización API/costo: fase investigación en curso. Inventario + instrumentación listos (bitácora `301`). Plan: [PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md](plans/PLAN_OL_SEARCHV2_002_INVESTIGATION_FIRST_2026-03-08.md). Inventario: [OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md](investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md).
+- **OL-SEARCHV2-002** — optimización API/costo: fase investigación **postergada** (inventario + instrumentación listos en bitácora `301`). Retomar sesiones + informe cuando sea prioritario.
 - **Mejoras buscador (futuro):** lista de sugeridos, direcciones país/región/estado (geometría territorial para fit), base de datos curada (países/regiones/spots relevantes).
 
 ---
@@ -125,10 +125,11 @@
 
 ---
 
-## Arranque activo (2026-03-09)
+## Arranque activo (2026-03-11)
 
-1. Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — ejecutar sesiones de prueba con instrumentación; informe con recomendación optimizar/no optimizar.
-2. **PR #92** (Maki + cluster): mergeado. Allowlist Maki; revisión de seguridad OK.
+1. **Smoke 306 cerrado:** validación post-merge (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
+2. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
 3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
 4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
 5. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados — fase exploratoria.
+6. Auth (social login), OL-CONTENT-002, OL-PRIVACY-001 — según prioridad estratégica.
