@@ -378,56 +378,6 @@ export function setupSpotsLayer(
     if (map.getLayer(MAKIS_LAYER_ID)) {
       map.removeLayer(MAKIS_LAYER_ID);
     }
-    if (!map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
-      map.addLayer(
-        {
-          id: PINS_SAVED_VISITED_LAYER_ID,
-          type: 'symbol',
-          source: SOURCE_ID,
-          filter: andNonCluster(filterSavedVisited()),
-          layout: {
-            'icon-image': [
-              'match',
-              ['get', 'pinStatus'],
-              'visited',
-              FLOWYA_PIN_VISITED,
-              FLOWYA_PIN_TO_VISIT,
-            ],
-            'icon-size': [
-              'case',
-              ['get', 'selected'],
-              palette.selected.makiIconSize,
-              palette.unselected.makiIconSize,
-            ],
-            'icon-allow-overlap': true,
-            'icon-ignore-placement': true,
-            'icon-anchor': 'center',
-          },
-        },
-        beforeId
-      );
-      map.on('click', PINS_SAVED_VISITED_LAYER_ID, (e) => {
-        const f = e.features?.[0];
-        const id = f?.properties?.id;
-        if (typeof id === 'string') onPinClickBySpotId(id);
-      });
-      map.on('mouseenter', PINS_SAVED_VISITED_LAYER_ID, () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', PINS_SAVED_VISITED_LAYER_ID, () => {
-        map.getCanvas().style.cursor = '';
-      });
-    }
-    if (map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
-      map.setFilter(PINS_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
-      map.setLayoutProperty(PINS_SAVED_VISITED_LAYER_ID, 'icon-size', [
-        'case',
-        ['get', 'selected'],
-        palette.selected.makiIconSize,
-        palette.unselected.makiIconSize,
-      ]);
-      setLayerMinZoom(map, PINS_SAVED_VISITED_LAYER_ID, 0);
-    }
 
     if (!map.getLayer(DEFAULT_PLUS_UNLINKED_LAYER_ID)) {
       map.addLayer(
@@ -543,6 +493,58 @@ export function setupSpotsLayer(
       }
     } else if (map.getLayer(MAKIS_DEFAULT_LAYER_ID)) {
       map.removeLayer(MAKIS_DEFAULT_LAYER_ID);
+    }
+
+    // PINS_SAVED_VISITED añadido después de capas default para que quede encima y no se solapen los iconos
+    if (!map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
+      map.addLayer(
+        {
+          id: PINS_SAVED_VISITED_LAYER_ID,
+          type: 'symbol',
+          source: SOURCE_ID,
+          filter: andNonCluster(filterSavedVisited()),
+          layout: {
+            'icon-image': [
+              'match',
+              ['get', 'pinStatus'],
+              'visited',
+              FLOWYA_PIN_VISITED,
+              FLOWYA_PIN_TO_VISIT,
+            ],
+            'icon-size': [
+              'case',
+              ['get', 'selected'],
+              palette.selected.makiIconSize,
+              palette.unselected.makiIconSize,
+            ],
+            'icon-allow-overlap': true,
+            'icon-ignore-placement': true,
+            'icon-anchor': 'center',
+          },
+        },
+        beforeId
+      );
+      map.on('click', PINS_SAVED_VISITED_LAYER_ID, (e) => {
+        const f = e.features?.[0];
+        const id = f?.properties?.id;
+        if (typeof id === 'string') onPinClickBySpotId(id);
+      });
+      map.on('mouseenter', PINS_SAVED_VISITED_LAYER_ID, () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', PINS_SAVED_VISITED_LAYER_ID, () => {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+    if (map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
+      map.setFilter(PINS_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
+      map.setLayoutProperty(PINS_SAVED_VISITED_LAYER_ID, 'icon-size', [
+        'case',
+        ['get', 'selected'],
+        palette.selected.makiIconSize,
+        palette.unselected.makiIconSize,
+      ]);
+      setLayerMinZoom(map, PINS_SAVED_VISITED_LAYER_ID, 0);
     }
 
     const labelStyle = isDark ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;

@@ -177,6 +177,8 @@ export type SpotSheetProps = {
   poiLoading?: boolean;
   /** Override del título mostrado (p. ej. nombre resuelto desde tiles del mapa). */
   displayTitleOverride?: string | null;
+  /** Al tocar la imagen de portada: abrir en pantalla completa (lightbox). */
+  onImagePress?: (uri: string) => void;
 };
 
 type BodyContentProps = {
@@ -215,6 +217,7 @@ function MediumBodyContent({
   colors,
   colorScheme,
   handleSavePin,
+  onImagePress,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -225,7 +228,7 @@ function MediumBodyContent({
   | "colors"
   | "colorScheme"
   | "handleSavePin"
-> & { isDraft?: boolean }) {
+> & { isDraft?: boolean; onImagePress?: (uri: string) => void }) {
 
   return (
     <>
@@ -242,12 +245,27 @@ function MediumBodyContent({
       {hasCover ? (
         <View style={styles.imageRow}>
           <View style={styles.imageWrap}>
-            <SpotImage
-              uri={spot.cover_image_url}
-              height={COVER_HEIGHT}
-              borderRadius={Radius.md}
-              colorScheme={colorScheme ?? undefined}
-            />
+            {spot.cover_image_url && onImagePress ? (
+              <Pressable
+                onPress={() => onImagePress(spot.cover_image_url!)}
+                accessibilityLabel="Ver imagen en pantalla completa"
+                accessibilityRole="button"
+              >
+                <SpotImage
+                  uri={spot.cover_image_url}
+                  height={COVER_HEIGHT}
+                  borderRadius={Radius.md}
+                  colorScheme={colorScheme ?? undefined}
+                />
+              </Pressable>
+            ) : (
+              <SpotImage
+                uri={spot.cover_image_url}
+                height={COVER_HEIGHT}
+                borderRadius={Radius.md}
+                colorScheme={colorScheme ?? undefined}
+              />
+            )}
           </View>
         </View>
       ) : null}
@@ -700,6 +718,7 @@ type SpotSheetBodyProps = {
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
+  onImagePress?: (uri: string) => void;
 };
 
 function SpotSheetBody({
@@ -736,6 +755,7 @@ function SpotSheetBody({
   handleDirections,
   handleEdit,
   onEdit,
+  onImagePress,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -770,6 +790,7 @@ function SpotSheetBody({
           colors={colors}
           colorScheme={colorScheme}
           handleSavePin={handleSavePin}
+          onImagePress={onImagePress}
         />
         {isDraft ? (
           <DraftInlineEditor
@@ -848,6 +869,7 @@ export function SpotSheet({
   onPoiShare,
   poiLoading = false,
   displayTitleOverride,
+  onImagePress,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -1284,6 +1306,7 @@ export function SpotSheet({
         handleDirections={handleDirections}
         handleEdit={handleEdit}
         onEdit={onEdit}
+        onImagePress={onImagePress}
       />
 
       <ConfirmModal

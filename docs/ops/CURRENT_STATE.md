@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-09
+**Fecha de actualización:** 2026-03-11
 
 ---
 
@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **`OL-SEARCHV2-002`** (fase investigación; sin implementación hasta evidencia).
+- Loop activo real: **ninguno en ejecución** (OL-SEARCHV2-002 postergado). Candidatos: Auth, OL-CONTENT-002, OL-PRIVACY-001.
 
 ---
 
@@ -114,14 +114,16 @@
 
 ---
 
-## Ajustes del día (2026-03-09)
+## Ajustes del día (2026-03-11)
 
-- **PR #92** (Maki + cluster): mergeado. Allowlist Maki en spots-layer para mitigar DoS por `linked_maki` arbitrario. Revisión de seguridad completada — sin vulnerabilidades de alta confianza.
+- **Smoke 306 cerrado:** validación post-merge OK (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
+- **OL-SEARCHV2-002** postergado; inventario e instrumentación listos para retomar cuando prioritario.
+- Higiene documental ejecutada: fechas actualizadas, PLAN_SYNC_GIT_2026-03-10.md eliminado.
 
 ---
 
 ## Siguiente paso operativo
 
-- Proyecto Experiencia de búsqueda: `OL-SEARCHV2-002` — ejecutar sesiones con instrumentación (`EXPO_PUBLIC_DEBUG_MAPBOX_METRICS=true`), registrar consumo, redactar informe con recomendación. Inventario: `docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md`.
-- Retomar `OL-CONTENT-001` según prioridad.
+- **Elegir próximo loop:** Auth (social login), OL-CONTENT-002 (contenido spot), OL-PRIVACY-001 (política privacidad), o retomar OL-SEARCHV2-002 (investigación).
+- Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando prudente.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.

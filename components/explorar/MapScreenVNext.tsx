@@ -44,6 +44,7 @@ import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
 import type { SearchSection } from "@/components/search";
+import { ImageFullscreenModal } from "@/components/design-system/image-fullscreen-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DuplicateSpotModal } from "@/components/ui/duplicate-spot-modal";
 import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
@@ -979,9 +980,7 @@ export function MapScreenVNext() {
         pinStatus: resolveEffectivePinStatus(s.pinStatus),
         linkedPlaceId: s.linked_place_id ?? null,
         linkedMaki: s.linked_maki ?? null,
-        forceVisible:
-          forceVisibleSpotIds.has(s.id) ||
-          (pinFilter !== "all" && isCoreDefaultUnlinkedSpot(s)),
+        forceVisible: forceVisibleSpotIds.has(s.id),
       })),
     selectedSpotId: selectedSpot?.id ?? null,
     onPinClick: (spotForLayer) => {
@@ -2347,6 +2346,7 @@ export function MapScreenVNext() {
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
+  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const resetPoiTappedVisualState = useCallback((poi: TappedMapFeature) => {
     setPoiTapped((prev) => {
       if (!prev) return prev;
@@ -4567,6 +4567,11 @@ export function MapScreenVNext() {
           onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
           onPoiShare={handleCreateSpotFromPoiAndShare}
           poiLoading={poiSheetLoading}
+          onImagePress={
+            selectedSpot?.cover_image_url
+              ? (uri) => setFullscreenImageUri(uri)
+              : undefined
+          }
           onStateChange={(newState) => {
             if (
               newState === "expanded" &&
@@ -4588,6 +4593,11 @@ export function MapScreenVNext() {
           }}
         />
       ) : null}
+      <ImageFullscreenModal
+        visible={fullscreenImageUri != null}
+        uri={fullscreenImageUri}
+        onClose={() => setFullscreenImageUri(null)}
+      />
       <ConfirmModal
         visible={showLogoutConfirm}
         title="¿Cerrar sesión?"
