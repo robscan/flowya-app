@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **dormido** — ningún loop de implementación en curso (OL-SEARCHV2-002 postergado). Próximo a **elegir explícitamente** entre: Auth, OL-CONTENT-002, OL-PRIVACY-001, retry `OL-EXPLORE-WEB-ZOOM-GUARD-001`, u OL-SEARCHV2-002 cuando sea prioritario. Ver bitácora `307`.
+- Loop activo real: **dormido** — ningún loop de implementación en curso (OL-SEARCHV2-002 postergado). Próximo a **elegir explícitamente** entre: Auth, OL-CONTENT-002, OL-PRIVACY-001, retry `OL-EXPLORE-WEB-ZOOM-GUARD-001`, u OL-SEARCHV2-002 cuando sea prioritario. Trazabilidad reciente: bitácoras `307`, `308`.
 
 ---
 
@@ -37,6 +37,11 @@
 - Política UX vigente para activación: lectura libre de mapa/sheet sin auth inicial; auth modal solo en mutaciones (`guardar`, `visitar`, `editar`, `crear`).
 - Entrada de Explore con motion de cámara en globo: arranque en `GLOBE_ZOOM_INITIAL` + `flyTo` a vista world, con guardrails para no interferir deep links ni interacción manual temprana.
 - SpotSheet: lightbox para imágenes; ajuste en capa de pins para reducir solapamiento cuando hay filtro activo (PR #98, bitácora `307`). Plan galería multi-foto OL-CONTENT-002 guardado, no ejecutado aún.
+- Contrato SpotSheet actualizado (`docs/contracts/SPOT_SHEET_CONTENT_RULES.md`, PR #101, bitácora `308`) — modo POI y lightbox alineado a documentación.
+
+### Backend (Supabase)
+
+- Migraciones `018_spots_block_client_hard_delete.sql` y `018_spots_owner_write_guardrails.sql` (PRs #99, #100, bitácora `308`): endurecimiento RLS en `spots`, `hide_spot` con ownership; aplicar en entornos con `supabase db push` / pipeline de migraciones según el proyecto.
 
 ### Gamificación (V1)
 
@@ -112,6 +117,8 @@
 - `docs/bitacora/2026/03/301-ol-searchv2-002-investigacion-fase1-inventario.md`
 - `docs/bitacora/2026/03/304-ol-maki-allowlist-dos-mitigation-seguridad-pr92.md`
 - `docs/bitacora/2026/03/307-ops-reconciliacion-2026-03-21-pr98-lightbox-plan-galeria.md`
+- `docs/bitacora/2026/03/308-merge-pr-101-99-100-contrato-spots-seguridad.md`
+- `docs/contracts/SPOT_SHEET_CONTENT_RULES.md`
 - `docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md`
 
 ---
@@ -129,6 +136,7 @@
 - **Reconciliación ops:** fechas alineadas al calendario; verificación `git`: sin commits en `main` entre 2026-03-12 y 2026-03-21; último código mergeado 2026-03-11 (PR #98).
 - **Trazabilidad:** bitácora `307` cierra laguna post-306 (lightbox SpotSheet, pin overlap, plan galería OL-CONTENT-002).
 - **Loop activo:** declarado **dormido** hasta elegir un solo próximo loop en `OPEN_LOOPS.md`.
+- **Integración PR #101, #99, #100:** contrato SpotSheet + migraciones seguridad `spots`; ramas `cursor/*` cerradas en remoto. Bitácora `308`.
 
 ---
 

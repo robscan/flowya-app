@@ -94,6 +94,7 @@
 - Pins por visitar/visitados: iconos Pin/CheckCircle (Lucide), tipografía clusters/chips: bitácora `305`.
 - Feedback UX (distancia sin ubicación, etiqueta resultados), eliminación clustering, geoloc persiste entre sesiones: bitácora `306`. PR #97.
 - SpotSheet lightbox imágenes; mitigación solapamiento pin con filtro activo; plan galería OL-CONTENT-002 guardado: bitácora `307`, PR #98.
+- Contrato SpotSheet (POI/lightbox); seguridad Supabase spots (migraciones `018` — hard delete, owner writes, `hide_spot`): bitácora `308`, PRs #101, #99, #100.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
@@ -136,7 +137,7 @@
 
 ## Arranque activo (2026-03-21)
 
-1. **Ops sincronizada:** reconciliación calendario vs repo (2026-03-12…2026-03-21 sin commits en `main`; último merge código 2026-03-11 PR #98). Bitácora `307`.
+1. **Ops sincronizada:** reconciliación calendario vs repo (bitácora `307`); integración 2026-03-21 PRs #101 / #99 / #100 (contrato + RLS spots). Bitácora `308`.
 2. **Loop activo:** **dormido** — elegir un solo próximo loop entre candidatos antes de implementar (ver sección superior).
 3. **Smoke 306 cerrado:** validación post-merge (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
 4. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
