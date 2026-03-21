@@ -1,9 +1,17 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-11
+**Fecha:** 2026-03-21
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
+
+---
+
+## Loop activo único (regla operativa)
+
+- **Estado:** **dormido** — ningún loop de implementación en curso; abrir solo uno al retomar trabajo.
+- **Cierre de código reciente (2026-03-11):** PR #98 — lightbox en SpotSheet, ajuste de solapamiento de pin con filtro activo, plan [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Trazabilidad: bitácora `307`.
+- **Candidatos en cola (no paralelos):** Auth (social login), OL-CONTENT-002 (galería), OL-PRIVACY-001, retry `OL-EXPLORE-WEB-ZOOM-GUARD-001`, OL-SEARCHV2-002 (investigación) cuando sea prioritario.
 
 ---
 
@@ -85,6 +93,7 @@
 - OL-URGENT-CLUSTER-001 (clustering Mapbox pins + densidad): bitácora `303`.
 - Pins por visitar/visitados: iconos Pin/CheckCircle (Lucide), tipografía clusters/chips: bitácora `305`.
 - Feedback UX (distancia sin ubicación, etiqueta resultados), eliminación clustering, geoloc persiste entre sesiones: bitácora `306`. PR #97.
+- SpotSheet lightbox imágenes; mitigación solapamiento pin con filtro activo; plan galería OL-CONTENT-002 guardado: bitácora `307`, PR #98.
 - `OL-P3-002.B` cerrado y congelado; fixes `273` + `274` cerrados (Sticky Context + visibilidad labels core default en filtros activos).
 - `OL-P3-002.B` hardening mini-mapa web (bloqueo zoom): bitácora `259`.
 - `OL-P3-002.B` guardrails de share (snapshot/reintentos): bitácora `260`.
@@ -125,11 +134,13 @@
 
 ---
 
-## Arranque activo (2026-03-11)
+## Arranque activo (2026-03-21)
 
-1. **Smoke 306 cerrado:** validación post-merge (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
-2. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
-3. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
-4. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-5. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados — fase exploratoria.
-6. Auth (social login), OL-CONTENT-002, OL-PRIVACY-001 — según prioridad estratégica.
+1. **Ops sincronizada:** reconciliación calendario vs repo (2026-03-12…2026-03-21 sin commits en `main`; último merge código 2026-03-11 PR #98). Bitácora `307`.
+2. **Loop activo:** **dormido** — elegir un solo próximo loop entre candidatos antes de implementar (ver sección superior).
+3. **Smoke 306 cerrado:** validación post-merge (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
+4. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
+5. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
+6. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
+7. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados — fase exploratoria.
+8. Auth (social login), OL-CONTENT-002, OL-PRIVACY-001 — según prioridad estratégica (declarar uno como loop activo al abrir).

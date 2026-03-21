@@ -3,7 +3,7 @@
 > Snapshot operativo vigente.
 > Esta fuente se sincroniza con `OPEN_LOOPS.md` y bitácora del día.
 
-**Fecha de actualización:** 2026-03-11
+**Fecha de actualización:** 2026-03-21
 
 ---
 
@@ -14,7 +14,7 @@
 - Fase 3 base: **COMPLETADA** (`OL-WOW-F3-001/002/003` cerrados).
 - `OL-P2-006`: **CERRADO**.
 - `OL-P1-003`: **CERRADO**.
-- Loop activo real: **ninguno en ejecución** (OL-SEARCHV2-002 postergado). Candidatos: Auth, OL-CONTENT-002, OL-PRIVACY-001.
+- Loop activo real: **dormido** — ningún loop de implementación en curso (OL-SEARCHV2-002 postergado). Próximo a **elegir explícitamente** entre: Auth, OL-CONTENT-002, OL-PRIVACY-001, retry `OL-EXPLORE-WEB-ZOOM-GUARD-001`, u OL-SEARCHV2-002 cuando sea prioritario. Ver bitácora `307`.
 
 ---
 
@@ -36,6 +36,7 @@
 - Fix de `Mi ubicación` en Explore: estado programático del mapa solo se activa cuando hay movimiento real de cámara.
 - Política UX vigente para activación: lectura libre de mapa/sheet sin auth inicial; auth modal solo en mutaciones (`guardar`, `visitar`, `editar`, `crear`).
 - Entrada de Explore con motion de cámara en globo: arranque en `GLOBE_ZOOM_INITIAL` + `flyTo` a vista world, con guardrails para no interferir deep links ni interacción manual temprana.
+- SpotSheet: lightbox para imágenes; ajuste en capa de pins para reducir solapamiento cuando hay filtro activo (PR #98, bitácora `307`). Plan galería multi-foto OL-CONTENT-002 guardado, no ejecutado aún.
 
 ### Gamificación (V1)
 
@@ -110,6 +111,7 @@
 - `docs/bitacora/2026/03/300-ops-cierre-sesion-ol-searchv2-001-002-investigation.md`
 - `docs/bitacora/2026/03/301-ol-searchv2-002-investigacion-fase1-inventario.md`
 - `docs/bitacora/2026/03/304-ol-maki-allowlist-dos-mitigation-seguridad-pr92.md`
+- `docs/bitacora/2026/03/307-ops-reconciliacion-2026-03-21-pr98-lightbox-plan-galeria.md`
 - `docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md`
 
 ---
@@ -122,8 +124,16 @@
 
 ---
 
+## Ajustes del día (2026-03-21)
+
+- **Reconciliación ops:** fechas alineadas al calendario; verificación `git`: sin commits en `main` entre 2026-03-12 y 2026-03-21; último código mergeado 2026-03-11 (PR #98).
+- **Trazabilidad:** bitácora `307` cierra laguna post-306 (lightbox SpotSheet, pin overlap, plan galería OL-CONTENT-002).
+- **Loop activo:** declarado **dormido** hasta elegir un solo próximo loop en `OPEN_LOOPS.md`.
+
+---
+
 ## Siguiente paso operativo
 
-- **Elegir próximo loop:** Auth (social login), OL-CONTENT-002 (contenido spot), OL-PRIVACY-001 (política privacidad), o retomar OL-SEARCHV2-002 (investigación).
+- **Elegir un solo próximo loop** y reflejarlo como activo en `OPEN_LOOPS.md`: Auth (social login), OL-CONTENT-002 (contenido/galería), OL-PRIVACY-001 (política privacidad), retry `OL-EXPLORE-WEB-ZOOM-GUARD-001`, o retomar OL-SEARCHV2-002 (investigación).
 - Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando prudente.
 - Mantener freeze de `OL-P3-002.B` salvo bug crítico.
