@@ -36,6 +36,14 @@
 - Las etiquetas son **personales** (no hay tags globales compartidos entre usuarios en v1).
 - Otro usuario no ve ni modifica etiquetas ajenas.
 
+### 1.4 Conteo `(N)` en chips de filtro por etiqueta (búsqueda vacía)
+
+- La **fila de chips de filtro por etiqueta** en el buscador solo se muestra en **Por visitar** y **Visitados** (usuario autenticado). En **Todos** no hay chips: el filtro por etiqueta no aplica a ese modo y al pasar a «Todos» se limpia `selectedTagFilterId` y el modo edición de chips.
+- Objetivo UX: el número debe ser **coherente con las filas** que el usuario ve al activar ese chip en el mismo contexto (filtro de pin + query), no un total «global» de otra superficie.
+- **Todos** + **query vacía** + lista vacía curada: `(N)` cuenta solo spots Flowya en las **mismas filas** que muestra el buscador: si hay secciones con ítems, solo esos ítems; si no, la lista plana `defaultItemsForEmpty`. **No** el total de spots con esa etiqueta en toda la cuenta. Implementación: `spotIdsForTagFilterCounts` + `countTagsInSpotIds`.
+- **Por visitar** / **Visitados**: el pool de conteo es el de `filteredSpots` para ese filtro (alineado a la lista vacía de esos modos).
+- **Query ≥ 3** o flujo KPI con `showFilteredResultsOnEmpty`: se usa el pool amplio de spots del filtro de pin (`filteredSpots` en Todos) hasta definir regla más fina.
+
 ---
 
 ## 2) Reglas de creación y normalización (cliente)
@@ -74,18 +82,19 @@ Props relevantes: `label`, `showHash` (default `true` → muestra `#nombre`), `o
 | Con `onRemove` | Chip con X roja (`stateError`) al final — quitar etiqueta del spot |
 | Con `onPress` sin `onRemove` | Añadir etiqueta existente desde sugerencias |
 
-**No** usar `TagChip` para la fila de **filtro** del buscador: ahí los chips son `Pressable` + `Text` en `SearchSurface` (estados «Todos», selección `tint`, modo edición, long-press).
+**No** usar `TagChip` para la fila de **filtro** del buscador: ahí los chips son `Pressable` + `Text` en `SearchSurface` (estados «Cualquiera», selección `tint`, modo edición, long-press).
 
 ---
 
 ## 5) Búsqueda: fila de chips (`SearchSurface`)
 
-- Chip **«Todos»**: limpia filtro de etiqueta (`selectedTagFilterId === null`).
+- La fila de chips de filtro por etiqueta (incluido chip **Cualquiera**) **solo** se monta cuando el filtro de pin es **Por visitar** o **Visitados** (`tagFilterOptions`/`onTagFilterChange` definidos en `MapScreenVNext` solo en esos modos).
+- Chip **«Cualquiera»** (dentro de la fila de etiquetas): limpia filtro de etiqueta (`selectedTagFilterId === null`).
 - Chips por etiqueta: `#nombre` y opcionalmente ` (count)` en contexto de recuentos.
 - **Tap:** filtra por `tagId` o alterna off si ya estaba seleccionado.
 - **Long-press (≈450 ms)** en chip de etiqueta: entra en **modo edición** (si hay `onTagFilterEnterEditMode`).
 - **Modo edición:** chips de etiqueta muestran icono papelera; tap en papelera → `onRequestDeleteUserTag(id, name)`; botón **«Listo»** → `onTagFilterExitEditMode`.
-- En modo edición, tap en «Todos» y chips de filtro no cambian filtro (opacidad reducida).
+- En modo edición, tap en «Cualquiera» y chips de filtro no cambian filtro (opacidad reducida).
 - Orden y conteos: ver `countTagsInSpotIds` en `lib/tags.ts` (`includeZeroCounts` para mostrar chips con recuento 0 en pools filtrados).
 
 ---
@@ -100,7 +109,7 @@ Props relevantes: `label`, `showHash` (default `true` → muestra `#nombre`), `o
 ## 7) Spot sheet (`SpotSheet`)
 
 - **No** duplicar la fila de chips de filtro del buscador en el sheet.
-- `SpotSheetMetaRow`: distancia + chips `#tag` (tap → abre buscador con pin «Todos», etiqueta aplicada y sin modo edición de tags) + **«Etiquetar»** si aplica.
+- `SpotSheetMetaRow`: distancia + chips `#tag` (tap → abre buscador con pin **Por visitar** o **Visitados** según el spot —`visited` → Visitados, si no → Por visitar—, etiqueta aplicada y sin modo edición de tags) + **«Etiquetar»** si aplica.
 - Props: `sheetTagChips`, `onSheetTagChipPress`, `onSheetEtiquetarPress`.
 
 ---
@@ -116,7 +125,7 @@ Props relevantes: `label`, `showHash` (default `true` → muestra `#nombre`), `o
 ## 9) Coexistencia con `pinFilter` (Todos / Por visitar / Visitados)
 
 - El filtro de **pins** (`MapPinFilterInline`) y el filtro de **etiqueta** son ortogonales: se documenta la intención en `docs/contracts/SEARCH_V2.md` y aquí.
-- Al cambiar filtro de pin desde dropdown, se puede limpiar filtro de etiqueta (según implementación en `MapScreenVNext`).
+- Al pasar a pin **Todos**, se limpia el filtro de etiqueta y el modo edición de chips (`MapScreenVNext`).
 
 ---
 

@@ -250,12 +250,9 @@ export default function CreateSpotScreen() {
     blurActiveElement();
     const titleToUse = title.trim() || 'Sin título';
     setCheckingDuplicate(true);
-    const duplicateResult = await checkDuplicateSpot(
-      titleToUse,
-      location.latitude,
-      location.longitude,
-      150
-    );
+    const duplicateResult = await checkDuplicateSpot(titleToUse, location.latitude, location.longitude, 150, {
+      address: location.address,
+    });
     setCheckingDuplicate(false);
     if (duplicateResult.duplicate) {
       setDuplicateAlert({
@@ -281,12 +278,9 @@ export default function CreateSpotScreen() {
     setError(null);
 
     const titleToUse = title.trim() || 'Sin título';
-    const duplicateResult = await checkDuplicateSpot(
-      titleToUse,
-      location.latitude,
-      location.longitude,
-      150
-    );
+    const duplicateResult = await checkDuplicateSpot(titleToUse, location.latitude, location.longitude, 150, {
+      address: location.address,
+    });
     if (duplicateResult.duplicate) {
       setSubmitting(false);
       setDuplicateAlert({

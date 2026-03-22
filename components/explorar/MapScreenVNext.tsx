@@ -117,7 +117,7 @@ import {
   validateExploreRuntimeState,
 } from "@/core/explore/runtime";
 import { shareSpot } from "@/lib/share-spot";
-import { checkDuplicateSpot } from "@/lib/spot-duplicate-check";
+import { checkDuplicateSpot, DEFAULT_DUPLICATE_RADIUS_METERS } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
 import {
@@ -208,6 +208,17 @@ type Spot = {
   tagIds?: string[];
 };
 
+/** Spots Flowya en filas de lista vacía (mezcla con PlaceResult) — solo IDs reales para conteo de chips. */
+function collectSpotIdsFromBrowseEmptyItems(items: (Spot | PlaceResult)[]): Set<string> {
+  const ids = new Set<string>();
+  for (const item of items) {
+    if (!("latitude" in item) || !("title" in item)) continue;
+    const id = (item as Spot).id;
+    if (typeof id === "string" && id.length > 0 && !id.startsWith("draft_")) ids.add(id);
+  }
+  return ids;
+}
+
 type TappedMapFeatureVisualState = "default" | "to_visit";
 
 type TappedMapFeature = {
@@ -222,6 +233,34 @@ type TappedMapFeature = {
   bbox?: { west: number; south: number; east: number; north: number };
   featureType?: string | null;
 };
+
+/**
+ * POI desde tap en mapa no trae bbox en tiles; forward geocode (mismo motor que búsqueda) para persistir mapbox_bbox.
+ */
+async function resolveFramingForMapTapPoi(poi: TappedMapFeature): Promise<{
+  bbox: Spot["mapbox_bbox"];
+  featureType: string | null;
+}> {
+  if (poi.bbox) {
+    return { bbox: poi.bbox, featureType: poi.featureType ?? null };
+  }
+  if (poi.source !== "map_tap") {
+    return { bbox: null, featureType: poi.featureType ?? null };
+  }
+  try {
+    const places = await searchPlaces(poi.name, {
+      limit: 1,
+      proximity: { lat: poi.lat, lng: poi.lng },
+    });
+    const top = places[0];
+    if (top?.bbox) {
+      return { bbox: top.bbox, featureType: top.featureType ?? null };
+    }
+  } catch {
+    /* fail-open */
+  }
+  return { bbox: null, featureType: poi.featureType ?? null };
+}
 
 type CountryBucket = {
   key: string;
@@ -1393,6 +1432,10 @@ export function MapScreenVNext() {
           ? lastStatusSpotIdRef.current[nextFilter]
           : null;
       setPinFilter(nextFilter);
+      if (nextFilter === "all") {
+        setSelectedTagFilterId(null);
+        setTagFilterEditMode(false);
+      }
       const fromAll = currentFilter === "all";
       const filterToast: Record<MapPinFilterValue, string> = fromAll
         ? {
@@ -1443,6 +1486,8 @@ export function MapScreenVNext() {
       toast,
       setPinFilter,
       setSheetState,
+      setSelectedTagFilterId,
+      setTagFilterEditMode,
     ],
   );
 
@@ -1988,15 +2033,16 @@ export function MapScreenVNext() {
     setTagAssignSaving(false);
   }, []);
 
-  /** Sheet: chip de etiqueta → buscador en «Todos» con filtro por esa etiqueta. */
+  /** Sheet: chip de etiqueta → buscador en Por visitar o Visitados (según el spot) con filtro por esa etiqueta; chips solo existen en esos modos. */
   const handleSheetTagChipPress = useCallback(
     (tagId: string) => {
-      setPinFilter("all");
+      const spot = selectedSpot;
+      setPinFilter(spot?.visited === true ? "visited" : "saved");
       setSelectedTagFilterId(tagId);
       setTagFilterEditMode(false);
       searchV2.setOpen(true);
     },
-    [setPinFilter, searchV2],
+    [setPinFilter, searchV2, selectedSpot],
   );
 
   const handleSheetEtiquetarFromSheet = useCallback(() => {
@@ -2094,16 +2140,17 @@ export function MapScreenVNext() {
       recordSearchSpotClick();
       addRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
-      /** OL-WOW-F2-005 act: no flyTo durante create/edit/placing. */
-      /** Desde buscador: siempre flyTo (usuario viene de otra ventana). Pin en mapa: sin flyTo. */
-      if (mapInstance) {
-        flyToUnlessActMode(
-          { lng: spot.longitude, lat: spot.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-        );
-      }
+      /** Desde buscador: encuadre coherente con mapbox_bbox / tipo de feature (no zoom fijo 17). */
+      focusCameraOnSpot(spot);
     });
-  }, [mapInstance, flyToUnlessActMode, searchHistory, searchV2, setSheetState, pinFilter, deactivateSearchColdStartBootstrap]);
+  }, [
+    searchHistory,
+    searchV2,
+    setSheetState,
+    pinFilter,
+    deactivateSearchColdStartBootstrap,
+    focusCameraOnSpot,
+  ]);
 
   useEffect(() => {
     invalidateSpotIdRef.current = searchV2.invalidateSpotId;
@@ -2511,7 +2558,13 @@ export function MapScreenVNext() {
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       const titleToUse = draft.title?.trim() || "Nuevo spot";
       if (!skipDuplicateCheck) {
-        const duplicateResult = await checkDuplicateSpot(titleToUse, draft.latitude, draft.longitude);
+        const duplicateResult = await checkDuplicateSpot(
+          titleToUse,
+          draft.latitude,
+          draft.longitude,
+          DEFAULT_DUPLICATE_RADIUS_METERS,
+          { address: draft.address },
+        );
         if (duplicateResult.duplicate) {
           setDuplicateModal({
             existingTitle: duplicateResult.existingTitle,
@@ -2581,7 +2634,7 @@ export function MapScreenVNext() {
     setIsPlacingDraftSpot(false);
     setDraftCoverUri(null);
     searchV2.setOpen(false);
-    refetchSpots();
+    void refreshTagsAfterPinChange();
 
     /** Reverse geocoding una vez: generar dirección y guardarla en DB (no bloquea al usuario). */
     resolveAddress(draft.latitude, draft.longitude).then((address) => {
@@ -2599,7 +2652,16 @@ export function MapScreenVNext() {
         });
     });
     },
-    [selectedSpot, draftCoverUri, requireAuthOrModal, refetchSpots, searchV2, toast, setDuplicateModal, setSheetState],
+    [
+      selectedSpot,
+      draftCoverUri,
+      requireAuthOrModal,
+      refreshTagsAfterPinChange,
+      searchV2,
+      toast,
+      setDuplicateModal,
+      setSheetState,
+    ],
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
@@ -2642,6 +2704,7 @@ export function MapScreenVNext() {
           data: { user },
         } = await supabase.auth.getUser();
         didAttemptPersist = true;
+        const framing = await resolveFramingForMapTapPoi(poi);
         const insertPayload: Record<string, unknown> = {
           title: poi.name,
           description_short: null,
@@ -2655,8 +2718,8 @@ export function MapScreenVNext() {
           linked_maki: poi.placeId ? poi.maki : null,
           linked_at: poi.placeId ? new Date().toISOString() : null,
           link_version: poi.placeId ? SPOT_LINK_VERSION : null,
-          mapbox_bbox: poi.bbox ?? null,
-          mapbox_feature_type: poi.featureType ?? null,
+          mapbox_bbox: framing.bbox,
+          mapbox_feature_type: framing.featureType,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;
@@ -2709,7 +2772,7 @@ export function MapScreenVNext() {
         setSelectedSpot(createdSpot);
         setPoiTapped(null);
         setSheetState(targetSheetState);
-        refetchSpots();
+        void refreshTagsAfterPinChange();
         resolveAddress(poi.lat, poi.lng).then((address) => {
           if (!address) return;
           supabase
@@ -2736,7 +2799,14 @@ export function MapScreenVNext() {
         }
       }
     },
-    [poiTapped, requireAuthOrModal, refetchSpots, resetPoiTappedVisualState, toast, setSheetState],
+    [
+      poiTapped,
+      requireAuthOrModal,
+      refreshTagsAfterPinChange,
+      resetPoiTappedVisualState,
+      toast,
+      setSheetState,
+    ],
   );
 
   /** Crear spot desde POI y compartir. Flujo de planificación: no bloquea por anti-duplicado. */
@@ -2750,6 +2820,7 @@ export function MapScreenVNext() {
         const {
           data: { user },
         } = await supabase.auth.getUser();
+        const framing = await resolveFramingForMapTapPoi(poi);
         const insertPayload: Record<string, unknown> = {
           title: poi.name,
           description_short: null,
@@ -2763,8 +2834,8 @@ export function MapScreenVNext() {
           linked_maki: poi.placeId ? poi.maki : null,
           linked_at: poi.placeId ? new Date().toISOString() : null,
           link_version: poi.placeId ? SPOT_LINK_VERSION : null,
-          mapbox_bbox: poi.bbox ?? null,
-          mapbox_feature_type: poi.featureType ?? null,
+          mapbox_bbox: framing.bbox,
+          mapbox_feature_type: framing.featureType,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;
@@ -2812,13 +2883,13 @@ export function MapScreenVNext() {
         setSelectedSpot(created);
         setPoiTapped(null);
         setSheetState("medium");
-        refetchSpots();
+        void refreshTagsAfterPinChange();
       } catch {
         if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
         setPoiSheetLoading(false);
       }
-  }, [poiTapped, requireAuthOrModal, refetchSpots, toast, setSheetState]);
+  }, [poiTapped, requireAuthOrModal, refreshTagsAfterPinChange, toast, setSheetState]);
 
   /** Ver spot existente (desde modal duplicado): abre sheet MEDIUM con pin seleccionado. */
   const handleViewExistingSpot = useCallback(
@@ -3559,16 +3630,49 @@ export function MapScreenVNext() {
     return match ? "Añadir" : "Crear";
   }, [tagAssignInput, userTags]);
 
+  /**
+   * Pool de spots para contar etiquetas en chips: alineado a la lista vacía en Todos (curada),
+   * no a todo `filteredSpots`, para que (N) coincida con las filas al activar el chip.
+   */
+  const spotIdsForTagFilterCounts = useMemo(() => {
+    if (pinFilter === "saved" || pinFilter === "visited") {
+      return new Set(filteredSpots.map((s) => s.id));
+    }
+    if (pinFilter !== "all") {
+      return new Set(filteredSpots.map((s) => s.id));
+    }
+    if (searchV2.query.trim().length > 0) {
+      return new Set(filteredSpots.map((s) => s.id));
+    }
+    if (showFilteredResultsOnEmpty) {
+      return new Set(filteredSpots.map((s) => s.id));
+    }
+    /** Alineado a SearchSurface: si hay secciones con ítems, solo esas filas; si no, lista plana defaultItems. */
+    const hasSectionRows = defaultSectionsForEmpty.some((s) => s.items.length > 0);
+    const flat: (Spot | PlaceResult)[] = hasSectionRows
+      ? defaultSectionsForEmpty.flatMap((s) => s.items)
+      : defaultItemsForEmpty;
+    const fromBrowse = collectSpotIdsFromBrowseEmptyItems(flat);
+    if (fromBrowse.size > 0) return fromBrowse;
+    return new Set(filteredSpots.map((s) => s.id));
+  }, [
+    pinFilter,
+    filteredSpots,
+    searchV2.query,
+    showFilteredResultsOnEmpty,
+    defaultItemsForEmpty,
+    defaultSectionsForEmpty,
+  ]);
+
   /** Chips de etiqueta en el buscador: solo las que tienen ≥1 spot en el pool del filtro de pin actual. */
   const spotTagFilterOptions = useMemo(() => {
     if (!isAuthUser) return [];
-    const spotIds = new Set(filteredSpots.map((s) => s.id));
-    return countTagsInSpotIds(userTags, spotIds, pinTagIndex).map((tc) => ({
+    return countTagsInSpotIds(userTags, spotIdsForTagFilterCounts, pinTagIndex).map((tc) => ({
       id: tc.tag.id,
       name: tc.tag.name,
       count: tc.count,
     }));
-  }, [isAuthUser, userTags, filteredSpots, pinTagIndex]);
+  }, [isAuthUser, userTags, spotIdsForTagFilterCounts, pinTagIndex]);
 
   /** Si el chip activo deja de tener ≥1 spot en el pool (p. ej. quitaste la etiqueta al último spot), limpiar filtro para no dejar lista vacía sin fila de chips. */
   useEffect(() => {
@@ -4666,13 +4770,39 @@ export function MapScreenVNext() {
         pinFilter={pinFilter}
         pinCounts={pinCounts}
         onPinFilterChange={(next) => handlePinFilterChange(next, { reframe: false })}
-        tagFilterOptions={isAuthUser ? spotTagFilterOptions : undefined}
-        selectedTagFilterId={isAuthUser ? selectedTagFilterId : undefined}
-        onTagFilterChange={isAuthUser ? setSelectedTagFilterId : undefined}
-        tagFilterEditMode={isAuthUser ? tagFilterEditMode : false}
-        onTagFilterEnterEditMode={isAuthUser ? () => setTagFilterEditMode(true) : undefined}
-        onTagFilterExitEditMode={isAuthUser ? () => setTagFilterEditMode(false) : undefined}
-        onRequestDeleteUserTag={isAuthUser ? handleRequestDeleteUserTag : undefined}
+        tagFilterOptions={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? spotTagFilterOptions
+            : undefined
+        }
+        selectedTagFilterId={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? selectedTagFilterId
+            : undefined
+        }
+        onTagFilterChange={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? setSelectedTagFilterId
+            : undefined
+        }
+        tagFilterEditMode={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited") ? tagFilterEditMode : false
+        }
+        onTagFilterEnterEditMode={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? () => setTagFilterEditMode(true)
+            : undefined
+        }
+        onTagFilterExitEditMode={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? () => setTagFilterEditMode(false)
+            : undefined
+        }
+        onRequestDeleteUserTag={
+          isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+            ? handleRequestDeleteUserTag
+            : undefined
+        }
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
         resultsSummaryLabel={

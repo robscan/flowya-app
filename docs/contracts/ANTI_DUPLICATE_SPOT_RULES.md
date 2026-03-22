@@ -1,6 +1,6 @@
 # ANTI_DUPLICATE_SPOT_RULES — Contrato
 
-**Última actualización:** 2026-02-22
+**Última actualización:** 2026-03-22
 **Relación:** [bitácora 016](../bitacora/2026/01/016-scope-g-duplicate-prevention.md), `lib/spot-duplicate-check.ts`
 
 > Reglas no negociables para prevenir spots duplicados en todos los paths de creación.
@@ -9,12 +9,12 @@
 
 ## Regla de duplicado
 
-Un spot se considera duplicado si:
+Un spot se considera duplicado si, estando a **distancia** ≤ radio (default **150 m**), se cumple **una** de:
 
-- **Título normalizado** coincide: case-insensitive, trim, sin acentos, espacios internos colapsados (`normalizeSpotTitle`).
-- **Distancia** entre coordenadas ≤ radio (default **150 m**).
+- **Título normalizado** coincide (`normalizeSpotTitle`), o
+- **Dirección normalizada** coincide (`normalizeAddressKey`) y ambas cadenas tienen longitud ≥ umbral interno (evita matches triviales), cuando el cliente pasa `address` en opciones y la fila en BD tiene `address`.
 
-Implementación: `lib/spot-duplicate-check.ts` — `checkDuplicateSpot(title, lat, lng, radiusMeters?)`.
+Implementación: `lib/spot-duplicate-check.ts` — `checkDuplicateSpot(title, lat, lng, radiusMeters?, options?)` con `options.address` opcional.
 
 ---
 
@@ -65,4 +65,4 @@ Si `checkDuplicateSpot` falla (red, Supabase, timeout): permitir la creación. N
 ## Guardrails
 
 - Al añadir un nuevo entry point de creación: verificar que llama a `checkDuplicateSpot` antes del INSERT.
-- Al modificar `lib/spot-duplicate-check.ts`: mantener fail-open y la firma de `checkDuplicateSpot`.
+- Al modificar `lib/spot-duplicate-check.ts`: mantener fail-open; nuevos parámetros opcionales no deben romper llamadas existentes.

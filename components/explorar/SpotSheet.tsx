@@ -182,7 +182,7 @@ export type SpotSheetProps = {
   onImagePress?: (uri: string) => void;
   /** Etiquetas del spot en el sheet (solo lectura). */
   sheetTagChips?: { id: string; label: string }[];
-  /** Tap en chip: buscador en «Todos» con filtro por esa etiqueta. */
+  /** Tap en chip: buscador en Por visitar o Visitados con filtro por esa etiqueta. */
   onSheetTagChipPress?: (tagId: string) => void;
   /** Abrir modal de etiquetar (mismo flujo que en listados). */
   onSheetEtiquetarPress?: () => void;
