@@ -69,13 +69,17 @@ export function isSemanticAreaPlace(place: PlaceResult): boolean {
 const MIN_SPAN_FOR_BBOX_FRAMING = 0.012;
 
 /**
- * ¿Usar fitBounds con el bbox del lugar? Excluye landmarks puntuales y bbox ridículamente pequeños
- * salvo que el tipo semántico sea claramente de área.
+ * ¿Usar fitBounds con el bbox del lugar?
+ * - País/región/ciudad: sí si hay bbox razonable.
+ * - Landmark puntual (maki historic, etc.) con bbox muy pequeño: no (zoom al pin).
+ * - Landmark con bbox amplio (yacimiento, parque arqueológico, ej. Copán Ruinas): sí.
  */
 export function shouldFitBoundsForPlace(place: PlaceResult): boolean {
-  if (isPlaceLandmarkForCamera(place)) return false;
   if (!place.bbox) return false;
   const span = bboxMaxSpanDegrees(place.bbox);
+  if (isPlaceLandmarkForCamera(place)) {
+    return span >= MIN_SPAN_FOR_BBOX_FRAMING;
+  }
   if (isCountryOrRegionFeature(place) || isSemanticAreaPlace(place)) return true;
   if (span >= MIN_SPAN_FOR_BBOX_FRAMING) return true;
   return false;

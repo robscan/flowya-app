@@ -1,9 +1,16 @@
 import "@/styles/mapbox-attribution-overrides.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import { useFocusEffect } from "@react-navigation/native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, MapPin, X } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { default as MapGL, Marker } from "react-map-gl/mapbox-legacy";
 import {
   ActivityIndicator,
@@ -34,9 +41,14 @@ import {
 } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import {
+  getStablePlaceId,
+  inferTappedKindFromPlace,
+} from "@/lib/explore/map-screen-orchestration";
 import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
+import { blurActiveElement } from "@/lib/focus-management";
 import { featureFlags } from "@/lib/feature-flags";
-import { resolveSpotLink } from "@/lib/spot-linking/resolveSpotLink";
+import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
 import { supabase } from "@/lib/supabase";
@@ -56,6 +68,13 @@ type SpotEdit = {
   latitude: number;
   longitude: number;
   address: string | null;
+  mapbox_bbox?: {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  } | null;
+  mapbox_feature_type?: string | null;
 };
 
 /** Re-consulta el spot por id (sin filtrar is_hidden) y loguea en __DEV__. */
@@ -195,6 +214,41 @@ export default function EditSpotScreenWeb() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const screenRootRef = useRef<View>(null);
+
+  /** Evita aria-hidden en ancestro mientras un botón de la pantalla anterior conserva foco (web). */
+  const blurIfFocusOutsideScreenRoot = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement as HTMLElement | null;
+    const root = screenRootRef.current as unknown as HTMLElement | null;
+    if (!active || !root || typeof root.contains !== "function") return;
+    if (!root.contains(active)) {
+      blurActiveElement();
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const id = requestAnimationFrame(() => {
+        if (typeof document === "undefined") return;
+        const root = screenRootRef.current as unknown as HTMLElement | null;
+        // Mientras loading/error sin ref, el foco puede seguir en el sheet (aria-hidden).
+        if (!root) {
+          blurActiveElement();
+          return;
+        }
+        blurIfFocusOutsideScreenRoot();
+      });
+      return () => cancelAnimationFrame(id);
+    }, [blurIfFocusOutsideScreenRoot]),
+  );
+
+  /** Tras cargar el spot, el ref del root ya existe; sin esto el primer useFocusEffect podía no alcanzar el árbol. */
+  useLayoutEffect(() => {
+    if (loading || !spot?.id) return;
+    const id = requestAnimationFrame(blurIfFocusOutsideScreenRoot);
+    return () => cancelAnimationFrame(id);
+  }, [loading, spot?.id, blurIfFocusOutsideScreenRoot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -232,7 +286,7 @@ export default function EditSpotScreenWeb() {
       const { data, error } = await supabase
         .from("spots")
         .select(
-          "id, title, description_short, description_long, cover_image_url, latitude, longitude, address",
+          "id, title, description_short, description_long, cover_image_url, latitude, longitude, address, mapbox_bbox, mapbox_feature_type",
         )
         .eq("id", id)
         .eq("is_hidden", false)
@@ -343,7 +397,34 @@ export default function EditSpotScreenWeb() {
       updates.latitude = locationDraft.latitude;
       updates.longitude = locationDraft.longitude;
       updates.address = locationDraft.address;
-      if (featureFlags.linkOnEditSave) {
+      if (locationDraft.selectedPlace) {
+        const p = locationDraft.selectedPlace;
+        // Solo persistir si Mapbox envía bbox/tipo; si no, no incluir columnas (evita borrar con null).
+        if (p.bbox != null) {
+          updates.mapbox_bbox = p.bbox;
+        }
+        if (p.featureType != null && String(p.featureType).trim() !== "") {
+          updates.mapbox_feature_type = p.featureType;
+        }
+        const stableId = getStablePlaceId(p);
+        if (stableId) {
+          updates.link_status = "linked";
+          updates.linked_place_id = stableId;
+          updates.linked_place_kind = inferTappedKindFromPlace(p);
+          updates.linked_maki = p.maki ?? null;
+          updates.linked_at = new Date().toISOString();
+          updates.link_version = SPOT_LINK_VERSION;
+          updates.link_score = 1;
+        } else {
+          updates.link_status = "unlinked";
+          updates.linked_place_id = null;
+          updates.linked_place_kind = null;
+          updates.linked_maki = p.maki ?? null;
+          updates.linked_at = null;
+          updates.link_version = null;
+          updates.link_score = null;
+        }
+      } else if (featureFlags.linkOnEditSave) {
         const link = await resolveSpotLink({
           title: title.trim(),
           lat: locationDraft.latitude,
@@ -463,6 +544,7 @@ export default function EditSpotScreenWeb() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View
+        ref={screenRootRef}
         style={[
           styles.root,
           { backgroundColor: colors.background },
@@ -695,6 +777,7 @@ export default function EditSpotScreenWeb() {
                       openAuthModal({ message: AUTH_MODAL_MESSAGES.editSpot });
                       return;
                     }
+                    blurActiveElement();
                     setShowLocationPicker(true);
                   }}
                 />
@@ -734,7 +817,10 @@ export default function EditSpotScreenWeb() {
                   },
                   WebTouchManipulation,
                 ]}
-                onPress={() => setShowDeleteConfirm(true)}
+                onPress={() => {
+                  blurActiveElement();
+                  setShowDeleteConfirm(true);
+                }}
                 disabled={isDeleting}
                 accessibilityLabel={
                   isDeleting ? "Eliminando…" : "Eliminar spot"
@@ -804,9 +890,15 @@ export default function EditSpotScreenWeb() {
               },
             ]}
           >
-            <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
-              Selecciona la ubicación del spot
-            </Text>
+            <View style={styles.locationPickerTitleBlock}>
+              <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
+                Selecciona la ubicación del spot
+              </Text>
+              <Text style={[styles.locationPickerSubtitle, { color: colors.textSecondary }]}>
+                Busca el lugar o mueve el pin en el mapa. Si eliges un resultado de la lista, la vista se
+                ajusta mejor a ese lugar.
+              </Text>
+            </View>
             <Pressable
               style={styles.locationPickerCloseTouch}
               onPress={() => setShowLocationPicker(false)}
@@ -1028,15 +1120,25 @@ const styles = StyleSheet.create({
   },
   locationPickerHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
+    gap: Spacing.sm,
+  },
+  locationPickerTitleBlock: {
+    flex: 1,
+    paddingRight: Spacing.sm,
+    gap: Spacing.xs,
   },
   locationPickerTitle: {
     fontSize: 17,
     fontWeight: "600",
+  },
+  locationPickerSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   locationPickerCloseTouch: {
     padding: Spacing.sm,
