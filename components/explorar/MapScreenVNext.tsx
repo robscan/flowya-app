@@ -1466,7 +1466,6 @@ export function MapScreenVNext() {
     const pinFilterChanged = prevFilter !== pinFilter;
     prevPinFilterRef.current = pinFilter;
     if (pinFilterChanged) {
-      setSelectedTagFilterId(null);
       setTagFilterEditMode(false);
     }
     const shouldClearSelection = shouldClearSelectedSpotOnFilterChange({
