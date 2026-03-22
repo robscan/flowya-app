@@ -6,7 +6,7 @@ Rama: documentación (sesión de higiene)
 
 ## Contexto
 
-Apertura diaria Owner Mode: alinear fechas de `docs/ops/OPEN_LOOPS.md` y `docs/ops/CURRENT_STATE.md` con el calendario real, cerrar laguna entre bitácora **306** y trabajo mergeado el **2026-03-11** sin entrada numerada posterior, y declarar estado explícito del loop activo único.
+Apertura diaria Owner Mode: alinear fechas de `docs/ops/OPEN_LOOPS.md` con el calendario real, cerrar laguna entre bitácora **306** y trabajo mergeado el **2026-03-11** sin entrada numerada posterior, y declarar estado explícito del loop activo único.
 
 ## Verificación git (2026-03-12 → 2026-03-21)
 
@@ -21,7 +21,7 @@ Apertura diaria Owner Mode: alinear fechas de `docs/ops/OPEN_LOOPS.md` y `docs/o
 |------|--------|
 | SpotSheet | Lightbox para visualización de imágenes en detalle. |
 | Mapa | Ajuste en `spots-layer` / `MapScreenVNext` para reducir solapamiento de pin cuando hay filtro activo. |
-| Ops | Actualización de OPEN_LOOPS y CURRENT_STATE; nuevo plan `docs/ops/plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md` (galería multi-foto, ejecución posterior). |
+| Ops | Actualización de OPEN_LOOPS; nuevo plan `docs/ops/plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md` (galería multi-foto, ejecución posterior). |
 
 ## Estado operativo declarado (2026-03-21)
 

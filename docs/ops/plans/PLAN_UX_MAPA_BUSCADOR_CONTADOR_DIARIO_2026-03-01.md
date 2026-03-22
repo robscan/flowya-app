@@ -151,8 +151,7 @@
 ## Documentación a actualizar
 1. `docs/ops/OPEN_LOOPS.md`
 - Crear/actualizar loops separados para Bloques A, B, C y D.
-2. `docs/ops/CURRENT_STATE.md`
-- Estado operativo y orden de ejecución.
+2. `docs/bitacora/*` (evidencia; estado operativo en `OPEN_LOOPS.md`)
 3. `docs/contracts/*`
 - `RECORDAR_ENTRY_SPOT_SHEET`, `MAP_PINS_CONTRACT`, `DATA_MODEL_CURRENT`, nuevo contrato de `SPOT_PRIVATE_JOURNAL`.
 4. `docs/bitacora/*`

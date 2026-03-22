@@ -3,8 +3,21 @@
  * Evita acercar demasiado ciudades/regiones con bbox; preserva POI puntuales y landmarks.
  */
 
+import type { Map as MapboxMap } from 'mapbox-gl';
+
 import type { PlaceResult } from '@/lib/places/searchPlaces';
-import { SPOT_FOCUS_ZOOM } from '@/lib/map-core/constants';
+import {
+  FIT_BOUNDS_DURATION_MS,
+  FIT_BOUNDS_PADDING,
+  SPOT_FOCUS_ZOOM,
+} from '@/lib/map-core/constants';
+
+/** Metadatos guardados en spots creados desde Mapbox Search para reutilizar encuadre. */
+export type SpotCameraFraming = {
+  bbox?: { west: number; south: number; east: number; north: number };
+  featureType?: string | null;
+  maki?: string | null;
+} | null;
 
 const LANDMARK_TOKENS = ['landmark', 'monument', 'museum', 'religious', 'historic'];
 
@@ -84,5 +97,59 @@ export function shouldUseWideAreaCamera(place: PlaceResult): boolean {
   return (
     !isPlaceLandmarkForCamera(place) &&
     (isCountryOrRegionFeature(place) || isSemanticAreaPlace(place))
+  );
+}
+
+/**
+ * Construye un PlaceResult mínimo para heurísticas de cámara a partir de un spot guardado.
+ */
+export function placeResultFromSpotForCamera(
+  selectedSpot: { id: string; latitude: number; longitude: number },
+  framing: SpotCameraFraming,
+): PlaceResult {
+  return {
+    id: selectedSpot.id,
+    name: '',
+    lat: selectedSpot.latitude,
+    lng: selectedSpot.longitude,
+    source: 'mapbox',
+    bbox: framing?.bbox,
+    maki: framing?.maki ?? undefined,
+    featureType: framing?.featureType ?? undefined,
+  };
+}
+
+/**
+ * Encuadre unificado: fitBounds cuando el bbox aplica; si no, flyTo con zoom de área o SPOT_FOCUS_ZOOM.
+ */
+export function applyExploreCameraForPlace(
+  map: MapboxMap | null,
+  place: PlaceResult,
+  flyTo: (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => void,
+  options?: { duration?: number },
+): void {
+  const duration = options?.duration ?? FIT_BOUNDS_DURATION_MS;
+  if (map && shouldFitBoundsForPlace(place) && place.bbox) {
+    const { west, south, east, north } = place.bbox;
+    try {
+      map.fitBounds(
+        [
+          [west, south],
+          [east, north],
+        ],
+        { padding: FIT_BOUNDS_PADDING, duration },
+      );
+      return;
+    } catch {
+      // fallback a flyTo
+    }
+  }
+  const useWideAreaZoom = shouldUseWideAreaCamera(place);
+  flyTo(
+    { lng: place.lng, lat: place.lat },
+    {
+      zoom: useWideAreaZoom ? getAreaFallbackZoom(place) : SPOT_FOCUS_ZOOM,
+      duration,
+    },
   );
 }

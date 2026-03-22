@@ -108,7 +108,7 @@ Referencias:
 - `OPEN_LOOPS` sin contradicciones.
 
 ### Smoke mínimo
-- Verificación documental cruzada (`OPEN_LOOPS`, `CURRENT_STATE`, contratos activos).
+- Verificación documental cruzada (`OPEN_LOOPS`, bitácora, contratos activos).
 
 ---
 

@@ -65,9 +65,8 @@ import {
 import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import {
-  getAreaFallbackZoom,
+  applyExploreCameraForPlace,
   shouldFitBoundsForPlace,
-  shouldUseWideAreaCamera,
 } from "@/lib/places/areaFraming";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import {
@@ -184,6 +183,9 @@ type Spot = {
   linked_place_id?: string | null;
   linked_place_kind?: "poi" | "landmark" | null;
   linked_maki?: string | null;
+  /** Encuadre Mapbox al re-seleccionar spot (mismo criterio que búsqueda). */
+  mapbox_bbox?: { west: number; south: number; east: number; north: number } | null;
+  mapbox_feature_type?: string | null;
   /** Derivado de saved/visited para map-pins (visited > saved > default). */
   pinStatus?: SpotPinStatus;
 };
@@ -199,6 +201,8 @@ type TappedMapFeature = {
   maki: string | null;
   visualState: TappedMapFeatureVisualState;
   source: "map_tap" | "search_suggestion";
+  bbox?: { west: number; south: number; east: number; north: number };
+  featureType?: string | null;
 };
 
 type CountryBucket = {
@@ -775,7 +779,7 @@ export function MapScreenVNext() {
     const { data } = await supabase
       .from("spots")
       .select(
-        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki",
+        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type",
       )
       .eq("is_hidden", false);
     const list = (data ?? []) as Omit<
@@ -991,6 +995,13 @@ export function MapScreenVNext() {
     showMakiIcon: featureFlags.flowyaPinMakiIcon,
     showSpotLabels: shouldShowFlowyaSpotLabels,
     pinFilter,
+    selectedSpotCameraFraming: selectedSpot
+      ? {
+          bbox: selectedSpot.mapbox_bbox ?? undefined,
+          featureType: selectedSpot.mapbox_feature_type ?? null,
+          maki: selectedSpot.linked_maki ?? null,
+        }
+      : null,
   });
   const {
     mapInstance,
@@ -1140,11 +1151,29 @@ export function MapScreenVNext() {
       return;
     }
     if (!poiTapped) return;
-    flyToUnlessActMode(
-      { lng: poiTapped.lng, lat: poiTapped.lat },
-      { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+    suspendFilterUntilCameraSettles();
+    applyExploreCameraForPlace(
+      mapInstance,
+      {
+        id: poiTapped.placeId ?? "poi",
+        name: poiTapped.name,
+        lat: poiTapped.lat,
+        lng: poiTapped.lng,
+        bbox: poiTapped.bbox,
+        source: "mapbox",
+        maki: poiTapped.maki ?? undefined,
+        featureType: poiTapped.featureType ?? undefined,
+      },
+      flyToUnlessActMode,
     );
-  }, [selectedSpot, handleReframeSpot, poiTapped, flyToUnlessActMode, suspendFilterUntilCameraSettles]);
+  }, [
+    selectedSpot,
+    handleReframeSpot,
+    poiTapped,
+    flyToUnlessActMode,
+    suspendFilterUntilCameraSettles,
+    mapInstance,
+  ]);
 
   const handleReframeContextualAndUser = useCallback(() => {
     if (selectedSpot) {
@@ -1154,6 +1183,34 @@ export function MapScreenVNext() {
     }
     if (!poiTapped) return;
     if (mapInstance && userCoords) {
+      const poiAsPlace: PlaceResult = {
+        id: poiTapped.placeId ?? "poi",
+        name: poiTapped.name,
+        lat: poiTapped.lat,
+        lng: poiTapped.lng,
+        bbox: poiTapped.bbox,
+        source: "mapbox",
+        maki: poiTapped.maki ?? undefined,
+        featureType: poiTapped.featureType ?? undefined,
+      };
+      if (poiTapped.bbox && shouldFitBoundsForPlace(poiAsPlace)) {
+        const { west, south, east, north } = poiTapped.bbox;
+        const lngs = [west, east, userCoords.longitude, poiTapped.lng];
+        const lats = [south, north, userCoords.latitude, poiTapped.lat];
+        try {
+          suspendFilterUntilCameraSettles();
+          mapInstance.fitBounds(
+            [
+              [Math.min(...lngs), Math.min(...lats)],
+              [Math.max(...lngs), Math.max(...lats)],
+            ],
+            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
+          );
+          return;
+        } catch {
+          // fallback a dos puntos
+        }
+      }
       try {
         suspendFilterUntilCameraSettles();
         mapInstance.fitBounds(
@@ -1645,13 +1702,13 @@ export function MapScreenVNext() {
 
   const searchHistory = useSearchHistory();
 
-  /** OL-WOW-F2-001-SEARCH: fetch placeSuggestions siempre cuando query >= 3 y pinFilter=all. */
+  /** OL-WOW-F2-001-SEARCH: fetch Mapbox cuando query >= 3 con Todos o Por visitar/Visitados (misma mezcla que Todos). */
   useEffect(() => {
     const q = searchV2.query.trim();
     const shouldFetchExternal =
       searchV2.isOpen &&
       q.length >= 3 &&
-      pinFilter === "all" &&
+      (pinFilter === "all" || pinFilter === "saved" || pinFilter === "visited") &&
       !searchV2.isLoading;
     if (!shouldFetchExternal) {
       setPlaceSuggestions([]);
@@ -2076,9 +2133,20 @@ export function MapScreenVNext() {
           toFilter: pinFilter,
         });
         setSheetState("medium");
-        flyToUnlessActMode(
-          { lng: existingSpot.longitude, lat: existingSpot.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
+        suspendFilterUntilCameraSettles();
+        applyExploreCameraForPlace(
+          mapInstance,
+          {
+            id: existingSpot.id,
+            name: existingSpot.title,
+            lat: existingSpot.latitude,
+            lng: existingSpot.longitude,
+            bbox: existingSpot.mapbox_bbox ?? undefined,
+            source: "mapbox",
+            maki: existingSpot.linked_maki ?? undefined,
+            featureType: existingSpot.mapbox_feature_type ?? undefined,
+          },
+          flyToUnlessActMode,
         );
         return;
       }
@@ -2094,6 +2162,8 @@ export function MapScreenVNext() {
         maki: targetPlace.maki ?? null,
         visualState: "default",
         source: "search_suggestion",
+        bbox: targetPlace.bbox,
+        featureType: targetPlace.featureType ?? null,
       });
       recordExploreSelectionChanged({
         entityType: "poi",
@@ -2102,31 +2172,8 @@ export function MapScreenVNext() {
         toFilter: pinFilter,
       });
       setSheetState("medium");
-      const shouldFitBounds = shouldFitBoundsForPlace(targetPlace);
-      if (shouldFitBounds && mapInstance && targetPlace.bbox) {
-        const { west, south, east, north } = targetPlace.bbox;
-        try {
-          suspendFilterUntilCameraSettles();
-          mapInstance.fitBounds(
-            [
-              [west, south],
-              [east, north],
-            ],
-            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-          );
-          return;
-        } catch {
-          // fallback a flyTo con zoom amplio
-        }
-      }
-      const useWideAreaZoom = shouldUseWideAreaCamera(targetPlace);
-      flyToUnlessActMode(
-        { lng: targetPlace.lng, lat: targetPlace.lat },
-        {
-          zoom: useWideAreaZoom ? getAreaFallbackZoom(targetPlace) : SPOT_FOCUS_ZOOM,
-          duration: FIT_BOUNDS_DURATION_MS,
-        }
-      );
+      suspendFilterUntilCameraSettles();
+      applyExploreCameraForPlace(mapInstance, targetPlace, flyToUnlessActMode);
     },
     [
       deactivateSearchColdStartBootstrap,
@@ -2398,6 +2445,8 @@ export function MapScreenVNext() {
           linked_maki: poi.placeId ? poi.maki : null,
           linked_at: poi.placeId ? new Date().toISOString() : null,
           link_version: poi.placeId ? SPOT_LINK_VERSION : null,
+          mapbox_bbox: poi.bbox ?? null,
+          mapbox_feature_type: poi.featureType ?? null,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;
@@ -2406,7 +2455,7 @@ export function MapScreenVNext() {
           .from("spots")
           .insert(insertPayload)
           .select(
-            "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki",
+            "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type",
           )
           .single();
         if (insertError) {
@@ -2504,6 +2553,8 @@ export function MapScreenVNext() {
           linked_maki: poi.placeId ? poi.maki : null,
           linked_at: poi.placeId ? new Date().toISOString() : null,
           link_version: poi.placeId ? SPOT_LINK_VERSION : null,
+          mapbox_bbox: poi.bbox ?? null,
+          mapbox_feature_type: poi.featureType ?? null,
         };
         if (user?.id && !user.is_anonymous) {
           insertPayload.user_id = user.id;
@@ -2511,7 +2562,7 @@ export function MapScreenVNext() {
         const { data: inserted, error: insertError } = await supabase
           .from("spots")
           .insert(insertPayload)
-          .select("id, title, link_status, linked_place_id, linked_place_kind, linked_maki")
+          .select("id, title, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type")
           .single();
         if (insertError) {
           if (!suppressToastRef.current) toast.show(insertError.message ?? "Ups, no se pudo crear el lugar. Prueba de nuevo.", { type: "error" });
@@ -2540,6 +2591,9 @@ export function MapScreenVNext() {
           linked_place_kind:
             (inserted?.linked_place_kind as Spot["linked_place_kind"]) ?? (poi.placeId ? poi.kind : null),
           linked_maki: inserted?.linked_maki ?? poi.maki ?? null,
+          mapbox_bbox: (inserted as { mapbox_bbox?: Spot["mapbox_bbox"] })?.mapbox_bbox ?? poi.bbox ?? null,
+          mapbox_feature_type:
+            (inserted as { mapbox_feature_type?: string | null })?.mapbox_feature_type ?? poi.featureType ?? null,
           saved: state?.saved ?? false,
           visited: state?.visited ?? false,
           pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
@@ -3220,8 +3274,10 @@ export function MapScreenVNext() {
     [mapInstance, suspendFilterUntilCameraSettles],
   );
 
-  /** OL-WOW-F2-001-SEARCH: pinFilter=all → merge spots+places; saved/visited → solo spots con reorden viewport. */
+  /** OL-WOW-F2-001-SEARCH: Todos y Por visitar/Visitados → merge spots (filtrados por estrategia) + Mapbox como en Todos. */
   const searchDisplayResults = useMemo<(Spot | PlaceResult)[]>(() => {
+    const mergeLikeAllMode =
+      pinFilter === "all" || pinFilter === "saved" || pinFilter === "visited";
     const normalizedQuery = normalizeCountryToken(searchV2.query);
     const isCountryDrilldownQuery =
       countriesDrilldown != null &&
@@ -3229,13 +3285,13 @@ export function MapScreenVNext() {
       normalizedQuery.length > 0 &&
       normalizedQuery === normalizeCountryToken(countriesDrilldown.label);
     if (isCountryDrilldownQuery) {
-      if (pinFilter === "all") {
+      if (mergeLikeAllMode) {
         return mergeSearchResults(countryDrilldownItems, placeSuggestions, searchV2.query);
       }
       return countryDrilldownItems;
     }
     const viewportTick = viewportNonce;
-    if (pinFilter === "all") {
+    if (mergeLikeAllMode) {
       return mergeSearchResults(searchV2.results, placeSuggestions, searchV2.query);
     }
     if (viewportTick < 0) return searchV2.results;
@@ -4339,7 +4395,9 @@ export function MapScreenVNext() {
             : undefined
         }
         showResultsOnEmpty={showFilteredResultsOnEmpty}
-        placeSuggestions={pinFilter === "all" ? [] : placeSuggestions}
+        placeSuggestions={
+          pinFilter === "all" || pinFilter === "saved" || pinFilter === "visited" ? [] : placeSuggestions
+        }
         onCreateFromPlace={handleCreateFromPlace}
         activitySummary={{
           isVisible: false,

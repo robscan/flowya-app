@@ -36,4 +36,4 @@
 
 - Bitácora: `docs/bitacora/YYYY/MM/NNN-...md`
 - PRs: `docs/pr/YYYY/MM/pr-<scope>-<branch>-<id>.md`
-- Estado: `docs/ops/CURRENT_STATE.md` y `docs/ops/OPEN_LOOPS.md`
+- Estado: `docs/ops/OPEN_LOOPS.md` + `docs/bitacora/*` (no hay snapshot `CURRENT_STATE.md`)

@@ -267,8 +267,8 @@ export function SearchSurface<T>({
                 accessibilityRole="text"
               >
                 {pinFilter === 'saved'
-                  ? 'No hay coincidencias en Por visitar; mostrando resultados en todos tus spots.'
-                  : 'No hay coincidencias en Visitados; mostrando resultados en todos tus spots.'}
+                  ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus spots y lugares sugeridos).'
+                  : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus spots y lugares sugeridos).'}
               </Text>
             ) : null}
             {resultsSummaryLabel ? (

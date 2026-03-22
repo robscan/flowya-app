@@ -47,8 +47,7 @@ Si una ms está rota:
 ### 5) Cierre
 
 - bitácora: qué entró / qué se sacó
-- OPEN_LOOPS: loops activos reales
-- CURRENT_STATE: snapshot solo cuando cambie estrategia/foco (no obligatorio diario)
+- OPEN_LOOPS: loops activos reales y riesgos macro
 - borrar ramas locales que ya se mergearon
 
 ---

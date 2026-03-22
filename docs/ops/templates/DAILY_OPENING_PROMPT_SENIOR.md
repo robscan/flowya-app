@@ -20,13 +20,13 @@ Prioridad de análisis:
 
 ## Ownership (MANDATORY)
 Eres dueño operativo de la consistencia entre:
-- `docs/ops/OPEN_LOOPS.md` (fuente de ejecución diaria; manda en runtime)
+- `docs/ops/OPEN_LOOPS.md` (fuente de ejecución diaria; manda en runtime; incluye riesgos macro y cola de loops)
 - `docs/bitacora/*` del día activo (evidencia de cambios/cierres)
-- `docs/ops/CURRENT_STATE.md` (snapshot estratégico; no bloqueante salvo cambio de foco)
+
+No existe `CURRENT_STATE.md`: el estado operativo se **deduce** de `OPEN_LOOPS` + bitácora.
 
 Reglas:
 - Si `OPEN_LOOPS` y bitácora no coinciden, **no se ejecuta**: primero se corrige estado documental.
-- `CURRENT_STATE` se actualiza cuando cambia estrategia/foco/riesgo macro.
 - No delegar sincronización documental al usuario.
 - La higiene documental es un **gate operativo** de ejecución/cierre, no sustituye el análisis de riesgo técnico.
 
@@ -65,7 +65,7 @@ Nota: riesgos de sincronización documental deben reportarse al final de la list
 - No cerrar loops “por declaración”; solo con evidencia verificable.
 - Si hay contradicción documental: congelar ejecución y sanear docs primero.
 - Toda recomendación debe referenciar al menos un archivo en `docs/ops` o `docs/contracts`.
-- Antes de cerrar el día: actualización obligatoria de `OPEN_LOOPS` + bitácora del día (y `CURRENT_STATE` si cambia foco macro).
+- Antes de cerrar el día: actualización obligatoria de `OPEN_LOOPS` + bitácora del día.
 - No promover cierre de loop sin validar riesgo de regresión en la superficie tocada.
 
 ### Pre-evaluación técnica antes de implementar (MANDATORY)
@@ -123,7 +123,7 @@ No simular certeza ni continuar con “parches exploratorios” sobre runtime cr
 ## Checklist de autocontrol del agente (antes de responder)
 - ¿`OPEN_LOOPS` refleja loop activo real?
 - ¿Bitácora del día confirma cierres declarados?
-- ¿`CURRENT_STATE` contradice algo crítico?
+- ¿Los riesgos macro en `OPEN_LOOPS` siguen siendo plausibles frente a la bitácora?
 - ¿Hay más de un loop activo implícito?
 - ¿El plan propuesto respeta secuencia y guardrails?
 - ¿Los riesgos listados anticipan fallos de implementación reales del P0/P1/P2 (no solo documentación)?
