@@ -880,7 +880,7 @@ function SpotSheetBody({
           isVisited={isVisited}
           isDraft={isDraft}
           colors={colors}
-          colorScheme={colorScheme}
+          colorScheme={colorScheme ?? 'light'}
           handleSavePin={handleSavePin}
           onImagePress={onImagePress}
           distanceKmVal={distanceKmVal}
@@ -1165,12 +1165,7 @@ export function SpotSheet({
       easing: EASING_SHEET,
     });
     onStateChange(next);
-    const nextH =
-      next === "peek"
-        ? collapsedAnchor
-        : next === "medium"
-          ? mediumVisible
-          : expandedVisible;
+    const nextH = next === "medium" ? mediumVisible : expandedVisible;
     onSheetHeightChange?.(nextH);
   }, [
     state,
@@ -1393,7 +1388,7 @@ export function SpotSheet({
         isSaved={isSaved}
         isVisited={isVisited}
         colors={colors}
-        colorScheme={colorScheme}
+        colorScheme={colorScheme ?? 'light'}
         handleSavePin={handleSavePin}
         draftCoverUri={draftCoverUri}
         onDraftCoverChange={onDraftCoverChange}

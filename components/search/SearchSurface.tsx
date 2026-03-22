@@ -21,6 +21,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { Search, Trash2, X } from 'lucide-react-native';
@@ -89,7 +90,9 @@ export function SearchSurface<T>({
   const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
   const sectionHeaderGlowColor =
     colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-  const sectionHeaderGlowStyle = { textShadow: `0px 1px 6px ${sectionHeaderGlowColor}` } as const;
+  const sectionHeaderGlowStyle = {
+    textShadow: `0px 1px 6px ${sectionHeaderGlowColor}`,
+  } as unknown as TextStyle;
 
   const q = controller.query.trim();
   const len = q.length;

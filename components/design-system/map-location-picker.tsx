@@ -11,7 +11,7 @@ import { Search } from 'lucide-react-native';
 import { useCallback, useEffect, useState } from 'react';
 import type { MapEvent, MapMouseEvent } from 'react-map-gl/mapbox-legacy';
 import { default as MapGL, Marker } from 'react-map-gl/mapbox-legacy';
-import type { StyleProp, TextStyle, ViewStyle } from 'react-native';
+import type { DimensionValue, StyleProp, TextStyle, ViewStyle } from 'react-native';
 import {
   ActivityIndicator,
   Platform,
@@ -372,13 +372,15 @@ export function MapLocationPicker({
                 <Pressable
                   key={place.id}
                   onPress={() => handleSelectSearchResult(place)}
-                  style={({ pressed }) => [
-                    styles.searchResultRow,
-                    {
-                      borderBottomColor: colors.borderSubtle,
-                      backgroundColor: pressed ? colors.backgroundElevated : 'transparent',
-                    },
-                  ]}
+                  style={({ pressed }) =>
+                    [
+                      styles.searchResultRow,
+                      {
+                        borderBottomColor: colors.borderSubtle,
+                        backgroundColor: pressed ? colors.backgroundElevated : 'transparent',
+                      },
+                    ] as ViewStyle[]
+                  }
                   accessibilityRole="button"
                   accessibilityLabel={`Elegir ${place.name}`}
                 >
@@ -450,24 +452,28 @@ export function MapLocationPicker({
         }
       >
           <Pressable
-            style={({ pressed }: { pressed: boolean }) => [
+            style={({ pressed }: { pressed: boolean }) =>
+              [
                 styles.confirmButton,
                 {
                   backgroundColor:
                     confirming ? colors.border : pressed ? colors.text : colors.tint,
                 },
                 WebTouchManipulation,
-                Platform.OS === 'web' && {
-                  outlineWidth: 0,
-                  outlineStyle: 'none' as const,
-                  ...(confirmButtonFocused && {
-                    boxShadow:
-                      colorScheme === 'dark'
-                        ? '0 0 0 2px rgba(41,151,255,0.35)'
-                        : '0 0 0 2px rgba(0,113,227,0.35)',
-                  }),
-                },
-              ]}
+                Platform.OS === 'web'
+                  ? {
+                      outlineWidth: 0,
+                      outlineStyle: 'none' as const,
+                      ...(confirmButtonFocused && {
+                        boxShadow:
+                          colorScheme === 'dark'
+                            ? '0 0 0 2px rgba(41,151,255,0.35)'
+                            : '0 0 0 2px rgba(0,113,227,0.35)',
+                      }),
+                    }
+                  : {},
+              ] as ViewStyle[]
+            }
             onPress={handleConfirm}
             onFocus={() => setConfirmButtonFocused(true)}
             onBlur={() => setConfirmButtonFocused(false)}
@@ -494,10 +500,10 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     ...Platform.select({
-      web: { minHeight: '40vh' },
+      web: { minHeight: '40vh' as DimensionValue },
       default: { minHeight: 300 },
     }),
-  },
+  } satisfies ViewStyle,
   searchPanel: {
     flexShrink: 0,
     borderBottomWidth: 1,
@@ -506,7 +512,7 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
     maxHeight: 220,
     zIndex: 2,
-  },
+  } satisfies ViewStyle,
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -515,59 +521,59 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
-  },
+  } satisfies ViewStyle,
   searchInput: {
     flex: 1,
     fontSize: 16,
     paddingVertical: 4,
     ...Platform.select({
-      web: { outlineStyle: 'none' as const },
+      web: { outlineWidth: 0 },
       default: {},
     }),
-  },
+  } as TextStyle,
   searchLoadingRow: {
     paddingVertical: Spacing.sm,
     alignItems: 'center',
-  },
+  } satisfies ViewStyle,
   searchResultsScroll: {
     maxHeight: 140,
     marginTop: Spacing.sm,
-  },
+  } satisfies ViewStyle,
   searchResultRow: {
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.xs,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
+  } satisfies ViewStyle,
   searchResultTitle: {
     fontSize: 15,
     fontWeight: '600',
-  },
+  } satisfies TextStyle,
   searchResultSub: {
     fontSize: 13,
     marginTop: 2,
-  },
+  } satisfies TextStyle,
   mapWrap: {
     flex: 1,
     minHeight: 200,
     width: '100%',
-  },
+  } satisfies ViewStyle,
   map: {
     flex: 1,
     width: '100%',
     height: '100%',
-  },
+  } satisfies ViewStyle,
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
+  } satisfies ViewStyle,
   placeholderText: {
     fontSize: 14,
-  },
+  } satisfies TextStyle,
   controlsOverlay: {
     position: 'absolute',
     right: CONTROLS_RIGHT,
     bottom: CONTROLS_BOTTOM,
-  },
+  } satisfies ViewStyle,
   /** Barra del CTA pegada al borde inferior; sin envolvente, solo padding para el botón. */
   ctaBar: {
     position: 'absolute',
@@ -576,16 +582,16 @@ const styles = StyleSheet.create({
     bottom: 0,
     paddingHorizontal: Spacing.base,
     paddingTop: Spacing.base,
-  },
+  } satisfies ViewStyle,
   confirmButton: {
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.lg,
     borderRadius: Radius.md,
     alignItems: 'center',
     justifyContent: 'center',
-  },
+  } satisfies ViewStyle,
   confirmLabel: {
     fontSize: 17,
     fontWeight: '600',
-  },
+  } satisfies TextStyle,
 });

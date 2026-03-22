@@ -4,7 +4,15 @@
  */
 
 import React, { forwardRef } from "react";
-import { Platform, StyleSheet, TextInput, View } from "react-native";
+import {
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextStyle,
+  type ViewStyle,
+} from "react-native";
 
 import {
     Colors,
@@ -54,23 +62,25 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
   const clearVisible = value.length > 0;
 
   return (
-    <View style={[styles.wrap, embedded && styles.wrapEmbedded]}>
+    <View style={[styles.wrap, embedded && styles.wrapEmbedded] as StyleProp<ViewStyle>}>
       <TextInput
         ref={ref}
-        style={[
-          styles.input,
-          {
-            backgroundColor: embedded
-              ? "transparent"
-              : colors.backgroundElevated,
-            borderColor: embedded ? "transparent" : colors.borderSubtle,
-            color: colors.text,
-            paddingRight: clearVisible ? 34 : Spacing.base,
-          },
-          embedded && styles.inputEmbedded,
-          WebTouchManipulation,
-          Platform.OS === 'web' && styles.inputFocusHidden,
-        ]}
+        style={
+          [
+            styles.input,
+            {
+              backgroundColor: embedded
+                ? "transparent"
+                : colors.backgroundElevated,
+              borderColor: embedded ? "transparent" : colors.borderSubtle,
+              color: colors.text,
+              paddingRight: clearVisible ? 34 : Spacing.base,
+            },
+            embedded && styles.inputEmbedded,
+            WebTouchManipulation as unknown as TextStyle,
+            Platform.OS === 'web' && styles.inputFocusHidden,
+          ] as StyleProp<TextStyle>
+        }
         placeholder={placeholder}
         placeholderTextColor={placeholderTextColor}
         value={value}
@@ -84,7 +94,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
         onBlur={onBlur}
       />
       {clearVisible ? (
-        <View style={styles.clearWrap}>
+        <View style={styles.clearWrap as StyleProp<ViewStyle>}>
           <ClearIconCircle
             onPress={onClear}
             accessibilityLabel="Limpiar búsqueda"
@@ -121,9 +131,8 @@ const styles = StyleSheet.create({
   },
   /** Web: ocultar outline/border de focus (evita el borde naranja). */
   inputFocusHidden: {
-    outlineStyle: 'none',
     outlineWidth: 0,
-  },
+  } as TextStyle,
   clearWrap: {
     position: "absolute",
     right: Spacing.sm,

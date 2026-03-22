@@ -200,13 +200,17 @@ export function MapPinSpot({
   return (
     <View
       style={[styles.spotPinWithLabel, { pointerEvents: 'box-none' }]}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => {
-        setIsHovered(false);
-        setIsPressed(false);
-      }}
-      onMouseDown={() => setIsPressed(true)}
-      onMouseUp={() => setIsPressed(false)}
+      {...(Platform.OS === 'web'
+        ? ({
+            onMouseEnter: () => setIsHovered(true),
+            onMouseLeave: () => {
+              setIsHovered(false);
+              setIsPressed(false);
+            },
+            onMouseDown: () => setIsPressed(true),
+            onMouseUp: () => setIsPressed(false),
+          } as Record<string, unknown>)
+        : {})}
     >
       <Animated.View
         style={[

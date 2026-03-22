@@ -17,7 +17,8 @@ import { Map, Marker } from 'react-map-gl/mapbox-legacy';
 
 try {
   // Evita ruido de warnings internos del style/featuresets; mantiene errores visibles.
-  mapboxgl.setLogLevel('error');
+  const g = mapboxgl as unknown as { setLogLevel?: (level: string) => void };
+  g.setLogLevel?.('error');
 } catch {
   // ignore
 }
