@@ -1,6 +1,6 @@
 /**
  * Design System: Map controls (canonical).
- * Controles canónicos del mapa: Ver el mundo, encuadre contextual, ubicación.
+ * Controles canónicos del mapa: Ver el mundo, encuadre contextual (ciclo zoom mismo lugar), ubicación.
  * Usa IconButton canónico (44×44 circular).
  */
 
@@ -8,7 +8,6 @@ import { Globe, Locate } from 'lucide-react-native';
 
 import { FrameWithDot } from '@/components/icons/FrameWithDot';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
@@ -16,16 +15,15 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { IconButton } from './icon-button';
 
-export type ActiveMapControl = 'world' | 'spot' | 'spot+user' | 'location' | 'location-north' | null;
+export type ActiveMapControl = 'world' | 'spot' | 'location' | 'location-north' | null;
 
 export type MapControlsProps = {
   map: MapboxMap | null;
   onLocate?: () => void;
   selectedSpot?: { id: string } | null;
   onViewWorld?: () => void;
+  /** Ciclo detalle → barrio → contexto sobre el mismo foco (spot/POI). */
   onReframeSpot?: () => void;
-  onReframeSpotAndUser?: () => void;
-  hasUserLocation?: boolean;
   activeMapControl?: ActiveMapControl;
 };
 
@@ -37,8 +35,6 @@ export function MapControls({
   selectedSpot = null,
   onViewWorld,
   onReframeSpot,
-  onReframeSpotAndUser,
-  hasUserLocation = false,
   activeMapControl = null,
 }: MapControlsProps) {
   const colorScheme = useColorScheme();
@@ -47,33 +43,7 @@ export function MapControls({
   const iconColor = enabled ? colors.text : colors.textSecondary;
 
   const showWorld = selectedSpot == null && typeof onViewWorld === 'function';
-  const showReframe =
-    selectedSpot != null &&
-    typeof onReframeSpot === 'function' &&
-    typeof onReframeSpotAndUser === 'function';
-
-  const nextReframeModeRef = useRef<'spot' | 'spot+user'>('spot');
-
-  useEffect(() => {
-    // Al cambiar de selección (o limpiar selección), el primer tap siempre prioriza spot.
-    nextReframeModeRef.current = 'spot';
-  }, [selectedSpot?.id]);
-
-  const handleReframePress = () => {
-    if (!showReframe) return;
-    if (!hasUserLocation) {
-      nextReframeModeRef.current = 'spot';
-      onReframeSpot?.();
-      return;
-    }
-    if (nextReframeModeRef.current === 'spot') {
-      onReframeSpot?.();
-      nextReframeModeRef.current = 'spot+user';
-    } else {
-      onReframeSpotAndUser?.();
-      nextReframeModeRef.current = 'spot';
-    }
-  };
+  const showReframe = selectedSpot != null && typeof onReframeSpot === 'function';
 
   const handleLocate = () => {
     if (onLocate) onLocate();
@@ -104,10 +74,10 @@ export function MapControls({
       {showReframe ? (
         <IconButton
           variant="default"
-          onPress={handleReframePress}
+          onPress={onReframeSpot}
           disabled={!enabled}
-          selected={activeMapControl === 'spot' || activeMapControl === 'spot+user'}
-          accessibilityLabel="Encuadre contextual"
+          selected={activeMapControl === 'spot'}
+          accessibilityLabel="Encuadre del lugar"
         >
           <FrameWithDot size={ICON_SIZE} color={enabled ? colors.text : colors.textSecondary} strokeWidth={2} />
         </IconButton>

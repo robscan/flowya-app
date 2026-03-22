@@ -12,6 +12,9 @@ import {
   SPOT_FOCUS_ZOOM,
 } from '@/lib/map-core/constants';
 
+/** Segundo paso del ciclo de encuadre: vista general (mismo centro); más bajo = más zoom out. */
+export const SPOT_REFRAME_CYCLE_WIDE_ZOOM = 10;
+
 /** Metadatos guardados en spots creados desde Mapbox Search para reutilizar encuadre. */
 export type SpotCameraFraming = {
   bbox?: { west: number; south: number; east: number; north: number };
@@ -155,5 +158,29 @@ export function applyExploreCameraForPlace(
       zoom: useWideAreaZoom ? getAreaFallbackZoom(place) : SPOT_FOCUS_ZOOM,
       duration,
     },
+  );
+}
+
+/**
+ * Ciclo de encuadre sobre el mismo ancla (sin ubicación del usuario).
+ * Paso par (0,2,…): encuadre contextual — `fitBounds` cuando hay bbox y aplica, si no `flyTo` con zoom de área o detalle (`applyExploreCameraForPlace`).
+ * Paso impar (1,3,…): zoom general (mismo centro, `SPOT_REFRAME_CYCLE_WIDE_ZOOM`).
+ */
+export function applyPlaceReframeCycle(
+  map: MapboxMap | null,
+  place: PlaceResult,
+  stepMod2: number,
+  flyTo: (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => void,
+  options?: { duration?: number },
+): void {
+  const duration = options?.duration ?? FIT_BOUNDS_DURATION_MS;
+  const step = ((stepMod2 % 2) + 2) % 2;
+  if (step === 0) {
+    applyExploreCameraForPlace(map, place, flyTo, { duration });
+    return;
+  }
+  flyTo(
+    { lng: place.lng, lat: place.lat },
+    { zoom: SPOT_REFRAME_CYCLE_WIDE_ZOOM, duration },
   );
 }
