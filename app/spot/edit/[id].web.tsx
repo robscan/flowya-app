@@ -1,9 +1,16 @@
 import "@/styles/mapbox-attribution-overrides.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 
+import { useFocusEffect } from "@react-navigation/native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { ArrowLeft, MapPin, X } from "lucide-react-native";
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { default as MapGL, Marker } from "react-map-gl/mapbox-legacy";
 import {
   ActivityIndicator,
@@ -39,6 +46,7 @@ import {
   inferTappedKindFromPlace,
 } from "@/lib/explore/map-screen-orchestration";
 import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
+import { blurActiveElement } from "@/lib/focus-management";
 import { featureFlags } from "@/lib/feature-flags";
 import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
@@ -206,6 +214,41 @@ export default function EditSpotScreenWeb() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const screenRootRef = useRef<View>(null);
+
+  /** Evita aria-hidden en ancestro mientras un botón de la pantalla anterior conserva foco (web). */
+  const blurIfFocusOutsideScreenRoot = useCallback(() => {
+    if (typeof document === "undefined") return;
+    const active = document.activeElement as HTMLElement | null;
+    const root = screenRootRef.current as unknown as HTMLElement | null;
+    if (!active || !root || typeof root.contains !== "function") return;
+    if (!root.contains(active)) {
+      blurActiveElement();
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const id = requestAnimationFrame(() => {
+        if (typeof document === "undefined") return;
+        const root = screenRootRef.current as unknown as HTMLElement | null;
+        // Mientras loading/error sin ref, el foco puede seguir en el sheet (aria-hidden).
+        if (!root) {
+          blurActiveElement();
+          return;
+        }
+        blurIfFocusOutsideScreenRoot();
+      });
+      return () => cancelAnimationFrame(id);
+    }, [blurIfFocusOutsideScreenRoot]),
+  );
+
+  /** Tras cargar el spot, el ref del root ya existe; sin esto el primer useFocusEffect podía no alcanzar el árbol. */
+  useLayoutEffect(() => {
+    if (loading || !spot?.id) return;
+    const id = requestAnimationFrame(blurIfFocusOutsideScreenRoot);
+    return () => cancelAnimationFrame(id);
+  }, [loading, spot?.id, blurIfFocusOutsideScreenRoot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -356,8 +399,13 @@ export default function EditSpotScreenWeb() {
       updates.address = locationDraft.address;
       if (locationDraft.selectedPlace) {
         const p = locationDraft.selectedPlace;
-        updates.mapbox_bbox = p.bbox ?? null;
-        updates.mapbox_feature_type = p.featureType ?? null;
+        // Solo persistir si Mapbox envía bbox/tipo; si no, no incluir columnas (evita borrar con null).
+        if (p.bbox != null) {
+          updates.mapbox_bbox = p.bbox;
+        }
+        if (p.featureType != null && String(p.featureType).trim() !== "") {
+          updates.mapbox_feature_type = p.featureType;
+        }
         const stableId = getStablePlaceId(p);
         if (stableId) {
           updates.link_status = "linked";
@@ -496,6 +544,7 @@ export default function EditSpotScreenWeb() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <View
+        ref={screenRootRef}
         style={[
           styles.root,
           { backgroundColor: colors.background },
@@ -728,6 +777,7 @@ export default function EditSpotScreenWeb() {
                       openAuthModal({ message: AUTH_MODAL_MESSAGES.editSpot });
                       return;
                     }
+                    blurActiveElement();
                     setShowLocationPicker(true);
                   }}
                 />
@@ -767,7 +817,10 @@ export default function EditSpotScreenWeb() {
                   },
                   WebTouchManipulation,
                 ]}
-                onPress={() => setShowDeleteConfirm(true)}
+                onPress={() => {
+                  blurActiveElement();
+                  setShowDeleteConfirm(true);
+                }}
                 disabled={isDeleting}
                 accessibilityLabel={
                   isDeleting ? "Eliminando…" : "Eliminar spot"
@@ -842,8 +895,8 @@ export default function EditSpotScreenWeb() {
                 Selecciona la ubicación del spot
               </Text>
               <Text style={[styles.locationPickerSubtitle, { color: colors.textSecondary }]}>
-                Busca un lugar arriba o coloca el pin en el mapa. Al elegir un resultado de búsqueda se
-                guardan datos de encuadre Mapbox.
+                Busca el lugar o mueve el pin en el mapa. Si eliges un resultado de la lista, la vista se
+                ajusta mejor a ese lugar.
               </Text>
             </View>
             <Pressable

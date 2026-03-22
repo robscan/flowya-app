@@ -38,6 +38,8 @@ type ForwardFeature = {
     feature_type?: string;
     maki?: string;
     poi_category?: string[] | string;
+    /** v6: [minLon, minLat, maxLon, maxLat] en properties (país, región, place, etc.). */
+    bbox?: [number, number, number, number];
   };
 };
 
@@ -142,7 +144,7 @@ export async function searchPlaces(
         fullName: fullName || undefined,
         lat,
         lng,
-        bbox: parseBBox(f.bbox),
+        bbox: parseBBox(f.bbox ?? f.properties?.bbox),
         source: 'mapbox',
         maki: f.properties?.maki?.trim() || undefined,
         featureType: f.properties?.feature_type?.trim() || undefined,

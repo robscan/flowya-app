@@ -66,6 +66,7 @@ import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-ut
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import {
   applyExploreCameraForPlace,
+  placeResultFromSpotForCamera,
   shouldFitBoundsForPlace,
 } from "@/lib/places/areaFraming";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
@@ -210,6 +211,10 @@ type CountryBucket = {
   label: string;
   count: number;
 };
+
+/** Columnas al cargar un spot para mapa + encuadre (fitBounds con mapbox_bbox). */
+const SPOT_SELECT_FOR_MAP =
+  "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type";
 
 const COUNTRY_ALIAS_OVERRIDES: Record<string, string> = {
   "united states of america": "US",
@@ -733,11 +738,7 @@ export function MapScreenVNext() {
           /[?&](spotId|created)=/.test(window.location?.search ?? "")),
     ),
   );
-  const pendingDeepLinkFocusRef = useRef<{
-    id: string;
-    lng: number;
-    lat: number;
-  } | null>(null);
+  const pendingDeepLinkFocusRef = useRef<Spot | null>(null);
 
   useEffect(() => {
     if (params.spotId || params.created) {
@@ -778,9 +779,7 @@ export function MapScreenVNext() {
   const refetchSpots = useCallback(async () => {
     const { data } = await supabase
       .from("spots")
-      .select(
-        "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type",
-      )
+      .select(SPOT_SELECT_FOR_MAP)
       .eq("is_hidden", false);
     const list = (data ?? []) as Omit<
       Spot,
@@ -1113,30 +1112,41 @@ export function MapScreenVNext() {
     suspendFilterUntilCameraSettles,
   ]);
 
+  /** Misma heurística que useMapCore reframe + búsqueda (fitBounds si hay mapbox_bbox). */
+  const focusCameraOnSpot = useCallback(
+    (spot: Spot) => {
+      if (!mapInstance) return;
+      suspendFilterUntilCameraSettles();
+      applyExploreCameraForPlace(
+        mapInstance,
+        placeResultFromSpotForCamera(spot, {
+          bbox: spot.mapbox_bbox ?? undefined,
+          featureType: spot.mapbox_feature_type ?? null,
+          maki: spot.linked_maki ?? null,
+        }),
+        flyToUnlessActMode,
+      );
+    },
+    [mapInstance, flyToUnlessActMode, suspendFilterUntilCameraSettles],
+  );
+
   const queueDeepLinkFocus = useCallback(
     (spot: Spot) => {
-      const payload = { id: spot.id, lng: spot.longitude, lat: spot.latitude };
-      pendingDeepLinkFocusRef.current = payload;
+      pendingDeepLinkFocusRef.current = spot;
       if (!mapInstance) return;
-      flyToUnlessActMode(
-        { lng: payload.lng, lat: payload.lat },
-        { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-      );
+      focusCameraOnSpot(spot);
       pendingDeepLinkFocusRef.current = null;
     },
-    [mapInstance, flyToUnlessActMode],
+    [mapInstance, focusCameraOnSpot],
   );
 
   useEffect(() => {
     if (!mapInstance) return;
     const pending = pendingDeepLinkFocusRef.current;
     if (!pending) return;
-    flyToUnlessActMode(
-      { lng: pending.lng, lat: pending.lat },
-      { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-    );
+    focusCameraOnSpot(pending);
     pendingDeepLinkFocusRef.current = null;
-  }, [mapInstance, flyToUnlessActMode]);
+  }, [mapInstance, focusCameraOnSpot]);
 
   const contextualSelection = useMemo<{ id: string } | null>(() => {
     if (selectedSpot) return { id: selectedSpot.id };
@@ -1930,9 +1940,7 @@ export function MapScreenVNext() {
     (async () => {
       const { data, error } = await supabase
         .from("spots")
-        .select(
-          "id, title, description_short, description_long, cover_image_url, address, latitude, longitude",
-        )
+        .select(SPOT_SELECT_FOR_MAP)
         .eq("id", spotId)
         .eq("is_hidden", false)
         .single();
@@ -1990,9 +1998,7 @@ export function MapScreenVNext() {
     (async () => {
       const { data, error } = await supabase
         .from("spots")
-        .select(
-          "id, title, description_short, description_long, cover_image_url, address, latitude, longitude",
-        )
+        .select(SPOT_SELECT_FOR_MAP)
         .eq("id", createdId)
         .eq("is_hidden", false)
         .single();
@@ -2023,17 +2029,6 @@ export function MapScreenVNext() {
       cancelled = true;
     };
   }, [params.created, spots, router, queueDeepLinkFocus, setPinFilter, setSheetState]);
-
-  /** Encuadrar cámara en spot cuando volvemos de edit (spotId) o create (created). OL-WOW-F2-005 act: no flyTo durante create/placing. */
-  useEffect(() => {
-    const deepLinkSpotId = params.spotId ?? params.created;
-    if (!deepLinkSpotId || !mapInstance || !selectedSpot || selectedSpot.id !== deepLinkSpotId)
-      return;
-    flyToUnlessActMode(
-      { lng: selectedSpot.longitude, lat: selectedSpot.latitude },
-      { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS }
-    );
-  }, [params.spotId, params.created, mapInstance, selectedSpot, flyToUnlessActMode]);
 
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(
@@ -2620,16 +2615,13 @@ export function MapScreenVNext() {
         setSelectedSpot(fromList);
         setSheetState("medium");
         addRecentViewedSpotId(fromList.id);
-        flyToUnlessActMode(
-          { lng: fromList.longitude, lat: fromList.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
-        );
+        focusCameraOnSpot(fromList);
         return;
       }
       (async () => {
         const { data, error } = await supabase
           .from("spots")
-          .select("id, title, description_short, description_long, cover_image_url, address, latitude, longitude")
+          .select(SPOT_SELECT_FOR_MAP)
           .eq("id", spotId)
           .eq("is_hidden", false)
           .single();
@@ -2647,13 +2639,10 @@ export function MapScreenVNext() {
         setSelectedSpot(spot);
         setSheetState("medium");
         addRecentViewedSpotId(spot.id);
-        flyToUnlessActMode(
-          { lng: spot.longitude, lat: spot.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: 600 },
-        );
+        focusCameraOnSpot(spot);
       })();
     },
-    [spots, flyToUnlessActMode, setPinFilter, setSheetState],
+    [spots, focusCameraOnSpot, setPinFilter, setSheetState],
   );
 
   const patchSpotSearchMetadata = useCallback(
@@ -4611,8 +4600,12 @@ export function MapScreenVNext() {
           }
           onEdit={
             selectedSpot
-              ? (spotId) =>
-                  (router.push as (href: string) => void)(`/spot/edit/${spotId}`)
+              ? (spotId) => {
+                  blurActiveElement();
+                  (router.push as (href: string) => void)(
+                    `/spot/edit/${spotId}`,
+                  );
+                }
               : undefined
           }
           isPlacingDraftSpot={isPlacingDraftSpot}
