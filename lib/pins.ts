@@ -100,7 +100,7 @@ export async function setSaved(spotId: string, value: boolean): Promise<PinState
         visited: nextVisited,
         status: statusLegacy,
       },
-      { onConflict: ['user_id', 'spot_id'] }
+      { onConflict: 'user_id,spot_id' }
     )
     .select('saved, visited')
     .single();
@@ -133,7 +133,7 @@ export async function setVisited(spotId: string, value: boolean): Promise<PinSta
         visited: nextVisited,
         status: statusLegacy,
       },
-      { onConflict: ['user_id', 'spot_id'] }
+      { onConflict: 'user_id,spot_id' }
     )
     .select('saved, visited')
     .single();
@@ -172,7 +172,7 @@ export async function setPinState(
         visited: normalized.visited,
         status: statusLegacy,
       },
-      { onConflict: ['user_id', 'spot_id'] }
+      { onConflict: 'user_id,spot_id' }
     )
     .select('saved, visited')
     .single();
@@ -219,7 +219,7 @@ export async function setPinStatus(
         visited,
         status,
       },
-      { onConflict: ['user_id', 'spot_id'] }
+      { onConflict: 'user_id,spot_id' }
     )
     .select('saved, visited')
     .single();

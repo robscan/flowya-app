@@ -1,3 +1,4 @@
+import type { ExpressionSpecification } from "mapbox-gl";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -298,7 +299,7 @@ export function CountriesMapPreview({
                   normalizedCodesRef.current,
                   highlightColor,
                   resolvedBaseCountryColor,
-                ),
+                ) as ExpressionSpecification,
                 "fill-outline-color": resolvedBaseCountryColor,
                 "fill-opacity": 1,
                 "fill-antialias": true,

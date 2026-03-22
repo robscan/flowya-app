@@ -182,7 +182,7 @@ export type SpotSheetProps = {
   onImagePress?: (uri: string) => void;
   /** Etiquetas del spot en el sheet (solo lectura). */
   sheetTagChips?: { id: string; label: string }[];
-  /** Tap en chip: buscador en «Todos» con filtro por esa etiqueta. */
+  /** Tap en chip: buscador en Por visitar o Visitados con filtro por esa etiqueta. */
   onSheetTagChipPress?: (tagId: string) => void;
   /** Abrir modal de etiquetar (mismo flujo que en listados). */
   onSheetEtiquetarPress?: () => void;
@@ -880,7 +880,7 @@ function SpotSheetBody({
           isVisited={isVisited}
           isDraft={isDraft}
           colors={colors}
-          colorScheme={colorScheme}
+          colorScheme={colorScheme ?? 'light'}
           handleSavePin={handleSavePin}
           onImagePress={onImagePress}
           distanceKmVal={distanceKmVal}
@@ -1165,12 +1165,7 @@ export function SpotSheet({
       easing: EASING_SHEET,
     });
     onStateChange(next);
-    const nextH =
-      next === "peek"
-        ? collapsedAnchor
-        : next === "medium"
-          ? mediumVisible
-          : expandedVisible;
+    const nextH = next === "medium" ? mediumVisible : expandedVisible;
     onSheetHeightChange?.(nextH);
   }, [
     state,
@@ -1393,7 +1388,7 @@ export function SpotSheet({
         isSaved={isSaved}
         isVisited={isVisited}
         colors={colors}
-        colorScheme={colorScheme}
+        colorScheme={colorScheme ?? 'light'}
         handleSavePin={handleSavePin}
         draftCoverUri={draftCoverUri}
         onDraftCoverChange={onDraftCoverChange}

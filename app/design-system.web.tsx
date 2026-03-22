@@ -85,7 +85,7 @@ export default function DesignSystemScreen() {
           </Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Uso en modal de asignación, sugerencias y chips en cards. La fila de filtro del buscador (Todos + #
+              Uso en modal de asignación, sugerencias y chips en cards. La fila de filtro del buscador (Cualquiera + #
               nombre) vive en SearchSurface con estilos propios — no duplicar como TagChip.
             </Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' }}>

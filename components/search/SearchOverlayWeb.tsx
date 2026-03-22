@@ -9,7 +9,7 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View, type DimensionValue, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchSurface } from './SearchSurface';
 import type { SearchFloatingProps } from './types';
@@ -90,17 +90,18 @@ export function SearchOverlayWeb<T>({
     savedScrollYRef.current = scrollY;
     savedOverflowRef.current = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    (document.body.style as Record<string, string>).position = 'fixed';
-    (document.body.style as Record<string, string>).top = `-${scrollY}px`;
-    (document.body.style as Record<string, string>).left = '0';
-    (document.body.style as Record<string, string>).right = '0';
-    (document.body.style as Record<string, string>).overscrollBehavior = 'none';
+    const bodyStyle = document.body.style as unknown as Record<string, string>;
+    bodyStyle.position = 'fixed';
+    bodyStyle.top = `-${scrollY}px`;
+    bodyStyle.left = '0';
+    bodyStyle.right = '0';
+    bodyStyle.overscrollBehavior = 'none';
     return () => {
-      (document.body.style as Record<string, string>).position = '';
-      (document.body.style as Record<string, string>).top = '';
-      (document.body.style as Record<string, string>).left = '';
-      (document.body.style as Record<string, string>).right = '';
-      (document.body.style as Record<string, string>).overscrollBehavior = '';
+      bodyStyle.position = '';
+      bodyStyle.top = '';
+      bodyStyle.left = '';
+      bodyStyle.right = '';
+      bodyStyle.overscrollBehavior = '';
       document.body.style.overflow = savedOverflowRef.current ?? '';
       savedOverflowRef.current = null;
       window.scrollTo(0, savedScrollYRef.current);
@@ -216,7 +217,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'transparent',
     zIndex: 15,
-  },
+  } satisfies ViewStyle,
   overlayWebFixed:
     Platform.OS === 'web'
       ? {
@@ -224,13 +225,13 @@ const styles = StyleSheet.create({
           top: 0,
           left: 0,
           right: 0,
-          height: 'var(--app-height, 100dvh)',
+          height: 'var(--app-height, 100dvh)' as DimensionValue,
         }
-      : {},
+      : ({} satisfies ViewStyle),
   backdropWebLock:
     Platform.OS === 'web'
       ? { touchAction: 'none' as const }
-      : {},
+      : ({} satisfies ViewStyle),
   backdrop: {
     position: 'absolute',
     left: 0,
@@ -238,16 +239,16 @@ const styles = StyleSheet.create({
     top: 0,
     bottom: 0,
     backgroundColor: 'transparent',
-  },
+  } satisfies ViewStyle,
   panel: {
     flex: 1,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: 'hidden',
-  },
+  } satisfies ViewStyle,
   /** Asegura scroll vertical en listados dentro del overlay (web). */
   panelWebScroll:
     Platform.OS === 'web'
       ? { touchAction: 'pan-y' as const }
-      : {},
+      : ({} satisfies ViewStyle),
 });

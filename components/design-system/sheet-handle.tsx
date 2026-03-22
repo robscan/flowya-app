@@ -35,8 +35,12 @@ export function SheetHandle({ onPress }: SheetHandleProps = {}) {
       onPress={onPress}
       accessibilityLabel="Arrastrar"
       accessibilityRole="none"
-      onMouseEnter={Platform.OS === 'web' ? () => setHovered(true) : undefined}
-      onMouseLeave={Platform.OS === 'web' ? () => setHovered(false) : undefined}
+      {...(Platform.OS === 'web'
+        ? ({
+            onMouseEnter: () => setHovered(true),
+            onMouseLeave: () => setHovered(false),
+          } as Record<string, unknown>)
+        : {})}
     >
       <View style={[styles.bar, { backgroundColor: barColor }]} />
     </Pressable>

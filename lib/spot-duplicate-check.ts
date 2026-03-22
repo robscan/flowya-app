@@ -1,6 +1,7 @@
 /**
  * Scope G: prevención de duplicados al crear spots.
- * Regla: mismo título normalizado + ubicación dentro del radio (metros).
+ * Regla base: mismo título normalizado + ubicación dentro del radio (metros).
+ * Capa adicional: misma dirección normalizada (cuando hay address en cliente o en BD).
  * Sin índices nuevos; consulta por bbox y filtro en cliente. Fail-open si falla la validación.
  */
 
@@ -8,6 +9,9 @@ import { supabase } from '@/lib/supabase';
 
 /** Radio por defecto para considerar duplicado (metros). */
 export const DEFAULT_DUPLICATE_RADIUS_METERS = 150;
+
+/** Longitud mínima de clave de dirección para considerar match (evita "Calle 1"). */
+const MIN_ADDRESS_KEY_LEN = 10;
 
 /**
  * Normaliza el título para comparación:
@@ -22,6 +26,12 @@ export function normalizeSpotTitle(title: string): string {
     .replace(/\p{Diacritic}/gu, '');
   const lower = withoutAccents.toLowerCase();
   return lower.replace(/\s+/g, ' ').trim();
+}
+
+/** Normaliza dirección para dedupe (misma semántica que título). */
+export function normalizeAddressKey(address: string | null | undefined): string {
+  if (address == null) return '';
+  return normalizeSpotTitle(address);
 }
 
 /** Distancia haversine entre dos puntos en metros (radio terrestre ≈ 6_371_000 m). */
@@ -57,20 +67,28 @@ export type DuplicateCheckResult =
   | { duplicate: false }
   | { duplicate: true; existingTitle: string; existingSpotId: string };
 
+export type DuplicateCheckOptions = {
+  /** Dirección en el momento de crear (mejora match cuando el título difiere o el radio falla). */
+  address?: string | null;
+};
+
 /**
- * Comprueba si ya existe un spot duplicado (mismo título normalizado y dentro del radio).
- * Consulta por bbox para no traer toda la tabla; filtra por distancia haversine y título en cliente.
+ * Comprueba si ya existe un spot duplicado (mismo título normalizado y dentro del radio,
+ * o misma dirección normalizada dentro del radio).
+ * Consulta por bbox para no traer toda la tabla; filtra por distancia haversine en cliente.
  * Si la consulta falla (red, etc.): devuelve { duplicate: false } (fail-open).
  */
 export async function checkDuplicateSpot(
   title: string,
   latitude: number,
   longitude: number,
-  radiusMeters: number = DEFAULT_DUPLICATE_RADIUS_METERS
+  radiusMeters: number = DEFAULT_DUPLICATE_RADIUS_METERS,
+  options?: DuplicateCheckOptions
 ): Promise<DuplicateCheckResult> {
   const normalized = normalizeSpotTitle(title);
   if (!normalized) return { duplicate: false };
 
+  const inputAddressKey = normalizeAddressKey(options?.address ?? '');
   const delta = bboxDelta(radiusMeters * 4);
   const latMin = latitude - delta;
   const latMax = latitude + delta;
@@ -79,7 +97,7 @@ export async function checkDuplicateSpot(
 
   const { data, error } = await supabase
     .from('spots')
-    .select('id, title, latitude, longitude')
+    .select('id, title, latitude, longitude, address')
     .eq('is_hidden', false)
     .gte('latitude', latMin)
     .lte('latitude', latMax)
@@ -96,7 +114,21 @@ export async function checkDuplicateSpot(
       row.latitude,
       row.longitude
     );
-    if (dist <= radiusMeters && normalizeSpotTitle(row.title) === normalizedInput) {
+    if (dist > radiusMeters) continue;
+
+    const titleMatch = normalizeSpotTitle(row.title) === normalizedInput;
+    if (titleMatch) {
+      return { duplicate: true, existingTitle: row.title, existingSpotId: row.id };
+    }
+
+    const rowAddressKey = normalizeAddressKey(
+      typeof row.address === 'string' ? row.address : null
+    );
+    if (
+      inputAddressKey.length >= MIN_ADDRESS_KEY_LEN &&
+      rowAddressKey.length >= MIN_ADDRESS_KEY_LEN &&
+      inputAddressKey === rowAddressKey
+    ) {
       return { duplicate: true, existingTitle: row.title, existingSpotId: row.id };
     }
   }

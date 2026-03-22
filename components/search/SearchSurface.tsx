@@ -21,6 +21,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import { Search, Trash2, X } from 'lucide-react-native';
@@ -30,6 +31,12 @@ import type { SearchFloatingProps } from './types';
 
 const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
+
+/** Web: evita selección de texto en long-press (modo edición de chips). */
+const webTagChipNoSelect =
+  Platform.OS === 'web'
+    ? ({ userSelect: 'none', WebkitUserSelect: 'none' } as const)
+    : null;
 
 export type SearchSurfaceProps<T> = SearchFloatingProps<T> & {
   /** Callback al cerrar (pasado por adapter). */
@@ -83,7 +90,9 @@ export function SearchSurface<T>({
   const sectionHeaderColor = colorScheme === 'dark' ? '#EEF3FF' : colors.textSecondary;
   const sectionHeaderGlowColor =
     colorScheme === 'dark' ? 'rgba(0,0,0,0.55)' : 'rgba(255,255,255,0.85)';
-  const sectionHeaderGlowStyle = { textShadow: `0px 1px 6px ${sectionHeaderGlowColor}` } as const;
+  const sectionHeaderGlowStyle = {
+    textShadow: `0px 1px 6px ${sectionHeaderGlowColor}`,
+  } as unknown as TextStyle;
 
   const q = controller.query.trim();
   const len = q.length;
@@ -164,24 +173,26 @@ export function SearchSurface<T>({
               }}
               style={[
                 styles.tagFilterChip,
+                webTagChipNoSelect,
                 {
                   backgroundColor: selectedTagFilterId == null ? colors.tint : colors.background,
                   borderColor: colors.borderSubtle,
                   opacity: tagFilterEditMode ? 0.75 : 1,
                 },
               ]}
-              accessibilityLabel="Mostrar todos los spots"
+              accessibilityLabel="Sin filtrar por etiqueta"
               accessibilityRole="button"
               accessibilityState={{ selected: selectedTagFilterId == null }}
             >
               <Text
                 style={[
                   styles.tagFilterChipLabel,
+                  webTagChipNoSelect,
                   { color: selectedTagFilterId == null ? colors.background : colors.text },
                 ]}
                 numberOfLines={1}
               >
-                Todos
+                Cualquiera
               </Text>
             </Pressable>
             {tagFilterOptions.map((opt) => {
@@ -208,7 +219,7 @@ export function SearchSurface<T>({
               return (
                 <View
                   key={opt.id}
-                  style={[styles.tagFilterChip, styles.tagFilterChipInner, chipColors]}
+                  style={[styles.tagFilterChip, styles.tagFilterChipInner, chipColors, webTagChipNoSelect]}
                 >
                   <Pressable
                     onPress={() => {
@@ -228,7 +239,10 @@ export function SearchSurface<T>({
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
                   >
-                    <Text style={[styles.tagFilterChipLabel, { color: chipLabelColor }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.tagFilterChipLabel, webTagChipNoSelect, { color: chipLabelColor }]}
+                      numberOfLines={1}
+                    >
                       #{opt.name}
                       {opt.count > 0 ? ` (${opt.count})` : ''}
                     </Text>

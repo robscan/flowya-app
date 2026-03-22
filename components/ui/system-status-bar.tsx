@@ -194,7 +194,7 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
                 Platform.OS === 'web' && { cursor: 'pointer' as const },
               ]}
             >
-              <View accessibilityRole="status" accessibilityLiveRegion="polite">
+              <View accessibilityLiveRegion="polite">
                 {messages.map((message) => (
                   <Text
                     key={message.id}
