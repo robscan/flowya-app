@@ -34,9 +34,13 @@ import {
 } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import {
+  getStablePlaceId,
+  inferTappedKindFromPlace,
+} from "@/lib/explore/map-screen-orchestration";
 import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
 import { featureFlags } from "@/lib/feature-flags";
-import { resolveSpotLink } from "@/lib/spot-linking/resolveSpotLink";
+import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { uploadSpotCover } from "@/lib/spot-image-upload";
 import { supabase } from "@/lib/supabase";
@@ -56,6 +60,13 @@ type SpotEdit = {
   latitude: number;
   longitude: number;
   address: string | null;
+  mapbox_bbox?: {
+    west: number;
+    south: number;
+    east: number;
+    north: number;
+  } | null;
+  mapbox_feature_type?: string | null;
 };
 
 /** Re-consulta el spot por id (sin filtrar is_hidden) y loguea en __DEV__. */
@@ -232,7 +243,7 @@ export default function EditSpotScreenWeb() {
       const { data, error } = await supabase
         .from("spots")
         .select(
-          "id, title, description_short, description_long, cover_image_url, latitude, longitude, address",
+          "id, title, description_short, description_long, cover_image_url, latitude, longitude, address, mapbox_bbox, mapbox_feature_type",
         )
         .eq("id", id)
         .eq("is_hidden", false)
@@ -343,7 +354,29 @@ export default function EditSpotScreenWeb() {
       updates.latitude = locationDraft.latitude;
       updates.longitude = locationDraft.longitude;
       updates.address = locationDraft.address;
-      if (featureFlags.linkOnEditSave) {
+      if (locationDraft.selectedPlace) {
+        const p = locationDraft.selectedPlace;
+        updates.mapbox_bbox = p.bbox ?? null;
+        updates.mapbox_feature_type = p.featureType ?? null;
+        const stableId = getStablePlaceId(p);
+        if (stableId) {
+          updates.link_status = "linked";
+          updates.linked_place_id = stableId;
+          updates.linked_place_kind = inferTappedKindFromPlace(p);
+          updates.linked_maki = p.maki ?? null;
+          updates.linked_at = new Date().toISOString();
+          updates.link_version = SPOT_LINK_VERSION;
+          updates.link_score = 1;
+        } else {
+          updates.link_status = "unlinked";
+          updates.linked_place_id = null;
+          updates.linked_place_kind = null;
+          updates.linked_maki = p.maki ?? null;
+          updates.linked_at = null;
+          updates.link_version = null;
+          updates.link_score = null;
+        }
+      } else if (featureFlags.linkOnEditSave) {
         const link = await resolveSpotLink({
           title: title.trim(),
           lat: locationDraft.latitude,
@@ -804,9 +837,15 @@ export default function EditSpotScreenWeb() {
               },
             ]}
           >
-            <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
-              Selecciona la ubicación del spot
-            </Text>
+            <View style={styles.locationPickerTitleBlock}>
+              <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
+                Selecciona la ubicación del spot
+              </Text>
+              <Text style={[styles.locationPickerSubtitle, { color: colors.textSecondary }]}>
+                Busca un lugar arriba o coloca el pin en el mapa. Al elegir un resultado de búsqueda se
+                guardan datos de encuadre Mapbox.
+              </Text>
+            </View>
             <Pressable
               style={styles.locationPickerCloseTouch}
               onPress={() => setShowLocationPicker(false)}
@@ -1028,15 +1067,25 @@ const styles = StyleSheet.create({
   },
   locationPickerHeader: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
     paddingHorizontal: Spacing.base,
     paddingVertical: Spacing.md,
     borderBottomWidth: 1,
+    gap: Spacing.sm,
+  },
+  locationPickerTitleBlock: {
+    flex: 1,
+    paddingRight: Spacing.sm,
+    gap: Spacing.xs,
   },
   locationPickerTitle: {
     fontSize: 17,
     fontWeight: "600",
+  },
+  locationPickerSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   locationPickerCloseTouch: {
     padding: Spacing.sm,
