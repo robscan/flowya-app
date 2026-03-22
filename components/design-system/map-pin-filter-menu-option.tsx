@@ -1,10 +1,9 @@
 /**
  * Fila canónica del menú desplegable MapPinFilter (DS).
- * Una sola línea: ícono + etiqueta (sin encoger texto) + metadatos (badge, check).
- * El ancho lo fija el contenido; no usar flex:1 en el label.
+ * Una sola línea: ícono + etiqueta (sin encoger texto) + metadatos (badge, pendiente).
+ * El estado activo se marca con borde izquierdo en el Pressable padre, sin check redundante.
  */
 
-import { Check } from 'lucide-react-native';
 import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import type { TextStyle } from 'react-native';
@@ -18,8 +17,6 @@ export type MapPinFilterMenuOptionProps = {
   labelColor: string;
   leadingIcon: React.ReactNode;
   countBadge?: React.ReactNode;
-  trailingCheck?: boolean;
-  checkColor: string;
   pendingDot?: React.ReactNode;
 };
 
@@ -28,8 +25,6 @@ export function MapPinFilterMenuOption({
   labelColor,
   leadingIcon,
   countBadge,
-  trailingCheck,
-  checkColor,
   pendingDot,
 }: MapPinFilterMenuOptionProps) {
   return (
@@ -52,11 +47,6 @@ export function MapPinFilterMenuOption({
       <View style={styles.meta}>
         {countBadge}
         {pendingDot}
-        {trailingCheck ? (
-          <Check size={18} color={checkColor} strokeWidth={2.5} />
-        ) : (
-          <View style={styles.checkPlaceholder} />
-        )}
       </View>
     </View>
   );
@@ -84,9 +74,5 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     gap: Spacing.xs,
     flexShrink: 0,
-  },
-  checkPlaceholder: {
-    width: 18,
-    height: 18,
   },
 });

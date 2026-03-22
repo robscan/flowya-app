@@ -404,8 +404,6 @@ export function MapPinFilter({
                   labelColor={colors.text}
                   leadingIcon={<FilterIcon value={opt.value} size={18} color={colors.text} />}
                   countBadge={countNode}
-                  trailingCheck={isSelected}
-                  checkColor={colors.tint}
                   pendingDot={pendingNode}
                 />
               </Pressable>
