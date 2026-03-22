@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { CheckCircle, ChevronRight, ImagePlus, Landmark, MapPin, Pencil, Pin } from 'lucide-react-native';
+import { CheckCircle, ChevronRight, Hash, ImagePlus, Landmark, Pencil, Pin } from 'lucide-react-native';
 
 import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
 import React, { useMemo, useRef, useState } from 'react';
@@ -7,9 +7,6 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
-const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
 
 export type SearchListCardProps = {
   title: string;
@@ -27,10 +24,12 @@ export type SearchListCardProps = {
   isLandmark?: boolean;
   /** Maki id (Mapbox) para icono de categoría (park, museum, etc.). Fallback: MapPin. */
   maki?: string | null;
+  /** OL-EXPLORE-TAGS-001: chips de etiquetas en resultados (todas las que tenga el spot). */
+  tagChips?: { id: string; label: string }[];
   quickActions?: {
     id: string;
     label: string;
-    kind: 'add_image' | 'edit_description';
+    kind: 'add_image' | 'edit_description' | 'add_tag';
     onPress: () => void;
     accessibilityLabel?: string;
   }[];
@@ -51,6 +50,7 @@ export function SearchListCard({
   distanceText = null,
   isLandmark = false,
   maki = null,
+  tagChips = [],
   quickActions = [],
 }: SearchListCardProps) {
   const INLINE_ACTION_SUPPRESS_MS = 650;
@@ -65,18 +65,31 @@ export function SearchListCard({
   );
   const addImageAction = quickActions.find((action) => action.kind === 'add_image');
   const editDescriptionAction = quickActions.find((action) => action.kind === 'edit_description');
+  const addTagAction = quickActions.find((action) => action.kind === 'add_tag');
   const hasLeadingMediaBlock = hasImage || addImageAction != null;
   const showPinStatusChip = pinStatus === 'to_visit' || pinStatus === 'visited';
+  const showTagChips = tagChips.length > 0;
   const suppressCardPressUntilRef = useRef(0);
-  const statusColor =
+  /** Chip de estado pin: muy tenue (solo borde teñido + texto secundario). */
+  const pinStatusMuted =
     pinStatus === 'visited'
-      ? FILTER_SELECTED_VISITED
-      : FILTER_SELECTED_TO_VISIT;
-  /** Negro en light para contraste sobre chip naranja/verde (por visitar/visitados). */
-  const statusForeground =
-    colorScheme === 'light' && showPinStatusChip ? '#1d1d1f' : colors.pin.default;
+      ? {
+          bg: colorScheme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+          border: colorScheme === 'dark' ? 'rgba(48,209,88,0.12)' : 'rgba(52,199,89,0.14)',
+          fg: colors.textSecondary,
+        }
+      : {
+          bg: colorScheme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)',
+          border: colorScheme === 'dark' ? 'rgba(255,159,10,0.12)' : 'rgba(230,134,43,0.14)',
+          fg: colors.textSecondary,
+        };
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
-  const showRankingSignals = distanceText != null || isLandmark || showPinStatusChip;
+  const showRankingSignals =
+    distanceText != null ||
+    isLandmark ||
+    showPinStatusChip ||
+    showTagChips ||
+    addTagAction != null;
   const markInlineActionIntent = () => {
     suppressCardPressUntilRef.current = Date.now() + INLINE_ACTION_SUPPRESS_MS;
   };
@@ -179,7 +192,10 @@ export function SearchListCard({
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.subtitle, { color: colors.textSecondary }]}
+            {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
+          >
             {subtitle}
           </Text>
         ) : editDescriptionAction ? (
@@ -206,30 +222,96 @@ export function SearchListCard({
         {showRankingSignals ? (
           <View style={styles.rankingSignals}>
             {distanceText != null ? (
-              <Text style={[styles.rankingSignal, { color: colors.textSecondary }]}>
+              <Text
+                style={[styles.rankingSignal, { color: colors.textSecondary }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 A {distanceText}
               </Text>
             ) : null}
-            {showPinStatusChip ? (
-              <View
-                style={[styles.rankingChip, { backgroundColor: statusColor }]}
-                accessibilityLabel={statusLabel}
-                accessibilityRole="image"
-              >
-                {pinStatus === 'visited' ? (
-                  <CheckCircle size={12} color={statusForeground} strokeWidth={2.2} />
-                ) : (
-                  <Pin size={12} color={statusForeground} strokeWidth={2} />
-                )}
-                <Text style={[styles.rankingChipLabel, { color: statusForeground }]}>
-                  {statusLabel as string}
-                </Text>
-              </View>
-            ) : null}
-            {isLandmark ? (
-              <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
-                <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
-                <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
+            {/**
+             * Pin + landmark + etiquetas + «Etiquetar» en un cluster nowrap.
+             * Evita que flexWrap del padre deje «Etiquetar» solo en segunda línea (último hermano).
+             */}
+            {showPinStatusChip || showTagChips || addTagAction != null || isLandmark ? (
+              <View style={styles.rankingChipsCluster}>
+                {showPinStatusChip ? (
+                  <View
+                    style={[
+                      styles.rankingChip,
+                      styles.pinStatusChipQuiet,
+                      {
+                        backgroundColor: pinStatusMuted.bg,
+                        borderColor: pinStatusMuted.border,
+                      },
+                    ]}
+                    accessibilityLabel={statusLabel}
+                    accessibilityRole="image"
+                  >
+                    {pinStatus === 'visited' ? (
+                      <CheckCircle size={12} color={pinStatusMuted.fg} strokeWidth={2.2} />
+                    ) : (
+                      <Pin size={12} color={pinStatusMuted.fg} strokeWidth={2} />
+                    )}
+                    <Text style={[styles.rankingChipLabel, { color: pinStatusMuted.fg }]}>
+                      {statusLabel as string}
+                    </Text>
+                  </View>
+                ) : null}
+                {isLandmark ? (
+                  <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
+                    <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
+                    <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
+                  </View>
+                ) : null}
+                {showTagChips
+                  ? tagChips.map((chip) => (
+                      <View
+                        key={chip.id}
+                        style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}
+                        accessibilityLabel={chip.label}
+                        accessibilityRole="text"
+                      >
+                        <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                          #{chip.label}
+                        </Text>
+                      </View>
+                    ))
+                  : null}
+                {addTagAction ? (
+                  <View
+                    collapsable={false}
+                    style={[
+                      styles.etiquetarBesideChips,
+                      Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as const) : null,
+                    ]}
+                    {...webInlineActionStopProps}
+                    {...(Platform.OS === 'web'
+                      ? ({
+                          onClick: (e: unknown) => {
+                            (e as { stopPropagation?: () => void })?.stopPropagation?.();
+                            triggerInlineAction(addTagAction.onPress);
+                          },
+                          accessibilityLabel: addTagAction.accessibilityLabel ?? addTagAction.label,
+                        } as const)
+                      : {
+                          onStartShouldSetResponder: () => true,
+                          onStartShouldSetResponderCapture: () => {
+                            markInlineActionIntent();
+                            return true;
+                          },
+                          onResponderRelease: (event: { stopPropagation?: () => void }) => {
+                            event.stopPropagation?.();
+                            triggerInlineAction(addTagAction.onPress);
+                          },
+                        })}
+                    accessible={false}
+                  >
+                    <Hash size={13} color={colors.primary} strokeWidth={2.2} />
+                    <Text style={[styles.etiquetarLabel, { color: colors.primary }]}>{addTagAction.label}</Text>
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -248,7 +330,8 @@ export const ResultRow = SearchListCard;
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    alignItems: 'center',
+    /** flex-start: icono + chevron alineados arriba con el título; si center, la flecha parece del bloque «Etiquetar». */
+    alignItems: 'flex-start',
     gap: Spacing.md,
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -268,7 +351,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 4,
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
   },
   contentWithMedia: {
     justifyContent: 'flex-start',
@@ -282,7 +365,8 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 13,
-    lineHeight: 18,
+    /** Interlineado ajustado: 18px dejaba mucho aire entre líneas al partir el subtítulo. */
+    lineHeight: 16,
   },
   iconWrap: {
     width: 36,
@@ -291,6 +375,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
   imageWrap: {
     width: 88,
@@ -338,12 +424,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: Spacing.xs,
+    gap: Spacing.sm,
     marginTop: 4,
   },
+  /** Pin + chips + Etiquetar: una unidad; el padre ya no parte solo «Etiquetar» al hacer wrap. */
+  rankingChipsCluster: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    gap: Spacing.sm,
+    flexShrink: 0,
+  },
+  /** Puede acortarse con puntos si hace falta espacio para el cluster. */
   rankingSignal: {
     fontSize: 12,
     lineHeight: 16,
+    flexShrink: 1,
+    minWidth: 0,
   },
   rankingChip: {
     flexDirection: 'row',
@@ -353,11 +450,31 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: Radius.sm,
   },
+  pinStatusChipQuiet: {
+    borderWidth: 1,
+  },
+  etiquetarBesideChips: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    minHeight: 36,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    marginLeft: -2,
+    borderRadius: Radius.sm,
+    alignSelf: 'flex-start',
+  },
+  etiquetarLabel: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
   rankingChipLabel: {
     fontSize: 11,
     fontWeight: '500',
   },
   chevron: {
-    alignSelf: 'center',
+    alignSelf: 'flex-start',
+    marginTop: 2,
   },
 });

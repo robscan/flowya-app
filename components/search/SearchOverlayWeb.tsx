@@ -34,6 +34,13 @@ export function SearchOverlayWeb<T>({
   pinFilter,
   pinCounts,
   onPinFilterChange,
+  tagFilterOptions = [],
+  selectedTagFilterId = null,
+  onTagFilterChange,
+  tagFilterEditMode = false,
+  onTagFilterEnterEditMode,
+  onTagFilterExitEditMode,
+  onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
   activitySummary,
@@ -138,14 +145,21 @@ export function SearchOverlayWeb<T>({
       style={[
         styles.overlayBase,
         Platform.OS === 'web' && styles.overlayWebFixed,
-        Platform.OS === 'web' && styles.overlayWebLock,
         { pointerEvents: 'auto' },
       ]}
     >
-      <Pressable style={styles.backdrop} onPress={onBackdropPress} />
+      {/**
+       * touchAction: none solo en el backdrop (no en el contenedor raíz): si el padre
+       * del panel tenía none, en web el gesto de scroll no llegaba a los ScrollView del listado.
+       */}
+      <Pressable
+        style={[styles.backdrop, Platform.OS === 'web' && styles.backdropWebLock]}
+        onPress={onBackdropPress}
+      />
       <View
         style={[
           styles.panel,
+          Platform.OS === 'web' && styles.panelWebScroll,
           {
             backgroundColor: colors.overlayScrim,
             paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
@@ -172,6 +186,13 @@ export function SearchOverlayWeb<T>({
           pinFilter={pinFilter}
           pinCounts={pinCounts}
           onPinFilterChange={onPinFilterChange}
+          tagFilterOptions={tagFilterOptions}
+          selectedTagFilterId={selectedTagFilterId}
+          onTagFilterChange={onTagFilterChange}
+          tagFilterEditMode={tagFilterEditMode}
+          onTagFilterEnterEditMode={onTagFilterEnterEditMode}
+          onTagFilterExitEditMode={onTagFilterExitEditMode}
+          onRequestDeleteUserTag={onRequestDeleteUserTag}
           placeSuggestions={placeSuggestions}
           onCreateFromPlace={onCreateFromPlace}
           activitySummary={activitySummary}
@@ -206,7 +227,7 @@ const styles = StyleSheet.create({
           height: 'var(--app-height, 100dvh)',
         }
       : {},
-  overlayWebLock:
+  backdropWebLock:
     Platform.OS === 'web'
       ? { touchAction: 'none' as const }
       : {},
@@ -224,4 +245,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 0,
     overflow: 'hidden',
   },
+  /** Asegura scroll vertical en listados dentro del overlay (web). */
+  panelWebScroll:
+    Platform.OS === 'web'
+      ? { touchAction: 'pan-y' as const }
+      : {},
 });

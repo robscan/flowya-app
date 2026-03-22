@@ -352,7 +352,6 @@ export function CountriesSheet({
 
   return (
     <Animated.View
-      pointerEvents="box-none"
       style={[
         styles.container,
         {
@@ -361,6 +360,7 @@ export function CountriesSheet({
           height: expandedAnchor,
           bottom: bottomOffset,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
+          pointerEvents: "box-none",
         },
         animatedContainerStyle,
       ]}

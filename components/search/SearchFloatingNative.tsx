@@ -52,6 +52,13 @@ export function SearchFloatingNative<T>({
   pinFilter,
   pinCounts,
   onPinFilterChange,
+  tagFilterOptions = [],
+  selectedTagFilterId = null,
+  onTagFilterChange,
+  tagFilterEditMode = false,
+  onTagFilterEnterEditMode,
+  onTagFilterExitEditMode,
+  onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
   activitySummary,
@@ -149,16 +156,21 @@ export function SearchFloatingNative<T>({
               panelAnimatedStyle,
             ]}
           >
-            <GestureDetector gesture={panGesture}>
-              <View style={styles.dragArea} collapsable={false}>
+            <View style={styles.dragArea} collapsable={false}>
+              {/**
+               * Pan solo en el handle: si el GestureDetector envuelve todo el panel,
+               * el gesto nativo roba el scroll vertical del listado (RNGH vs ScrollView).
+               */}
+              <GestureDetector gesture={panGesture}>
                 <View style={styles.handleRow}>
                   <SheetHandle />
                 </View>
-                <KeyboardAvoidingView
-                  behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                  style={[styles.keyboardAvoid, { paddingTop: HEADER_TOP_PADDING }]}
-                >
-                  <SearchSurface
+              </GestureDetector>
+              <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                style={[styles.keyboardAvoid, { paddingTop: HEADER_TOP_PADDING }]}
+              >
+                <SearchSurface
                     controller={controller}
                     defaultItems={defaultItems}
                     defaultItemSections={defaultItemSections}
@@ -174,15 +186,21 @@ export function SearchFloatingNative<T>({
                     pinFilter={pinFilter}
                     pinCounts={pinCounts}
                     onPinFilterChange={onPinFilterChange}
+                    tagFilterOptions={tagFilterOptions}
+                    selectedTagFilterId={selectedTagFilterId}
+                    onTagFilterChange={onTagFilterChange}
+                    tagFilterEditMode={tagFilterEditMode}
+                    onTagFilterEnterEditMode={onTagFilterEnterEditMode}
+                    onTagFilterExitEditMode={onTagFilterExitEditMode}
+                    onRequestDeleteUserTag={onRequestDeleteUserTag}
                     placeSuggestions={placeSuggestions}
                     onCreateFromPlace={onCreateFromPlace}
                     activitySummary={activitySummary}
                     onClosePress={requestClose}
                     scrollViewKeyboardDismissMode="on-drag"
-                  />
-                </KeyboardAvoidingView>
-              </View>
-            </GestureDetector>
+                />
+              </KeyboardAvoidingView>
+            </View>
           </Animated.View>
         </View>
       </View>

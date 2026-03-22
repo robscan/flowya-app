@@ -21,6 +21,8 @@ export type SearchInputV2Props = {
   onChangeText: (text: string) => void;
   onClear: () => void;
   placeholder?: string;
+  /** Si se omite, usa `textSecondary` del tema. */
+  placeholderTextColor?: string;
   autoFocus?: boolean;
   editable?: boolean;
   accessibilityLabel?: string;
@@ -36,6 +38,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
     onChangeText,
     onClear,
     placeholder = "Busca: países, regiones o lugares",
+    placeholderTextColor: placeholderTextColorProp,
     autoFocus = false,
     editable = true,
     accessibilityLabel = "Buscar",
@@ -47,6 +50,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
 ) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
+  const placeholderTextColor = placeholderTextColorProp ?? colors.textSecondary;
   const clearVisible = value.length > 0;
 
   return (
@@ -68,7 +72,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
           Platform.OS === 'web' && styles.inputFocusHidden,
         ]}
         placeholder={placeholder}
-        placeholderTextColor={colors.textSecondary}
+        placeholderTextColor={placeholderTextColor}
         value={value}
         onChangeText={onChangeText}
         autoFocus={autoFocus}
@@ -80,7 +84,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
         onBlur={onBlur}
       />
       {clearVisible ? (
-        <View style={styles.clearWrap} pointerEvents="box-none">
+        <View style={styles.clearWrap}>
           <ClearIconCircle
             onPress={onClear}
             accessibilityLabel="Limpiar búsqueda"
@@ -127,5 +131,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
+    pointerEvents: "box-none",
   },
 });

@@ -41,6 +41,15 @@ export type SearchFloatingProps<T> = {
   pinFilter?: MapPinFilterValue;
   pinCounts?: MapPinFilterCounts;
   onPinFilterChange?: (value: MapPinFilterValue) => void;
+  /** OL-EXPLORE-TAGS-001: chips de filtro por tag (solo owner); opcional. */
+  tagFilterOptions?: { id: string; name: string; count: number }[];
+  selectedTagFilterId?: string | null;
+  onTagFilterChange?: (tagId: string | null) => void;
+  /** Modo edición: long-press en chip # muestra X para borrar etiqueta global. */
+  tagFilterEditMode?: boolean;
+  onTagFilterEnterEditMode?: () => void;
+  onTagFilterExitEditMode?: () => void;
+  onRequestDeleteUserTag?: (tagId: string, tagName: string) => void;
   /** Sugerencias Mapbox para crear spot en lugar (solo cuando isNoResults, query >= 3). */
   placeSuggestions?: PlaceResult[];
   /** Callback al seleccionar un lugar de placeSuggestions. */

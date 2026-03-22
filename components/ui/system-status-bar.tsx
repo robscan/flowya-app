@@ -1,10 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-const SYSTEM_STATUS_DURATION_MS = 2500;
+/** Tiempo por defecto para leer el mensaje; tap en el toast lo cierra antes. */
+const SYSTEM_STATUS_DURATION_MS = 4800;
 const MAX_VISIBLE_MESSAGES = 3;
 const DEFAULT_TOP_WEB = 72;
 const DEFAULT_TOP_NATIVE = 88;
@@ -25,9 +26,16 @@ type SystemStatusMessage = {
   type: SystemStatusType;
 };
 
-type SystemStatusContextValue = {
+export type SystemStatusShowOptions = {
+  type?: SystemStatusType;
   /** replaceVisible=true: útil para mensajes de filtro que no deben apilarse. */
-  show: (message: string, options?: { type?: SystemStatusType; replaceVisible?: boolean }) => void;
+  replaceVisible?: boolean;
+  /** Duración visible antes del cierre automático (ms). Por defecto ~4,8 s. */
+  durationMs?: number;
+};
+
+type SystemStatusContextValue = {
+  show: (message: string, options?: SystemStatusShowOptions) => void;
   setAnchor: (anchor: SystemStatusAnchor) => void;
   resetAnchor: () => void;
 };
@@ -40,40 +48,26 @@ export function useSystemStatus(): SystemStatusContextValue {
   return ctx;
 }
 
-function resolveMessageColors(
-  type: SystemStatusType,
-  colors: (typeof Colors)['light'] | (typeof Colors)['dark'],
-  mode: 'light' | 'dark'
-): { textColor: string; backgroundColor: string; textShadowColor: string; borderColor: string } {
-  if (mode === 'light') {
+/**
+ * Máximo contraste: invertido respecto al tema de la app.
+ * Dark mode UI → toast blanco / texto negro. Light mode UI → toast oscuro / texto blanco.
+ */
+function resolveToastPalette(mode: 'light' | 'dark'): {
+  textColor: string;
+  backgroundColor: string;
+  borderColor: string;
+} {
+  if (mode === 'dark') {
     return {
-      textColor: colors.text,
-      backgroundColor: 'rgba(255,255,255,0.88)',
-      textShadowColor: 'rgba(255,255,255,0.96)',
-      borderColor: 'rgba(255,255,255,0.92)',
-    };
-  }
-  if (type === 'success') {
-    return {
-      textColor: '#e8fff0',
-      backgroundColor: 'rgba(0,0,0,0.32)',
-      textShadowColor: 'rgba(0,0,0,0.88)',
-      borderColor: 'rgba(0,0,0,0.4)',
-    };
-  }
-  if (type === 'error') {
-    return {
-      textColor: '#ffe5e3',
-      backgroundColor: 'rgba(0,0,0,0.32)',
-      textShadowColor: 'rgba(0,0,0,0.88)',
-      borderColor: 'rgba(0,0,0,0.4)',
+      textColor: '#000000',
+      backgroundColor: 'rgba(255,255,255,0.96)',
+      borderColor: 'rgba(0,0,0,0.12)',
     };
   }
   return {
     textColor: '#ffffff',
-    backgroundColor: 'rgba(0,0,0,0.32)',
-    textShadowColor: 'rgba(0,0,0,0.88)',
-    borderColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(29,29,31,0.96)',
+    borderColor: 'rgba(255,255,255,0.18)',
   };
 }
 
@@ -97,38 +91,47 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
 
   useEffect(() => clearTimer, [clearTimer]);
 
-  const show = useCallback((message: string, options?: { type?: SystemStatusType; replaceVisible?: boolean }) => {
-    const next: SystemStatusMessage = {
-      id: idRef.current,
-      text: message,
-      type: options?.type ?? 'default',
-    };
-    idRef.current += 1;
-
-    // Modo reemplazo para evitar ruido visual cuando el usuario cambia rápido de contexto.
-    setMessages((prev) =>
-      options?.replaceVisible ? [next] : [...prev, next].slice(-MAX_VISIBLE_MESSAGES),
-    );
-
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 140,
-      useNativeDriver: false,
-    }).start();
-
+  const dismiss = useCallback(() => {
     clearTimer();
-    timeoutRef.current = setTimeout(() => {
-      Animated.timing(opacity, {
-        toValue: 0,
-        duration: 180,
-        useNativeDriver: false,
-      }).start(({ finished }) => {
-        if (!finished) return;
-        setMessages([]);
-      });
-      timeoutRef.current = null;
-    }, SYSTEM_STATUS_DURATION_MS);
+    Animated.timing(opacity, {
+      toValue: 0,
+      duration: 180,
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (!finished) return;
+      setMessages([]);
+    });
   }, [clearTimer, opacity]);
+
+  const show = useCallback(
+    (message: string, options?: SystemStatusShowOptions) => {
+      const next: SystemStatusMessage = {
+        id: idRef.current,
+        text: message,
+        type: options?.type ?? 'default',
+      };
+      idRef.current += 1;
+
+      // Modo reemplazo para evitar ruido visual cuando el usuario cambia rápido de contexto.
+      setMessages((prev) =>
+        options?.replaceVisible ? [next] : [...prev, next].slice(-MAX_VISIBLE_MESSAGES),
+      );
+
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 140,
+        useNativeDriver: false,
+      }).start();
+
+      clearTimer();
+      const durationMs = options?.durationMs ?? SYSTEM_STATUS_DURATION_MS;
+      timeoutRef.current = setTimeout(() => {
+        dismiss();
+        timeoutRef.current = null;
+      }, durationMs);
+    },
+    [clearTimer, dismiss, opacity],
+  );
 
   const setAnchor = useCallback((nextAnchor: SystemStatusAnchor) => {
     setAnchorState(nextAnchor);
@@ -146,8 +149,7 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
     [show, setAnchor, resetAnchor],
   );
   const resolvedMode: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
-  const activeMessageType: SystemStatusType = messages[messages.length - 1]?.type ?? 'default';
-  const activePalette = resolveMessageColors(activeMessageType, Colors[resolvedMode], resolvedMode);
+  const activePalette = resolveToastPalette(resolvedMode);
 
   // Permite anclar la barra por pantalla (top-center por defecto, bottom-left en Explore).
   const overlayPositionStyle =
@@ -174,36 +176,36 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
       <View style={styles.wrapper}>
         {children}
         {messages.length > 0 ? (
-          <Animated.View style={[styles.overlay, overlayPositionStyle, { opacity, pointerEvents: 'none' }]}>
-            <View
-              accessibilityRole="status"
-              accessibilityLiveRegion="polite"
-              style={[
+          <Animated.View style={[styles.overlay, overlayPositionStyle, { opacity, pointerEvents: 'box-none' }]}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Cerrar notificación"
+              accessibilityHint="Toca para ocultar el mensaje"
+              onPress={dismiss}
+              style={({ pressed }) => [
                 styles.stack,
+                WebTouchManipulation,
                 {
                   backgroundColor: activePalette.backgroundColor,
                   borderColor: activePalette.borderColor,
+                  opacity: pressed ? 0.92 : 1,
                 },
                 anchor.placement === 'bottom-left' ? styles.stackBottomLeft : styles.stackTopCenter,
+                Platform.OS === 'web' && { cursor: 'pointer' as const },
               ]}
             >
-              {messages.map((message) => {
-                const palette = resolveMessageColors(message.type, Colors[resolvedMode], resolvedMode);
-                return (
+              <View accessibilityRole="status" accessibilityLiveRegion="polite">
+                {messages.map((message) => (
                   <Text
                     key={message.id}
-                    style={[
-                      styles.textSubtitle,
-                      { color: palette.textColor },
-                      { textShadow: `0px 1px 8px ${palette.textShadowColor}` },
-                    ]}
+                    style={[styles.textSubtitle, { color: activePalette.textColor }]}
                     numberOfLines={2}
                   >
                     {message.text}
                   </Text>
-                );
-              })}
-            </View>
+                ))}
+              </View>
+            </Pressable>
           </Animated.View>
         ) : null}
       </View>
@@ -220,8 +222,8 @@ const styles = StyleSheet.create({
     zIndex: 12,
   },
   stack: {
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.base,
     borderRadius: Radius.md,
     borderWidth: 1,
     ...Shadow.card,

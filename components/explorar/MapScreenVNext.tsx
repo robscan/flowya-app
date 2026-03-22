@@ -9,15 +9,17 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LogOut, Search, User } from "lucide-react-native";
+import { LogOut, Search, User, X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Animated,
     Easing,
     Linking,
+    Modal,
     Platform,
     Pressable,
+    ScrollView,
     StyleSheet,
     Text,
     TextInput,
@@ -27,7 +29,9 @@ import {
 import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
 import { IconButton } from "@/components/design-system/icon-button";
+import { TagChip } from "@/components/design-system/tag-chip";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
     MapPinFilter,
@@ -126,6 +130,7 @@ import {
   getTappedFeatureNameByLocale,
   inferTappedKindFromPlace,
   mergeSearchResults,
+  filterExploreSearchItemsByTag,
   rankExternalPlacesByIntent,
   type TappedMapFeatureKind,
   resolveTappedSpotMatch,
@@ -168,6 +173,16 @@ import {
   setMapPinFilterPreference,
 } from "@/lib/storage/mapPinFilterPreference";
 import { supabase } from "@/lib/supabase";
+import {
+    attachTagToSpot,
+    countTagsInSpotIds,
+    createOrGetUserTag,
+    deleteUserTag,
+    detachTagFromSpot,
+    fetchPinTagsIndexForSession,
+    listUserTags,
+    type UserTagRow,
+} from "@/lib/tags";
 
 type Spot = {
   id: string;
@@ -189,6 +204,8 @@ type Spot = {
   mapbox_feature_type?: string | null;
   /** Derivado de saved/visited para map-pins (visited > saved > default). */
   pinStatus?: SpotPinStatus;
+  /** OL-EXPLORE-TAGS-001: ids de user_tags (búsqueda / índice en cliente). */
+  tagIds?: string[];
 };
 
 type TappedMapFeatureVisualState = "default" | "to_visit";
@@ -539,6 +556,15 @@ export function MapScreenVNext() {
   );
   const [pinFilterPulseNonce, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
+  const [userTags, setUserTags] = useState<UserTagRow[]>([]);
+  const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
+  const [selectedTagFilterId, setSelectedTagFilterId] = useState<string | null>(null);
+  const [tagFilterEditMode, setTagFilterEditMode] = useState(false);
+  const [tagDeleteConfirm, setTagDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [tagDeleteBusy, setTagDeleteBusy] = useState(false);
+  const [tagAssignSpot, setTagAssignSpot] = useState<Spot | null>(null);
+  const [tagAssignInput, setTagAssignInput] = useState("");
+  const [tagAssignSaving, setTagAssignSaving] = useState(false);
   const [showLogoutOption, setShowLogoutOption] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
@@ -615,6 +641,7 @@ export function MapScreenVNext() {
     visited: null,
   });
   const searchFilterRefreshRef = useRef<MapPinFilterValue>(pinFilter);
+  const searchTagFilterRefreshRef = useRef<string | null>(null);
   /** OL-WOW-F2-003: ref para evitar acceder a searchV2 antes de inicialización. */
   const searchIsOpenRef = useRef(false);
   const countriesSheetBeforeSearchRef = useRef<{
@@ -774,6 +801,33 @@ export function MapScreenVNext() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!isAuthUser) {
+      setUserTags([]);
+      setPinTagIndex({});
+      setSelectedTagFilterId(null);
+      setTagAssignSpot(null);
+      setTagAssignInput("");
+      setTagAssignSaving(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const [tags, index] = await Promise.all([listUserTags(), fetchPinTagsIndexForSession()]);
+        if (!cancelled) {
+          setUserTags(tags);
+          setPinTagIndex(index);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthUser]);
+
   const invalidateSpotIdRef = useRef<((spotId: string) => void) | null>(null);
 
   const refetchSpots = useCallback(async () => {
@@ -823,6 +877,19 @@ export function MapScreenVNext() {
     }
 
     setSpots(visible);
+
+    void (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || user.is_anonymous) return;
+        const [tags, index] = await Promise.all([listUserTags(), fetchPinTagsIndexForSession()]);
+        setUserTags(tags);
+        setPinTagIndex(index);
+      } catch {
+        /* ignore */
+      }
+    })();
+
     return visible;
   }, [selectedSpot, setSheetState]);
 
@@ -838,6 +905,23 @@ export function MapScreenVNext() {
     if (pinFilter === "saved") return spots.filter((s) => s.saved);
     return spots.filter((s) => s.visited);
   }, [spots, pinFilter]);
+
+  const spotsWithTagIds = useMemo(
+    () =>
+      filteredSpots.map((s) => ({
+        ...s,
+        tagIds: pinTagIndex[s.id] ?? [],
+      })),
+    [filteredSpots, pinTagIndex],
+  );
+  const spotsAllWithTagIds = useMemo(
+    () =>
+      spots.map((s) => ({
+        ...s,
+        tagIds: pinTagIndex[s.id] ?? [],
+      })),
+    [spots, pinTagIndex],
+  );
   const isRecentMutationActive = Boolean(
     recentlyMutatedSpotId && recentMutationUntil && recentMutationUntil > Date.now(),
   );
@@ -1379,7 +1463,12 @@ export function MapScreenVNext() {
   /** Solo deseleccionar cuando el usuario cambia el filtro y el spot pasa a estar fuera. NO deseleccionar en tap POI cross-filter (Por visitar↔Visitados). */
   useEffect(() => {
     const prevFilter = prevPinFilterRef.current;
+    const pinFilterChanged = prevFilter !== pinFilter;
     prevPinFilterRef.current = pinFilter;
+    if (pinFilterChanged) {
+      setSelectedTagFilterId(null);
+      setTagFilterEditMode(false);
+    }
     const shouldClearSelection = shouldClearSelectedSpotOnFilterChange({
       prevFilter,
       nextFilter: pinFilter,
@@ -1474,8 +1563,8 @@ export function MapScreenVNext() {
   const spotsProvider = useMemo(
     () =>
       createSpotsStrategyProvider({
-        getFilteredSpots: () => filteredSpots,
-        getAllSpotsForSearch: () => spots,
+        getFilteredSpots: () => spotsWithTagIds,
+        getAllSpotsForSearch: () => spotsAllWithTagIds,
         getBbox: () => {
           if (!mapInstance) return null;
           try {
@@ -1493,7 +1582,7 @@ export function MapScreenVNext() {
         },
         getZoom: () => zoom,
       }),
-    [filteredSpots, spots, mapInstance, zoom],
+    [spotsWithTagIds, spotsAllWithTagIds, mapInstance, zoom],
   );
 
   const searchV2 = useSearchControllerV2<Spot>({
@@ -1516,7 +1605,11 @@ export function MapScreenVNext() {
         return null;
       }
     },
-    getFilters: () => ({ pinFilter, hasVisited: pinCounts.visited > 0 }),
+    getFilters: () => ({
+      pinFilter,
+      hasVisited: pinCounts.visited > 0,
+      tagId: selectedTagFilterId,
+    }),
   });
 
   /**
@@ -1710,6 +1803,24 @@ export function MapScreenVNext() {
     spots,
   ]);
 
+  /**
+   * Filtro por chip de etiqueta en listados "vacíos" (sin query ≥3): defaultItems/defaultSections
+   * se construyen solo con filteredSpots y no pasaban por searchDisplayResultsWithTag.
+   */
+  const defaultItemsForEmptyTagged = useMemo(
+    () => filterExploreSearchItemsByTag(defaultItemsForEmpty, selectedTagFilterId, pinTagIndex),
+    [defaultItemsForEmpty, selectedTagFilterId, pinTagIndex],
+  );
+  const defaultSectionsForEmptyTagged = useMemo(() => {
+    if (selectedTagFilterId == null) return defaultSectionsForEmpty;
+    return defaultSectionsForEmpty
+      .map((sec) => ({
+        ...sec,
+        items: filterExploreSearchItemsByTag(sec.items, selectedTagFilterId, pinTagIndex),
+      }))
+      .filter((sec) => sec.items.length > 0);
+  }, [defaultSectionsForEmpty, selectedTagFilterId, pinTagIndex]);
+
   const searchHistory = useSearchHistory();
 
   /** OL-WOW-F2-001-SEARCH: fetch Mapbox cuando query >= 3 con Todos o Por visitar/Visitados (misma mezcla que Todos). */
@@ -1861,6 +1972,111 @@ export function MapScreenVNext() {
       .map((id) => spots.find((s) => s.id === id))
       .filter((s): s is Spot => s != null);
   }, [spots]);
+
+  const refreshTagsAfterPinChange = useCallback(async () => {
+    try {
+      const [tags, index] = await Promise.all([listUserTags(), fetchPinTagsIndexForSession()]);
+      setUserTags(tags);
+      setPinTagIndex(index);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const handleCloseTagAssignModal = useCallback(() => {
+    setTagAssignSpot(null);
+    setTagAssignInput("");
+    setTagAssignSaving(false);
+  }, []);
+
+  /** Sheet: chip de etiqueta → buscador en «Todos» con filtro por esa etiqueta. */
+  const handleSheetTagChipPress = useCallback(
+    (tagId: string) => {
+      setPinFilter("all");
+      setSelectedTagFilterId(tagId);
+      setTagFilterEditMode(false);
+      searchV2.setOpen(true);
+    },
+    [setPinFilter, searchV2],
+  );
+
+  const handleSheetEtiquetarFromSheet = useCallback(() => {
+    if (!selectedSpot || selectedSpot.id.startsWith("draft_")) return;
+    setTagAssignSpot(selectedSpot);
+    setTagAssignInput("");
+  }, [selectedSpot]);
+
+  const handleDetachTagFromAssignSpot = useCallback(
+    async (tagId: string) => {
+      if (!tagAssignSpot) return;
+      setTagAssignSaving(true);
+      try {
+        await detachTagFromSpot(tagAssignSpot.id, tagId);
+        await refreshTagsAfterPinChange();
+        searchV2.invalidateSpotId(tagAssignSpot.id);
+      } finally {
+        setTagAssignSaving(false);
+      }
+    },
+    [tagAssignSpot, refreshTagsAfterPinChange, searchV2],
+  );
+
+  const handleCreateAndAttachTag = useCallback(async () => {
+    if (!tagAssignSpot) return;
+    const name = tagAssignInput.trim();
+    if (!name) return;
+    const spotTitle = tagAssignSpot.title;
+    const spotId = tagAssignSpot.id;
+    setTagAssignSaving(true);
+    try {
+      const row = await createOrGetUserTag(name);
+      await attachTagToSpot(spotId, row.id);
+      await refreshTagsAfterPinChange();
+      searchV2.invalidateSpotId(spotId);
+      setTagAssignSpot(null);
+      setTagAssignInput("");
+      if (!suppressToastRef.current) {
+        toast.show(`Etiqueta creada en «${spotTitle}»`, { type: "success", replaceVisible: true });
+      }
+    } catch {
+      if (!suppressToastRef.current) {
+        toast.show("No se pudo guardar la etiqueta. Inténtalo de nuevo.", { type: "error" });
+      }
+    } finally {
+      setTagAssignSaving(false);
+    }
+  }, [tagAssignSpot, tagAssignInput, refreshTagsAfterPinChange, searchV2, toast]);
+
+  const handleRequestDeleteUserTag = useCallback((tagId: string, tagName: string) => {
+    setTagDeleteConfirm({ id: tagId, name: tagName });
+  }, []);
+
+  const handleConfirmDeleteUserTag = useCallback(async () => {
+    if (!tagDeleteConfirm) return;
+    setTagDeleteBusy(true);
+    try {
+      await deleteUserTag(tagDeleteConfirm.id);
+      if (selectedTagFilterId === tagDeleteConfirm.id) setSelectedTagFilterId(null);
+      await refreshTagsAfterPinChange();
+      if (!suppressToastRef.current) {
+        toast.show(`Etiqueta «${tagDeleteConfirm.name}» eliminada`, { type: "success", replaceVisible: true });
+      }
+      setTagDeleteConfirm(null);
+      setTagFilterEditMode(false);
+    } catch {
+      if (!suppressToastRef.current) {
+        toast.show("No se pudo eliminar la etiqueta.", { type: "error" });
+      }
+    } finally {
+      setTagDeleteBusy(false);
+    }
+  }, [tagDeleteConfirm, selectedTagFilterId, refreshTagsAfterPinChange, toast]);
+
+  useEffect(() => {
+    if (!searchV2.isOpen) {
+      setTagFilterEditMode(false);
+    }
+  }, [searchV2.isOpen]);
 
   useEffect(() => {
     searchV2.setOnSelect((spot: Spot) => {
@@ -3307,29 +3523,93 @@ export function MapScreenVNext() {
     mapInstance,
     viewportNonce,
   ]);
+
+  /** Spots filtrados por chip de etiqueta cuando la query corta no dispara la estrategia (searchV2.results vacío). */
+  const searchDisplayResultsWithTag = useMemo(
+    () => filterExploreSearchItemsByTag(searchDisplayResults, selectedTagFilterId, pinTagIndex),
+    [searchDisplayResults, selectedTagFilterId, pinTagIndex],
+  );
+
+  const tagLabelById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of userTags) m.set(t.id, t.name);
+    return m;
+  }, [userTags]);
+
+  /** Chips de etiqueta en SpotSheet (ids desde pinTagIndex). */
+  const sheetSpotTagChips = useMemo(() => {
+    if (!selectedSpot || !isAuthUser || selectedSpot.id.startsWith("draft_")) return undefined;
+    const ids = pinTagIndex[selectedSpot.id] ?? [];
+    return ids.map((id) => ({ id, label: tagLabelById.get(id) ?? id }));
+  }, [selectedSpot, isAuthUser, pinTagIndex, tagLabelById]);
+
+  /** Etiquetas guardadas que aún no están en el spot (sin duplicar # en ambas secciones). */
+  const tagModalAvailableToAdd = useMemo(() => {
+    if (!tagAssignSpot) return [];
+    const onSpot = new Set(pinTagIndex[tagAssignSpot.id] ?? []);
+    const q = tagAssignInput.trim().toLowerCase();
+    let list = userTags.filter((t) => !onSpot.has(t.id));
+    if (q) list = list.filter((t) => t.name.toLowerCase().includes(q));
+    return list.slice(0, 24);
+  }, [tagAssignInput, userTags, tagAssignSpot, pinTagIndex]);
+
+  const tagModalAddButtonLabel = useMemo(() => {
+    const t = tagAssignInput.trim();
+    if (!t) return "Crear";
+    const match = userTags.some((u) => u.name.toLowerCase() === t.toLowerCase());
+    return match ? "Añadir" : "Crear";
+  }, [tagAssignInput, userTags]);
+
+  /** Chips de etiqueta en el buscador: solo las que tienen ≥1 spot en el pool del filtro de pin actual. */
+  const spotTagFilterOptions = useMemo(() => {
+    if (!isAuthUser) return [];
+    const spotIds = new Set(filteredSpots.map((s) => s.id));
+    return countTagsInSpotIds(userTags, spotIds, pinTagIndex).map((tc) => ({
+      id: tc.tag.id,
+      name: tc.tag.name,
+      count: tc.count,
+    }));
+  }, [isAuthUser, userTags, filteredSpots, pinTagIndex]);
+
+  /** Si el chip activo deja de tener ≥1 spot en el pool (p. ej. quitaste la etiqueta al último spot), limpiar filtro para no dejar lista vacía sin fila de chips. */
+  useEffect(() => {
+    if (!isAuthUser) return;
+    if (selectedTagFilterId == null) return;
+    const stillValid = spotTagFilterOptions.some((o) => o.id === selectedTagFilterId);
+    if (!stillValid) {
+      setSelectedTagFilterId(null);
+      setTagFilterEditMode(false);
+    }
+  }, [isAuthUser, spotTagFilterOptions, selectedTagFilterId]);
+
   const kpiSpotsSearchResults = useMemo<(Spot | PlaceResult)[]>(() => {
-    if (!showFilteredResultsOnEmpty) return searchDisplayResults;
-    if (!searchV2.isOpen || searchV2.query.trim().length > 0) return searchDisplayResults;
-    if (pinFilter !== "saved" && pinFilter !== "visited") return searchDisplayResults;
-    if (!mapInstance || filteredSpots.length <= 1) return filteredSpots;
+    if (!showFilteredResultsOnEmpty) return searchDisplayResultsWithTag;
+    if (!searchV2.isOpen || searchV2.query.trim().length > 0) return searchDisplayResultsWithTag;
+    if (pinFilter !== "saved" && pinFilter !== "visited") return searchDisplayResultsWithTag;
+    if (!mapInstance || filteredSpots.length <= 1) {
+      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterId, pinTagIndex);
+    }
     try {
       const center = mapInstance.getCenter();
-      return [...filteredSpots].sort(
+      const sorted = [...filteredSpots].sort(
         (a, b) =>
           distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
           distanceKm(center.lat, center.lng, b.latitude, b.longitude),
       );
+      return filterExploreSearchItemsByTag(sorted, selectedTagFilterId, pinTagIndex);
     } catch {
-      return filteredSpots;
+      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterId, pinTagIndex);
     }
   }, [
     showFilteredResultsOnEmpty,
-    searchDisplayResults,
+    searchDisplayResultsWithTag,
     searchV2.isOpen,
     searchV2.query,
     pinFilter,
     mapInstance,
     filteredSpots,
+    selectedTagFilterId,
+    pinTagIndex,
   ]);
   const searchResultSections = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
     const normalizedQuery = normalizeCountryToken(searchV2.query);
@@ -3351,16 +3631,16 @@ export function MapScreenVNext() {
     const viewportTick = viewportNonce;
     if (viewportTick < 0) return [];
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
-    if (searchDisplayResults.length === 0) return [];
+    if (searchDisplayResultsWithTag.length === 0) return [];
     if (!mapInstance) return [];
     try {
       const center = mapInstance.getCenter();
-      const nearby = searchDisplayResults.filter((spot) => {
+      const nearby = searchDisplayResultsWithTag.filter((spot) => {
         const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
         const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
         return distanceKm(center.lat, center.lng, lat, lng) <= SPOTS_ZONA_RADIUS_KM;
       });
-      const inWorld = searchDisplayResults.filter((spot) => {
+      const inWorld = searchDisplayResultsWithTag.filter((spot) => {
         const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
         const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
         return distanceKm(center.lat, center.lng, lat, lng) > SPOTS_ZONA_RADIUS_KM;
@@ -3382,7 +3662,7 @@ export function MapScreenVNext() {
     pinFilter,
     searchV2.isOpen,
     searchV2.query,
-    searchDisplayResults,
+    searchDisplayResultsWithTag,
     mapInstance,
     viewportNonce,
   ]);
@@ -3396,6 +3676,16 @@ export function MapScreenVNext() {
     if (q.length < 3) return;
     setSearchQuery(searchQuery);
   }, [pinFilter, searchIsOpen, searchQuery, setSearchQuery]);
+
+  /** Mismo guardrail al cambiar filtro por tag. */
+  useEffect(() => {
+    if (searchTagFilterRefreshRef.current === selectedTagFilterId) return;
+    searchTagFilterRefreshRef.current = selectedTagFilterId;
+    if (!searchIsOpen) return;
+    const q = searchQuery.trim();
+    if (q.length < 3) return;
+    setSearchQuery(searchQuery);
+  }, [selectedTagFilterId, searchIsOpen, searchQuery, setSearchQuery]);
 
   useEffect(() => {
     if (!searchV2.isOpen) return;
@@ -3931,12 +4221,15 @@ export function MapScreenVNext() {
       !searchV2.isOpen &&
       sheetState !== "expanded" &&
       (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+    /** Con buscador abierto el sheet sigue en estado pero no es visible: no sumar su alto al toast. */
     const bottom =
-      isSpotSheetVisible
-        ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
-        : isCountriesSheetVisible
-          ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight + STATUS_OVER_SHEET_CLEARANCE
-        : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
+      searchV2.isOpen
+        ? dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0)
+        : isSpotSheetVisible
+          ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
+          : isCountriesSheetVisible
+            ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight + STATUS_OVER_SHEET_CLEARANCE
+            : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
     toast.setAnchor({
       placement: "bottom-left",
       left: TOP_OVERLAY_INSET_X + insets.left,
@@ -4070,14 +4363,13 @@ export function MapScreenVNext() {
       ) : null}
       {shouldShowFilterDropdown ? (
         <Animated.View
-          pointerEvents="box-none"
           style={[
             styles.filterOverlay,
-            { top: Math.max(filterMinimumTop, filterTop) },
+            { top: Math.max(filterMinimumTop, filterTop), pointerEvents: 'box-none' },
             filterOverlayAnimatedStyle,
           ]}
         >
-          <View pointerEvents="box-none" style={styles.filterRowWrap}>
+          <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
             <MapPinFilter
               value={pinFilter}
               onChange={(next) => handlePinFilterChange(next, { reframe: true })}
@@ -4092,10 +4384,9 @@ export function MapScreenVNext() {
       ) : null}
       {showEntrySlogan && !createSpotNameOverlayOpen ? (
         <Animated.View
-          pointerEvents="none"
           style={[
             styles.sloganOverlay,
-            { top: sloganTop },
+            { top: sloganTop, pointerEvents: 'none' },
             { opacity: sloganEntryOpacity },
             { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
@@ -4110,12 +4401,12 @@ export function MapScreenVNext() {
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <View
-          pointerEvents="box-none"
           style={[
             styles.profileOverlay,
             {
               top: TOP_OVERLAY_INSET_Y + insets.top,
               left: TOP_OVERLAY_INSET_X + insets.left,
+              pointerEvents: 'box-none',
             },
           ]}
         >
@@ -4209,8 +4500,8 @@ export function MapScreenVNext() {
                 },
               ],
             },
+            { pointerEvents: 'box-none' as const },
           ]}
-          pointerEvents="box-none"
         >
           <View style={styles.countriesOverlayStack}>
             <Pressable
@@ -4283,12 +4574,12 @@ export function MapScreenVNext() {
       ) : null}
       {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
         <View
-          pointerEvents="box-none"
           style={[
             styles.createSpotOverlay,
             {
               top: TOP_OVERLAY_INSET_Y + insets.top,
               right: CONTROLS_OVERLAY_RIGHT + insets.right,
+              pointerEvents: 'box-none',
             },
           ]}
         >
@@ -4303,7 +4594,6 @@ export function MapScreenVNext() {
       ) : null}
       {mapControlsOverlayMounted ? (
         <Animated.View
-          pointerEvents={areMapControlsVisible ? "box-none" : "none"}
           style={[
             styles.controlsOverlay,
             {
@@ -4312,6 +4602,7 @@ export function MapScreenVNext() {
               bottom: controlsResolvedBottom,
               flexDirection: "column",
               gap: Spacing.sm,
+              pointerEvents: areMapControlsVisible ? 'box-none' : 'none',
             },
             mapControlsOverlayAnimatedStyle,
           ]}
@@ -4368,14 +4659,21 @@ export function MapScreenVNext() {
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot | PlaceResult>
         controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult>}
-        defaultItems={defaultItemsForEmpty}
-        defaultItemSections={defaultSectionsForEmpty}
+        defaultItems={defaultItemsForEmptyTagged}
+        defaultItemSections={defaultSectionsForEmptyTagged}
         recentQueries={searchHistory.recentQueries}
         recentViewedItems={recentViewedSpots}
         insets={{ top: insets.top, bottom: insets.bottom }}
         pinFilter={pinFilter}
         pinCounts={pinCounts}
         onPinFilterChange={(next) => handlePinFilterChange(next, { reframe: false })}
+        tagFilterOptions={isAuthUser ? spotTagFilterOptions : undefined}
+        selectedTagFilterId={isAuthUser ? selectedTagFilterId : undefined}
+        onTagFilterChange={isAuthUser ? setSelectedTagFilterId : undefined}
+        tagFilterEditMode={isAuthUser ? tagFilterEditMode : false}
+        onTagFilterEnterEditMode={isAuthUser ? () => setTagFilterEditMode(true) : undefined}
+        onTagFilterExitEditMode={isAuthUser ? () => setTagFilterEditMode(false) : undefined}
+        onRequestDeleteUserTag={isAuthUser ? handleRequestDeleteUserTag : undefined}
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
         resultsSummaryLabel={
@@ -4415,32 +4713,53 @@ export function MapScreenVNext() {
             const descriptionShort = spot.description_short?.trim() ?? "";
             const hasDescriptionShort = descriptionShort.length > 0;
             const hasCoverImage = Boolean(spot.cover_image_url && spot.cover_image_url.trim().length > 0);
-            const quickActions = isVisitedFilter
-              ? [
-                  ...(!hasCoverImage
-                    ? [
-                        {
-                          id: `add-image-${spot.id}`,
-                          label: "Agregar imagen",
-                          kind: "add_image" as const,
-                          onPress: () => handleQuickAddImageFromSearch(spot),
-                          accessibilityLabel: `Agregar imagen a ${spot.title}`,
-                        },
-                      ]
-                    : []),
-                  ...(!hasDescriptionShort
-                    ? [
-                        {
-                          id: `edit-desc-${spot.id}`,
-                          label: "Escribir nota breve",
-                          kind: "edit_description" as const,
-                          onPress: () => handleQuickEditDescriptionOpen(spot),
-                          accessibilityLabel: `Escribir una nota breve sobre ${spot.title}`,
-                        },
-                      ]
-                    : []),
-                ]
-              : [];
+            const tagIds = spot.tagIds ?? pinTagIndex[spot.id] ?? [];
+            const tagChips = tagIds.map((id) => ({
+              id,
+              label: tagLabelById.get(id) ?? id,
+            }));
+            const quickActions = [
+              ...(isAuthUser
+                ? [
+                    {
+                      id: `add-tag-${spot.id}`,
+                      label: "Etiquetar",
+                      kind: "add_tag" as const,
+                      onPress: () => {
+                        setTagAssignSpot(spot);
+                        setTagAssignInput("");
+                      },
+                      accessibilityLabel: `Etiquetar ${spot.title}`,
+                    },
+                  ]
+                : []),
+              ...(isVisitedFilter
+                ? [
+                    ...(!hasCoverImage
+                      ? [
+                          {
+                            id: `add-image-${spot.id}`,
+                            label: "Agregar imagen",
+                            kind: "add_image" as const,
+                            onPress: () => handleQuickAddImageFromSearch(spot),
+                            accessibilityLabel: `Agregar imagen a ${spot.title}`,
+                          },
+                        ]
+                      : []),
+                    ...(!hasDescriptionShort
+                      ? [
+                          {
+                            id: `edit-desc-${spot.id}`,
+                            label: "Escribir nota breve",
+                            kind: "edit_description" as const,
+                            onPress: () => handleQuickEditDescriptionOpen(spot),
+                            accessibilityLabel: `Escribir una nota breve sobre ${spot.title}`,
+                          },
+                        ]
+                      : []),
+                  ]
+                : []),
+            ];
             return (
               <SearchResultCard
                 spot={item}
@@ -4450,6 +4769,7 @@ export function MapScreenVNext() {
                   isVisitedFilter ? (hasDescriptionShort ? descriptionShort : null) : undefined
                 }
                 quickActions={quickActions}
+                tagChips={isAuthUser && tagChips.length > 0 ? tagChips : undefined}
               />
             );
           }
@@ -4475,13 +4795,151 @@ export function MapScreenVNext() {
           return p.id ?? `place-${p.lat}-${p.lng}`;
         }}
       />
+      {tagAssignSpot ? (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={handleCloseTagAssignModal}
+        >
+          <View
+            style={[
+              styles.tagAssignModalRoot,
+              { paddingTop: Math.max(insets.top, 16) + 12 },
+            ]}
+          >
+            <Pressable style={styles.tagAssignModalBackdrop} onPress={handleCloseTagAssignModal} />
+            <View
+                style={[
+                  styles.tagAssignModalCard,
+                  {
+                    backgroundColor: Colors[colorScheme ?? "light"].backgroundElevated,
+                    borderColor: Colors[colorScheme ?? "light"].borderSubtle,
+                  },
+                ]}
+              >
+              <View style={styles.tagAssignModalHeaderRow}>
+                <View style={styles.tagAssignModalHeaderTitles}>
+                  <Text
+                    style={[styles.tagAssignModalEyebrow, { color: Colors[colorScheme ?? "light"].textSecondary }]}
+                  >
+                    Etiquetar
+                  </Text>
+                  <Text
+                    style={[styles.tagAssignModalSpotTitle, { color: Colors[colorScheme ?? "light"].text }]}
+                    numberOfLines={3}
+                  >
+                    {tagAssignSpot.title}
+                  </Text>
+                </View>
+                <IconButton
+                  variant="default"
+                  selected
+                  onPress={handleCloseTagAssignModal}
+                  accessibilityLabel="Cerrar"
+                >
+                  <X size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
+                </IconButton>
+              </View>
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                keyboardDismissMode="on-drag"
+                showsVerticalScrollIndicator
+                style={styles.tagAssignModalScroll}
+                contentContainerStyle={[
+                  styles.tagAssignModalScrollContent,
+                  { paddingBottom: Math.max(insets.bottom, 12) + 16 },
+                ]}
+              >
+                {(pinTagIndex[tagAssignSpot.id] ?? []).length > 0 ? (
+                  <View style={styles.tagAssignModalChipsWrap}>
+                    {(pinTagIndex[tagAssignSpot.id] ?? []).map((tid) => (
+                      <TagChip
+                        key={tid}
+                        label={tagLabelById.get(tid) ?? tid}
+                        showHash
+                        disabled={tagAssignSaving}
+                        onRemove={() => void handleDetachTagFromAssignSpot(tid)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+                <View style={styles.tagAssignModalInlineRow}>
+                  <View style={styles.tagAssignModalInputWrap}>
+                    <TextInput
+                      value={tagAssignInput}
+                      onChangeText={setTagAssignInput}
+                      placeholder="Nueva etiqueta"
+                      placeholderTextColor={
+                        colorScheme === "dark" ? "rgba(235,235,245,0.58)" : "rgba(60,60,67,0.72)"
+                      }
+                      style={[
+                        styles.tagAssignModalInputInline,
+                        {
+                          color: Colors[colorScheme ?? "light"].text,
+                          borderColor: Colors[colorScheme ?? "light"].border,
+                          backgroundColor: Colors[colorScheme ?? "light"].background,
+                          paddingRight: tagAssignInput.length > 0 ? 40 : 12,
+                        },
+                      ]}
+                      editable={!tagAssignSaving}
+                      autoCorrect={false}
+                      autoCapitalize="sentences"
+                    />
+                    {tagAssignInput.length > 0 ? (
+                      <View style={styles.tagAssignModalInputClearWrap} pointerEvents="box-none">
+                        <ClearIconCircle
+                          onPress={() => setTagAssignInput("")}
+                          accessibilityLabel="Limpiar campo"
+                          iconColor={Colors[colorScheme ?? "light"].textSecondary}
+                          backgroundColor={Colors[colorScheme ?? "light"].text}
+                          variant="search"
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => void handleCreateAndAttachTag()}
+                    disabled={tagAssignSaving || tagAssignInput.trim().length === 0}
+                    style={[
+                      styles.tagAssignModalCrearBtn,
+                      {
+                        backgroundColor:
+                          tagAssignSaving || tagAssignInput.trim().length === 0
+                            ? Colors[colorScheme ?? "light"].borderSubtle
+                            : Colors[colorScheme ?? "light"].primary,
+                      },
+                    ]}
+                  >
+                    <Text style={styles.tagAssignModalCrearBtnText}>{tagModalAddButtonLabel}</Text>
+                  </Pressable>
+                </View>
+                {tagModalAvailableToAdd.length > 0 ? (
+                  <View style={styles.tagAssignModalChipsWrap}>
+                    {tagModalAvailableToAdd.map((t) => (
+                      <TagChip
+                        key={t.id}
+                        label={t.name}
+                        showHash
+                        visualVariant="suggested"
+                        disabled={tagAssignSaving}
+                        onPress={() => setTagAssignInput(t.name)}
+                        accessibilityLabel={`Usar «${t.name}» en el campo; confirma con ${tagModalAddButtonLabel}`}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      ) : null}
       {quickDescSpot ? (
         <View
           style={[
             styles.quickEditDescOverlay,
-            { paddingTop: Math.max(insets.top, 16) + 8 },
+            { paddingTop: Math.max(insets.top, 16) + 8, pointerEvents: 'box-none' },
           ]}
-          pointerEvents="box-none"
         >
           <Pressable
             style={styles.quickEditDescBackdrop}
@@ -4623,6 +5081,13 @@ export function MapScreenVNext() {
               ? (uri) => setFullscreenImageUri(uri)
               : undefined
           }
+          sheetTagChips={sheetSpotTagChips}
+          onSheetTagChipPress={isAuthUser ? handleSheetTagChipPress : undefined}
+          onSheetEtiquetarPress={
+            isAuthUser && selectedSpot != null && !selectedSpot.id.startsWith("draft_")
+              ? handleSheetEtiquetarFromSheet
+              : undefined
+          }
           onStateChange={(newState) => {
             if (
               newState === "expanded" &&
@@ -4659,6 +5124,24 @@ export function MapScreenVNext() {
         onCancel={() => {
           setShowLogoutConfirm(false);
           setShowLogoutOption(false);
+        }}
+      />
+      <ConfirmModal
+        visible={tagDeleteConfirm != null}
+        title="¿Eliminar etiqueta?"
+        message={
+          tagDeleteConfirm
+            ? `Se quitará «#${tagDeleteConfirm.name}» de tu inventario y de todos los spots donde esté asignada.`
+            : undefined
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        confirmDisabled={tagDeleteBusy}
+        cancelDisabled={tagDeleteBusy}
+        onConfirm={() => void handleConfirmDeleteUserTag()}
+        onCancel={() => {
+          if (!tagDeleteBusy) setTagDeleteConfirm(null);
         }}
       />
       <CreateSpotConfirmModal
@@ -4900,6 +5383,101 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     lineHeight: 18,
+  },
+  tagAssignModalRoot: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+  },
+  tagAssignModalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  tagAssignModalCard: {
+    width: "100%",
+    maxWidth: 460,
+    maxHeight: "85%",
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 20,
+    paddingBottom: 16,
+    zIndex: 1,
+  },
+  tagAssignModalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 16,
+  },
+  tagAssignModalHeaderTitles: {
+    flex: 1,
+    minWidth: 0,
+  },
+  tagAssignModalScroll: {
+    maxHeight: 440,
+  },
+  tagAssignModalScrollContent: {
+    gap: 20,
+  },
+  tagAssignModalChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+  },
+  tagAssignModalEyebrow: {
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginBottom: 4,
+  },
+  tagAssignModalSpotTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    lineHeight: 28,
+  },
+  tagAssignModalInlineRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    width: "100%",
+  },
+  tagAssignModalInputWrap: {
+    flex: 1,
+    minWidth: 0,
+    position: "relative",
+  },
+  tagAssignModalInputClearWrap: {
+    position: "absolute",
+    right: 6,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  tagAssignModalInputInline: {
+    width: "100%",
+    minWidth: 0,
+    borderWidth: 1,
+    borderRadius: Radius.pill,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === "ios" ? 12 : 10,
+    fontSize: 15,
+  },
+  tagAssignModalCrearBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+  tagAssignModalCrearBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 15,
   },
   placeholder: {
     flex: 1,

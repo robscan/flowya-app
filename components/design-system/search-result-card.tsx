@@ -15,6 +15,8 @@ export type SearchResultCardProps = {
     description_short?: string | null;
     /** Maki (Mapbox) para icono de categoría cuando no hay cover. OL-URGENT-MAKI-001. */
     linked_maki?: string | null;
+    /** OL-EXPLORE-TAGS-001 */
+    tagIds?: string[];
   };
   onPress?: () => void;
   /** Señal "cerca": ej. "1.2 km". OL-WOW-F2-002. */
@@ -23,10 +25,11 @@ export type SearchResultCardProps = {
   quickActions?: {
     id: string;
     label: string;
-    kind: 'add_image' | 'edit_description';
+    kind: 'add_image' | 'edit_description' | 'add_tag';
     onPress: () => void;
     accessibilityLabel?: string;
   }[];
+  tagChips?: { id: string; label: string }[];
 };
 
 export function SearchResultCard({
@@ -35,6 +38,7 @@ export function SearchResultCard({
   distanceText = null,
   subtitleOverride,
   quickActions = [],
+  tagChips,
 }: SearchResultCardProps) {
   const resolvedSubtitle =
     subtitleOverride !== undefined ? subtitleOverride : (spot.address ?? null);
@@ -48,6 +52,7 @@ export function SearchResultCard({
         distanceText={distanceText}
         maki={spot.linked_maki ?? undefined}
         quickActions={quickActions}
+        tagChips={tagChips}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
       />

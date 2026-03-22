@@ -391,6 +391,24 @@ export function inferTappedKindFromPlace(place: PlaceResult): TappedMapFeatureKi
   return inferExternalIntent(place) === "poi_landmark" ? "landmark" : "poi";
 }
 
+/**
+ * OL-EXPLORE-TAGS: filtro por chip de etiqueta en listado de búsqueda.
+ * Solo aplica a spots (tienen `title` + `latitude`); excluye `PlaceResult` de Mapbox.
+ */
+export function filterExploreSearchItemsByTag<T extends SpotSearchCandidate | PlaceResult>(
+  items: T[],
+  tagId: string | null,
+  pinTagIndex: Record<string, string[]>,
+): T[] {
+  if (tagId == null || tagId === "") return items;
+  return items.filter((item) => {
+    if (!("latitude" in item) || !("title" in item)) return false;
+    const spot = item as SpotSearchCandidate & { tagIds?: string[] };
+    const ids = spot.tagIds ?? pinTagIndex[spot.id] ?? [];
+    return Array.isArray(ids) && ids.includes(tagId);
+  });
+}
+
 export function mergeSearchResults<T extends SpotSearchCandidate>(
   spots: T[],
   places: PlaceResult[],

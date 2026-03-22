@@ -51,4 +51,6 @@ export { SpotDetail, SpotDetailShowcase } from './spot-detail';
 export type { SpotDetailProps, SpotDetailSpot } from './spot-detail';
 export { SpotImage } from './spot-image';
 export type { SpotImageProps } from './spot-image';
+export { TagChip } from './tag-chip';
+export type { TagChipProps } from './tag-chip';
 export { TypographyShowcase, TypographyStyles } from './typography';
