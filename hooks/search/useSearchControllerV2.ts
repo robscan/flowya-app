@@ -130,6 +130,11 @@ export type UseSearchControllerV2Return<T> = {
   setOnCreate: (fn: () => void) => void;
   /** Invalida cache por spotId (soft delete). No limpia resultados en pantalla. */
   invalidateSpotId: (spotId: string) => void;
+  /**
+   * Spots + filtro Por visitar/Visitados: la lista proviene de una segunda pasada
+   * sobre todos los spots (sin cambiar el chip en UI).
+   */
+  isGlobalPinExpandActive: boolean;
 };
 
 export function useSearchControllerV2<T>({
@@ -158,6 +163,9 @@ export function useSearchControllerV2<T>({
   const [hasMore, setHasMore] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setOpen] = useState(defaultOpen);
+  const [globalPinExpandActive, setGlobalPinExpandActive] = useState(false);
+  /** Mantiene expandSearchAcrossAllPins en fetchMore tras segunda pasada con resultados. */
+  const pinExpandPoolRef = useRef(false);
 
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -180,8 +188,24 @@ export function useSearchControllerV2<T>({
   }, []);
 
   const runSearch = useCallback(
-    async (q: string, st: SearchStage, cur: string | null, append: boolean) => {
-      const filters = getFilters();
+    async (
+      q: string,
+      st: SearchStage,
+      cur: string | null,
+      append: boolean,
+      opts?: { expandSearchAcrossAllPins?: boolean }
+    ) => {
+      if (st === 'viewport' && cur === null && !append && !opts?.expandSearchAcrossAllPins) {
+        pinExpandPoolRef.current = false;
+      }
+      const baseFilters = getFilters();
+      const useExpandPool =
+        Boolean(opts?.expandSearchAcrossAllPins) ||
+        (pinExpandPoolRef.current && mode === 'spots');
+      const filters =
+        useExpandPool && typeof baseFilters === 'object' && baseFilters !== null
+          ? { ...baseFilters, expandSearchAcrossAllPins: true as const }
+          : baseFilters;
       const bbox = getBbox();
       const nq = normalizeQuery(q);
       const key = cacheKey(mode, st, filters, bbox, nq, cur);
@@ -227,6 +251,19 @@ export function useSearchControllerV2<T>({
         setStage(st);
         setSections([]);
 
+        if (opts?.expandSearchAcrossAllPins) {
+          if (out.items.length > 0) {
+            setGlobalPinExpandActive(true);
+            pinExpandPoolRef.current = true;
+          } else if (st === 'global') {
+            setGlobalPinExpandActive(false);
+            pinExpandPoolRef.current = false;
+          }
+        } else if (out.items.length > 0) {
+          setGlobalPinExpandActive(false);
+          pinExpandPoolRef.current = false;
+        }
+
         // Guardrail: stage solo avanza en search() inicial (cursor null, !append). fetchMore no dispara expanded/global.
         if (!append && cur === null && mode === 'spots') {
           const pinFilter = resolvePinFilter(filters);
@@ -235,11 +272,11 @@ export function useSearchControllerV2<T>({
             chaining = true;
             if (st === 'viewport') {
               setStage('expanded');
-              await runSearch(q, 'expanded', null, false);
+              await runSearch(q, 'expanded', null, false, opts);
               return;
             }
             setStage('global');
-            await runSearch(q, 'global', null, false);
+            await runSearch(q, 'global', null, false, opts);
             return;
           }
 
@@ -251,15 +288,26 @@ export function useSearchControllerV2<T>({
             if (st === 'viewport') {
               chaining = true;
               setStage('expanded');
-              await runSearch(q, 'expanded', null, false);
+              await runSearch(q, 'expanded', null, false, opts);
               return;
             }
             if (st === 'expanded') {
               chaining = true;
               setStage('global');
-              await runSearch(q, 'global', null, false);
+              await runSearch(q, 'global', null, false, opts);
               return;
             }
+          }
+
+          if (
+            !opts?.expandSearchAcrossAllPins &&
+            (pinFilter === 'saved' || pinFilter === 'visited') &&
+            st === 'global' &&
+            out.items.length === 0
+          ) {
+            chaining = true;
+            await runSearch(q, 'viewport', null, false, { expandSearchAcrossAllPins: true });
+            return;
           }
         }
       } finally {
@@ -283,6 +331,8 @@ export function useSearchControllerV2<T>({
         setCursor(null);
         setHasMore(false);
         setStage('viewport');
+        setGlobalPinExpandActive(false);
+        pinExpandPoolRef.current = false;
         return;
       }
       setIsLoading(true);
@@ -301,6 +351,8 @@ export function useSearchControllerV2<T>({
     setStage('viewport');
     setCursor(null);
     setHasMore(false);
+    setGlobalPinExpandActive(false);
+    pinExpandPoolRef.current = false;
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -368,5 +420,6 @@ export function useSearchControllerV2<T>({
     setOnSelect,
     setOnCreate,
     invalidateSpotId,
+    isGlobalPinExpandActive: globalPinExpandActive,
   };
 }

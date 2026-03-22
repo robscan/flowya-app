@@ -6,9 +6,17 @@
  * Animaciones: menú scale+opacity al desplegar; LayoutAnimation al cambiar valor; pulse en trigger.
  */
 
-import { CheckCircle, ChevronDown, ChevronUp, Globe, Pin } from 'lucide-react-native';
+import { Check, CheckCircle, ChevronDown, ChevronUp, Globe, Pin } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
-import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -21,6 +29,8 @@ import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import { TypographyStyles } from './typography';
+
+import { ClearIconCircle } from './clear-icon-circle';
 
 const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
@@ -173,6 +183,10 @@ export function MapPinFilter({
   const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
 
   const handleSelect = (optValue: MapPinFilterValue) => {
+    if (optValue === value) {
+      setOpen(false);
+      return;
+    }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onChange(optValue);
     setOpen(false);
@@ -204,82 +218,80 @@ export function MapPinFilter({
   return (
     <View style={styles.wrapper}>
       <Animated.View style={triggerAnimatedStyle}>
-        <Pressable
-          style={[
-            styles.trigger,
-            {
-              backgroundColor: selectedColors.bg,
-              borderColor: selectedColors.border,
-            },
-            Platform.OS === 'web' && { cursor: 'pointer' },
-          ]}
-          onPress={() => setOpen((o) => !o)}
-          accessibilityRole="button"
-          accessibilityState={{ expanded: open }}
-          accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
-        >
-          <FilterIcon value={value} size={18} color={selectedColors.text} />
-          <Text
+        <View style={styles.triggerRow}>
+          <Pressable
             style={[
-              TypographyStyles.filterLabel,
-              { color: selectedColors.text },
+              styles.trigger,
+              styles.triggerFlex,
+              {
+                backgroundColor: selectedColors.bg,
+                borderColor: selectedColors.border,
+              },
+              Platform.OS === 'web' && { cursor: 'pointer' },
             ]}
-            numberOfLines={1}
+            onPress={() => setOpen((o) => !o)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: open }}
+            accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
           >
-            {currentLabel}
-          </Text>
-          {triggerCount != null ? (
-            <View
+            <FilterIcon value={value} size={18} color={selectedColors.text} />
+            <Text
               style={[
-                styles.countBadge,
-                styles.triggerCountBadge,
-                {
-                  backgroundColor: countBadgeColors.background,
-                  borderColor: countBadgeColors.border,
-                },
+                TypographyStyles.filterLabel,
+                { color: selectedColors.text },
               ]}
+              numberOfLines={1}
             >
-              <Text
-                style={[styles.countBadgeText, { color: countBadgeColors.text }]}
-                numberOfLines={1}
+              {currentLabel}
+            </Text>
+            {triggerCount != null ? (
+              <View
+                style={[
+                  styles.countBadge,
+                  styles.triggerCountBadge,
+                  {
+                    backgroundColor: countBadgeColors.background,
+                    borderColor: countBadgeColors.border,
+                  },
+                ]}
               >
-                {triggerCount}
-              </Text>
-            </View>
-          ) : null}
-          {value === 'all' && hasPendingAny ? (
-            <View
-              style={[
-                styles.pendingDot,
-                styles.triggerPendingDotFloating,
-                {
-                  backgroundColor: colors.stateToVisit,
-                  borderColor: selectedColors.bg,
-                },
-              ]}
+                <Text
+                  style={[styles.countBadgeText, { color: countBadgeColors.text }]}
+                  numberOfLines={1}
+                >
+                  {triggerCount}
+                </Text>
+              </View>
+            ) : null}
+            {value === 'all' && hasPendingAny ? (
+              <View
+                style={[
+                  styles.pendingDot,
+                  styles.triggerPendingDotFloating,
+                  {
+                    backgroundColor: colors.stateToVisit,
+                    borderColor: selectedColors.bg,
+                  },
+                ]}
+              />
+            ) : null}
+            {value === 'all' ? (
+              open ? (
+                <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
+              ) : (
+                <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
+              )
+            ) : null}
+          </Pressable>
+          {value !== 'all' ? (
+            <ClearIconCircle
+              onPress={handleResetToAll}
+              accessibilityLabel="Volver a Todos"
+              iconColor={selectedColors.text}
+              backgroundColor={selectedColors.bg}
             />
           ) : null}
-          {value === 'all' ? (
-            open ? (
-              <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
-            ) : (
-              <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
-            )
-          ) : (
-            <View style={styles.resetButton} pointerEvents="none">
-              <Text style={[styles.resetButtonText, { color: selectedColors.text }]}>×</Text>
-            </View>
-          )}
-        </Pressable>
-        {value !== 'all' ? (
-          <Pressable
-            style={[styles.resetButtonOverlay, Platform.OS === 'web' && { cursor: 'pointer' }]}
-            onPress={handleResetToAll}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Volver a Todos"
-          />
-        ) : null}
+        </View>
       </Animated.View>
 
       <Animated.View
@@ -308,87 +320,91 @@ export function MapPinFilter({
             menuAnimatedStyle,
           ]}
         >
-          {OPTIONS.filter((opt) => opt.value !== value).map((opt) => {
+          {OPTIONS.map((opt) => {
             const count = getCount(opt.value, counts);
             const optionPending =
               opt.value === 'all'
                 ? hasPendingAny
-                : Boolean(opt.value !== 'all' && pendingValues[opt.value]);
+                : opt.value === 'saved'
+                  ? Boolean(pendingValues.saved)
+                  : Boolean(pendingValues.visited);
             const isDisabled =
               opt.value !== 'all' &&
               counts != null &&
               ((opt.value === 'saved' && counts.saved === 0) ||
                 (opt.value === 'visited' && counts.visited === 0));
+            const isSelected = opt.value === value;
             return (
               <Pressable
-                  key={opt.value}
-                  style={({ pressed }) => [
-                    styles.menuOption,
-                    {
-                      backgroundColor: pressed && !isDisabled ? colors.borderSubtle : 'transparent',
-                      opacity: isDisabled ? 0.45 : 1,
-                    },
-                    Platform.OS === 'web' && { cursor: 'pointer' },
-                  ]}
-                  disabled={isDisabled}
-                  onPress={() => handleSelect(opt.value)}
-                  accessibilityRole="menuitem"
-                  accessibilityState={{ selected: value === opt.value, disabled: isDisabled }}
-                  accessibilityLabel={getLabelWithCount(opt.value, opt.label, counts)}
-                >
-                  <FilterIcon
-                    value={opt.value}
-                    size={18}
-                    color={colors.text}
-                  />
-                  <Text
-                    style={[
-                      TypographyStyles.filterLabel,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                  {count != null || optionPending ? (
-                    <View style={styles.menuRightSlot}>
-                      {count != null ? (
-                      <View
-                        style={[
-                          styles.countBadge,
-                          {
-                            backgroundColor: countBadgeColors.background,
-                            borderColor: countBadgeColors.border,
-                          },
-                        ]}
+                key={opt.value}
+                style={({ pressed }): ViewStyle[] => [
+                  styles.menuOption,
+                  ...(isSelected
+                    ? ([{ borderLeftWidth: 3, borderLeftColor: colors.tint }] as const)
+                    : ([] as const)),
+                  {
+                    backgroundColor: isDisabled
+                      ? 'transparent'
+                      : pressed && !isSelected
+                        ? colors.borderSubtle
+                        : isSelected
+                          ? colors.surfaceMuted
+                          : 'transparent',
+                    opacity: isDisabled ? 0.45 : 1,
+                  },
+                  ...(Platform.OS === 'web'
+                    ? ([{ cursor: isDisabled ? ('auto' as const) : ('pointer' as const) }] as const)
+                    : ([] as const)),
+                ]}
+                disabled={isDisabled}
+                onPress={() => handleSelect(opt.value)}
+                accessibilityRole="menuitem"
+                accessibilityState={{ selected: isSelected, disabled: isDisabled }}
+                accessibilityLabel={getLabelWithCount(opt.value, opt.label, counts)}
+              >
+                <FilterIcon value={opt.value} size={18} color={colors.text} />
+                <Text style={[TypographyStyles.filterLabel, { color: colors.text }]}>{opt.label}</Text>
+                <View style={styles.menuRightSlot}>
+                  {count != null ? (
+                    <View
+                      style={[
+                        styles.countBadge,
+                        styles.menuCountBadge,
+                        {
+                          backgroundColor: countBadgeColors.background,
+                          borderColor: countBadgeColors.border,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.countBadgeText, { color: countBadgeColors.text }]}
+                        numberOfLines={1}
                       >
-                        <Text
-                          style={[
-                            styles.countBadgeText,
-                            { color: countBadgeColors.text },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {count}
-                        </Text>
-                      </View>
-                      ) : null}
-                      {optionPending ? (
-                        <View
-                          style={[
-                            styles.pendingDot,
-                            styles.menuPendingDotFloating,
-                            {
-                              backgroundColor: colors.stateToVisit,
-                              borderColor: colors.backgroundElevated,
-                            },
-                          ]}
-                        />
-                      ) : null}
+                        {count}
+                      </Text>
                     </View>
                   ) : null}
-                </Pressable>
-              );
-            })}
+                  {optionPending ? (
+                    <View
+                      style={[
+                        styles.pendingDot,
+                        styles.menuPendingDotFloating,
+                        {
+                          backgroundColor: colors.stateToVisit,
+                          borderColor: colors.backgroundElevated,
+                        },
+                      ]}
+                    />
+                  ) : null}
+                  {isSelected ? (
+                    <Check size={18} color={colors.tint} strokeWidth={2.5} />
+                  ) : (
+                    <View style={styles.menuCheckPlaceholder} />
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
         </Animated.View>
       </View>
     </View>
@@ -409,6 +425,12 @@ const styles = StyleSheet.create({
     bottom: -BACKDROP_INSET,
     zIndex: 10,
   },
+  triggerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    maxWidth: '100%',
+  },
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -419,6 +441,10 @@ const styles = StyleSheet.create({
     minHeight: MIN_TOUCH_TARGET,
     borderRadius: Radius.pill,
     borderWidth: 1,
+  },
+  triggerFlex: {
+    flex: 1,
+    minWidth: 0,
   },
   menuContainer: {
     position: 'absolute',
@@ -476,39 +502,25 @@ const styles = StyleSheet.create({
     right: 30,
     top: 10,
   },
+  menuCountBadge: {
+    marginLeft: 0,
+  },
   menuRightSlot: {
     marginLeft: 'auto',
-    width: 28,
-    height: 28,
-    position: 'relative',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    gap: Spacing.xs,
+    minHeight: 28,
+    position: 'relative',
   },
   menuPendingDotFloating: {
     position: 'absolute',
     top: 0,
     right: 0,
   },
-  resetButton: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  resetButtonOverlay: {
-    position: 'absolute',
-    right: Spacing.md,
-    top: '50%',
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
-    marginTop: -MIN_TOUCH_TARGET / 2,
-    borderRadius: MIN_TOUCH_TARGET / 2,
-  },
-  resetButtonText: {
-    fontSize: 20,
-    lineHeight: 20,
-    fontWeight: '500',
-    marginTop: -1,
+  menuCheckPlaceholder: {
+    width: 18,
+    height: 18,
   },
 });

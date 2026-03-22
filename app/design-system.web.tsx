@@ -12,6 +12,7 @@ import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import {
   ButtonPrimary,
   ButtonSecondary,
+  ClearIconCircle,
   ColorsShowcase,
   IconButton,
   ImagePlaceholder,
@@ -26,11 +27,12 @@ import {
   SpotImage,
   TypographyShowcase,
 } from '@/components/design-system';
+import { SearchInputV2 } from '@/components/search/SearchInputV2';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Check, MapPinPlus } from 'lucide-react-native';
+import { Check, MapPinPlus, Search } from 'lucide-react-native';
 
 export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
@@ -40,6 +42,8 @@ export default function DesignSystemScreen() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteSpotConfirm, setShowDeleteSpotConfirm] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [dsSearchQuery, setDsSearchQuery] = useState('Ejemplo de búsqueda');
+  const [dsSearchFocused, setDsSearchFocused] = useState(false);
 
   return (
     <>
@@ -290,8 +294,21 @@ export default function DesignSystemScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Map pin filter</Text>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Filtro de pins (menú 3 opciones + clear circular)
+          </Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: Spacing.sm }}>
+              ClearIconCircle (primitivo)
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md }}>
+              <ClearIconCircle
+                onPress={() => {}}
+                accessibilityLabel="Demo limpiar"
+                iconColor={colors.text}
+                backgroundColor={colors.text}
+              />
+            </View>
             <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginTop: Spacing.base, alignItems: 'center' }}>
               <MapPinFilter value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
               <MapPinFilter value="saved" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
@@ -299,6 +316,36 @@ export default function DesignSystemScreen() {
             </View>
             <View style={{ marginTop: Spacing.sm, width: '100%', maxWidth: 360 }}>
               <MapPinFilterInline value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
+            </View>
+            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+              Search input — pill (foco / texto / clear circular)
+            </Text>
+            <View
+              style={{
+                width: '100%',
+                maxWidth: 420,
+                flexDirection: 'row',
+                alignItems: 'center',
+                height: 44,
+                paddingLeft: Spacing.base,
+                paddingRight: Spacing.sm,
+                gap: Spacing.sm,
+                borderRadius: 22,
+                borderWidth: dsSearchFocused ? 2 : 1,
+                borderColor: dsSearchFocused ? colors.tint : colors.borderSubtle,
+                backgroundColor: colors.background,
+              }}
+            >
+              <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+              <SearchInputV2
+                value={dsSearchQuery}
+                onChangeText={setDsSearchQuery}
+                onClear={() => setDsSearchQuery('')}
+                embedded
+                placeholder="Busca en el mapa"
+                onFocus={() => setDsSearchFocused(true)}
+                onBlur={() => setDsSearchFocused(false)}
+              />
             </View>
           </View>
         </View>

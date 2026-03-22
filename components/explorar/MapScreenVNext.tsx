@@ -64,6 +64,11 @@ import {
 } from "@/lib/focus-management";
 import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
+import {
+  getAreaFallbackZoom,
+  shouldFitBoundsForPlace,
+  shouldUseWideAreaCamera,
+} from "@/lib/places/areaFraming";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import {
   placeResultV2ToLegacy,
@@ -455,11 +460,6 @@ function isPlaceLandmark(place: PlaceResult): boolean {
   if (landmarkTokens.some((t) => maki.includes(t))) return true;
   if (cats.some((c) => landmarkTokens.some((t) => c.includes(t)))) return true;
   return false;
-}
-
-function isCountryOrRegionPlace(place: PlaceResult): boolean {
-  const featureType = (place.featureType ?? "").toLowerCase();
-  return featureType.includes("country") || featureType.includes("region");
 }
 
 export function MapScreenVNext() {
@@ -1408,6 +1408,7 @@ export function MapScreenVNext() {
     () =>
       createSpotsStrategyProvider({
         getFilteredSpots: () => filteredSpots,
+        getAllSpotsForSearch: () => spots,
         getBbox: () => {
           if (!mapInstance) return null;
           try {
@@ -1425,7 +1426,7 @@ export function MapScreenVNext() {
         },
         getZoom: () => zoom,
       }),
-    [filteredSpots, mapInstance, zoom],
+    [filteredSpots, spots, mapInstance, zoom],
   );
 
   const searchV2 = useSearchControllerV2<Spot>({
@@ -2101,8 +2102,8 @@ export function MapScreenVNext() {
         toFilter: pinFilter,
       });
       setSheetState("medium");
-      const shouldFrameArea = isCountryOrRegionPlace(targetPlace);
-      if (shouldFrameArea && mapInstance && targetPlace.bbox) {
+      const shouldFitBounds = shouldFitBoundsForPlace(targetPlace);
+      if (shouldFitBounds && mapInstance && targetPlace.bbox) {
         const { west, south, east, north } = targetPlace.bbox;
         try {
           suspendFilterUntilCameraSettles();
@@ -2118,12 +2119,11 @@ export function MapScreenVNext() {
           // fallback a flyTo con zoom amplio
         }
       }
+      const useWideAreaZoom = shouldUseWideAreaCamera(targetPlace);
       flyToUnlessActMode(
         { lng: targetPlace.lng, lat: targetPlace.lat },
         {
-          zoom: shouldFrameArea
-            ? ((targetPlace.featureType ?? "").toLowerCase().includes("country") ? 3.6 : 5.5)
-            : SPOT_FOCUS_ZOOM,
+          zoom: useWideAreaZoom ? getAreaFallbackZoom(targetPlace) : SPOT_FOCUS_ZOOM,
           duration: FIT_BOUNDS_DURATION_MS,
         }
       );

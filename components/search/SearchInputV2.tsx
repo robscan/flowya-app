@@ -3,9 +3,8 @@
  * Threshold 3 chars se aplica en el controller; este componente solo muestra valor y clear.
  */
 
-import { X } from "lucide-react-native";
 import React, { forwardRef } from "react";
-import { Platform, Pressable, StyleSheet, TextInput, View } from "react-native";
+import { Platform, StyleSheet, TextInput, View } from "react-native";
 
 import {
     Colors,
@@ -14,6 +13,8 @@ import {
     WebTouchManipulation,
 } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+
+import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
 
 export type SearchInputV2Props = {
   value: string;
@@ -79,16 +80,14 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
         onBlur={onBlur}
       />
       {clearVisible ? (
-        <Pressable
-          style={[styles.clearButton]}
-          onPress={onClear}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          accessibilityLabel="Limpiar búsqueda"
-          accessibilityRole="button"
-          {...WebTouchManipulation}
-        >
-          <X size={20} color={colors.textSecondary} strokeWidth={2} />
-        </Pressable>
+        <View style={styles.clearWrap} pointerEvents="box-none">
+          <ClearIconCircle
+            onPress={onClear}
+            accessibilityLabel="Limpiar búsqueda"
+            iconColor={colors.textSecondary}
+            backgroundColor={colors.text}
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -120,15 +119,12 @@ const styles = StyleSheet.create({
     outlineStyle: 'none',
     outlineWidth: 0,
   },
-  /** Clear integrado: sin caja ni backgroundColor propio; solo ícono sobre el input. */
-  clearButton: {
+  clearWrap: {
     position: "absolute",
-    right: Spacing.sm,
+    right: Spacing.xs,
     top: 0,
     bottom: 0,
     justifyContent: "center",
     alignItems: "center",
-    width: 36,
-    backgroundColor: "transparent",
   },
 });

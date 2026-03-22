@@ -15,6 +15,7 @@ import type {
 
 export type CreateSpotsStrategyProviderDeps = {
   getFilteredSpots: () => SpotForSearch[];
+  getAllSpotsForSearch?: () => SpotForSearch[];
   getBbox: () => BBox | null;
   getZoom: () => number;
 };
@@ -33,7 +34,12 @@ export type SpotsStrategyProvider = SearchProvider & {
 export function createSpotsStrategyProvider(
   deps: CreateSpotsStrategyProviderDeps
 ): SpotsStrategyProvider {
-  const strategy = createSpotsStrategy(deps);
+  const strategy = createSpotsStrategy({
+    getFilteredSpots: deps.getFilteredSpots,
+    getAllSpotsForSearch: deps.getAllSpotsForSearch,
+    getBbox: deps.getBbox,
+    getZoom: deps.getZoom,
+  });
 
   const execute: SpotsStrategyProvider["execute"] = (params) =>
     strategy(params);
