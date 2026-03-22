@@ -223,7 +223,6 @@ export function MapPinFilter({
           <Pressable
             style={[
               styles.trigger,
-              styles.triggerFlex,
               {
                 backgroundColor: selectedColors.bg,
                 borderColor: selectedColors.border,
@@ -313,6 +312,7 @@ export function MapPinFilter({
         <Animated.View
           style={[
             styles.menu,
+            Platform.OS === 'web' && styles.menuWebShrink,
             {
               backgroundColor: colors.backgroundElevated,
               borderColor: colors.borderSubtle,
@@ -429,8 +429,10 @@ export function MapPinFilter({
 const BACKDROP_INSET = 9999;
 
 const styles = StyleSheet.create({
+  /** Ancho = fila del trigger (chip + opcional clear); el menú se centra respecto a este bloque. */
   wrapper: {
     alignSelf: 'center',
+    flexShrink: 0,
   },
   backdrop: {
     position: 'absolute',
@@ -443,6 +445,7 @@ const styles = StyleSheet.create({
   triggerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'center',
     gap: Spacing.sm,
     maxWidth: '100%',
   },
@@ -450,16 +453,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    flexGrow: 0,
+    flexShrink: 0,
     gap: Spacing.sm,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.md,
     minHeight: MIN_TOUCH_TARGET,
     borderRadius: Radius.pill,
     borderWidth: 1,
-  },
-  triggerFlex: {
-    flex: 1,
-    minWidth: 0,
   },
   menuContainer: {
     position: 'absolute',
@@ -477,12 +478,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   menu: {
-    alignSelf: 'flex-start',
+    alignSelf: 'center',
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-    minWidth: 288,
     maxWidth: '100%',
+  },
+  /** Web: el panel no debe estirarse al ancho del overlay; obedece al contenido. */
+  menuWebShrink: {
+    width: 'max-content' as unknown as number,
   },
   menuOption: {
     minHeight: MIN_TOUCH_TARGET,
