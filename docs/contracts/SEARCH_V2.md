@@ -4,6 +4,8 @@
 
 * `docs/definitions/search/SEARCH_V2.md` (source of truth)
 * `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md` (nuevo)
+* `docs/contracts/USER_TAGS_EXPLORE.md` (etiquetas personales + búsqueda + sheet)
+* `docs/contracts/SYSTEM_STATUS_TOAST.md` (toast / System Status — anclaje Explore)
 * `docs/ops/OPEN_LOOPS.md` (estado operativo; no existe snapshot `CURRENT_STATE.md`)
 
 ---
@@ -194,7 +196,17 @@ Uso en cliente:
 
 ---
 
-## 12) Troubleshooting rápido (Search empty-state)
+## 12) Etiquetas personales (user tags / pin tags)
+
+- **Ámbito:** etiquetas **por usuario** (owner-only), integradas en listados de búsqueda, cards, fila de chips en `SearchSurface`, sheet de spot y modal de asignación.
+- **No** sustituyen categorías Mapbox; **no** hay tags globales compartidos en v1.
+- **Filtro de etiqueta** y **filtro de pin** (`Todos` / `Por visitar` / `Visitados`) son conceptos ortogonales; la UX debe evitar ambigüedad (chips de etiqueta bajo el filtro de pin; limpieza de etiqueta al cambiar pin filter según implementación en `MapScreenVNext`).
+- **Contrato detallado** (creación, slug, RLS, `TagChip` vs chips de filtro, sheet, modal): `docs/contracts/USER_TAGS_EXPLORE.md`.
+- **Feedback** de crear/eliminar/asignar: `useSystemStatus` — ver `docs/contracts/SYSTEM_STATUS_TOAST.md` (anclaje inferior en Explore; con buscador abierto **sin** offset de altura del sheet).
+
+---
+
+## 13) Troubleshooting rápido (Search empty-state)
 
 - No aparece "Lugares populares en Flowya":
   - verificar condiciones de entrada (Search abierto, query vacía, filtro `all`, sin cold start, sin country drilldown),
