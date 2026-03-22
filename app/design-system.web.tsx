@@ -299,13 +299,21 @@ export default function DesignSystemScreen() {
           </Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: Spacing.sm }}>
-              ClearIconCircle (primitivo)
+              ClearIconCircle: filter (sólido) · search (compacto)
             </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.md, marginBottom: Spacing.md }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, marginBottom: Spacing.md }}>
               <ClearIconCircle
+                variant="filter"
                 onPress={() => {}}
-                accessibilityLabel="Demo limpiar"
-                iconColor={colors.text}
+                accessibilityLabel="Demo limpiar filtro"
+                iconColor={colors.pin.outline}
+                backgroundColor={colors.stateToVisit}
+              />
+              <ClearIconCircle
+                variant="search"
+                onPress={() => {}}
+                accessibilityLabel="Demo limpiar búsqueda"
+                iconColor={colors.textSecondary}
                 backgroundColor={colors.text}
               />
             </View>

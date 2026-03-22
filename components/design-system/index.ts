@@ -28,7 +28,7 @@ export type {
     MapLocationPickerState
 } from './map-location-picker';
 export { ClearIconCircle } from './clear-icon-circle';
-export type { ClearIconCircleProps } from './clear-icon-circle';
+export type { ClearIconCircleProps, ClearIconCircleVariant } from './clear-icon-circle';
 export { MapPinFilter } from './map-pin-filter';
 export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
 export { MapPinFilterInline } from './map-pin-filter-inline';

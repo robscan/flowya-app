@@ -15,6 +15,7 @@ import {
   StyleSheet,
   Text,
   View,
+  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -275,20 +276,19 @@ export function MapPinFilter({
                 ]}
               />
             ) : null}
-            {value === 'all' ? (
-              open ? (
-                <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
-              ) : (
-                <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
-              )
-            ) : null}
+            {open ? (
+              <ChevronUp size={18} color={selectedColors.text} strokeWidth={2} />
+            ) : (
+              <ChevronDown size={18} color={selectedColors.text} strokeWidth={2} />
+            )}
           </Pressable>
           {value !== 'all' ? (
             <ClearIconCircle
               onPress={handleResetToAll}
               accessibilityLabel="Volver a Todos"
-              iconColor={selectedColors.text}
+              iconColor={colors.pin.outline}
               backgroundColor={selectedColors.bg}
+              variant="filter"
             />
           ) : null}
         </View>
@@ -362,45 +362,60 @@ export function MapPinFilter({
                 accessibilityState={{ selected: isSelected, disabled: isDisabled }}
                 accessibilityLabel={getLabelWithCount(opt.value, opt.label, counts)}
               >
-                <FilterIcon value={opt.value} size={18} color={colors.text} />
-                <Text style={[TypographyStyles.filterLabel, { color: colors.text }]}>{opt.label}</Text>
-                <View style={styles.menuRightSlot}>
-                  {count != null ? (
-                    <View
+                <View style={styles.menuOptionRow}>
+                  <View style={styles.menuOptionLeading}>
+                    <FilterIcon value={opt.value} size={18} color={colors.text} />
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                       style={[
-                        styles.countBadge,
-                        styles.menuCountBadge,
-                        {
-                          backgroundColor: countBadgeColors.background,
-                          borderColor: countBadgeColors.border,
-                        },
+                        TypographyStyles.filterLabel,
+                        styles.menuOptionLabel,
+                        { color: colors.text },
+                        Platform.OS === 'web' && ({ whiteSpace: 'nowrap' } as TextStyle),
                       ]}
                     >
-                      <Text
-                        style={[styles.countBadgeText, { color: countBadgeColors.text }]}
-                        numberOfLines={1}
+                      {opt.label}
+                    </Text>
+                  </View>
+                  <View style={styles.menuRightSlot}>
+                    {count != null ? (
+                      <View
+                        style={[
+                          styles.countBadge,
+                          styles.menuCountBadge,
+                          {
+                            backgroundColor: countBadgeColors.background,
+                            borderColor: countBadgeColors.border,
+                          },
+                        ]}
                       >
-                        {count}
-                      </Text>
-                    </View>
-                  ) : null}
-                  {optionPending ? (
-                    <View
-                      style={[
-                        styles.pendingDot,
-                        styles.menuPendingDotFloating,
-                        {
-                          backgroundColor: colors.stateToVisit,
-                          borderColor: colors.backgroundElevated,
-                        },
-                      ]}
-                    />
-                  ) : null}
-                  {isSelected ? (
-                    <Check size={18} color={colors.tint} strokeWidth={2.5} />
-                  ) : (
-                    <View style={styles.menuCheckPlaceholder} />
-                  )}
+                        <Text
+                          style={[styles.countBadgeText, { color: countBadgeColors.text }]}
+                          numberOfLines={1}
+                        >
+                          {count}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {optionPending ? (
+                      <View
+                        style={[
+                          styles.pendingDot,
+                          styles.menuPendingDotFloating,
+                          {
+                            backgroundColor: colors.stateToVisit,
+                            borderColor: colors.backgroundElevated,
+                          },
+                        ]}
+                      />
+                    ) : null}
+                    {isSelected ? (
+                      <Check size={18} color={colors.tint} strokeWidth={2.5} />
+                    ) : (
+                      <View style={styles.menuCheckPlaceholder} />
+                    )}
+                  </View>
                 </View>
               </Pressable>
             );
@@ -462,18 +477,34 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   menu: {
+    alignSelf: 'flex-start',
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-    minWidth: 180,
+    minWidth: 288,
+    maxWidth: '100%',
   },
   menuOption: {
+    minHeight: MIN_TOUCH_TARGET,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    justifyContent: 'center',
+  },
+  menuOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    minHeight: MIN_TOUCH_TARGET,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.base,
+    minWidth: 0,
+  },
+  menuOptionLeading: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+    minWidth: 0,
+  },
+  menuOptionLabel: {
+    flexShrink: 1,
   },
   countBadge: {
     width: 28,
@@ -506,7 +537,7 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   menuRightSlot: {
-    marginLeft: 'auto',
+    flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',

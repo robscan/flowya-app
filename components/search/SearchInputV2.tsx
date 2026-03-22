@@ -61,7 +61,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
               : colors.backgroundElevated,
             borderColor: embedded ? "transparent" : colors.borderSubtle,
             color: colors.text,
-            paddingRight: clearVisible ? 44 : Spacing.base,
+            paddingRight: clearVisible ? 34 : Spacing.base,
           },
           embedded && styles.inputEmbedded,
           WebTouchManipulation,
@@ -86,6 +86,7 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
             accessibilityLabel="Limpiar búsqueda"
             iconColor={colors.textSecondary}
             backgroundColor={colors.text}
+            variant="search"
           />
         </View>
       ) : null}
@@ -121,7 +122,7 @@ const styles = StyleSheet.create({
   },
   clearWrap: {
     position: "absolute",
-    right: Spacing.xs,
+    right: Spacing.sm,
     top: 0,
     bottom: 0,
     justifyContent: "center",
