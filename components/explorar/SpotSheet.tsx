@@ -27,6 +27,7 @@ import {
 } from "@/lib/geo-utils";
 import {
     CheckCircle,
+    Hash,
     MapPin,
     Pencil,
     Pin,
@@ -179,6 +180,12 @@ export type SpotSheetProps = {
   displayTitleOverride?: string | null;
   /** Al tocar la imagen de portada: abrir en pantalla completa (lightbox). */
   onImagePress?: (uri: string) => void;
+  /** Etiquetas del spot en el sheet (solo lectura). */
+  sheetTagChips?: { id: string; label: string }[];
+  /** Tap en chip: buscador en «Todos» con filtro por esa etiqueta. */
+  onSheetTagChipPress?: (tagId: string) => void;
+  /** Abrir modal de etiquetar (mismo flujo que en listados). */
+  onSheetEtiquetarPress?: () => void;
 };
 
 type BodyContentProps = {
@@ -204,7 +211,68 @@ type BodyContentProps = {
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
+  sheetTagChips?: { id: string; label: string }[];
+  onSheetTagChipPress?: (tagId: string) => void;
+  onSheetEtiquetarPress?: () => void;
 };
+
+/** Distancia + chips de etiqueta + Etiquetar (medium y expanded). */
+function SpotSheetMetaRow({
+  distanceKmVal,
+  tagChips,
+  onTagChipPress,
+  onEtiquetar,
+  colors,
+}: {
+  distanceKmVal: number | null;
+  tagChips: { id: string; label: string }[];
+  onTagChipPress?: (tagId: string) => void;
+  onEtiquetar?: () => void;
+  colors: (typeof Colors)["light"];
+}) {
+  const showDistance = distanceKmVal != null;
+  const showTags = tagChips.length > 0;
+  const showEtiquetar = onEtiquetar != null;
+  if (!showDistance && !showTags && !showEtiquetar) return null;
+  return (
+    <View style={styles.metaRow}>
+      {showDistance ? (
+        <Text style={[styles.metaDistance, { color: colors.textSecondary }]} accessibilityRole="text">
+          A {formatDistanceKm(distanceKmVal!)}
+        </Text>
+      ) : null}
+      {showTags || showEtiquetar ? (
+        <View style={styles.metaChipsCluster}>
+          {tagChips.map((chip) => (
+            <Pressable
+              key={chip.id}
+              onPress={() => onTagChipPress?.(chip.id)}
+              disabled={!onTagChipPress}
+              style={[styles.metaTagChip, { backgroundColor: colors.borderSubtle }]}
+              accessibilityLabel={`Buscar en el mapa con etiqueta ${chip.label}`}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.metaTagChipLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                #{chip.label}
+              </Text>
+            </Pressable>
+          ))}
+          {showEtiquetar ? (
+            <Pressable
+              onPress={onEtiquetar}
+              style={styles.metaEtiquetar}
+              accessibilityLabel="Etiquetar este spot"
+              accessibilityRole="button"
+            >
+              <Hash size={13} color={colors.primary} strokeWidth={2.2} />
+              <Text style={[styles.metaEtiquetarLabel, { color: colors.primary }]}>Etiquetar</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 
 /** Solo lo que se muestra en MEDIUM: descripción corta + imagen + Guardar/Visitado (ocultos para draft). Sin navegación a detalle. */
 function MediumBodyContent({
@@ -218,6 +286,11 @@ function MediumBodyContent({
   colorScheme,
   handleSavePin,
   onImagePress,
+  distanceKmVal,
+  sheetTagChips,
+  onSheetTagChipPress,
+  onSheetEtiquetarPress,
+  isAuthUser,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -228,7 +301,15 @@ function MediumBodyContent({
   | "colors"
   | "colorScheme"
   | "handleSavePin"
-> & { isDraft?: boolean; onImagePress?: (uri: string) => void }) {
+> & {
+  isDraft?: boolean;
+  onImagePress?: (uri: string) => void;
+  distanceKmVal: number | null;
+  sheetTagChips?: { id: string; label: string }[];
+  onSheetTagChipPress?: (tagId: string) => void;
+  onSheetEtiquetarPress?: () => void;
+  isAuthUser?: boolean;
+}) {
 
   return (
     <>
@@ -335,13 +416,24 @@ function MediumBodyContent({
           </Pressable>
         </View>
       ) : null}
+      {!isDraft &&
+      (distanceKmVal != null ||
+        (sheetTagChips?.length ?? 0) > 0 ||
+        (isAuthUser && onSheetEtiquetarPress)) ? (
+        <SpotSheetMetaRow
+          distanceKmVal={distanceKmVal}
+          tagChips={sheetTagChips ?? []}
+          onTagChipPress={onSheetTagChipPress}
+          onEtiquetar={onSheetEtiquetarPress}
+          colors={colors}
+        />
+      ) : null}
     </>
   );
 }
 
-/** Contenido extra solo en EXPANDED: distancia, Por qué importa, dirección, Cómo llegar, Editar. */
+/** Contenido extra solo en EXPANDED: Por qué importa, dirección, Cómo llegar, Editar (distancia y etiquetas van en MediumBodyContent). */
 function ExpandedExtra({
-  distanceKmVal,
   whyText,
   addressText,
   isAuthUser,
@@ -351,7 +443,6 @@ function ExpandedExtra({
   onEdit,
 }: Pick<
   BodyContentProps,
-  | "distanceKmVal"
   | "whyText"
   | "addressText"
   | "isAuthUser"
@@ -362,11 +453,6 @@ function ExpandedExtra({
 >) {
   return (
     <>
-      {distanceKmVal != null ? (
-        <Text style={[styles.detailLabel, { color: colors.textSecondary }]}>
-          A {formatDistanceKm(distanceKmVal)}
-        </Text>
-      ) : null}
       {whyText ? (
         <View style={styles.detailBlock}>
           <Text style={[styles.detailSectionTitle, { color: colors.text }]}>
@@ -719,6 +805,9 @@ type SpotSheetBodyProps = {
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
   onImagePress?: (uri: string) => void;
+  sheetTagChips?: { id: string; label: string }[];
+  onSheetTagChipPress?: (tagId: string) => void;
+  onSheetEtiquetarPress?: () => void;
 };
 
 function SpotSheetBody({
@@ -756,6 +845,9 @@ function SpotSheetBody({
   handleEdit,
   onEdit,
   onImagePress,
+  sheetTagChips,
+  onSheetTagChipPress,
+  onSheetEtiquetarPress,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -791,6 +883,11 @@ function SpotSheetBody({
           colorScheme={colorScheme}
           handleSavePin={handleSavePin}
           onImagePress={onImagePress}
+          distanceKmVal={distanceKmVal}
+          sheetTagChips={sheetTagChips}
+          onSheetTagChipPress={onSheetTagChipPress}
+          onSheetEtiquetarPress={onSheetEtiquetarPress}
+          isAuthUser={isAuthUser}
         />
         {isDraft ? (
           <DraftInlineEditor
@@ -802,7 +899,6 @@ function SpotSheetBody({
           />
         ) : isExpanded ? (
           <ExpandedExtra
-            distanceKmVal={distanceKmVal}
             whyText={whyText}
             addressText={addressText}
             isAuthUser={isAuthUser}
@@ -870,6 +966,9 @@ export function SpotSheet({
   poiLoading = false,
   displayTitleOverride,
   onImagePress,
+  sheetTagChips,
+  onSheetTagChipPress,
+  onSheetEtiquetarPress,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -1307,6 +1406,9 @@ export function SpotSheet({
         handleEdit={handleEdit}
         onEdit={onEdit}
         onImagePress={onImagePress}
+        sheetTagChips={sheetTagChips}
+        onSheetTagChipPress={onSheetTagChipPress}
+        onSheetEtiquetarPress={onSheetEtiquetarPress}
       />
 
       <ConfirmModal
@@ -1532,6 +1634,49 @@ const styles = StyleSheet.create({
   },
   poiLoadingText: {
     fontSize: 14,
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: Spacing.sm,
+    marginBottom: BODY_ROW_GAP,
+    width: "100%",
+  },
+  metaDistance: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  metaChipsCluster: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: Spacing.sm,
+    flex: 1,
+    minWidth: 0,
+  },
+  metaTagChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: Radius.sm,
+    maxWidth: 220,
+  },
+  metaTagChipLabel: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  metaEtiquetar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    borderRadius: Radius.sm,
+  },
+  metaEtiquetarLabel: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "700",
   },
   detailLabel: {
     fontSize: 14,

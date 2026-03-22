@@ -22,6 +22,8 @@ export type SpotForSearch = {
   latitude: number;
   longitude: number;
   pinStatus?: SpotPinStatus;
+  /** OL-EXPLORE-TAGS-001: ids de user_tags asociados al spot (solo owner). */
+  tagIds?: string[];
 };
 
 export type CreateSpotsStrategyOptions = {
@@ -56,6 +58,14 @@ function shouldExpandAcrossAllPins(filters: unknown): boolean {
     return Boolean((filters as { expandSearchAcrossAllPins?: unknown }).expandSearchAcrossAllPins);
   }
   return false;
+}
+
+function resolveTagId(filters: unknown): string | null {
+  if (typeof filters === 'object' && filters !== null && 'tagId' in filters) {
+    const v = (filters as { tagId?: unknown }).tagId;
+    if (typeof v === 'string' && v.length > 0) return v;
+  }
+  return null;
 }
 
 function centerOfBbox(bbox: BBox): { lat: number; lng: number } {
@@ -116,6 +126,14 @@ export function createSpotsStrategy({
         if (descMatch) return true;
         const addressMatch = queryAliases.some((alias) => address.includes(alias));
         return addressMatch;
+      });
+    }
+
+    const tagId = resolveTagId(filters);
+    if (tagId) {
+      list = list.filter((s) => {
+        const ids = s.tagIds;
+        return Array.isArray(ids) && ids.includes(tagId);
       });
     }
 

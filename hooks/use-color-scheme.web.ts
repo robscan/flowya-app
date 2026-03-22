@@ -1,21 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { useColorScheme as useRNColorScheme } from 'react-native';
 
 /**
- * To support static rendering, this value needs to be re-calculated on the client side for web
+ * Web: evita el parpadeo light → dark al cargar.
+ * El template `app/+html.tsx` aplica `prefers-color-scheme` en el documento antes del primer paint.
+ *
+ * `useSyncExternalStore` alinea con `matchMedia` (mismo criterio que RN Web) sin forzar
+ * `'light'` hasta hidratar (patrón antiguo que causaba el salto visible).
  */
-export function useColorScheme() {
-  const [hasHydrated, setHasHydrated] = useState(false);
+function subscribePreference(cb: () => void) {
+  if (typeof window === 'undefined') return () => {};
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  mq.addEventListener('change', cb);
+  return () => mq.removeEventListener('change', cb);
+}
 
-  useEffect(() => {
-    setHasHydrated(true);
-  }, []);
+function getPreferenceSnapshot(): 'light' | 'dark' {
+  if (typeof window === 'undefined') return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
 
-  const colorScheme = useRNColorScheme();
-
-  if (hasHydrated) {
-    return colorScheme;
-  }
-
+function getServerSnapshot(): 'light' | 'dark' {
   return 'light';
+}
+
+export function useColorScheme() {
+  const mediaScheme = useSyncExternalStore(
+    subscribePreference,
+    getPreferenceSnapshot,
+    getServerSnapshot,
+  );
+  const rnScheme = useRNColorScheme();
+  if (rnScheme === 'light' || rnScheme === 'dark') {
+    return rnScheme;
+  }
+  return mediaScheme;
 }
