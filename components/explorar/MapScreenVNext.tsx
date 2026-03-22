@@ -70,8 +70,8 @@ import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-ut
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import {
   applyExploreCameraForPlace,
+  applyPlaceReframeCycle,
   placeResultFromSpotForCamera,
-  shouldFitBoundsForPlace,
 } from "@/lib/places/areaFraming";
 import { searchPlaces, type PlaceResult } from "@/lib/places/searchPlaces";
 import {
@@ -774,6 +774,8 @@ export function MapScreenVNext() {
   const is3DEnabled = true;
   /** Tap en POI de Mapbox (no spot Flowya): mostrar sheet Agregar spot / Por visitar. */
   const [poiTapped, setPoiTapped] = useState<TappedMapFeature | null>(null);
+  /** Ciclo encuadre mismo POI (contextual ↔ zoom general); independiente de useMapCore.reframeCycle. */
+  const poiReframeCycleRef = useRef(0);
   /** Modal duplicado: Ver spot | Crear otro | Cerrar (2 pasos). */
   const [duplicateModal, setDuplicateModal] = useState<{
     existingTitle: string;
@@ -1136,7 +1138,6 @@ export function MapScreenVNext() {
     onMapLoad,
     handleLocate,
     handleReframeSpot,
-    handleReframeSpotAndUser,
     handleViewWorld,
     programmaticFlyTo,
     handleMapPointerDown,
@@ -1277,28 +1278,39 @@ export function MapScreenVNext() {
     return { id: `poi:${poiTapped.placeId ?? `${poiTapped.lat.toFixed(5)},${poiTapped.lng.toFixed(5)}`}` };
   }, [selectedSpot, poiTapped]);
 
+  const poiReframeCycleKey = useMemo(
+    () =>
+      poiTapped
+        ? `${poiTapped.placeId ?? ""}:${poiTapped.lat}:${poiTapped.lng}`
+        : "",
+    [poiTapped],
+  );
+
+  useEffect(() => {
+    poiReframeCycleRef.current = 0;
+  }, [poiReframeCycleKey]);
+
   const handleReframeContextual = useCallback(() => {
     if (selectedSpot) {
       suspendFilterUntilCameraSettles();
       handleReframeSpot();
       return;
     }
-    if (!poiTapped) return;
+    if (!poiTapped || !mapInstance) return;
     suspendFilterUntilCameraSettles();
-    applyExploreCameraForPlace(
-      mapInstance,
-      {
-        id: poiTapped.placeId ?? "poi",
-        name: poiTapped.name,
-        lat: poiTapped.lat,
-        lng: poiTapped.lng,
-        bbox: poiTapped.bbox,
-        source: "mapbox",
-        maki: poiTapped.maki ?? undefined,
-        featureType: poiTapped.featureType ?? undefined,
-      },
-      flyToUnlessActMode,
-    );
+    const poiAsPlace: PlaceResult = {
+      id: poiTapped.placeId ?? "poi",
+      name: poiTapped.name,
+      lat: poiTapped.lat,
+      lng: poiTapped.lng,
+      bbox: poiTapped.bbox,
+      source: "mapbox",
+      maki: poiTapped.maki ?? undefined,
+      featureType: poiTapped.featureType ?? undefined,
+    };
+    const step = poiReframeCycleRef.current;
+    applyPlaceReframeCycle(mapInstance, poiAsPlace, step, flyToUnlessActMode);
+    poiReframeCycleRef.current = (step + 1) % 2;
   }, [
     selectedSpot,
     handleReframeSpot,
@@ -1306,67 +1318,6 @@ export function MapScreenVNext() {
     flyToUnlessActMode,
     suspendFilterUntilCameraSettles,
     mapInstance,
-  ]);
-
-  const handleReframeContextualAndUser = useCallback(() => {
-    if (selectedSpot) {
-      suspendFilterUntilCameraSettles();
-      handleReframeSpotAndUser();
-      return;
-    }
-    if (!poiTapped) return;
-    if (mapInstance && userCoords) {
-      const poiAsPlace: PlaceResult = {
-        id: poiTapped.placeId ?? "poi",
-        name: poiTapped.name,
-        lat: poiTapped.lat,
-        lng: poiTapped.lng,
-        bbox: poiTapped.bbox,
-        source: "mapbox",
-        maki: poiTapped.maki ?? undefined,
-        featureType: poiTapped.featureType ?? undefined,
-      };
-      if (poiTapped.bbox && shouldFitBoundsForPlace(poiAsPlace)) {
-        const { west, south, east, north } = poiTapped.bbox;
-        const lngs = [west, east, userCoords.longitude, poiTapped.lng];
-        const lats = [south, north, userCoords.latitude, poiTapped.lat];
-        try {
-          suspendFilterUntilCameraSettles();
-          mapInstance.fitBounds(
-            [
-              [Math.min(...lngs), Math.min(...lats)],
-              [Math.max(...lngs), Math.max(...lats)],
-            ],
-            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-          );
-          return;
-        } catch {
-          // fallback a dos puntos
-        }
-      }
-      try {
-        suspendFilterUntilCameraSettles();
-        mapInstance.fitBounds(
-          [
-            [poiTapped.lng, poiTapped.lat],
-            [userCoords.longitude, userCoords.latitude],
-          ],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-        );
-        return;
-      } catch {
-        // fallback a encuadre simple en POI
-      }
-    }
-    handleReframeContextual();
-  }, [
-    selectedSpot,
-    handleReframeSpotAndUser,
-    poiTapped,
-    mapInstance,
-    userCoords,
-    handleReframeContextual,
-    suspendFilterUntilCameraSettles,
   ]);
 
 
@@ -4715,8 +4666,6 @@ export function MapScreenVNext() {
             onLocate={handleLocateWithFilterDelay}
             selectedSpot={contextualSelection}
             onReframeSpot={handleReframeContextual}
-            onReframeSpotAndUser={handleReframeContextualAndUser}
-            hasUserLocation={userCoords != null}
             onViewWorld={handleViewWorldWithFilterDelay}
             activeMapControl={activeMapControl}
           />

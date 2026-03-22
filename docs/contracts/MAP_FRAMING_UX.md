@@ -12,11 +12,9 @@
 
 ---
 
-## Decisión: no alternar “lugar” y “usuario” en un solo botón
+## Decisión: encuadre contextual = ciclo de zoom sobre el mismo foco
 
-Se recomienda mantener **dos acciones claras** (p. ej. control “Ver lugar” vs “Cerca de ti”), en línea con mapas y listas tipo Apple Maps / Reminders. Un ciclo Lugar → Área → Cerca solo si se documenta en UI y no rompe expectativas de reframe único.
-
-Implementación futura opcional: **niveles de zoom del mismo spot** (detalle → barrio → región) como ciclo sobre el **mismo** ancla geográfica; distinto del toggle usuario/lugar.
+El botón de encuadre (Explore) **no** mezcla lugar y usuario. Ciclo de **dos pasos** sobre la misma ancla (spot o POI), en `applyPlaceReframeCycle` ([`lib/places/areaFraming.ts`](../../lib/places/areaFraming.ts)): **encuadre definido** (`applyExploreCameraForPlace`: `fitBounds` cuando aplica bbox + heurísticas; si no, `flyTo` contextual) ↔ **vista general** (mismo centro, `SPOT_REFRAME_CYCLE_WIDE_ZOOM`). El botón **Locate** sigue siendo la acción para ir a la posición del usuario.
 
 ---
 

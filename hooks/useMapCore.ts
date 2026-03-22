@@ -15,9 +15,8 @@ import {
   type SpotForLayer,
 } from '@/lib/map-core/spots-layer';
 import {
-  applyExploreCameraForPlace,
+  applyPlaceReframeCycle,
   placeResultFromSpotForCamera,
-  shouldFitBoundsForPlace,
   type SpotCameraFraming,
 } from '@/lib/places/areaFraming';
 import {
@@ -80,8 +79,6 @@ const GEO_OPTIONS: PositionOptions = {
   timeout: 10000,
   maximumAge: 300000,
 };
-
-const FIT_BOUNDS_PADDING = 64;
 
 function getPointFromEvent(e: MapMouseEvent | MapTouchEvent): { x: number; y: number } {
   const point = 'point' in e && e.point ? e.point : undefined;
@@ -175,6 +172,7 @@ export function useMapCore(
   const longPressPointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const onLongPressRef = useRef(onLongPress);
   const mountedRef = useRef(true);
+  const reframeCycleStepRef = useRef(0);
   onLongPressRef.current = onLongPress;
 
   useEffect(() => {
@@ -182,6 +180,10 @@ export function useMapCore(
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    reframeCycleStepRef.current = 0;
+  }, [selectedSpot?.id]);
 
   /** Si el permiso ya está concedido (sesiones anteriores), obtener coords sin mostrar prompt. */
   useEffect(() => {
@@ -439,79 +441,10 @@ export function useMapCore(
     programmaticMoveRef.current = true;
     setActiveMapControl('spot');
     const place = placeResultFromSpotForCamera(selectedSpot, selectedSpotCameraFraming);
-    applyExploreCameraForPlace(mapInstance, place, programmaticFlyTo);
+    const step = reframeCycleStepRef.current;
+    applyPlaceReframeCycle(mapInstance, place, step, programmaticFlyTo);
+    reframeCycleStepRef.current = (step + 1) % 2;
   }, [mapInstance, selectedSpot, selectedSpotCameraFraming, programmaticFlyTo]);
-
-  const handleReframeSpotAndUser = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('spot+user');
-    const runReframe = (coords: UserCoords) => {
-      const placeForFraming = placeResultFromSpotForCamera(selectedSpot, selectedSpotCameraFraming);
-      const bbox = selectedSpotCameraFraming?.bbox ?? null;
-
-      if (coords && bbox && shouldFitBoundsForPlace(placeForFraming)) {
-        const { west, south, east, north } = bbox;
-        const lngs = [west, east, coords.longitude, selectedSpot.longitude];
-        const lats = [south, north, coords.latitude, selectedSpot.latitude];
-        try {
-          mapInstance.fitBounds(
-            [
-              [Math.min(...lngs), Math.min(...lats)],
-              [Math.max(...lngs), Math.max(...lats)],
-            ],
-            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-          );
-          return;
-        } catch {
-          // fallback
-        }
-      }
-
-      if (!coords) {
-        applyExploreCameraForPlace(mapInstance, placeForFraming, programmaticFlyTo);
-        return;
-      }
-
-      const pts: { longitude: number; latitude: number }[] = [
-        { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
-        { longitude: coords.longitude, latitude: coords.latitude },
-      ];
-      let minLng = Infinity;
-      let minLat = Infinity;
-      let maxLng = -Infinity;
-      let maxLat = -Infinity;
-      for (const p of pts) {
-        minLng = Math.min(minLng, p.longitude);
-        minLat = Math.min(minLat, p.latitude);
-        maxLng = Math.max(maxLng, p.longitude);
-        maxLat = Math.max(maxLat, p.latitude);
-      }
-      mapInstance.fitBounds(
-        [
-          [minLng, minLat],
-          [maxLng, maxLat],
-        ],
-        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
-      );
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const c: UserCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setUserCoords(c);
-          runReframe(c);
-        },
-        () => runReframe(userCoords),
-        GEO_OPTIONS,
-      );
-    } else {
-      runReframe(userCoords);
-    }
-  }, [mapInstance, selectedSpot, selectedSpotCameraFraming, userCoords, programmaticFlyTo]);
 
   useEffect(() => {
     const map = mapInstance;
@@ -617,7 +550,6 @@ export function useMapCore(
     onMapLoad,
     handleLocate,
     handleReframeSpot,
-    handleReframeSpotAndUser,
     handleViewWorld,
     handleToggle3D,
     programmaticFlyTo,
