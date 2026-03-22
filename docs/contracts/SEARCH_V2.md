@@ -4,7 +4,7 @@
 
 * `docs/definitions/search/SEARCH_V2.md` (source of truth)
 * `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md` (nuevo)
-* `docs/ops/CURRENT_STATE.md`
+* `docs/ops/OPEN_LOOPS.md` (estado operativo; no existe snapshot `CURRENT_STATE.md`)
 
 ---
 

@@ -11,11 +11,10 @@ import { ResultRow } from '@/components/design-system/search-list-card';
 import { ActivitySummary } from '@/components/design-system/activity-summary';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React from 'react';
+import React, { useState } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -66,6 +65,7 @@ export function SearchSurface<T>({
   onInputFocus,
   onInputBlur,
 }: SearchSurfaceProps<T>) {
+  const [searchInputFocused, setSearchInputFocused] = useState(false);
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -94,6 +94,8 @@ export function SearchSurface<T>({
   const shouldRenderResultsOnEmpty = showResultsOnEmpty && isEmpty && displayResults.length > 0;
   const shouldRenderResultsList = (isSearch || shouldRenderResultsOnEmpty) && displayResults.length > 0;
   const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
+  const showGlobalPinExpandHint =
+    isFilteredPinSearch && controller.isGlobalPinExpandActive && displayResults.length > 0 && isSearch;
 
   const scrollProps = {
     keyboardShouldPersistTaps: 'handled' as const,
@@ -129,7 +131,17 @@ export function SearchSurface<T>({
         </IconButton>
       </View>
       <View style={styles.searchRow}>
-        <View style={[styles.searchPill, { backgroundColor: colors.background, borderColor: colors.borderSubtle }]}>
+        <View
+          style={[
+            styles.searchPill,
+            {
+              backgroundColor: colors.background,
+              borderColor: searchInputFocused ? colors.tint : colors.borderSubtle,
+              borderWidth: searchInputFocused ? 2 : 1,
+            },
+          ]}
+          accessibilityRole="search"
+        >
           <Search size={20} color={colors.textSecondary} strokeWidth={2} />
           <SearchInputV2
             value={controller.query}
@@ -138,8 +150,21 @@ export function SearchSurface<T>({
             placeholder={searchPlaceholder}
             autoFocus
             embedded
-            onFocus={onInputFocus}
-            onBlur={onInputBlur}
+            accessibilityLabel={
+              pinFilter === 'saved'
+                ? 'Buscar en tus spots por visitar'
+                : pinFilter === 'visited'
+                  ? 'Buscar en tus spots visitados'
+                  : 'Buscar en el mapa'
+            }
+            onFocus={() => {
+              setSearchInputFocused(true);
+              onInputFocus?.();
+            }}
+            onBlur={() => {
+              setSearchInputFocused(false);
+              onInputBlur?.();
+            }}
           />
         </View>
       </View>
@@ -236,6 +261,16 @@ export function SearchSurface<T>({
         )}
         {shouldRenderResultsList && (
           <View style={styles.resultsListWrap}>
+            {showGlobalPinExpandHint ? (
+              <Text
+                style={[styles.globalPinExpandHint, { color: colors.textSecondary }]}
+                accessibilityRole="text"
+              >
+                {pinFilter === 'saved'
+                  ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus spots y lugares sugeridos).'
+                  : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus spots y lugares sugeridos).'}
+              </Text>
+            ) : null}
             {resultsSummaryLabel ? (
               <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                 {resultsSummaryLabel}
@@ -300,25 +335,6 @@ export function SearchSurface<T>({
                   </Text>
                 ) : null;
               })()}
-              {isFilteredPinSearch && onPinFilterChange != null ? (
-                <View style={styles.filterCtaSection}>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.filterCtaButton,
-                      {
-                        backgroundColor: pressed
-                          ? colors.tintPressed ?? colors.tint
-                          : colors.tint,
-                      },
-                    ]}
-                    onPress={() => onPinFilterChange('all')}
-                    accessibilityRole="button"
-                    accessibilityLabel="Ver todo para buscar en todos tus lugares y recomendaciones"
-                  >
-                    <Text style={styles.filterCtaButtonText}>Buscar en todo el mapa</Text>
-                  </Pressable>
-                </View>
-              ) : null}
               {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
                 <View style={styles.suggestionsSection}>
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
@@ -427,15 +443,11 @@ const styles = StyleSheet.create({
   },
   historyItem: { paddingVertical: Spacing.sm, paddingHorizontal: Spacing.base },
   noResultsIntro: { fontSize: 15, marginBottom: Spacing.md },
-  filterCtaSection: { marginTop: Spacing.xs, marginBottom: Spacing.base },
-  filterCtaButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-    borderRadius: Radius.pill,
+  globalPinExpandHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: Spacing.xs,
   },
-  filterCtaButtonText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   suggestionsSection: { marginBottom: Spacing.base },
   cardsList: { gap: Spacing.sm },
   chooserSection: { marginTop: Spacing.sm },

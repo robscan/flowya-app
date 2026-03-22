@@ -26,6 +26,8 @@ export type SpotForSearch = {
 
 export type CreateSpotsStrategyOptions = {
   getFilteredSpots: () => SpotForSearch[];
+  /** Todos los spots del usuario (sin filtrar por pin); segunda pasada de búsqueda con filtro saved/visited. */
+  getAllSpotsForSearch?: () => SpotForSearch[];
   getBbox: () => BBox | null;
   getZoom: () => number;
 };
@@ -49,6 +51,13 @@ function resolvePinFilter(filters: unknown): 'all' | 'saved' | 'visited' {
   return 'all';
 }
 
+function shouldExpandAcrossAllPins(filters: unknown): boolean {
+  if (typeof filters === 'object' && filters !== null && 'expandSearchAcrossAllPins' in filters) {
+    return Boolean((filters as { expandSearchAcrossAllPins?: unknown }).expandSearchAcrossAllPins);
+  }
+  return false;
+}
+
 function centerOfBbox(bbox: BBox): { lat: number; lng: number } {
   return {
     lat: (bbox.south + bbox.north) / 2,
@@ -58,6 +67,7 @@ function centerOfBbox(bbox: BBox): { lat: number; lng: number } {
 
 export function createSpotsStrategy({
   getFilteredSpots,
+  getAllSpotsForSearch,
   getBbox,
   getZoom,
 }: CreateSpotsStrategyOptions): (
@@ -77,7 +87,12 @@ export function createSpotsStrategy({
       bboxFilter = null;
     }
 
-    let list = getFilteredSpots();
+    const expandAll = shouldExpandAcrossAllPins(filters);
+    const pool =
+      expandAll && typeof getAllSpotsForSearch === 'function'
+        ? getAllSpotsForSearch()
+        : getFilteredSpots();
+    let list = pool;
     if (bboxFilter) {
       list = list.filter(
         (s) =>
@@ -105,14 +120,15 @@ export function createSpotsStrategy({
     }
 
     const pinFilter = resolvePinFilter(filters);
+    const effectivePinFilterForSort = expandAll ? 'all' : pinFilter;
     const center =
-      pinFilter === 'all' && stage === 'global'
+      effectivePinFilterForSort === 'all' && stage === 'global'
         ? { lat: 0, lng: 0 }
         : bbox
           ? centerOfBbox(stableBBox(bbox, zoom))
           : { lat: 0, lng: 0 };
     const sorted = [...list].sort((a, b) => {
-      if (pinFilter === 'all') {
+      if (effectivePinFilterForSort === 'all') {
         const rankA = isPinnedStatus(a.pinStatus) ? 0 : 1;
         const rankB = isPinnedStatus(b.pinStatus) ? 0 : 1;
         if (rankA !== rankB) return rankA - rankB;

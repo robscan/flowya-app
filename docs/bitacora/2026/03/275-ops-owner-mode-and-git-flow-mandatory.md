@@ -36,3 +36,9 @@ Se formaliza operación diaria con ownership explícito sobre estado documental 
 - Apertura diaria operativa más estricta y verificable.
 - Menos riesgo de ejecución fuera de rama o cierres sin evidencia.
 - Estado documental retomable al siguiente día sin ambigüedad.
+
+---
+
+## Actualización 2026-03-21
+
+`CURRENT_STATE.md` quedó **retirado** del repo (bitácora `309`). La fuente de estado operativo es solo `OPEN_LOOPS.md` + `docs/bitacora/*`. El bloque histórico arriba describe el modelo vigente hasta esa fecha.

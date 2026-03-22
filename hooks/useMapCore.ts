@@ -6,7 +6,7 @@
 
 import type { ActiveMapControl } from '@/components/design-system/map-controls';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MapEvent, MapMouseEvent, MapTouchEvent } from 'react-map-gl/mapbox-legacy';
 
 import {
@@ -14,6 +14,12 @@ import {
   updateSpotsLayerData,
   type SpotForLayer,
 } from '@/lib/map-core/spots-layer';
+import {
+  applyExploreCameraForPlace,
+  placeResultFromSpotForCamera,
+  shouldFitBoundsForPlace,
+  type SpotCameraFraming,
+} from '@/lib/places/areaFraming';
 import {
   applyGlobeAndAtmosphere,
   FIT_BOUNDS_DURATION_MS,
@@ -61,6 +67,8 @@ export type UseMapCoreOptions = {
   showSpotLabels?: boolean;
   /** Filtro activo: all | saved (por visitar) | visited. Afecta color de clusters. */
   pinFilter?: 'all' | 'saved' | 'visited';
+  /** Bbox/tipo Mapbox persistidos en el spot para encuadre como en búsqueda (país/región vs zoom 17). */
+  selectedSpotCameraFraming?: SpotCameraFraming | null;
 };
 
 export type MapLocateResult =
@@ -134,19 +142,8 @@ export function useMapCore(
     showMakiIcon = false,
     showSpotLabels = true,
     pinFilter = 'all',
+    selectedSpotCameraFraming = null,
   } = options;
-
-  const flyToOptions = useMemo(
-    () => ({
-      zoom: SPOT_FOCUS_ZOOM,
-      duration: FIT_BOUNDS_DURATION_MS,
-      ...(is3DEnabled && {
-        pitch: INITIAL_PITCH,
-        padding: { bottom: SPOT_FOCUS_PADDING_BOTTOM },
-      }),
-    }),
-    [is3DEnabled],
-  );
 
   const spotsRef = useRef<SpotForLayer[]>(spots);
   const onPinClickRef = useRef(onPinClick);
@@ -382,70 +379,6 @@ export function useMapCore(
     return result;
   }, [mapInstance, userCoords, is3DEnabled]);
 
-  const handleReframeSpot = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('spot');
-    mapInstance.flyTo({
-      center: [selectedSpot.longitude, selectedSpot.latitude],
-      ...flyToOptions,
-    });
-  }, [mapInstance, selectedSpot, flyToOptions]);
-
-  const handleReframeSpotAndUser = useCallback(() => {
-    if (!mapInstance || !selectedSpot) return;
-    programmaticMoveRef.current = true;
-    setActiveMapControl('spot+user');
-    const runReframe = (coords: UserCoords) => {
-      const pts: { longitude: number; latitude: number }[] = coords
-        ? [
-            { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
-            { longitude: coords.longitude, latitude: coords.latitude },
-          ]
-        : [{ longitude: selectedSpot.longitude, latitude: selectedSpot.latitude }];
-      if (pts.length === 1) {
-        mapInstance.flyTo({
-          center: [pts[0].longitude, pts[0].latitude],
-          ...flyToOptions,
-        });
-      } else {
-        let minLng = Infinity;
-        let minLat = Infinity;
-        let maxLng = -Infinity;
-        let maxLat = -Infinity;
-        for (const p of pts) {
-          minLng = Math.min(minLng, p.longitude);
-          minLat = Math.min(minLat, p.latitude);
-          maxLng = Math.max(maxLng, p.longitude);
-          maxLat = Math.max(maxLat, p.latitude);
-        }
-        mapInstance.fitBounds(
-          [
-            [minLng, minLat],
-            [maxLng, maxLat],
-          ],
-          { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS }
-        );
-      }
-    };
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const c: UserCoords = {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          };
-          setUserCoords(c);
-          runReframe(c);
-        },
-        () => runReframe(userCoords),
-        GEO_OPTIONS
-      );
-    } else {
-      runReframe(userCoords);
-    }
-  }, [mapInstance, selectedSpot, userCoords, flyToOptions]);
-
   const handleViewWorld = useCallback(() => {
     if (!mapInstance) return;
     programmaticMoveRef.current = true;
@@ -500,6 +433,85 @@ export function useMapCore(
     },
     [mapInstance, is3DEnabled],
   );
+
+  const handleReframeSpot = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('spot');
+    const place = placeResultFromSpotForCamera(selectedSpot, selectedSpotCameraFraming);
+    applyExploreCameraForPlace(mapInstance, place, programmaticFlyTo);
+  }, [mapInstance, selectedSpot, selectedSpotCameraFraming, programmaticFlyTo]);
+
+  const handleReframeSpotAndUser = useCallback(() => {
+    if (!mapInstance || !selectedSpot) return;
+    programmaticMoveRef.current = true;
+    setActiveMapControl('spot+user');
+    const runReframe = (coords: UserCoords) => {
+      const placeForFraming = placeResultFromSpotForCamera(selectedSpot, selectedSpotCameraFraming);
+      const bbox = selectedSpotCameraFraming?.bbox ?? null;
+
+      if (coords && bbox && shouldFitBoundsForPlace(placeForFraming)) {
+        const { west, south, east, north } = bbox;
+        const lngs = [west, east, coords.longitude, selectedSpot.longitude];
+        const lats = [south, north, coords.latitude, selectedSpot.latitude];
+        try {
+          mapInstance.fitBounds(
+            [
+              [Math.min(...lngs), Math.min(...lats)],
+              [Math.max(...lngs), Math.max(...lats)],
+            ],
+            { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
+          );
+          return;
+        } catch {
+          // fallback
+        }
+      }
+
+      if (!coords) {
+        applyExploreCameraForPlace(mapInstance, placeForFraming, programmaticFlyTo);
+        return;
+      }
+
+      const pts: { longitude: number; latitude: number }[] = [
+        { longitude: selectedSpot.longitude, latitude: selectedSpot.latitude },
+        { longitude: coords.longitude, latitude: coords.latitude },
+      ];
+      let minLng = Infinity;
+      let minLat = Infinity;
+      let maxLng = -Infinity;
+      let maxLat = -Infinity;
+      for (const p of pts) {
+        minLng = Math.min(minLng, p.longitude);
+        minLat = Math.min(minLat, p.latitude);
+        maxLng = Math.max(maxLng, p.longitude);
+        maxLat = Math.max(maxLat, p.latitude);
+      }
+      mapInstance.fitBounds(
+        [
+          [minLng, minLat],
+          [maxLng, maxLat],
+        ],
+        { padding: FIT_BOUNDS_PADDING, duration: FIT_BOUNDS_DURATION_MS },
+      );
+    };
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const c: UserCoords = {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          };
+          setUserCoords(c);
+          runReframe(c);
+        },
+        () => runReframe(userCoords),
+        GEO_OPTIONS,
+      );
+    } else {
+      runReframe(userCoords);
+    }
+  }, [mapInstance, selectedSpot, selectedSpotCameraFraming, userCoords, programmaticFlyTo]);
 
   useEffect(() => {
     const map = mapInstance;

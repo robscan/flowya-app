@@ -40,8 +40,8 @@ Cuando un prompt implique cambios en estado operativo:
   - SOLO loops activos
 - **Bitácora del día**
   - Debe registrar evidencia de cierre (cambio + validación mínima)
-- **CURRENT_STATE.md**
-  - Es snapshot de contexto y se actualiza cuando cambia dirección estratégica, no en cada micro-cambio diario.
+
+No existe `CURRENT_STATE.md`: dirección y riesgos macro viven en `OPEN_LOOPS.md`.
 
 Nunca entregar bloques sueltos ni instrucciones parciales.
 

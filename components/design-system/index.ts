@@ -27,8 +27,12 @@ export type {
     MapLocationPickerResult,
     MapLocationPickerState
 } from './map-location-picker';
+export { ClearIconCircle } from './clear-icon-circle';
+export type { ClearIconCircleProps, ClearIconCircleVariant } from './clear-icon-circle';
 export { MapPinFilter } from './map-pin-filter';
 export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
+export { MapPinFilterMenuOption } from './map-pin-filter-menu-option';
+export type { MapPinFilterMenuOptionProps } from './map-pin-filter-menu-option';
 export { MapPinFilterInline } from './map-pin-filter-inline';
 export type { MapPinFilterInlineProps } from './map-pin-filter-inline';
 export { MapPinCreating, MapPinExisting, MapPinLocation, MapPinSpot, MapPinsShowcase } from './map-pins';
