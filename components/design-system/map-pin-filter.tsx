@@ -6,7 +6,7 @@
  * Animaciones: menú scale+opacity al desplegar; LayoutAnimation al cambiar valor; pulse en trigger.
  */
 
-import { Check, CheckCircle, ChevronDown, ChevronUp, Globe, Pin } from 'lucide-react-native';
+import { CheckCircle, ChevronDown, ChevronUp, Globe, Pin } from 'lucide-react-native';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   LayoutAnimation,
@@ -14,8 +14,8 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
-  type TextStyle,
   type ViewStyle,
 } from 'react-native';
 import Animated, {
@@ -32,6 +32,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { TypographyStyles } from './typography';
 
 import { ClearIconCircle } from './clear-icon-circle';
+import { MapPinFilterMenuOption } from './map-pin-filter-menu-option';
 
 const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
@@ -118,9 +119,13 @@ export function MapPinFilter({
   hideActiveCount = false,
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
+  /** Ancho del bloque trigger (chip + clear) para minWidth del menú y centrado estable. */
+  const [anchorBlockWidth, setAnchorBlockWidth] = useState(0);
   const colorScheme = useColorScheme();
   const resolvedScheme = colorScheme ?? 'light';
   const colors = Colors[resolvedScheme];
+  const { width: windowWidth } = useWindowDimensions();
+  const menuMaxWidth = Math.max(0, windowWidth - 32);
   const prevValueRef = useRef(value);
   const prevPulseNonceRef = useRef(pulseNonce);
 
@@ -219,7 +224,10 @@ export function MapPinFilter({
   return (
     <View style={styles.wrapper}>
       <Animated.View style={triggerAnimatedStyle}>
-        <View style={styles.triggerRow}>
+        <View
+          style={styles.triggerRow}
+          onLayout={(e) => setAnchorBlockWidth(e.nativeEvent.layout.width)}
+        >
           <Pressable
             style={[
               styles.trigger,
@@ -312,7 +320,8 @@ export function MapPinFilter({
         <Animated.View
           style={[
             styles.menu,
-            Platform.OS === 'web' && styles.menuWebShrink,
+            { maxWidth: menuMaxWidth },
+            anchorBlockWidth > 0 && { minWidth: anchorBlockWidth },
             {
               backgroundColor: colors.backgroundElevated,
               borderColor: colors.borderSubtle,
@@ -334,6 +343,34 @@ export function MapPinFilter({
               ((opt.value === 'saved' && counts.saved === 0) ||
                 (opt.value === 'visited' && counts.visited === 0));
             const isSelected = opt.value === value;
+            const countNode =
+              count != null ? (
+                <View
+                  style={[
+                    styles.countBadge,
+                    styles.menuCountBadge,
+                    {
+                      backgroundColor: countBadgeColors.background,
+                      borderColor: countBadgeColors.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.countBadgeText, { color: countBadgeColors.text }]} numberOfLines={1}>
+                    {count}
+                  </Text>
+                </View>
+              ) : undefined;
+            const pendingNode = optionPending ? (
+              <View
+                style={[
+                  styles.pendingDot,
+                  {
+                    backgroundColor: colors.stateToVisit,
+                    borderColor: colors.backgroundElevated,
+                  },
+                ]}
+              />
+            ) : undefined;
             return (
               <Pressable
                 key={opt.value}
@@ -362,61 +399,15 @@ export function MapPinFilter({
                 accessibilityState={{ selected: isSelected, disabled: isDisabled }}
                 accessibilityLabel={getLabelWithCount(opt.value, opt.label, counts)}
               >
-                <View style={styles.menuOptionRow}>
-                  <View style={styles.menuOptionLeading}>
-                    <FilterIcon value={opt.value} size={18} color={colors.text} />
-                    <Text
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                      style={[
-                        TypographyStyles.filterLabel,
-                        styles.menuOptionLabel,
-                        { color: colors.text },
-                        Platform.OS === 'web' && ({ whiteSpace: 'nowrap' } as TextStyle),
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </View>
-                  <View style={styles.menuRightSlot}>
-                    {count != null ? (
-                      <View
-                        style={[
-                          styles.countBadge,
-                          styles.menuCountBadge,
-                          {
-                            backgroundColor: countBadgeColors.background,
-                            borderColor: countBadgeColors.border,
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[styles.countBadgeText, { color: countBadgeColors.text }]}
-                          numberOfLines={1}
-                        >
-                          {count}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {optionPending ? (
-                      <View
-                        style={[
-                          styles.pendingDot,
-                          styles.menuPendingDotFloating,
-                          {
-                            backgroundColor: colors.stateToVisit,
-                            borderColor: colors.backgroundElevated,
-                          },
-                        ]}
-                      />
-                    ) : null}
-                    {isSelected ? (
-                      <Check size={18} color={colors.tint} strokeWidth={2.5} />
-                    ) : (
-                      <View style={styles.menuCheckPlaceholder} />
-                    )}
-                  </View>
-                </View>
+                <MapPinFilterMenuOption
+                  label={opt.label}
+                  labelColor={colors.text}
+                  leadingIcon={<FilterIcon value={opt.value} size={18} color={colors.text} />}
+                  countBadge={countNode}
+                  trailingCheck={isSelected}
+                  checkColor={colors.tint}
+                  pendingDot={pendingNode}
+                />
               </Pressable>
             );
           })}
@@ -482,33 +473,12 @@ const styles = StyleSheet.create({
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
-    maxWidth: '100%',
-  },
-  /** Web: el panel no debe estirarse al ancho del overlay; obedece al contenido. */
-  menuWebShrink: {
-    width: 'max-content' as unknown as number,
   },
   menuOption: {
     minHeight: MIN_TOUCH_TARGET,
     paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.base,
     justifyContent: 'center',
-  },
-  menuOptionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    minWidth: 0,
-  },
-  menuOptionLeading: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    minWidth: 0,
-  },
-  menuOptionLabel: {
-    flexShrink: 1,
   },
   countBadge: {
     width: 28,
@@ -539,23 +509,5 @@ const styles = StyleSheet.create({
   },
   menuCountBadge: {
     marginLeft: 0,
-  },
-  menuRightSlot: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: Spacing.xs,
-    minHeight: 28,
-    position: 'relative',
-  },
-  menuPendingDotFloating: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-  },
-  menuCheckPlaceholder: {
-    width: 18,
-    height: 18,
   },
 });
