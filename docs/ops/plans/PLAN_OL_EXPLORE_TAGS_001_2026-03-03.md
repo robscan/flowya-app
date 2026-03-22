@@ -1,7 +1,12 @@
 # PLAN — OL-EXPLORE-TAGS-001 (2026-03-03)
 
-Estado: PLANIFICADO (secuencial, no paralelo)  
-Dependencia: cierre de `OL-EXPLORE-SEARCH-BATCH-001` y `OL-CONTENT-001.A` (identity + ownership foundation)  
+**Estado: CERRADO (2026-03-22)** — implementación mergeada en **PR #106**.  
+Evidencia: bitácora `docs/bitacora/2026/03/310-pr-104-105-106-explore-tags-search-mapbox-toast.md`, contrato `docs/contracts/USER_TAGS_EXPLORE.md`.
+
+---
+
+Estado histórico del plan: PLANIFICADO (secuencial, no paralelo)  
+Dependencia original: cierre de `OL-EXPLORE-SEARCH-BATCH-001` y `OL-CONTENT-001.A` (identity + ownership foundation)  
 Decisión de producto cerrada:
 - tags son **personales** (solo visibles/gestionables por el usuario dueño),
 - se **omite** categorías Mapbox en esta fase.

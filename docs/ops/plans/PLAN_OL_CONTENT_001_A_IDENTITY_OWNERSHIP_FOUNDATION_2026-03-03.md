@@ -116,7 +116,7 @@ Nota:
 ## 7) Integración con loops ya definidos
 
 1. `OL-CONTENT-001.B` depende de este foundation para notas privadas.
-2. `OL-EXPLORE-TAGS-001` depende de este foundation para tags user-owned.
+2. `OL-EXPLORE-TAGS-001` dependía de este foundation para tags user-owned — **entregado** (PR #106, 2026-03-22); contrato `docs/contracts/USER_TAGS_EXPLORE.md`.
 3. `OL-CONTENT-002..006` se benefician al mantener separada capa personal vs capa enriquecida externa.
 
 ---

@@ -25,10 +25,12 @@ import {
   SearchListCard,
   SpotDetailShowcase,
   SpotImage,
+  TagChip,
   TypographyShowcase,
 } from '@/components/design-system';
 import { SearchInputV2 } from '@/components/search/SearchInputV2';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
+import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -38,6 +40,7 @@ export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const { openAuthModal } = useAuthModal();
+  const toast = useSystemStatus();
 
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteSpotConfirm, setShowDeleteSpotConfirm] = useState(false);
@@ -62,15 +65,34 @@ export default function DesignSystemScreen() {
 
         <View style={styles.section}>
           <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Estado del catálogo (2026-02-27)
+            Estado del catálogo (2026-03-22)
           </Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
               Alcance activo: Explorar (map/filter/controls/search/sheet) y Edit Spot.
             </Text>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: 0 }}>
-              Este catálogo incluye únicamente componentes activos del runtime.
+              Este catálogo incluye únicamente componentes activos del runtime. Contratos:{' '}
+              <Text style={{ fontWeight: '600', color: colors.text }}>USER_TAGS_EXPLORE</Text>,{' '}
+              <Text style={{ fontWeight: '600', color: colors.text }}>SYSTEM_STATUS_TOAST</Text>.
             </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Etiquetas — TagChip (OL-EXPLORE-TAGS-001)
+          </Text>
+          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
+              Uso en modal de asignación, sugerencias y chips en cards. La fila de filtro del buscador (Todos + #
+              nombre) vive en SearchSurface con estilos propios — no duplicar como TagChip.
+            </Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' }}>
+              <TagChip label="playa" onPress={() => {}} accessibilityLabel="Demo añadir playa" />
+              <TagChip label="sugerida" visualVariant="suggested" onPress={() => {}} />
+              <TagChip label="favoritos" onRemove={() => {}} />
+            </View>
           </View>
         </View>
 
@@ -136,7 +158,77 @@ export default function DesignSystemScreen() {
                   pinStatus="visited"
                   accessibilityLabel="Search row disabled"
                 />
+                <SearchListCard
+                  title="Con etiquetas y Etiquetar"
+                  subtitle="Chips #tag en fila de señales + CTA coherente con listados."
+                  onPress={() => {}}
+                  pinStatus="to_visit"
+                  tagChips={[
+                    { id: '1', label: 'ruta' },
+                    { id: '2', label: '2026' },
+                  ]}
+                  quickActions={[
+                    {
+                      id: 'tag',
+                      label: 'Etiquetar',
+                      kind: 'add_tag',
+                      onPress: () => {},
+                      accessibilityLabel: 'Etiquetar este spot',
+                    },
+                  ]}
+                  accessibilityLabel="Search row con etiquetas"
+                />
               </View>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            System status — toast (useSystemStatus)
+          </Text>
+          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
+              En Explore el anclaje inferior lo fija MapScreen (setAnchor); con buscador abierto no se suma la
+              altura del sheet. Ver contrato SYSTEM_STATUS_TOAST. Aquí solo demo de tipos.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: Radius.md,
+                  backgroundColor: colors.text,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+                onPress={() => toast.show('Mensaje por defecto', { type: 'default' })}
+              >
+                <Text style={{ color: colors.background, fontWeight: '600' }}>Default</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: Radius.md,
+                  backgroundColor: colors.text,
+                  opacity: pressed ? 0.88 : 1,
+                })}
+                onPress={() => toast.show('Acción correcta', { type: 'success', replaceVisible: true })}
+              >
+                <Text style={{ color: colors.background, fontWeight: '600' }}>Success + replace</Text>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => ({
+                  paddingVertical: 12,
+                  paddingHorizontal: 20,
+                  borderRadius: Radius.md,
+                  backgroundColor: colors.stateError,
+                  opacity: pressed ? 0.92 : 1,
+                })}
+                onPress={() => toast.show('Algo salió mal', { type: 'error' })}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600' }}>Error</Text>
+              </Pressable>
             </View>
           </View>
         </View>
