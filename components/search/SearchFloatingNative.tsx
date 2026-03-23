@@ -7,7 +7,8 @@
 import { SheetHandle } from '@/components/design-system/sheet-handle';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useCallback, useEffect } from 'react';
+import { getSearchPanelSurfaceColors } from '@/lib/search/searchPanelSurface';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import {
   Dimensions,
   KeyboardAvoidingView,
@@ -64,7 +65,12 @@ export function SearchFloatingNative<T>({
   activitySummary,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
+  const colors = Colors[scheme];
+  const panelSurface = useMemo(
+    () => getSearchPanelSurfaceColors(pinFilter, scheme, 'native'),
+    [pinFilter, scheme],
+  );
   const screenHeight = Dimensions.get('window').height;
 
   const translateYShared = useSharedValue(screenHeight);
@@ -150,8 +156,8 @@ export function SearchFloatingNative<T>({
             style={[
               styles.sheetPanel,
               {
-                backgroundColor: colors.backgroundElevated,
-                borderColor: colors.borderSubtle,
+                backgroundColor: panelSurface.backgroundColor,
+                borderColor: panelSurface.borderColor ?? colors.borderSubtle,
               },
               panelAnimatedStyle,
             ]}

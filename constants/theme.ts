@@ -44,6 +44,9 @@ const countriesCounterToVisitBackgroundLight = 'rgba(255,246,236,0.92)';
 const countriesCounterVisitedBackgroundLight = 'rgba(238,243,234,0.92)';
 const countriesCounterToVisitBorderLight = countriesPanelToVisitBorderLight;
 const countriesCounterVisitedBorderLight = countriesPanelVisitedBorderLight;
+/** Buscador Explore: fondo «Todos»; gris muy tenue, luminancia cercana a countriesPanel* elevated. */
+const searchPanelAllBackgroundLight = '#f2f2f4';
+const searchPanelAllBackgroundDark = '#1c1c1e';
 
 // — Pines en mapa (visibles sobre mapa claro en light y dark)
 const pinDefaultLight = '#1d1d1f';
@@ -149,6 +152,7 @@ export const Colors = {
     countriesCounterVisitedBackground: countriesCounterVisitedBackgroundLight,
     countriesCounterToVisitBorder: countriesCounterToVisitBorderLight,
     countriesCounterVisitedBorder: countriesCounterVisitedBorderLight,
+    searchPanelAllBackground: searchPanelAllBackgroundLight,
     tint: primaryLight,
     icon: textSecondaryLight,
     tabIconDefault: textSecondaryLight,
@@ -254,6 +258,7 @@ export const Colors = {
     countriesCounterVisitedBackground: countriesCounterVisitedBackgroundDark,
     countriesCounterToVisitBorder: countriesCounterToVisitBorderDark,
     countriesCounterVisitedBorder: countriesCounterVisitedBorderDark,
+    searchPanelAllBackground: searchPanelAllBackgroundDark,
     tint: primaryDark,
     icon: textSecondaryDark,
     tabIconDefault: textSecondaryDark,

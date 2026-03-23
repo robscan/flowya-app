@@ -663,6 +663,16 @@ export function MapScreenVNext() {
     };
   }, [sloganEntryOpacity, sloganEntryTranslateY]);
 
+  const dismissEntrySlogan = useCallback(() => {
+    sloganEntryAnimationRef.current?.stop();
+    sloganEntryAnimationRef.current = null;
+    sloganEntryOpacity.stopAnimation();
+    sloganEntryTranslateY.stopAnimation();
+    sloganEntryOpacity.setValue(0);
+    sloganEntryTranslateY.setValue(FLOWYA_SLOGAN_RISE_IN_PX);
+    setShowEntrySlogan(false);
+  }, [sloganEntryOpacity, sloganEntryTranslateY]);
+
   useEffect(() => {
     setMapPinFilterPreference(pinFilter);
   }, [pinFilter]);
@@ -3197,8 +3207,25 @@ export function MapScreenVNext() {
   const lastCountriesShareAtRef = useRef(0);
   const countriesShareConsumedRef = useRef(false);
   const showCountriesCounterBubble = showCountriesCounter && !countriesSheetOpen;
+  const entrySloganOccludedByOverlay =
+    searchV2.isOpen ||
+    countriesSheetOpen ||
+    ((selectedSpot != null || poiTapped != null) &&
+      (sheetState === "medium" || sheetState === "expanded"));
   const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
   suppressToastRef.current = countriesSheetOpen && countriesSheetState === "expanded";
+
+  useEffect(() => {
+    if (entrySloganOccludedByOverlay) dismissEntrySlogan();
+  }, [entrySloganOccludedByOverlay, dismissEntrySlogan]);
+
+  const handleFilterMenuOpenChange = useCallback(
+    (open: boolean) => {
+      if (open) dismissEntrySlogan();
+    },
+    [dismissEntrySlogan],
+  );
+
   const countriesBucketsForOverlay =
     countriesOverlayFilter === "saved"
       ? countriesBucketsByFilter.saved
@@ -4432,11 +4459,14 @@ export function MapScreenVNext() {
               pulseNonce={pinFilterPulseNonce}
               menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
               hideActiveCount={showCountriesCounterBubble}
+              onOpenChange={handleFilterMenuOpenChange}
             />
           </View>
         </Animated.View>
       ) : null}
-      {showEntrySlogan && !createSpotNameOverlayOpen ? (
+      {showEntrySlogan &&
+      !createSpotNameOverlayOpen &&
+      !entrySloganOccludedByOverlay ? (
         <Animated.View
           style={[
             styles.sloganOverlay,

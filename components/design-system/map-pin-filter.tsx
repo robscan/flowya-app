@@ -71,6 +71,8 @@ export type MapPinFilterProps = {
   menuPlacement?: 'down' | 'up';
   /** Oculta contador del valor activo en trigger para evitar redundancia con overlays externos. */
   hideActiveCount?: boolean;
+  /** Notifica cuando el menú desplegable abre o cierra (p. ej. para retirar overlays que quedan por encima en z-order). */
+  onOpenChange?: (open: boolean) => void;
 };
 
 function getLabelWithCount(
@@ -117,6 +119,7 @@ export function MapPinFilter({
   pulseNonce = 0,
   menuPlacement = 'down',
   hideActiveCount = false,
+  onOpenChange,
 }: MapPinFilterProps) {
   const [open, setOpen] = useState(false);
   /** Ancho del bloque trigger (chip + clear) para minWidth del menú y centrado estable. */
@@ -188,21 +191,28 @@ export function MapPinFilter({
   const triggerCount = hideActiveCount ? undefined : getCount(value, counts);
   const hasPendingAny = Boolean(pendingValues.saved || pendingValues.visited);
 
+  const closeMenu = () => {
+    setOpen((prev) => {
+      if (prev) onOpenChange?.(false);
+      return false;
+    });
+  };
+
   const handleSelect = (optValue: MapPinFilterValue) => {
     if (optValue === value) {
-      setOpen(false);
+      closeMenu();
       return;
     }
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onChange(optValue);
-    setOpen(false);
+    closeMenu();
   };
 
   const handleResetToAll = () => {
     if (value === 'all') return;
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     onChange('all');
-    setOpen(false);
+    closeMenu();
   };
 
   const backdropAnimatedStyle = useAnimatedStyle(() => ({
@@ -237,7 +247,13 @@ export function MapPinFilter({
               },
               Platform.OS === 'web' && { cursor: 'pointer' },
             ]}
-            onPress={() => setOpen((o) => !o)}
+            onPress={() => {
+              setOpen((o) => {
+                const next = !o;
+                onOpenChange?.(next);
+                return next;
+              });
+            }}
             accessibilityRole="button"
             accessibilityState={{ expanded: open }}
             accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
@@ -306,7 +322,7 @@ export function MapPinFilter({
       >
         <Pressable
           style={StyleSheet.absoluteFill}
-          onPress={() => setOpen(false)}
+          onPress={closeMenu}
           accessibilityLabel="Cerrar menú"
         />
       </Animated.View>

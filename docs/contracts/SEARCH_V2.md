@@ -44,6 +44,8 @@
 
   * Si se detecta regresión: preferir volver a layout de sheet estable (rollback = revert del PR).
 
+* **Superficie del panel por filtro:** con `pinFilter` `saved` o `visited`, el fondo (y borde en nativo) del contenedor del buscador debe usar los tokens `countriesPanel*` alineados con `CountriesSheet`, vía `getSearchPanelSurfaceColors` en `lib/search/searchPanelSurface.ts`. Con `all`, fondo `searchPanelAllBackground` (gris tenue). Detalle: `docs/definitions/search/SEARCH_V2.md`.
+
 ---
 
 ## 5) “Sin resultados” (comportamiento canónico)
