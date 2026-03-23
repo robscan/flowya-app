@@ -1,14 +1,14 @@
 /**
  * SearchOverlayWeb — Overlay modal full-screen de búsqueda (solo WEB).
- * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel overlayScrim; zIndex alto.
+ * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel a toda pantalla (overlayScrim en Todos; tinte countriesPanel* en Por visitar/Visitados); zIndex alto.
  * SpotSheet no se renderiza cuando isOpen (MapScreenVNext).
  * CONTRATO: Keyboard-safe — NO 100vh; usar 100dvh o fallback visualViewport.height; --app-height en :root.
  * OL-WOW-F2-001: contenido unificado en SearchSurface.
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { getSearchPanelSurfaceColors } from '@/lib/search/searchPanelSurface';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View, type DimensionValue, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchSurface } from './SearchSurface';
@@ -47,7 +47,11 @@ export function SearchOverlayWeb<T>({
 }: SearchFloatingProps<T>) {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme ?? 'light'];
+  const scheme = colorScheme === 'dark' ? 'dark' : 'light';
+  const panelSurface = useMemo(
+    () => getSearchPanelSurfaceColors(pinFilter, scheme, 'web'),
+    [pinFilter, scheme],
+  );
   const [isInputFocused, setIsInputFocused] = useState(false);
   const savedOverflowRef = useRef<string | null>(null);
   const savedScrollYRef = useRef(0);
@@ -162,7 +166,7 @@ export function SearchOverlayWeb<T>({
           styles.panel,
           Platform.OS === 'web' && styles.panelWebScroll,
           {
-            backgroundColor: colors.overlayScrim,
+            backgroundColor: panelSurface.backgroundColor,
             paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
             paddingBottom: PANEL_PADDING_BOTTOM,
             paddingLeft: PANEL_PADDING_H,
