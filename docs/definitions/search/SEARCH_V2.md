@@ -42,7 +42,7 @@
 
 El **contenedor** del buscador (no el árbol `SearchSurface`) lo pintan los adapters web/native. Colores centralizados en `lib/search/searchPanelSurface.ts` (`getSearchPanelSurfaceColors`).
 
-- **`Todos` (`all`):** Web → `overlayScrim`; nativo → `backgroundElevated` + `borderSubtle` (comportamiento base).
+- **`Todos` (`all`):** Web y nativo → `searchPanelAllBackground` (gris muy tenue, luminancia alineada con paneles `countriesPanel*`); nativo mantiene borde `borderSubtle`.
 - **`Por visitar` / `Visitados` (`saved` / `visited`):** mismo criterio que la sheet de países: tokens `countriesPanelToVisit*` / `countriesPanelVisited*` (`backgroundElevated` + `borderSubtle` del panel en tema). Sin colores arbitrarios fuera de `constants/theme.ts`.
 
 ---

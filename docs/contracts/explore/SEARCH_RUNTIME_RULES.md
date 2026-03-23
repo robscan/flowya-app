@@ -28,7 +28,7 @@ Reglas runtime de buscador en Explorar.
 
 5. **Theming y tokens**
 - Cards y headers deben usar tokens de tema; prohibido hardcode oscuro en modo light.
-- Contenedor del panel de búsqueda (adapters web/native): con filtro `saved`/`visited`, superficie con tokens `countriesPanel*` como en `CountriesSheet` (`getSearchPanelSurfaceColors` en `lib/search/searchPanelSurface.ts`). Ver `docs/definitions/search/SEARCH_V2.md` (superficie del panel).
+- Contenedor del panel de búsqueda (adapters web/native): con `Todos`, fondo `searchPanelAllBackground` (gris tenue); con `saved`/`visited`, tokens `countriesPanel*` como en `CountriesSheet` (`getSearchPanelSurfaceColors` en `lib/search/searchPanelSurface.ts`). Ver `docs/definitions/search/SEARCH_V2.md` (superficie del panel).
 
 ## Core puro recomendado
 

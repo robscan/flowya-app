@@ -18,7 +18,7 @@ export type SearchPanelSurfaceColors = {
 
 /**
  * Colores de fondo (y borde en native) del contenedor del buscador según `pinFilter`.
- * `all` / null: web → `overlayScrim`; native → `backgroundElevated` + `borderSubtle` (comportamiento previo).
+ * `all` / null: web y native → `searchPanelAllBackground` (gris tenue, luminancia ~countriesPanel*); nativo mantiene `borderSubtle`.
  */
 export function getSearchPanelSurfaceColors(
   pinFilter: MapPinFilterValue | null | undefined,
@@ -40,10 +40,10 @@ export function getSearchPanelSurfaceColors(
     };
   }
   if (variant === 'web') {
-    return { backgroundColor: c.overlayScrim };
+    return { backgroundColor: c.searchPanelAllBackground };
   }
   return {
-    backgroundColor: c.backgroundElevated,
+    backgroundColor: c.searchPanelAllBackground,
     borderColor: c.borderSubtle,
   };
 }

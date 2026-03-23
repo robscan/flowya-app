@@ -1,6 +1,6 @@
 /**
  * SearchOverlayWeb — Overlay modal full-screen de búsqueda (solo WEB).
- * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel a toda pantalla (overlayScrim en Todos; tinte countriesPanel* en Por visitar/Visitados); zIndex alto.
+ * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel a toda pantalla (searchPanelAllBackground en Todos; countriesPanel* en Por visitar/Visitados); zIndex alto.
  * SpotSheet no se renderiza cuando isOpen (MapScreenVNext).
  * CONTRATO: Keyboard-safe — NO 100vh; usar 100dvh o fallback visualViewport.height; --app-height en :root.
  * OL-WOW-F2-001: contenido unificado en SearchSurface.
