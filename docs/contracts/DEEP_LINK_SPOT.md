@@ -1,6 +1,6 @@
 # DEEP_LINK_SPOT — Contrato de URL (Explore + sheet)
 
-**Última actualización:** 2026-02
+**Última actualización:** 2026-03
 **Status:** ACTIVE
 
 > Explore (mapa) es el entrypoint; el detalle del spot vive como sheet. El estado del sheet depende del origen: post-edit → expanded; compartir → medium.
@@ -25,7 +25,7 @@
 
 | Caso | Acción |
 |------|--------|
-| **Post-edit** | Tras guardar → `router.replace(getMapSpotDeepLink(spot.id))` (default `sheet=extended`). Usuario ve mapa y sheet del spot en **expanded**. |
+| **Post-edit** | Tras guardar → `router.replace(getMapSpotDeepLink(spot.id))` (default `sheet=extended`). Usuario ve mapa y sheet del spot en **expanded**. El **filtro de pins** (Todos / Por visitar / Visitados) **no** se resetea; si el spot no encaja en el filtro activo, la selección se preserva vía `preserveOutOfFilterSelection` / mutación reciente (mismo criterio que el sheet). |
 | **Compartir** | `getMapSpotShareUrl(spotId)` genera URL con `sheet=medium`. Al abrir el link, mapa + sheet en **medium**. |
 | **Apertura en frío** | Según `sheet` en la URL: `extended` → expanded, `medium` → medium. |
 
@@ -37,7 +37,7 @@
   - `getMapSpotDeepLink(spotId, sheet?)` — default `extended` (post-edit).
   - `getMapSpotShareUrl(spotId)` — usa `sheet=medium`.
 - **Consumo:** MapScreenVNext lee `spotId` y `sheet`; mapea `extended` → `setSheetState('expanded')`, `medium` → `setSheetState('medium')`; luego limpia params.
-- **Intake spotId:** MapScreenVNext siempre hace fetch del spot por id en DB (no usa caché local) para tener coordenadas actuales. Garantiza encuadre correcto tras post-edit con cambio de ubicación.
+- **Intake spotId:** MapScreenVNext siempre hace fetch del spot por id en DB (no usa caché local) para tener coordenadas actuales. Garantiza encuadre correcto tras post-edit con cambio de ubicación. No fuerza `pinFilter` a «Todos».
 
 ---
 
