@@ -163,13 +163,16 @@ import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
     getRecentViewedSpotIds,
+    loadRecentViewedSpotIdsAsync,
 } from "@/lib/storage/recentViewedSpots";
 import {
   getMapPinPendingBadges,
+  loadMapPinPendingBadgesAsync,
   setMapPinPendingBadges,
 } from "@/lib/storage/mapPinPendingBadges";
 import {
   getMapPinFilterPreference,
+  loadMapPinFilterPreferenceAsync,
   setMapPinFilterPreference,
 } from "@/lib/storage/mapPinFilterPreference";
 import { supabase } from "@/lib/supabase";
@@ -578,6 +581,7 @@ export function MapScreenVNext() {
     saved: boolean;
     visited: boolean;
   }>(() => getMapPinPendingBadges());
+  const [recentViewedIds, setRecentViewedIds] = useState<string[]>(() => getRecentViewedSpotIds());
   const updatePendingFilterBadges = useCallback(
     (
       updater: (prev: { saved: boolean; visited: boolean }) => {
@@ -673,15 +677,79 @@ export function MapScreenVNext() {
     setShowEntrySlogan(false);
   }, [sloganEntryOpacity, sloganEntryTranslateY]);
 
+  const [pinFilterStorageReady, setPinFilterStorageReady] = useState(
+    () => Platform.OS === "web",
+  );
+
   useEffect(() => {
+    if (!pinFilterStorageReady) return;
     setMapPinFilterPreference(pinFilter);
-  }, [pinFilter]);
+  }, [pinFilter, pinFilterStorageReady]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    void loadMapPinFilterPreferenceAsync().then((pf) => {
+      if (cancelled) return;
+      setPinFilter(pf);
+      setPinFilterStorageReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setPinFilter]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    void loadMapPinPendingBadgesAsync().then((badges) => {
+      if (!cancelled) setPendingFilterBadges(badges);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    void loadRecentViewedSpotIdsAsync().then((ids) => {
+      if (!cancelled) setRecentViewedIds(ids);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pushRecentViewedSpotId = useCallback((spotId: string) => {
+    addRecentViewedSpotId(spotId);
+    if (Platform.OS === "web") {
+      setRecentViewedIds(getRecentViewedSpotIds());
+    } else {
+      void loadRecentViewedSpotIdsAsync().then(setRecentViewedIds);
+    }
+  }, []);
 
   const prevSpotIdsRef = useRef<Set<string>>(new Set());
   const prevSelectedSpotRef = useRef<Spot | null>(null);
   const prevSheetStateRef = useRef<ExploreSheetState>("peek");
   const prevPinFilterRef = useRef<MapPinFilterValue>(pinFilter);
   const preserveOutOfFilterSelectionSpotIdRef = useRef<string | null>(null);
+  /** Deep link / post-edit: mantener filtro activo; si el spot no encaja, preservar selección (no forzar Todos). */
+  const ensureSpotVisibleWithActiveFilter = useCallback(
+    (spot: Spot) => {
+      const matches =
+        pinFilter === "all" ||
+        (pinFilter === "saved" && spot.saved) ||
+        (pinFilter === "visited" && spot.visited) ||
+        isCoreDefaultUnlinkedSpot(spot);
+      if (!matches) {
+        preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
+        setRecentMutation(spot.id, pinFilter);
+      }
+    },
+    [pinFilter, setRecentMutation],
+  );
   const lastStatusSpotIdRef = useRef<{
     saved: string | null;
     visited: string | null;
@@ -944,11 +1012,63 @@ export function MapScreenVNext() {
     return visible;
   }, [selectedSpot, setSheetState]);
 
+  /** Una fila + pins: actualiza lista y selección sin refetch masivo (rendimiento tras ediciones). */
+  const mergeSpotFromDbById = useCallback(async (spotId: string) => {
+    if (spotId.startsWith("draft_")) return;
+    const { data, error } = await supabase
+      .from("spots")
+      .select(SPOT_SELECT_FOR_MAP)
+      .eq("id", spotId)
+      .eq("is_hidden", false)
+      .single();
+    if (error || !data) return;
+    const pinMap = await getPinsForSpots([spotId]);
+    const state = pinMap.get(spotId);
+    const saved = state?.saved ?? false;
+    const visited = state?.visited ?? false;
+    const spot: Spot = {
+      ...(data as Omit<Spot, "saved" | "visited" | "pinStatus">),
+      saved,
+      visited,
+      pinStatus: visited ? "visited" : saved ? "to_visit" : "default",
+    };
+    const visible = onlyVisible([spot as Spot & { isHidden?: boolean }]);
+    if (visible.length === 0) return;
+    const merged = visible[0];
+    setSpots((prev) => {
+      const idx = prev.findIndex((s) => s.id === spotId);
+      if (idx === -1) return [...prev, merged];
+      const next = [...prev];
+      next[idx] = merged;
+      return next;
+    });
+    setSelectedSpot((prev) => (prev?.id === spotId ? merged : prev));
+  }, []);
+
+  const lastFocusFullRefetchAtRef = useRef(0);
+  const MIN_FOCUS_FULL_REFETCH_MS = 8000;
+
   useFocusEffect(
     useCallback(() => {
-      refetchSpots();
+      const now = Date.now();
+      const elapsed = now - lastFocusFullRefetchAtRef.current;
+      const recent =
+        lastFocusFullRefetchAtRef.current > 0 &&
+        elapsed < MIN_FOCUS_FULL_REFETCH_MS;
+      if (recent) {
+        const id = selectedSpot?.id;
+        if (id && !id.startsWith("draft_")) {
+          void mergeSpotFromDbById(id);
+        } else {
+          lastFocusFullRefetchAtRef.current = now;
+          void refetchSpots();
+        }
+        return () => {};
+      }
+      lastFocusFullRefetchAtRef.current = now;
+      void refetchSpots();
       return () => {};
-    }, [refetchSpots]),
+    }, [refetchSpots, mergeSpotFromDbById, selectedSpot?.id]),
   );
 
   const filteredSpots = useMemo(() => {
@@ -1972,11 +2092,10 @@ export function MapScreenVNext() {
   ]);
 
   const recentViewedSpots = useMemo(() => {
-    const ids = getRecentViewedSpotIds();
-    return ids
+    return recentViewedIds
       .map((id) => spots.find((s) => s.id === id))
       .filter((s): s is Spot => s != null);
-  }, [spots]);
+  }, [spots, recentViewedIds]);
 
   const refreshTagsAfterPinChange = useCallback(async () => {
     try {
@@ -2099,7 +2218,7 @@ export function MapScreenVNext() {
       });
       setSheetState("medium"); // OL-057: entry from SearchResultCard always opens sheet MEDIUM (no peek)
       recordSearchSpotClick();
-      addRecentViewedSpotId(spot.id);
+      pushRecentViewedSpotId(spot.id);
       searchHistory.addCompletedQuery(searchV2.query);
       /** Desde buscador: encuadre coherente con mapbox_bbox / tipo de feature (no zoom fijo 17). */
       focusCameraOnSpot(spot);
@@ -2111,6 +2230,7 @@ export function MapScreenVNext() {
     pinFilter,
     deactivateSearchColdStartBootstrap,
     focusCameraOnSpot,
+    pushRecentViewedSpotId,
   ]);
 
   useEffect(() => {
@@ -2145,11 +2265,11 @@ export function MapScreenVNext() {
     const applySpot = (spot: Spot) => {
       deepLinkCenterLockRef.current = true;
       appliedSpotIdFromParamsRef.current = spotId;
-      setPinFilter("all"); // so spot is in filteredSpots and the sync effect doesn't clear selection
+      ensureSpotVisibleWithActiveFilter(spot);
       setSelectedSpot(spot);
       setSheetState(targetState); // extended → expanded, medium → medium
       queueDeepLinkFocus(spot);
-      addRecentViewedSpotId(spot.id);
+      pushRecentViewedSpotId(spot.id);
       setSpots((prev) =>
         prev.some((s) => s.id === spot.id) ? prev : [...prev, spot],
       );
@@ -2190,7 +2310,15 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [params.spotId, params.sheet, router, queueDeepLinkFocus, setPinFilter, setSheetState]);
+  }, [
+    params.spotId,
+    params.sheet,
+    router,
+    queueDeepLinkFocus,
+    setSheetState,
+    ensureSpotVisibleWithActiveFilter,
+    pushRecentViewedSpotId,
+  ]);
 
   /** Post-create intake: created=<id> → select spot, open sheet expanded, then clean params. Preserva comportamiento Create Spot original (Explorar + SpotSheet extended). */
   useEffect(() => {
@@ -2201,11 +2329,11 @@ export function MapScreenVNext() {
     const applyCreated = (spot: Spot) => {
       deepLinkCenterLockRef.current = true;
       appliedCreatedIdRef.current = createdId;
-      setPinFilter("all");
+      ensureSpotVisibleWithActiveFilter(spot);
       setSelectedSpot(spot);
       setSheetState("expanded");
       queueDeepLinkFocus(spot);
-      addRecentViewedSpotId(spot.id);
+      pushRecentViewedSpotId(spot.id);
       setTimeout(() => {
         (router.replace as (href: string) => void)("/(tabs)");
       }, 0);
@@ -2251,7 +2379,15 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [params.created, spots, router, queueDeepLinkFocus, setPinFilter, setSheetState]);
+  }, [
+    params.created,
+    spots,
+    router,
+    queueDeepLinkFocus,
+    setSheetState,
+    ensureSpotVisibleWithActiveFilter,
+    pushRecentViewedSpotId,
+  ]);
 
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(
@@ -2858,10 +2994,10 @@ export function MapScreenVNext() {
       setPoiTapped(null);
       const fromList = spots.find((s) => s.id === spotId);
       if (fromList) {
-        setPinFilter("all");
+        ensureSpotVisibleWithActiveFilter(fromList);
         setSelectedSpot(fromList);
         setSheetState("medium");
-        addRecentViewedSpotId(fromList.id);
+        pushRecentViewedSpotId(fromList.id);
         focusCameraOnSpot(fromList);
         return;
       }
@@ -2882,14 +3018,14 @@ export function MapScreenVNext() {
           pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
         };
         setSpots((prev) => (prev.some((s) => s.id === spot.id) ? prev : [...prev, spot]));
-        setPinFilter("all");
+        ensureSpotVisibleWithActiveFilter(spot);
         setSelectedSpot(spot);
         setSheetState("medium");
-        addRecentViewedSpotId(spot.id);
+        pushRecentViewedSpotId(spot.id);
         focusCameraOnSpot(spot);
       })();
     },
-    [spots, focusCameraOnSpot, setPinFilter, setSheetState],
+    [spots, focusCameraOnSpot, setSheetState, ensureSpotVisibleWithActiveFilter, pushRecentViewedSpotId],
   );
 
   const patchSpotSearchMetadata = useCallback(

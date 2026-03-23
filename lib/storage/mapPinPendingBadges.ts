@@ -3,6 +3,8 @@
  * Alcance: UX local por dispositivo/navegador (no sincroniza backend).
  */
 
+import { getItemAsync, getItemSync, setItem } from "@/lib/storage/kv";
+
 const STORAGE_KEY = "flowya_map_pin_pending_badges";
 
 export type MapPinPendingBadges = {
@@ -15,11 +17,9 @@ const DEFAULT_BADGES: MapPinPendingBadges = {
   visited: false,
 };
 
-export function getMapPinPendingBadges(): MapPinPendingBadges {
-  if (typeof localStorage === "undefined") return DEFAULT_BADGES;
+function parseBadges(raw: string | null): MapPinPendingBadges {
+  if (!raw) return DEFAULT_BADGES;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_BADGES;
     const parsed = JSON.parse(raw) as unknown;
     if (!parsed || typeof parsed !== "object") return DEFAULT_BADGES;
     const candidate = parsed as Partial<MapPinPendingBadges>;
@@ -32,10 +32,19 @@ export function getMapPinPendingBadges(): MapPinPendingBadges {
   }
 }
 
+/** Nativo: hasta `loadMapPinPendingBadgesAsync` puede devolver defaults. */
+export function getMapPinPendingBadges(): MapPinPendingBadges {
+  return parseBadges(getItemSync(STORAGE_KEY));
+}
+
+export async function loadMapPinPendingBadgesAsync(): Promise<MapPinPendingBadges> {
+  const raw = await getItemAsync(STORAGE_KEY);
+  return parseBadges(raw);
+}
+
 export function setMapPinPendingBadges(next: MapPinPendingBadges): void {
-  if (typeof localStorage === "undefined") return;
   try {
-    localStorage.setItem(
+    setItem(
       STORAGE_KEY,
       JSON.stringify({
         saved: Boolean(next.saved),
