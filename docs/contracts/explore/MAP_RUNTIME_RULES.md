@@ -50,6 +50,31 @@ Reglas runtime del mapa en Explorar.
 - Debe existir fallback timeout de seguridad para evitar deadlock visual.
 - Objetivo UX: evitar que controles reaparezcan durante movimiento de cámara y produzcan ruido/lectura ambigua.
 
+7. **Deep-link / post-create sin reset de filtro**
+- Intake `spotId`/`created` no debe forzar `pinFilter = all`.
+- Debe mantener `pinFilter` activo y, si el spot no coincide con el filtro, aplicar excepción temporal de visibilidad (`preserveOutOfFilterSelection` + mutación reciente) para continuidad del flujo.
+- El estado del sheet depende del origen (`extended -> expanded`, `medium -> medium`, `created -> expanded`).
+
+8. **Estrategia de refresco de datos en foco (performance)**
+- Al recuperar foco de Explore, evitar refetch masivo si acaba de ocurrir uno recientemente.
+- Ventana canónica mínima entre refetches completos: `8s` (`MIN_FOCUS_FULL_REFETCH_MS`).
+- Si se omite refetch completo y hay spot seleccionado persistido, actualizar solo ese spot (`mergeSpotFromDbById`) incluyendo estado de pins.
+- Objetivo: reducir trabajo de red y `setData` innecesario en capas de mapa sin perder frescura en spot activo.
+
+## Troubleshooting
+
+1. **Cambio de filtro produce zoom-out inesperado**
+- Confirmar que no exista `fitBounds` global automático en handler de cambio de filtro manual.
+- Verificar que reencuadre ocurra solo por acción explícita (controles/reframe) o transición dirigida a spot.
+
+2. **Tras deep link, el filtro salta a `all`**
+- Es regresión: auditar intake de params para detectar `setPinFilter("all")` residual.
+- Validar que `ensureSpotVisibleWithActiveFilter` preserve selección temporal cuando no hay match de filtro.
+
+3. **Mapa hace refetch completo en cada regreso de pantalla**
+- Revisar guard de ventana mínima (`lastFocusFullRefetchAtRef` + `MIN_FOCUS_FULL_REFETCH_MS`).
+- Si hay spot seleccionado, confirmar que se use `mergeSpotFromDbById` en refrescos cercanos en vez de `refetchSpots`.
+
 ## Core puro recomendado
 
 - `shouldReframeToAll({ visibleCount, totalCount }) => boolean`

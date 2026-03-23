@@ -5,6 +5,7 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 ## Scope
 
 - Selección de filtro.
+- Persistencia de preferencia de filtro.
 - Badge de pendiente de lectura.
 - Estado vacío y deshabilitado.
 - Persistencia local de pendientes.
@@ -39,15 +40,21 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
   - usuario selecciona ese filtro, o
   - el count de ese filtro llega a `0`.
 
-4. **Persistencia local**
+4. **Persistencia local de preferencia (`pinFilter`)**
+- La última selección (`all` | `saved` | `visited`) se persiste por dispositivo usando `mapPinFilterPreference`.
+- Web: lectura síncrona (`localStorage`) al boot.
+- Nativo: hidratación asíncrona (`AsyncStorage`) en mount.
+- Guardrail de escritura: en nativo no escribir preferencia antes de completar hidratación inicial (`pinFilterStorageReady`) para no sobrescribir con default `all`.
+
+5. **Persistencia local de pendientes**
 - Pendientes se guardan localmente y sobreviven recarga/sesión local.
 - Persistencia por objeto completo `{ saved, visited }` para evitar sobrescritura parcial.
 
-5. **Acción de reset**
+6. **Acción de reset**
 - En `saved/visited`, trigger muestra `X` para volver a `Todos`.
 - En web no se permite `button` dentro de `button` (overlay táctil hermano).
 
-6. **Dropdown positioning + visibilidad contextual (2026-03)**
+7. **Dropdown positioning + visibilidad contextual (2026-03)**
 - El trigger de filtro se ancla respecto al sheet activo para mantener continuidad visual (no flotar arbitrario).
 - La apertura del menú debe resolverse dinámicamente (`up/down`) según espacio disponible por encima/debajo del trigger.
 - El dropdown no debe renderizarse cuando:
@@ -55,12 +62,12 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
   - `Create Spot Paso 0` está abierto,
   - la cámara está en transición programática y aún no se considera estable.
 
-7. **Retardo de aparición post-cámara (2026-03)**
+8. **Retardo de aparición post-cámara (2026-03)**
 - Tras `flyTo/fitBounds/load`, el dropdown espera settle de cámara antes de reaparecer.
 - Debe existir fallback timeout para evitar bloqueo permanente si el evento de settle no llega.
 - La primera aparición puede usar delay corto para suavizar lectura; reapariciones subsecuentes no deben introducir latencia excesiva.
 
-8. **Estado de spot explícito (SpotSheet, 2026-03-01)**
+9. **Estado de spot explícito (SpotSheet, 2026-03-01)**
 - El cambio de estado en sheet no debe depender de transición implícita secuencial.
 - Deben existir dos acciones explícitas:
   - `Por visitar` (toggle on/off),
@@ -68,17 +75,30 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Al activar `Visitado`, prevalece sobre `Por visitar` (normalización de estado).
 - Al desactivar el estado activo dentro de un filtro (`saved` o `visited`), el spot sale de esa lista y la vista permanece en el filtro actual.
 
-9. **Sticky Context (2026-03-02, cierre definitivo)**
+10. **Sticky Context (2026-03-02, cierre definitivo)**
 - Política canónica de transición de filtro: `sticky`.
 - Al mutar estado (`default ↔ to_visit ↔ visited`), el filtro activo no cambia automáticamente.
 - La navegación entre filtros es explícita por acción de usuario (pills/dropdown), no por side effects de guardado.
 - Se permite feedback textual con CTA sugerido (`Ver Visitados`, `Ver Por visitar`, `Ver Todos`) sin auto-switch.
 
-10. **Excepción temporal de visibilidad post-mutación**
+11. **Excepción temporal de visibilidad post-mutación**
 - Runtime mantiene `recentlyMutatedSpotId`, `recentMutationUntil` y `recentMutationOriginFilter`.
 - El spot mutado reciente se mantiene visible temporalmente (TTL canónico: `10s`) para evitar desaparición percibida.
 - La excepción es de un solo spot (última mutación gana).
 - Si el spot default está enlazado a POI Mapbox, la excepción no persiste fuera de selección activa.
+
+## Troubleshooting
+
+1. **En nativo siempre vuelve a `Todos` al reabrir**
+- Verificar que se esté usando `loadMapPinFilterPreferenceAsync()` en mount.
+- Confirmar que `setMapPinFilterPreference(...)` no se ejecute antes de `pinFilterStorageReady=true`.
+
+2. **`saved`/`visited` aparece vacío tras deep link/post-edit**
+- Comportamiento esperado: no hay auto-switch a `all`.
+- Revisar que esté activa la excepción temporal de visibilidad (`recentlyMutatedSpotId` + TTL).
+
+3. **Badges pendientes se “pisan” entre filtros**
+- Verificar persistencia como objeto completo `{ saved, visited }`, no escrituras parciales por clave.
 
 ## Core puro recomendado
 
