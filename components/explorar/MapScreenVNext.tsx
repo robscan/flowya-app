@@ -689,11 +689,16 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (Platform.OS === "web") return;
     let cancelled = false;
-    void loadMapPinFilterPreferenceAsync().then((pf) => {
-      if (cancelled) return;
-      setPinFilter(pf);
-      setPinFilterStorageReady(true);
-    });
+    void (async () => {
+      try {
+        const pf = await loadMapPinFilterPreferenceAsync();
+        if (!cancelled) setPinFilter(pf);
+      } catch {
+        // Si falla lectura de storage, habilitar persistencia con valor en memoria.
+      } finally {
+        if (!cancelled) setPinFilterStorageReady(true);
+      }
+    })();
     return () => {
       cancelled = true;
     };
