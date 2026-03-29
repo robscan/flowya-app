@@ -1,0 +1,123 @@
+# PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28
+
+## Objetivo
+
+Construir un perfil de usuario realmente util para web, apoyado en la auth actual, sin depender todavía de social login.
+
+## Contexto real del repo
+
+- hoy no existe una tabla pública obvia de `profiles`
+- existe auth por magic link
+- existen piezas dispersas de cuenta:
+  - chip/perfil en Explore
+  - logout
+  - traveler flows / países
+  - filtros y actividad embebidos
+
+Referencia:
+
+- `docs/contracts/PROFILE_AUTH_CONTRACT_CURRENT.md`
+
+## Alcance
+
+- definir modelo canónico de perfil
+- crear base de datos o metadata canónica para:
+  - `username` o `display_name`
+  - `avatar_url` o imagen de perfil
+  - estado básico de cuenta
+- exponer una superficie web real de perfil/cuenta
+- permitir edición de datos básicos
+- integrar logout y estado de sesión de forma clara
+
+## No alcance
+
+- social login
+- onboarding complejo
+- perfiles públicos o social graph
+- followers, sharing social, comunidad
+
+## Principios
+
+- usar la auth actual como foundation
+- no esperar social login para tener cuenta usable
+- mantener owner-only donde no haya necesidad pública
+- evitar duplicar identidad entre `auth.users` y una tabla nueva sin contrato
+
+## Decisiones a cerrar
+
+1. Si el perfil vive en `auth.users.user_metadata` o en tabla `profiles`/`user_profiles`.
+2. Qué campos son indispensables en V1 web:
+   - `username` o `display_name`
+   - `avatar_url`
+   - `created_at`
+3. Si el perfil será solo privado o tendrá algún dato público mínimo.
+
+## Alcance funcional recomendado
+
+### PF-01 Foundation de datos
+
+- definir storage canónico del perfil
+- garantizar `user_id` como owner
+- dejar reglas de lectura/escritura claras
+
+### PF-02 Superficie web de perfil
+
+- pantalla o sheet de cuenta usable
+- mostrar:
+  - nombre/username
+  - avatar
+  - sesión actual
+  - países/spots/flows cuando aplique
+
+### PF-03 Edición básica
+
+- editar nombre/username
+- editar avatar
+- feedback claro de guardado/error
+
+### PF-04 Estado de sesión y continuidad
+
+- entry claro desde Explore
+- logout
+- copy coherente para usuario anónimo / registrado
+
+## Archivos ancla del repo
+
+- `docs/contracts/PROFILE_AUTH_CONTRACT_CURRENT.md`
+- `contexts/auth-modal.tsx`
+- `app/_layout.tsx`
+- `components/explorar/MapScreenVNext.tsx`
+- superficies actuales de perfil/logout en Explore
+
+## Backlog técnico sugerido
+
+- `BT-PROFILE-01` Cerrar contrato de perfil y fuente canónica de datos.
+- `BT-PROFILE-02` Crear migración si se adopta tabla `profiles`.
+- `BT-PROFILE-03` Crear capa de dominio `lib/profile/*`.
+- `BT-PROFILE-04` Crear superficie web de perfil/cuenta.
+- `BT-PROFILE-05` Integrar edición básica de nombre/avatar.
+- `BT-PROFILE-06` QA de sesión, logout, estados vacíos y usuario sin completar perfil.
+
+## Riesgos
+
+1. Mezclar perfil con auth provider sin contrato claro.
+- Mitigación: decidir una sola fuente de verdad.
+
+2. Abrir perfil social antes de tiempo.
+- Mitigación: mantenerlo privado/propio en V1.
+
+3. Mover auth demasiado tarde y dejar cuenta inconsistente.
+- Mitigación: este loop debe dejar usable la cuenta con magic link antes de social login.
+
+## Criterio de cierre
+
+Se considera cerrado cuando:
+
+1. Existe una fuente de verdad de perfil.
+2. El usuario puede ver y editar datos básicos de cuenta en web.
+3. El perfil deja de ser solo un chip o punto de logout.
+4. Auth social puede entrar después sin reabrir el dominio de perfil desde cero.
+
+## Posición en roadmap
+
+Debe ejecutarse antes del loop de `Auth` social login y antes de monetización.

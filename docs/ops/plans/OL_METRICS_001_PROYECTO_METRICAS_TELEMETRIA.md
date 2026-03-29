@@ -1,6 +1,6 @@
 # OL-METRICS-001 — Proyecto métricas y telemetría
 
-**Estado:** Propuesta / Postergado  
+**Estado:** Planificado / Postergado estrategicamente  
 **Prioridad:** Baja (no urgente)  
 **Referencia:** [docs/ops/investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md](../investigation/OL_SEARCHV2_002_API_INVENTORY_2026-03-09.md)
 
@@ -39,6 +39,13 @@
 
 Métricas y telemetría productiva: consumo de APIs externas (Mapbox, etc.), patrones de uso y comportamiento por usuario. Permitir análisis continuo y decisiones basadas en datos.
 
+## 2.1 Decisión operativa 2026-03-28
+
+- **Producto:** usar **Supabase** como fuente canónica de sesiones y eventos.
+- **Web analytics complementaria:** usar **Vercel** solo para tráfico, páginas, referrers y performance web.
+- **No** usar Vercel como fuente principal para cohortes, retorno ni comparación `Explore` vs `Recordar`.
+- **Subplan detallado:** [PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md](PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md).
+
 ---
 
 ## 3. Habilitadores sugeridos
@@ -59,4 +66,4 @@ La instrumentación en `lib/mapbox-api-metrics.ts` es solo memoria (sesión). OL
 
 ## 5. Estado
 
-Postergado. No urgente. Retomar cuando haya necesidad clara de datos de comportamiento o métricas productivas.
+Postergado estratégicamente. No ejecutar antes de estabilidad base y privacidad mínima, pero sí retomar antes de decisiones de monetización.

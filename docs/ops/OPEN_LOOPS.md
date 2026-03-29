@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-22
+**Fecha:** 2026-03-28
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -13,11 +13,17 @@
 
 - **Loop ejecutivo activo (único):** **dormido** — ningún OL en ejecución hasta declaración explícita. Al abrir trabajo, elegir **uno** de la cola y mover el resto a **en espera** (sin paralelismo).
 - **En espera (cola — próximo a activar uno solo):**
-  1. **Auth** — social login (investigación / activación).
-  2. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
-  3. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
-  4. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — retry (diagnosticar deploy/cache/viewport).
-  5. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
+  1. **OL-EXPLORE-RESTRUCTURE-001** — reestructura del shell de Explore: input visible abajo, perfil a la izquierda del input, filtros arriba izquierda y prueba opcional de filtros inline superiores bajo confirmación ([PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md)).
+  2. **OL-WEB-RESPONSIVE-001** — componentes responsivos web para cierre útil de V1 ([PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md)).
+  3. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — retry (diagnosticar deploy/cache/viewport).
+  4. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
+  5. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
+  6. **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first ([PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)).
+  7. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
+  8. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
+  9. **Auth** — social login (investigación / activación).
+  10. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
+  11. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
 - **Seguimiento (abiertos pero no “en cola” de ejecución inmediata):** `OL-SEARCHV2-EMPTY-K-ANONYMITY-001` (comportamiento aceptado con pocos usuarios); ítems búsqueda **OL-URGENT-MAKI-001** / **OL-URGENT-CLUSTER-001** marcados **abordados** en bitácora.
 - **Cierre de código reciente (2026-03-11):** PR #98 — lightbox en SpotSheet, ajuste de solapamiento de pin con filtro activo, plan [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Trazabilidad: bitácora `307`.
 - **Integración reciente:** contrato SpotSheet + seguridad Supabase spots (PRs #101, #99, #100). Bitácora `308`. **Migraciones** `018_spots_block_client_hard_delete.sql` y `018_spots_owner_write_guardrails.sql`: aplicar en cada entorno remoto (`supabase db push` / pipeline del proyecto) si aún no están aplicadas.
@@ -99,13 +105,36 @@
 
 ---
 
+## Proyecto: Explore shell / layout
+
+- **OL-EXPLORE-RESTRUCTURE-001** — Reestructura del shell de Explore para hacer la home más accionable: input visible en la base, placeholder que invite a actuar, perfil a la izquierda del input y filtros en extremo superior izquierdo. El tap sobre el input abre la ventana de búsqueda actual. Incluye prueba opcional con filtros inline superiores; si se implementa, requiere confirmación explícita antes de consolidarse. Plan: [PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md).
+
+---
+
+## Proyecto: Seguridad / validación
+
+- **OL-SECURITY-VALIDATION-001** — Validación de seguridad mínima del estado actual: policies/RLS, migraciones remotas críticas, mutaciones protegidas por auth, ownership entre usuarios, geoloc y analytics. Plan: [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md).
+
+---
+
+## Proyecto: Perfil / cuenta
+
+- **OL-PROFILE-001** — Perfil de usuario más robusto sobre la auth actual: contrato de perfil, superficie web de cuenta, edición básica y logout/estado de sesión coherente. Plan: [PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md).
+
+---
+
+## Proyecto: Métricas / retorno
+
+- **OL-METRICS-001** — Medición de actividad, retorno y comparación `Explore` vs `Recordar`. Plan marco: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). Subplan detallado: [PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md](plans/PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md). Ejecutar antes de monetización y antes de `OL-SEARCHV2-002`. Vercel solo como complemento web; Supabase como fuente canónica.
+
+---
+
 ## Postergados estratégicos (no ejecutar ahora)
 
-- `OL-METRICS-001` — Proyecto métricas y telemetría. Plan: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). No urgente.
 - `OL-P0-002` — Create Spot canónico.
 - `OL-P1-006` — Migración POI DB (maki/categorías).
 - `OL-P1-007` — Pipeline turístico sin Google.
-- `OL-P3-001` — Web sheets `max-width: 720px` + alineación derecha.
+- `OL-P3-001` — superseded por `OL-WEB-RESPONSIVE-001` (el alcance ya no es solo `max-width: 720px` + alineación derecha).
 - `OL-EXPLORE-SEARCH-BATCH-001`, `OL-I18N-UI-001` — tras cerrar búsqueda y auth.
 - **`OL-EXPLORE-TAGS-001`:** cerrado (PR #106, 2026-03-22). Evidencia: bitácora `310`, `docs/contracts/USER_TAGS_EXPLORE.md`. Follow-up de regresión QA: PR #108, bitácora `311`.
 
@@ -173,5 +202,7 @@
 4. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
 5. Retry `OL-EXPLORE-WEB-ZOOM-GUARD-001` cuando sea prudente (diagnosticar fallo de despliegue/cache).
 6. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
-7. Perfil/actividad: revisar si mejorar para registro de actividad y países/regiones/lugares más visitados — fase exploratoria.
-8. Auth (social login), OL-CONTENT-002, OL-PRIVACY-001 — según prioridad estratégica (declarar uno como loop activo al abrir).
+7. Perfil/actividad: si se reactiva, alinearlo con `OL-METRICS-001` y `ACTIVITY_SUMMARY`; no abrir tracking paralelo ad hoc.
+8. Web-first útil: no declarar cierre real sin `OL-EXPLORE-RESTRUCTURE-001` y `OL-WEB-RESPONSIVE-001`.
+9. No mover `Auth` social login antes de `OL-SECURITY-VALIDATION-001` y `OL-PROFILE-001`.
+10. OL-EXPLORE-RESTRUCTURE-001, OL-WEB-RESPONSIVE-001, `OL-EXPLORE-WEB-ZOOM-GUARD-001`, OL-CONTENT-002, OL-PRIVACY-001, OL-SECURITY-VALIDATION-001, OL-PROFILE-001, OL-CONTENT-001, Auth, OL-METRICS-001, OL-SEARCHV2-002 — según prioridad estratégica (declarar uno como loop activo al abrir).
