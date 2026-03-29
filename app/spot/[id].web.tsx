@@ -465,7 +465,7 @@ function SpotDetailScreenContent({
       <View
         style={[styles.placeholder, { backgroundColor: colors.background }]}
       >
-        <Text style={{ color: colors.text }}>Spot no encontrado</Text>
+        <Text style={{ color: colors.text }}>Lugar no encontrado</Text>
         <Text
           style={{ color: colors.tint, marginTop: Spacing.base }}
           onPress={() => router.back()}

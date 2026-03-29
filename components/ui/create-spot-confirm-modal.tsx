@@ -62,10 +62,10 @@ export function CreateSpotConfirmModal({
             onPress={(e) => e.stopPropagation()}
           >
             <Text style={[styles.title, { color: colors.text }]}>
-              ¿Crear spot aquí?
+              ¿Crear lugar aquí?
             </Text>
             <Text style={[styles.message, { color: colors.textSecondary }]}>
-              Mantuviste pulsado en el mapa. Puedes crear un nuevo spot en este punto.
+              Mantuviste pulsado en el mapa. Puedes crear un nuevo lugar en este punto.
             </Text>
             <Pressable
               style={styles.checkboxRow}
@@ -119,9 +119,9 @@ export function CreateSpotConfirmModal({
                   WebTouchManipulation,
                 ]}
                 onPress={handleConfirm}
-                accessibilityLabel="Crear spot"
+                accessibilityLabel="Crear lugar"
               >
-                <Text style={styles.confirmLabel}>Crear spot</Text>
+                <Text style={styles.confirmLabel}>Crear lugar</Text>
               </Pressable>
             </View>
           </Pressable>

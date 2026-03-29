@@ -537,7 +537,7 @@ export function MapPinsShowcase() {
           </Text>
         </View>
         <View style={styles.showcaseItem}>
-          <MapPinSpot status="default" colorScheme={mode} label="Spot con nombre" />
+          <MapPinSpot status="default" colorScheme={mode} label="Lugar con nombre" />
           <Text
             style={[
               styles.showcaseLabel,

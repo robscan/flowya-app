@@ -14,6 +14,9 @@ import {
   ButtonSecondary,
   ClearIconCircle,
   ColorsShowcase,
+  ExploreFlowsBadge,
+  ExploreSearchActionRow,
+  FlowyaFeedbackTrigger,
   IconButton,
   ImagePlaceholder,
   MapControls,
@@ -22,6 +25,7 @@ import {
   MapPinFilterInline,
   MapPinsShowcase,
   SearchPill,
+  SearchLauncherField,
   SearchListCard,
   SpotDetailShowcase,
   SpotImage,
@@ -59,7 +63,7 @@ export default function DesignSystemScreen() {
         <View style={styles.header}>
           <Text style={{ ...styles.pageTitle, color: colors.text }}>Design System</Text>
           <Text style={{ ...styles.pageSubtitle, color: colors.textSecondary }}>
-            Canon operativo (Explore + Edit Spot). Sin elementos legacy ni showcases duplicados.
+            Canon operativo (Explore + Editar lugar). Sin elementos legacy ni showcases duplicados.
           </Text>
         </View>
 
@@ -69,7 +73,7 @@ export default function DesignSystemScreen() {
           </Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Alcance activo: Explorar (map/filter/controls/search/sheet) y Edit Spot.
+              Alcance activo: Explorar (map/filter/controls/search/sheet) y Editar lugar.
             </Text>
             <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: 0 }}>
               Este catálogo incluye únicamente componentes activos del runtime. Contratos:{' '}
@@ -173,7 +177,7 @@ export default function DesignSystemScreen() {
                       label: 'Etiquetar',
                       kind: 'add_tag',
                       onPress: () => {},
-                      accessibilityLabel: 'Etiquetar este spot',
+                      accessibilityLabel: 'Etiquetar este lugar',
                     },
                   ]}
                   accessibilityLabel="Search row con etiquetas"
@@ -250,7 +254,7 @@ export default function DesignSystemScreen() {
         <View style={styles.section}>
           <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Search entry pill</Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ flexDirection: 'row', gap: Spacing.base, alignItems: 'center', flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', gap: Spacing.base, alignItems: 'center', flexWrap: 'wrap', marginBottom: Spacing.base }}>
               <SearchPill onPress={() => {}} variant="default" />
               <View
                 style={{
@@ -263,6 +267,31 @@ export default function DesignSystemScreen() {
               >
                 <SearchPill onPress={() => {}} variant="onDark" />
               </View>
+            </View>
+            <View style={{ width: '100%', maxWidth: 420, marginBottom: Spacing.base }}>
+              <SearchLauncherField onPress={() => {}} />
+            </View>
+            <View
+              style={{
+                width: '100%',
+                maxWidth: 520,
+                padding: Spacing.base,
+                borderRadius: Radius.xl,
+                backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(0,0,0,0.32)',
+                gap: Spacing.sm,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FlowyaFeedbackTrigger onPress={() => {}} />
+                <ExploreFlowsBadge label="31 flows" />
+              </View>
+              <ExploreSearchActionRow
+                onSearchPress={() => {}}
+                onProfilePress={() => {}}
+                onLogoutPress={() => {}}
+                isAuthUser
+                showLogoutAction
+              />
             </View>
           </View>
         </View>
@@ -366,7 +395,7 @@ export default function DesignSystemScreen() {
             />
             <ConfirmModal
               visible={showDeleteSpotConfirm}
-              title="¿Eliminar este spot?"
+              title="¿Eliminar este lugar?"
               message="Esta acción no se puede deshacer."
               confirmLabel="Eliminar"
               cancelLabel="Cancelar"
@@ -379,7 +408,7 @@ export default function DesignSystemScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Spot Detail</Text>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Detalle de lugar</Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <SpotDetailShowcase />
           </View>
@@ -414,8 +443,19 @@ export default function DesignSystemScreen() {
               <MapPinFilter value="saved" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
               <MapPinFilter value="visited" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
             </View>
-            <View style={{ marginTop: Spacing.sm, width: '100%', maxWidth: 360 }}>
-              <MapPinFilterInline value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
+            <View style={{ marginTop: Spacing.sm, width: '100%', maxWidth: 360, gap: Spacing.sm }}>
+              <MapPinFilterInline
+                value="all"
+                onChange={() => {}}
+                counts={{ saved: 3, visited: 7 }}
+                layout="compact"
+              />
+              <MapPinFilterInline
+                value="all"
+                onChange={() => {}}
+                counts={{ saved: 3, visited: 7 }}
+                layout="wide"
+              />
             </View>
             <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
               Search input — pill (foco / texto / clear circular)

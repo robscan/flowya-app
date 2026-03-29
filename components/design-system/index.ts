@@ -5,8 +5,14 @@
 
 export { ConfirmModal } from '../ui/confirm-modal';
 export type { ConfirmModalProps, ConfirmModalVariant } from '../ui/confirm-modal';
+export { ExploreFlowsBadge } from './explore-flows-badge';
+export type { ExploreFlowsBadgeProps } from './explore-flows-badge';
+export { ExploreSearchActionRow } from './explore-search-action-row';
+export type { ExploreSearchActionRowProps } from './explore-search-action-row';
 export { FlowyaBetaModal } from '../ui/flowya-beta-modal';
 export type { FlowyaBetaModalProps } from '../ui/flowya-beta-modal';
+export { FlowyaFeedbackTrigger } from './flowya-feedback-trigger';
+export type { FlowyaFeedbackTriggerProps } from './flowya-feedback-trigger';
 export { ButtonPrimary, ButtonSecondary, ButtonsShowcase } from './buttons';
 export type { ButtonPrimaryProps, ButtonSecondaryProps } from './buttons';
 export { ActivitySummary } from './activity-summary';
@@ -39,6 +45,8 @@ export { MapPinCreating, MapPinExisting, MapPinLocation, MapPinSpot, MapPinsShow
 export type { SpotPinStatus } from './map-pins';
 export { SearchPill } from './search-pill';
 export type { SearchPillProps, SearchPillVariant } from './search-pill';
+export { SearchLauncherField } from './search-launcher-field';
+export type { SearchLauncherFieldProps, SearchLauncherFieldVariant } from './search-launcher-field';
 export { ResultRow, SearchListCard } from './search-list-card';
 export type { ResultRowProps, SearchListCardProps } from './search-list-card';
 export { SearchResultCard, SearchResultsShowcase } from './search-result-card';

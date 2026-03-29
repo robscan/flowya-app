@@ -397,7 +397,7 @@ export default function CreateSpotScreen() {
   useEffect(() => {
     const title =
       step === 1
-        ? 'Selecciona la ubicación del spot'
+        ? 'Selecciona la ubicación del lugar'
         : step === 2
           ? '¿Cómo se llama este lugar?'
           : step === 3
@@ -406,7 +406,7 @@ export default function CreateSpotScreen() {
               ? 'Cuéntanos un poco más del lugar'
               : step === 5
                 ? 'Foto de portada'
-                : 'Revisa la información del spot';
+                : 'Revisa la información del lugar';
     navigation.setOptions({
       title,
       headerTitleAlign: 'center',
@@ -468,11 +468,11 @@ export default function CreateSpotScreen() {
                 <Pressable
                   style={[styles.duplicateBannerButtonPrimary, { backgroundColor: colors.tint }]}
                   onPress={goToExistingSpot}
-                  accessibilityLabel="Ir al spot"
+                  accessibilityLabel="Ir al lugar"
                   accessibilityRole="button"
                 >
                   <Text style={[styles.duplicateBannerButtonLabel, { color: colors.background }]}>
-                    Ir al spot
+                    Ir al lugar
                   </Text>
                 </Pressable>
               </View>
@@ -822,13 +822,13 @@ export default function CreateSpotScreen() {
                 onFocus={() => setWizardButtonFocused(true)}
                 onBlur={() => setWizardButtonFocused(false)}
                 disabled={submitting}
-                accessibilityLabel="Crear spot"
+                accessibilityLabel="Crear lugar"
               >
                 {submitting ? (
                   <ActivityIndicator size="small" color={colors.background} />
                 ) : (
                   <Text style={[styles.primaryButtonLabel, { color: colors.background }]}>
-                    Crear spot
+                    Crear lugar
                   </Text>
                 )}
               </Pressable>

@@ -38,6 +38,7 @@ type SystemStatusContextValue = {
   show: (message: string, options?: SystemStatusShowOptions) => void;
   setAnchor: (anchor: SystemStatusAnchor) => void;
   resetAnchor: () => void;
+  hasVisibleMessages: boolean;
 };
 
 const SystemStatusContext = createContext<SystemStatusContextValue | null>(null);
@@ -145,8 +146,8 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
   }, []);
 
   const contextValue = useMemo(
-    () => ({ show, setAnchor, resetAnchor }),
-    [show, setAnchor, resetAnchor],
+    () => ({ show, setAnchor, resetAnchor, hasVisibleMessages: messages.length > 0 }),
+    [show, setAnchor, resetAnchor, messages.length],
   );
   const resolvedMode: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const activePalette = resolveToastPalette(resolvedMode);

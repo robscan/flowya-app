@@ -182,7 +182,7 @@ export function CreateSpotNameOverlay({
           ]}
         >
           <Text style={[styles.label, { color: labelColor }]}>
-            Nombre del spot
+            Nombre del lugar
           </Text>
           <TextInput
             value={value}
@@ -204,7 +204,7 @@ export function CreateSpotNameOverlay({
             autoCapitalize="words"
             returnKeyType="done"
             onSubmitEditing={handleConfirm}
-            accessibilityLabel="Nombre del spot"
+            accessibilityLabel="Nombre del lugar"
           />
         </View>
       </Animated.View>

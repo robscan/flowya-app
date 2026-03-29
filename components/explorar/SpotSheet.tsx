@@ -261,7 +261,7 @@ function SpotSheetMetaRow({
             <Pressable
               onPress={onEtiquetar}
               style={styles.metaEtiquetar}
-              accessibilityLabel="Etiquetar este spot"
+              accessibilityLabel="Etiquetar este lugar"
               accessibilityRole="button"
             >
               <Hash size={13} color={colors.primary} strokeWidth={2.2} />
@@ -592,10 +592,10 @@ function DraftInlineEditor({
         <Pressable
           style={[styles.detailButton, { backgroundColor: colors.tint }]}
           onPress={onCreateSpot}
-          accessibilityLabel="Crear spot"
+          accessibilityLabel="Crear lugar"
           accessibilityRole="button"
         >
-          <Text style={styles.detailButtonText}>Crear spot</Text>
+          <Text style={styles.detailButtonText}>Crear lugar</Text>
         </Pressable>
       ) : null}
     </View>
@@ -621,7 +621,7 @@ function PoiBodyContent({
       <View style={[styles.poiLoadingWrap, { marginTop: Spacing.md }]}>
         <ActivityIndicator size="small" color={colors.primary} />
         <Text style={[styles.poiLoadingText, { color: colors.textSecondary }]}>
-          Guardando spot…
+          Guardando lugar…
         </Text>
       </View>
     );

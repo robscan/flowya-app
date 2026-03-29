@@ -15,9 +15,9 @@ export default function CreateSpotPlaceholder() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Crear spot' }} />
+      <Stack.Screen options={{ title: 'Crear lugar' }} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <Text style={[styles.text, { color: colors.text }]}>Crear spot</Text>
+        <Text style={[styles.text, { color: colors.text }]}>Crear lugar</Text>
         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
           El wizard de creación está disponible en web.
         </Text>

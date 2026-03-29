@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-03-28
+**Fecha:** 2026-03-29
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -13,17 +13,16 @@
 
 - **Loop ejecutivo activo (único):** **dormido** — ningún OL en ejecución hasta declaración explícita. Al abrir trabajo, elegir **uno** de la cola y mover el resto a **en espera** (sin paralelismo).
 - **En espera (cola — próximo a activar uno solo):**
-  1. **OL-EXPLORE-RESTRUCTURE-001** — reestructura del shell de Explore: input visible abajo, perfil a la izquierda del input, filtros arriba izquierda y prueba opcional de filtros inline superiores bajo confirmación ([PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md)).
-  2. **OL-WEB-RESPONSIVE-001** — componentes responsivos web para cierre útil de V1 ([PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md)).
-  3. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — retry (diagnosticar deploy/cache/viewport).
-  4. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
-  5. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
-  6. **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first ([PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)).
-  7. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
-  8. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
-  9. **Auth** — social login (investigación / activación).
-  10. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
-  11. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
+  1. **OL-WEB-RESPONSIVE-001** — componentes responsivos web para cierre útil de V1 ([PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md)).
+  2. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — retry (diagnosticar deploy/cache/viewport).
+  3. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
+  4. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
+  5. **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first ([PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)).
+  6. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
+  7. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
+  8. **Auth** — social login (investigación / activación).
+  9. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
+  10. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
 - **Seguimiento (abiertos pero no “en cola” de ejecución inmediata):** `OL-SEARCHV2-EMPTY-K-ANONYMITY-001` (comportamiento aceptado con pocos usuarios); ítems búsqueda **OL-URGENT-MAKI-001** / **OL-URGENT-CLUSTER-001** marcados **abordados** en bitácora.
 - **Cierre de código reciente (2026-03-11):** PR #98 — lightbox en SpotSheet, ajuste de solapamiento de pin con filtro activo, plan [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Trazabilidad: bitácora `307`.
 - **Integración reciente:** contrato SpotSheet + seguridad Supabase spots (PRs #101, #99, #100). Bitácora `308`. **Migraciones** `018_spots_block_client_hard_delete.sql` y `018_spots_owner_write_guardrails.sql`: aplicar en cada entorno remoto (`supabase db push` / pipeline del proyecto) si aún no están aplicadas.
@@ -35,7 +34,7 @@
 ## Estado general (contexto)
 
 - Gates Fase 1 / Fase 2 / Fase 3 base y `OL-P2-006` / `OL-P1-003`: **cerrados** (histórico; bitácora `213` y anteriores).
-- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`.
+- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`.
 
 ---
 
@@ -107,7 +106,7 @@
 
 ## Proyecto: Explore shell / layout
 
-- **OL-EXPLORE-RESTRUCTURE-001** — Reestructura del shell de Explore para hacer la home más accionable: input visible en la base, placeholder que invite a actuar, perfil a la izquierda del input y filtros en extremo superior izquierdo. El tap sobre el input abre la ventana de búsqueda actual. Incluye prueba opcional con filtros inline superiores; si se implementa, requiere confirmación explícita antes de consolidarse. Plan: [PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md).
+- **OL-EXPLORE-RESTRUCTURE-001** — cerrado. Explore web ya cuenta con shell inferior `input + perfil`, filtros inline superiores responsivos, `FLOWYA` secundario, badge `países | flows`, coordinación con toast/logout y trigger de países visitados desde la banda inferior. Plan: [PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md). Evidencia: bitácora `315`.
 
 ---
 
@@ -143,6 +142,7 @@
 ## Cierres recientes (trazabilidad)
 
 - Etiquetas personales Explore (`OL-EXPLORE-TAGS-001`): merge PR #106; contratos y DS actualizados. Bitácora `310`. Regresión tag filter chip → búsqueda filtrada: PR #108. Bitácora `311`.
+- `OL-EXPLORE-RESTRUCTURE-001` cerrado: shell web más accionable, filtros superiores responsivos, banda inferior `input + perfil`, coordinación `FLOWYA` / toast / logout y badge `países | flows`. Bitácora `315`.
 - `OL-EXPLORE-LOCALE-CONSISTENCY-001` cerrado y mergeado (PR #86). Bitácora `298`.
 - `OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001` cerrado: migración 016 ejecutada, smoke OK. Bitácora `299`.
 - `OL-SEARCHV2-001` cerrado: abordado con ajustes recientes (landmarks visibles + fallback). Plan OL-SEARCHV2-002 investigation-first: bitácora `300`.

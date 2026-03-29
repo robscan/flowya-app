@@ -8,7 +8,15 @@
 
 import { CheckCircle, Globe, Pin } from 'lucide-react-native';
 import React, { useEffect, useRef } from 'react';
-import { LayoutAnimation, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  LayoutAnimation,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -26,6 +34,7 @@ import { TypographyStyles } from './typography';
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
 const MIN_TOUCH_TARGET = 44;
+const DEFAULT_WIDE_MIN_WIDTH = 350;
 const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
 const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
 
@@ -38,6 +47,11 @@ const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
 function getCount(optValue: MapPinFilterValue, counts?: MapPinFilterCounts): number | undefined {
   if (optValue === 'all' || !counts) return undefined;
   return optValue === 'saved' ? counts.saved : counts.visited;
+}
+
+function getFilterAccessibilityLabel(label: string, count?: number): string {
+  if (count == null) return label;
+  return `${label}, ${count} lugares`;
 }
 
 function FilterIcon({
@@ -65,14 +79,36 @@ export type MapPinFilterInlineProps = {
   value: MapPinFilterValue;
   onChange: (value: MapPinFilterValue) => void;
   counts?: MapPinFilterCounts;
+  layout?: 'compact' | 'wide' | 'auto';
+  availableWidth?: number;
+  wideMinWidth?: number;
+  showCountBadgesInWide?: boolean;
 };
 
-export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInlineProps) {
+export function MapPinFilterInline({
+  value,
+  onChange,
+  counts,
+  layout = 'compact',
+  availableWidth,
+  wideMinWidth = DEFAULT_WIDE_MIN_WIDTH,
+  showCountBadgesInWide = true,
+}: MapPinFilterInlineProps) {
+  const { width: viewportWidth } = useWindowDimensions();
   const colorScheme = useColorScheme();
   const resolvedScheme = colorScheme ?? 'light';
   const colors = Colors[resolvedScheme];
   const prevValueRef = useRef(value);
   const selectedScale = useSharedValue(1);
+  const effectiveAvailableWidth = availableWidth ?? viewportWidth;
+  const resolvedLayout =
+    layout === 'auto'
+      ? effectiveAvailableWidth >= wideMinWidth
+        ? 'wide'
+        : 'compact'
+      : layout;
+  const showAllLabels = resolvedLayout === 'wide';
+  const rowStyle = showAllLabels ? styles.rowWide : styles.row;
 
   useEffect(() => {
     if (prevValueRef.current !== value) {
@@ -136,19 +172,27 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
         };
 
   return (
-    <View style={styles.row}>
+    <View style={rowStyle}>
       {OPTIONS.map((opt) => {
         const isSelected = value === opt.value;
         const count = getCount(opt.value, counts);
         const pillColors = isSelected ? getSelectedColors(opt.value) : getUnselectedColors();
         const label = opt.label;
-        const useAllIconSizer = opt.value === 'all' && !isSelected;
+        const useAllIconSizer = !showAllLabels && opt.value === 'all' && !isSelected;
+        const shouldShowCount =
+          count != null &&
+          !isSelected &&
+          (resolvedLayout === 'compact' || showCountBadgesInWide);
+        const isWideInactive = showAllLabels && !isSelected;
+        const isCompactSelected = !showAllLabels && isSelected;
 
         const pillContent = (
           <Pressable
             key={opt.value}
             style={({ pressed }) => [
               styles.pill,
+              showAllLabels ? styles.pillWide : null,
+              isWideInactive ? styles.pillWideInactive : null,
               {
                 backgroundColor: pillColors.bg,
                 borderColor: isSelected ? pillColors.bg : pillColors.border,
@@ -159,7 +203,7 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
             onPress={() => handleSelect(opt.value)}
             accessibilityRole="radio"
             accessibilityState={{ checked: isSelected }}
-            accessibilityLabel={`${label}${count != null ? ` ${count}` : ''}`}
+            accessibilityLabel={getFilterAccessibilityLabel(label, count)}
           >
             {useAllIconSizer ? (
               <View style={styles.allIconSizer}>
@@ -168,18 +212,26 @@ export function MapPinFilterInline({ value, onChange, counts }: MapPinFilterInli
             ) : (
               <FilterIcon value={opt.value} size={16} color={pillColors.text} />
             )}
-            {isSelected ? (
+            {showAllLabels || isSelected ? (
               <Text
-                style={[TypographyStyles.filterLabel, { color: pillColors.text }]}
+                style={[
+                  TypographyStyles.filterLabel,
+                  isCompactSelected ? styles.labelCompactSelected : null,
+                  showAllLabels ? styles.labelWide : null,
+                  isWideInactive ? styles.labelWideInactive : null,
+                  { color: pillColors.text },
+                ]}
                 numberOfLines={1}
               >
                 {label}
               </Text>
             ) : null}
-            {count != null ? (
+            {shouldShowCount ? (
               <View
                 style={[
                   styles.countBadge,
+                  showAllLabels ? styles.countBadgeWide : null,
+                  isWideInactive ? styles.countBadgeWideInactive : null,
                   {
                     backgroundColor: countBadgeColors.background,
                     borderColor: countBadgeColors.border,
@@ -219,6 +271,12 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     flexWrap: 'nowrap',
   },
+  rowWide: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'nowrap',
+  },
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -230,6 +288,30 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignSelf: 'flex-start',
+  },
+  pillWide: {
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  pillWideInactive: {
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  labelWide: {
+    fontSize: 15,
+    lineHeight: 19,
+    letterSpacing: -0.1,
+  },
+  labelCompactSelected: {
+    fontSize: 16,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+  },
+  labelWideInactive: {
+    fontSize: 14,
+    lineHeight: 17,
   },
   allIconSizer: {
     width: 22,
@@ -245,6 +327,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
+  },
+  countBadgeWide: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+  },
+  countBadgeWideInactive: {
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
+    paddingHorizontal: 4,
   },
   countBadgeText: {
     fontSize: 11,

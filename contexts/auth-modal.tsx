@@ -35,10 +35,10 @@ type AuthModalState = 'idle' | 'loading' | 'success' | 'error';
  * profile: al tocar icono de perfil sin sesión.
  */
 export const AUTH_MODAL_MESSAGES = {
-  savePin: 'Inicia sesión para guardar y marcar spots',
+  savePin: 'Inicia sesión para guardar y marcar lugares',
   profile: 'Inicia sesión en FLOWYA',
-  createSpot: 'Inicia sesión para guardar este spot',
-  editSpot: 'Inicia sesión para editar y guardar este spot',
+  createSpot: 'Inicia sesión para guardar este lugar',
+  editSpot: 'Inicia sesión para editar y guardar este lugar',
 } as const;
 
 type AuthModalContextValue = {
