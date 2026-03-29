@@ -152,7 +152,7 @@ function drawCard(
   ctx.fillText(input.title, logicalWidth / 2, 154);
 
   const formattedFlows = new Intl.NumberFormat("es-MX").format(travelerPoints);
-  const kpiLabels = ["países", "spots", isToVisit ? "flows por obtener" : "flows"] as const;
+  const kpiLabels = ["países", "lugares", isToVisit ? "flows por obtener" : "flows"] as const;
   const kpiValues = [String(input.countriesCount), String(input.spotsCount), formattedFlows];
   ctx.textAlign = "center";
   for (let i = 0; i < 3; i += 1) {

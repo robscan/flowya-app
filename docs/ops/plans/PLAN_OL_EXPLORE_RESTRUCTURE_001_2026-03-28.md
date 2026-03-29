@@ -1,14 +1,36 @@
 # PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28
 
+## Estado
+
+- **Estado:** cerrado en implementación
+- **Fecha de cierre:** 2026-03-29
+- **Bitácora:** `315-ol-explore-restructure-shell-web-home-accionable.md`
+
+## Cierre aplicado
+
+- shell inferior con `input + perfil` dentro de un contenedor único
+- launcher de búsqueda visible en home; tap abre la búsqueda actual
+- placeholder final: `Busca países o lugares`
+- filtros inline arriba al centro con variante responsiva:
+  - `compact` para anchos pequeños
+  - `wide/auto` con labels visibles para anchos tipo iPhone 12+
+- afinación de densidad visual en filtros wide
+- ocultar contador del filtro activo
+- logout encima del perfil con ajuste fino de offset
+- `FLOWYA` como trigger secundario de feedback
+- badge `países | flows` en banda inferior con estilo de filtro no activo
+- badge oculto cuando hay toast o logout visible
+- tap en badge `países | flows` abre el mismo flujo que el KPI de países visitados
+- piezas canonizadas en design system en vez de resolverlas inline en `MapScreenVNext`
+
 ## Objetivo
 
 Reestructurar la pantalla de Explore para que la home web comunique mejor la acción principal desde el primer render:
 
 - input de búsqueda visible en la base de la pantalla
 - placeholder que invite a actuar
-- perfil a la izquierda del input, en la misma hilera
-- filtros en el extremo superior izquierdo
-- prueba alternativa con filtros superiores desplegados inline (`Todos`, `Por visitar`, `Visitados`)
+- perfil a la derecha del input, en la misma hilera
+- filtros inline arriba al centro (`Todos`, `Por visitar`, `Visitados`)
 - ubicación revisada para letrero `FLOWYA` como trigger de feedback
 
 sin reabrir V3 ni cambiar el core de búsqueda.
@@ -50,20 +72,20 @@ Referencias:
 
 ### ER-04 Reubicación de controles
 
-- perfil a la izquierda del input, en la misma hilera inferior
-- filtros al extremo superior izquierdo
+- perfil a la derecha del input, en la misma hilera inferior
+- filtros inline arriba al centro
 - validar equilibrio visual con slogan o elementos de marca existentes
 - usar como referencia el patrón de Apple Maps: botón de cuenta junto al campo, no flotando aparte
 
 ### ER-05 Prueba de interacción
 
-- probar si con el perfil a la derecha y filtros a la izquierda la home se lee mejor
+- probar si con el perfil a la derecha y filtros inline al centro la home se lee mejor
 - validar que no se rompan z-index, pointer events ni gestures
 
-### ER-06 Prueba de filtros inline
+### ER-06 Filtros inline superiores
 
-- probar una variante con los filtros superiores desplegados inline
-- alcance de la prueba:
+- usar como variante activa los filtros superiores desplegados inline
+- alcance:
   - `Todos`
   - `Por visitar`
   - `Visitados`
@@ -71,9 +93,6 @@ Referencias:
   - evaluar legibilidad
   - evaluar rapidez de uso
   - evaluar si mejora la comprensión frente al control actual
-- gate:
-  - al terminar la prueba se debe pedir confirmación explícita antes de dejar esa variante como canónica
-  - si no hay confirmación, la variante inline no se consolida
 
 ### ER-07 Letrero `FLOWYA` como trigger de feedback
 
@@ -99,7 +118,7 @@ Referencias:
 - mantener map-first, pero con search-first como invitación de uso
 - no romper contratos de selección, cierre de sheet ni keyboard-safe
 - diferenciar claramente entre “input visible” y “overlay de búsqueda abierto”
-- tratar filtros inline como experimento de layout, no como decisión cerrada por defecto
+- tratar filtros inline como la variante activa mientras validamos uso real
 - la marca no debe robar la posición de una acción principal
 - el trigger de feedback debe sentirse disponible pero secundario
 
@@ -134,9 +153,9 @@ Si `FLOWYA` compite visualmente con 1 o 2, deja de ayudar y empieza a estorbar.
 
 ### 3. Implicación de diseño
 
-Si movemos el perfil a la izquierda del input, el extremo inferior izquierdo deja de estar libre.
+Si movemos el perfil a la derecha del input, la hilera inferior queda cerrada como bloque accionable y el borde izquierdo del input pasa a ser el mejor ancla visual disponible.
 
-Entonces `FLOWYA` ya no debe ocupar esa esquina como protagonista. Debe pasar a una posición de apoyo, cercana al clúster inferior pero con menos peso visual.
+Entonces `FLOWYA` ya no debe competir ni con el perfil ni con la búsqueda. Debe pasar a una posición de apoyo, cercana al clúster inferior pero con menos peso visual.
 
 ## Sugerencias de alineación
 
@@ -158,7 +177,7 @@ Lectura visual:
 
 - arriba: filtros/contexto
 - centro: mapa
-- abajo: `FLOWYA` secundario + hilera `perfil + input`
+- abajo: `FLOWYA` secundario + hilera `input + perfil`
 
 ### Opción B — Aceptable
 
@@ -180,12 +199,12 @@ Problema:
 
 Ubicación:
 
-- mantener `FLOWYA` abajo a la izquierda
+- pegar `FLOWYA` al perfil o convertirlo en CTA principal
 
 Problema:
 
-- entra en conflicto directo con la nueva hilera `perfil + input`
-- rompe la lectura tipo Apple Maps que estamos buscando
+- rompe la jerarquía accionable del shell
+- le roba claridad a búsqueda y filtros
 
 ## Recomendación final de ubicación
 
@@ -282,13 +301,13 @@ Racional:
 - `BT-EXP-REST-02` Ajustar estado inicial para mostrar el input visible, no el panel abierto.
 - `BT-EXP-REST-03` Reposicionar la hilera `perfil + input` en la base de la pantalla sin romper sheet/mapa.
 - `BT-EXP-REST-04` Cambiar placeholder del buscador a copy de invitación.
-- `BT-EXP-REST-05` Mover perfil al lado izquierdo del input.
-- `BT-EXP-REST-06` Mover filtros al extremo superior izquierdo.
-- `BT-EXP-REST-07` Probar variante con filtros superiores inline (`Todos`, `Por visitar`, `Visitados`).
-- `BT-EXP-REST-08` Pedir confirmación explícita antes de consolidar la variante inline.
+- `BT-EXP-REST-05` Mover perfil al lado derecho del input.
+- `BT-EXP-REST-06` Mover filtros inline arriba al centro.
+- `BT-EXP-REST-07` Validar la lectura y estabilidad de la variante inline (`Todos`, `Por visitar`, `Visitados`).
+- `BT-EXP-REST-08` Ajustar logout para que se despliegue arriba del perfil sin salir de viewport.
 - `BT-EXP-REST-09` Reubicar el trigger `FLOWYA` / feedback sin competir con la hilera inferior.
-- `BT-EXP-REST-10` Definir y aplicar regla de visibilidad de `FLOWYA` según estado del sheet.
-- `BT-EXP-REST-11` QA de z-index, pointer events, scroll, teclado y selección.
+- `BT-EXP-REST-10` Definir y aplicar regla de visibilidad de `FLOWYA` según estado del sheet y del toast.
+- `BT-EXP-REST-11` QA de z-index, pointer events, scroll, teclado, toast y selección.
 
 ## Riesgos
 
@@ -296,13 +315,13 @@ Racional:
 - Mitigación: no abrir el panel/listado por defecto; mostrar solo el input.
 
 2. Saturar la home con demasiados elementos arriba.
-- Mitigación: dejar solo perfil a la derecha y filtros a la izquierda; no sumar controles nuevos.
+- Mitigación: dejar solo filtros inline centrados; no sumar controles nuevos en la franja superior.
 
 3. Tocar layout y responsividad en el mismo cambio sin reglas claras.
 - Mitigación: este OL define la estructura; `OL-WEB-RESPONSIVE-001` la estabiliza entre viewports.
 
-4. Adoptar filtros inline por entusiasmo sin validación de uso.
-- Mitigación: la variante inline queda bajo confirmación explícita posterior a la prueba.
+4. Adoptar filtros inline sin vigilar la claridad del mapa.
+- Mitigación: revisar densidad visual y respuesta del mapa antes de consolidar el layout.
 
 5. Darle demasiado peso a `FLOWYA` y debilitar la interfaz accionable.
 - Mitigación: tratar la marca/feedback como acción terciaria o cuaternaria.
@@ -313,11 +332,11 @@ Se considera cerrado cuando:
 
 1. Explore abre con el input visible en la base.
 2. El placeholder invita a la acción.
-3. El perfil queda a la izquierda del input y los filtros en la esquina superior izquierda.
-4. La pantalla sigue siendo usable y coherente en web sin romper el loop principal.
-5. Si la variante de filtros inline se prueba, solo se adopta con confirmación explícita del usuario.
-6. `FLOWYA` sigue detonando feedback, pero desde una ubicación secundaria que no compite con la búsqueda.
+3. El perfil queda a la derecha del input y los filtros se muestran inline arriba al centro.
+4. El logout del usuario autenticado aparece encima del perfil.
+5. La pantalla sigue siendo usable y coherente en web sin romper el loop principal.
+6. `FLOWYA` sigue detonando feedback, pero desde una ubicación secundaria que no compite con la búsqueda ni con el toast.
 
 ## Posición en roadmap
 
-Debe ejecutarse antes de `OL-WEB-RESPONSIVE-001`, porque primero hay que cerrar la estructura del shell de Explore y luego su consistencia entre viewports.
+Se ejecutó antes de `OL-WEB-RESPONSIVE-001`, cumpliendo la secuencia prevista: primero cerrar la estructura del shell y después estabilizar su consistencia entre viewports.

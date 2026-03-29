@@ -104,9 +104,9 @@ export function SearchSurface<T>({
   const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
   const searchPlaceholder =
     pinFilter === 'saved'
-      ? 'Busca en tus spots por visitar'
+      ? 'Busca en tus lugares por visitar'
       : pinFilter === 'visited'
-        ? 'Busca en tus spots visitados'
+        ? 'Busca en tus lugares visitados'
         : 'Busca: países, regiones o lugares';
   const hideListTitles = isFilteredPinSearch;
   /** isEmpty: mostrar "Spots en la zona" (ocultar solo cuando saved/visited). */
@@ -305,9 +305,9 @@ export function SearchSurface<T>({
             embedded
             accessibilityLabel={
               pinFilter === 'saved'
-                ? 'Buscar en tus spots por visitar'
+                ? 'Buscar en tus lugares por visitar'
                 : pinFilter === 'visited'
-                  ? 'Buscar en tus spots visitados'
+                  ? 'Buscar en tus lugares visitados'
                   : 'Buscar en el mapa'
             }
             onFocus={() => {
@@ -362,7 +362,7 @@ export function SearchSurface<T>({
               <>
                 {!hideDefaultListTitle ? (
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                    Spots en la zona
+                    Lugares en la zona
                   </Text>
                 ) : null}
                 {defaultItems.map((item, idx) => (
@@ -420,8 +420,8 @@ export function SearchSurface<T>({
                 accessibilityRole="text"
               >
                 {pinFilter === 'saved'
-                  ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus spots y lugares sugeridos).'
-                  : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus spots y lugares sugeridos).'}
+                  ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
+                  : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
               </Text>
             ) : null}
             {resultsSummaryLabel ? (
@@ -483,8 +483,8 @@ export function SearchSurface<T>({
                 return showNoSpotsMessage ? (
                   <Text style={[styles.noResultsIntro, { color: colors.text, textAlign: 'center' }]}>
                     {isFilteredPinSearch
-                      ? 'Ups, no hay spots con ese nombre guardados aquí.'
-                      : 'Ups, no encontré ese spot en el mapa.'}
+                      ? 'Ups, no hay lugares con ese nombre guardados aquí.'
+                      : 'Ups, no encontré ese lugar en el mapa.'}
                   </Text>
                 ) : null;
               })()}
@@ -514,11 +514,11 @@ export function SearchSurface<T>({
                       { backgroundColor: pressed ? colors.tintPressed ?? colors.tint : colors.tint },
                     ]}
                     onPress={controller.onCreate}
-                    accessibilityLabel="Crear spot aquí. Centro del mapa o tu ubicación."
+                    accessibilityLabel="Crear lugar aquí. Centro del mapa o tu ubicación."
                     accessibilityRole="button"
                   >
                     <View style={styles.chooserButtonContent}>
-                      <Text style={styles.chooserButtonText}>Crear spot aquí</Text>
+                      <Text style={styles.chooserButtonText}>Crear lugar aquí</Text>
                     </View>
                   </Pressable>
                 </View>

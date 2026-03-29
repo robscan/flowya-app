@@ -102,7 +102,7 @@ export function DuplicateSpotModal({
             {isStep1 ? (
               <>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  Spot muy parecido
+                  Lugar muy parecido
                 </Text>
                 <Text
                   style={[styles.message, { color: colors.textSecondary }]}
@@ -120,10 +120,10 @@ export function DuplicateSpotModal({
                       WebTouchManipulation,
                     ]}
                     onPress={handleViewSpot}
-                    accessibilityLabel="Ver spot existente"
+                    accessibilityLabel="Ver lugar existente"
                   >
                     <Text style={styles.primaryButtonLabel}>
-                      Ver spot existente
+                      Ver lugar existente
                     </Text>
                   </Pressable>
                   <Pressable
@@ -163,7 +163,7 @@ export function DuplicateSpotModal({
             ) : (
               <>
                 <Text style={[styles.title, { color: colors.text }]}>
-                  ¿Crear otro spot?
+                  ¿Crear otro lugar?
                 </Text>
                 <Text
                   style={[styles.message, { color: colors.textSecondary }]}

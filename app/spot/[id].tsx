@@ -16,14 +16,14 @@ export default function SpotDetailPlaceholder() {
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Spot' }} />
+      <Stack.Screen options={{ title: 'Lugar' }} />
       <View style={{ ...styles.container, backgroundColor: colors.background }}>
-        <Text style={{ ...styles.text, color: colors.text }}>Spot {id ?? '—'}</Text>
+        <Text style={{ ...styles.text, color: colors.text }}>Lugar {id ?? '—'}</Text>
         <Text style={{ ...styles.subtitle, color: colors.icon }}>
-          Spot detail is available on web.
+          El detalle del lugar está disponible en web.
         </Text>
         <Link href="/(tabs)" asChild>
-          <Text style={{ ...styles.backLink, color: colors.tint }}>← Back</Text>
+          <Text style={{ ...styles.backLink, color: colors.tint }}>← Volver</Text>
         </Link>
       </View>
     </>

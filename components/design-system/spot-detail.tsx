@@ -447,7 +447,7 @@ export function SpotDetail({
           </View>
         )}
 
-        {/* Footer en modo edición: Guardar + Eliminar Spot */}
+        {/* Footer en modo edición: Guardar + Eliminar lugar */}
         {isEditing ? (
           <View style={[styles.editFooter, { borderTopColor: colors.borderSubtle }]}>
             <ButtonPrimary
@@ -467,11 +467,11 @@ export function SpotDetail({
                   WebTouchManipulation,
                 ]}
                 onPress={handleDeleteSpotPress}
-                accessibilityLabel="Eliminar spot"
+                accessibilityLabel="Eliminar lugar"
                 accessibilityRole="button"
               >
                 <Text style={[styles.destructiveButtonLabel, { color: colors.textSecondary }]}>
-                  Eliminar Spot
+                  Eliminar lugar
                 </Text>
               </Pressable>
             ) : null}
@@ -480,7 +480,7 @@ export function SpotDetail({
       </ScrollView>
       <ConfirmModal
         visible={showDeleteConfirm}
-        title="¿Eliminar este spot?"
+        title="¿Eliminar este lugar?"
         message="Esta acción no se puede deshacer."
         confirmLabel="Eliminar"
         cancelLabel="Cancelar"
@@ -724,14 +724,14 @@ function MapPlaceholder() {
         backgroundColor: colors.border,
       }}
     >
-      <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Mapa del spot</Text>
+      <Text style={{ color: colors.textSecondary, fontSize: 14 }}>Mapa del lugar</Text>
     </View>
   );
 }
 
 const MOCK_SPOT: SpotDetailSpot = {
   id: 'design-system-mock',
-  title: 'Ejemplo Spot Detail',
+  title: 'Ejemplo detalle de lugar',
   description_short: 'Descripción corta para el showcase del Design System.',
   description_long:
     'Descripción larga opcional. Aquí se muestra metadata y el layout hero + mapa + contenido. Modo lectura y modo edición inline.',

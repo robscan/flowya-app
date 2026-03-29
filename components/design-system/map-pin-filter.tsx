@@ -86,6 +86,16 @@ function getLabelWithCount(
   return `${label} ${n}`;
 }
 
+function getFilterAccessibilityLabel(
+  optValue: MapPinFilterValue,
+  label: string,
+  counts?: MapPinFilterCounts
+): string {
+  if (optValue === 'all' || !counts) return label;
+  const n = optValue === 'saved' ? counts.saved : counts.visited;
+  return `${label}, ${n} lugares`;
+}
+
 function getCount(optValue: MapPinFilterValue, counts?: MapPinFilterCounts): number | undefined {
   if (optValue === 'all' || !counts) return undefined;
   const value = optValue === 'saved' ? counts.saved : counts.visited;
@@ -256,7 +266,7 @@ export function MapPinFilter({
             }}
             accessibilityRole="button"
             accessibilityState={{ expanded: open }}
-            accessibilityLabel={`Filtro: ${getLabelWithCount(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
+            accessibilityLabel={`Filtro: ${getFilterAccessibilityLabel(value, currentLabel, counts)}. ${INTENTION_BY_FILTER[value]}. Toca para ${open ? 'cerrar' : 'abrir'} menú.`}
           >
             <FilterIcon value={value} size={18} color={selectedColors.text} />
             <Text

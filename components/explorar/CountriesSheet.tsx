@@ -413,11 +413,11 @@ export function CountriesSheet({
             pressed && onSpotsKpiPress != null ? styles.summaryChipPressed : null,
           ]}
           accessibilityRole={onSpotsKpiPress ? "button" : undefined}
-          accessibilityLabel={onSpotsKpiPress ? "Abrir buscador con spots del filtro" : undefined}
+          accessibilityLabel={onSpotsKpiPress ? "Abrir buscador con lugares del filtro" : undefined}
         >
           <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
           <View style={styles.kpiLabelRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>spots</Text>
+            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>lugares</Text>
             {onSpotsKpiPress ? (
               <List size={14} color={colors.primary} strokeWidth={2.2} />
             ) : null}
@@ -495,7 +495,7 @@ export function CountriesSheet({
             >
                 <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
                 <View style={styles.itemRight}>
-                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{`${item.count} spots`}</Text>
+                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{`${item.count} lugares`}</Text>
                 <List size={14} color={colors.primary} strokeWidth={2.2} />
                 </View>
               </Pressable>

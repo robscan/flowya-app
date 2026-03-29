@@ -85,7 +85,7 @@ export default function EditSpotScreen() {
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
-      toast.show("Necesitamos un título para el spot", { type: "error" });
+      toast.show("Necesitamos un título para el lugar", { type: "error" });
       return;
     }
     const {
@@ -129,7 +129,7 @@ export default function EditSpotScreen() {
     return (
       <View style={[styles.centered, { backgroundColor: colors.background }]}>
         <Text style={[styles.errorText, { color: colors.text }]}>
-          Spot no encontrado
+          Lugar no encontrado
         </Text>
         <Pressable
           onPress={handleBack}
@@ -152,7 +152,7 @@ export default function EditSpotScreen() {
           <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
         </IconButton>
         <Text style={[styles.headerTitle, { color: colors.text }]}>
-          Editar spot
+          Editar lugar
         </Text>
         <View style={styles.headerSpacer} />
       </View>

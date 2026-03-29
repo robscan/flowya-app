@@ -379,7 +379,7 @@ export default function EditSpotScreenWeb() {
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
-      toast.show("Necesitamos un título para el spot", { type: "error" });
+      toast.show("Necesitamos un título para el lugar", { type: "error" });
       return;
     }
     if (!isAuthenticated) {
@@ -496,11 +496,11 @@ export default function EditSpotScreenWeb() {
 
     const row = data as { id?: string; is_hidden?: boolean; updated_at?: string } | null;
     if (!row || row.is_hidden !== true) {
-      toast.show("El spot no se marcó como eliminado. Prueba otra vez.", { type: "error" });
+      toast.show("El lugar no se marcó como eliminado. Prueba otra vez.", { type: "error" });
       return;
     }
 
-    toast.show("Spot eliminado. Ya no aparecerá en tu lista.", { type: "success" });
+    toast.show("Lugar eliminado. Ya no aparecerá en tu lista.", { type: "success" });
     (router.replace as (href: string) => void)("/(tabs)");
   }, [spot?.id, isAuthenticated, openAuthModal, toast, router]);
 
@@ -525,7 +525,7 @@ export default function EditSpotScreenWeb() {
       >
         <Stack.Screen options={{ headerShown: false }} />
         <Text style={[styles.errorText, { color: colors.text }]}>
-          Spot no encontrado
+          Lugar no encontrado
         </Text>
         <Pressable
           onPress={handleBack}
@@ -568,7 +568,7 @@ export default function EditSpotScreenWeb() {
             <ArrowLeft size={24} color={colors.text} strokeWidth={2} />
           </IconButton>
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            Editar spot
+            Editar lugar
           </Text>
           <View style={styles.headerSpacer} />
         </View>
@@ -586,7 +586,7 @@ export default function EditSpotScreenWeb() {
             <Text
               style={[styles.authBannerText, { color: colors.textSecondary }]}
             >
-              Inicia sesión para editar este spot
+              Inicia sesión para editar este lugar
             </Text>
             <Pressable
               onPress={() =>
@@ -823,7 +823,7 @@ export default function EditSpotScreenWeb() {
                 }}
                 disabled={isDeleting}
                 accessibilityLabel={
-                  isDeleting ? "Eliminando…" : "Eliminar spot"
+                  isDeleting ? "Eliminando…" : "Eliminar lugar"
                 }
                 accessibilityRole="button"
               >
@@ -833,7 +833,7 @@ export default function EditSpotScreenWeb() {
                     { color: colors.textSecondary },
                   ]}
                 >
-                  {isDeleting ? "Eliminando…" : "Eliminar Spot"}
+                  {isDeleting ? "Eliminando…" : "Eliminar lugar"}
                 </Text>
               </Pressable>
             ) : null}
@@ -843,7 +843,7 @@ export default function EditSpotScreenWeb() {
 
       <ConfirmModal
         visible={showDeleteConfirm}
-        title="¿Eliminar este spot?"
+        title="¿Eliminar este lugar?"
         message="Esta acción no se puede deshacer."
         confirmLabel={isDeleting ? "Eliminando…" : "Eliminar"}
         cancelLabel="Cancelar"
@@ -892,7 +892,7 @@ export default function EditSpotScreenWeb() {
           >
             <View style={styles.locationPickerTitleBlock}>
               <Text style={[styles.locationPickerTitle, { color: colors.text }]}>
-                Selecciona la ubicación del spot
+                Selecciona la ubicación del lugar
               </Text>
               <Text style={[styles.locationPickerSubtitle, { color: colors.textSecondary }]}>
                 Busca el lugar o mueve el pin en el mapa. Si eliges un resultado de la lista, la vista se

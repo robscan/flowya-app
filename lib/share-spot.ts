@@ -30,7 +30,7 @@ export async function shareSpot(
   title?: string | null
 ): Promise<ShareSpotResult> {
   const url = getMapSpotShareUrl(spotId);
-  const shareTitle = title?.trim() || 'Spot';
+  const shareTitle = title?.trim() || 'Lugar';
 
   const canShare =
     typeof navigator !== 'undefined' &&

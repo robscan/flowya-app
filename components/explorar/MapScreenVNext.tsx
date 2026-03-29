@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { LogOut, Search, User, X } from "lucide-react-native";
+import { X } from "lucide-react-native";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
     ActivityIndicator,
@@ -30,11 +30,14 @@ import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
+import { ExploreFlowsBadge } from "@/components/design-system/explore-flows-badge";
+import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import { FlowyaFeedbackTrigger } from "@/components/design-system/flowya-feedback-trigger";
 import { IconButton } from "@/components/design-system/icon-button";
+import { MapPinFilterInline } from "@/components/design-system/map-pin-filter-inline";
 import { TagChip } from "@/components/design-system/tag-chip";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
-    MapPinFilter,
     type MapPinFilterValue,
 } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
@@ -57,7 +60,7 @@ import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
-import { Colors, Radius, Spacing, WebTouchManipulation } from "@/constants/theme";
+import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
@@ -158,7 +161,6 @@ import {
   recordExploreSelectionChanged,
 } from "@/lib/explore/decision-metrics";
 import { shareCountriesCard } from "@/lib/share-countries-card";
-import { computeTravelerPoints } from "@/lib/traveler-levels";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -175,6 +177,7 @@ import {
   loadMapPinFilterPreferenceAsync,
   setMapPinFilterPreference,
 } from "@/lib/storage/mapPinFilterPreference";
+import { computeTravelerPoints } from "@/lib/traveler-levels";
 import { supabase } from "@/lib/supabase";
 import {
     attachTagToSpot,
@@ -480,15 +483,16 @@ const MAP_CONTROLS_FALLBACK_HEIGHT = 100;
 const FILTER_OVERLAY_TOP = 28;
 const TOP_OVERLAY_INSET_X = 16;
 const TOP_OVERLAY_INSET_Y = 28;
+const BOTTOM_ACTION_ROW_BOTTOM_GUTTER = 16;
+const BOTTOM_ACTION_ROW_CLEARANCE = 56;
+const FLOWYA_STACK_CLEARANCE = 108;
+const FLOWYA_ABOVE_ROW_GAP = 12;
+const FLOWYA_ABOVE_PEEK_SHEET_GAP = 12;
 /** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
 const THUMB_FRIENDLY_CENTER_BIAS = 56;
-/** Evita superposición entre subtítulos de estado y marca FLOWYA. */
-const FLOWYA_LABEL_CLEARANCE = 60;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
 const STATUS_OVER_SHEET_CLEARANCE = 18;
 const FILTER_TRIGGER_ESTIMATED_HEIGHT = 56;
-const FILTER_MENU_ESTIMATED_HEIGHT = 210;
-const FILTER_MENU_GAP = 8;
 const FILTER_OVERLAY_ENTRY_DELAY_MS = 180;
 const FILTER_OVERLAY_ENTRY_DURATION_MS = 320;
 const FILTER_WAIT_FOR_CAMERA_FALLBACK_MS = 1600;
@@ -1480,7 +1484,14 @@ export function MapScreenVNext() {
     () => new Intl.NumberFormat("es-MX").format(travelerPoints),
     [travelerPoints],
   );
-  const travelerPointsChipLabel = travelerPointsLabel;
+  const travelerCountriesLabel = useMemo(
+    () => new Intl.NumberFormat("es-MX").format(countriesSummaryByFilter.visited.count ?? 0),
+    [countriesSummaryByFilter.visited.count],
+  );
+  const travelerFlowsLabel = useMemo(
+    () => `${travelerCountriesLabel} países | ${travelerPointsLabel} flows`,
+    [travelerCountriesLabel, travelerPointsLabel],
+  );
   const countriesBucketsByFilter = useMemo(() => {
     const toVisitSpots = spots.filter((s) => s.pinStatus === "to_visit");
     const visitedSpots = spots.filter((s) => s.pinStatus === "visited");
@@ -1531,7 +1542,7 @@ export function MapScreenVNext() {
           }
         : {
             all: "Volviste a Todos.",
-            saved: "Sigues en Por visitar: organiza y prepara tus spots.",
+            saved: "Sigues en Por visitar: organiza y prepara tus lugares.",
             visited: "Sigues en Visitados: registra tus memorias.",
           };
       if (!suppressToastRef.current) {
@@ -1909,8 +1920,8 @@ export function MapScreenVNext() {
             distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
         );
       const sections: SearchSection<Spot | PlaceResult>[] = [];
-      if (nearby.length > 0) sections.push({ id: "nearby", title: "Spots en la zona", items: nearby });
-      if (inWorld.length > 0) sections.push({ id: "world", title: "Spots en el mapa", items: inWorld });
+      if (nearby.length > 0) sections.push({ id: "nearby", title: "Lugares en la zona", items: nearby });
+      if (inWorld.length > 0) sections.push({ id: "world", title: "Lugares en el mapa", items: inWorld });
       return sections;
     } catch {
       return [];
@@ -2430,10 +2441,10 @@ export function MapScreenVNext() {
 
   /** Flujo canónico crear spot: draft en mapa → sheet (nombre + ubicación + imagen). Todas las entradas (dock +, long-press, search sin resultados) usan este flujo. */
   const startDraftCreateSpot = useCallback(
-    (coords: { lat: number; lng: number }, title: string = "Nuevo spot") => {
+    (coords: { lat: number; lng: number }, title: string = "Nuevo lugar") => {
       const draft: Spot = {
         id: `draft_${Date.now()}`,
-        title: title.trim() || "Nuevo spot",
+        title: title.trim() || "Nuevo lugar",
         description_short: null,
         description_long: null,
         cover_image_url: null,
@@ -2456,7 +2467,7 @@ export function MapScreenVNext() {
   const handleCreateFromNoResults = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
     const { lat, lng } = getFallbackCoords();
-    const title = searchV2.query.trim() || "Nuevo spot";
+    const title = searchV2.query.trim() || "Nuevo lugar";
     searchV2.setOpen(false);
     setCreateSpotPendingCoords({ lat, lng });
     setCreateSpotInitialName(title);
@@ -2658,7 +2669,7 @@ export function MapScreenVNext() {
       const draft = selectedSpot;
       if (!draft || !draft.id.startsWith("draft_")) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-      const titleToUse = draft.title?.trim() || "Nuevo spot";
+      const titleToUse = draft.title?.trim() || "Nuevo lugar";
       if (!skipDuplicateCheck) {
         const duplicateResult = await checkDuplicateSpot(
           titleToUse,
@@ -2680,7 +2691,7 @@ export function MapScreenVNext() {
       data: { user },
     } = await supabase.auth.getUser();
     const insertPayload: Record<string, unknown> = {
-      title: draft.title?.trim() || "Nuevo spot",
+      title: draft.title?.trim() || "Nuevo lugar",
       description_short: null,
       description_long: null,
       latitude: draft.latitude,
@@ -3291,7 +3302,7 @@ export function MapScreenVNext() {
   const onConfirmCreateSpotName = useCallback(
     (name: string) => {
       if (!createSpotPendingCoords) return;
-      startDraftCreateSpot(createSpotPendingCoords, name.trim() || "Nuevo spot");
+      startDraftCreateSpot(createSpotPendingCoords, name.trim() || "Nuevo lugar");
       setCreateSpotNameOverlayOpen(false);
       setCreateSpotPendingCoords(null);
       setCreateSpotInitialName(undefined);
@@ -3345,6 +3356,7 @@ export function MapScreenVNext() {
   const [isCountriesShareInFlight, setIsCountriesShareInFlight] = useState(false);
   const [showFilteredResultsOnEmpty, setShowFilteredResultsOnEmpty] = useState(false);
   const isCountriesShareInFlightRef = useRef(false);
+  const countriesSheetForcedFilterRef = useRef<"saved" | "visited" | null>(null);
   const lastCountriesShareAtRef = useRef(0);
   const countriesShareConsumedRef = useRef(false);
   const showCountriesCounterBubble = showCountriesCounter && !countriesSheetOpen;
@@ -3359,13 +3371,6 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (entrySloganOccludedByOverlay) dismissEntrySlogan();
   }, [entrySloganOccludedByOverlay, dismissEntrySlogan]);
-
-  const handleFilterMenuOpenChange = useCallback(
-    (open: boolean) => {
-      if (open) dismissEntrySlogan();
-    },
-    [dismissEntrySlogan],
-  );
 
   const countriesBucketsForOverlay =
     countriesOverlayFilter === "saved"
@@ -3472,19 +3477,21 @@ export function MapScreenVNext() {
   ]);
 
   useEffect(() => {
-    if (showCountriesCounter) return;
+    if (showCountriesCounter || countriesSheetForcedFilterRef.current != null) return;
     setCountriesSheetOpen(false);
     setCountriesSheetHeight(0);
     setCountriesDrilldown(null);
   }, [showCountriesCounter]);
   useEffect(() => {
     if (countriesSheetOpen) return;
+    countriesSheetForcedFilterRef.current = null;
     countriesShareConsumedRef.current = false;
   }, [countriesSheetOpen]);
   useEffect(() => {
     if (!countriesSheetOpen) return;
-    if (countriesOverlayFilter === countriesFilterForActiveCounter) return;
-    setCountriesOverlayFilter(countriesFilterForActiveCounter);
+    const targetFilter = countriesSheetForcedFilterRef.current ?? countriesFilterForActiveCounter;
+    if (countriesOverlayFilter === targetFilter) return;
+    setCountriesOverlayFilter(targetFilter);
   }, [countriesSheetOpen, countriesOverlayFilter, countriesFilterForActiveCounter]);
   useEffect(() => {
     if (!countriesSheetOpen) return;
@@ -3498,13 +3505,19 @@ export function MapScreenVNext() {
     };
   }, [countriesSheetOpen]);
 
-  const handleCountriesCounterPress = useCallback(() => {
-    if (!countriesOverlayMounted) return;
+  const openCountriesSheetForFilter = useCallback((
+    targetFilter: "saved" | "visited",
+    options?: { requireMounted?: boolean },
+  ) => {
+    if (options?.requireMounted && !countriesOverlayMounted) return;
+    countriesSheetForcedFilterRef.current =
+      targetFilter === countriesFilterForActiveCounter ? null : targetFilter;
     countriesSheetPrevSelectionRef.current = {
       spot: selectedSpot,
       poi: poiTapped,
     };
     // Contrato de capas/sheets: no apilar sheets. CountriesSheet reemplaza SpotSheet activa.
+    setCountriesOverlayFilter(targetFilter);
     setSelectedSpot(null);
     setPoiTapped(null);
     setSheetState("peek");
@@ -3513,9 +3526,20 @@ export function MapScreenVNext() {
     setDraftCoverUri(null);
     setCountriesSheetState("medium");
     setCountriesSheetOpen(true);
-  }, [countriesOverlayMounted, poiTapped, selectedSpot, setSheetState]);
+  }, [countriesOverlayMounted, countriesFilterForActiveCounter, poiTapped, selectedSpot, setSheetState]);
+
+  const handleCountriesCounterPress = useCallback(() => {
+    openCountriesSheetForFilter(countriesOverlayFilter, { requireMounted: true });
+  }, [countriesOverlayFilter, openCountriesSheetForFilter]);
+
+  const handleVisitedCountriesPress = useCallback(async () => {
+    const allowed = await requireAuthOrModal("Inicia sesión para ver tus países visitados.");
+    if (!allowed) return;
+    openCountriesSheetForFilter("visited");
+  }, [openCountriesSheetForFilter, requireAuthOrModal]);
 
   const handleCountriesSheetClose = useCallback(() => {
+    countriesSheetForcedFilterRef.current = null;
     setCountriesSheetOpen(false);
     const snapshot = countriesSheetPrevSelectionRef.current;
     countriesSheetPrevSelectionRef.current = null;
@@ -3869,10 +3893,10 @@ export function MapScreenVNext() {
       });
       const sections: SearchSection<Spot | PlaceResult>[] = [];
       if (nearby.length > 0) {
-        sections.push({ id: "nearby", title: "Spots en la zona", items: nearby });
+        sections.push({ id: "nearby", title: "Lugares en la zona", items: nearby });
       }
       if (inWorld.length > 0) {
-        sections.push({ id: "world", title: "Spots en el mapa", items: inWorld });
+        sections.push({ id: "world", title: "Lugares en el mapa", items: inWorld });
       }
       return sections;
     } catch {
@@ -3981,13 +4005,6 @@ export function MapScreenVNext() {
       if (!suppressToastRef.current) toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
     }
   }, [requireAuthOrModal, showLogoutOption, toast]);
-  const handleTravelerPointsHintPress = useCallback(() => {
-    if (suppressToastRef.current) return;
-    toast.show("Marca tus lugares visitados.", {
-      type: "default",
-      replaceVisible: true,
-    });
-  }, [toast]);
 
   const handleLogoutPress = useCallback(() => {
     setShowLogoutConfirm(true);
@@ -4191,16 +4208,27 @@ export function MapScreenVNext() {
     }, [mapInstance]),
   );
 
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const topFiltersAvailableWidth =
+    windowWidth - insets.left - insets.right - TOP_OVERLAY_INSET_X * 2;
   const dockBottomOffset = 12;
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
+  const isShellBlockedByOverlay = createSpotNameOverlayOpen || searchV2.isOpen;
   const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
   const areMapControlsVisible =
-    !createSpotNameOverlayOpen &&
-    !searchV2.isOpen &&
+    !isShellBlockedByOverlay &&
     sheetState !== "expanded" &&
     (!isCountriesSheetVisible || countriesSheetState !== "expanded");
+  const isBottomActionRowVisible =
+    !isShellBlockedByOverlay && !isSpotSheetVisible && !isCountriesSheetVisible;
+  const isFlowyaFeedbackVisible =
+    !isShellBlockedByOverlay &&
+    !isCountriesSheetVisible &&
+    (!isSpotSheetVisible || sheetState === "peek");
+  const logoutPopoverBottomOffset = BOTTOM_ACTION_ROW_CLEARANCE + 4;
+  const shouldShowFlowsBadge =
+    isFlowyaFeedbackVisible && !toast.hasVisibleMessages && !showLogoutOption;
   const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(false);
   const mapControlsOverlayEntry = useRef(
     new Animated.Value(0),
@@ -4209,31 +4237,26 @@ export function MapScreenVNext() {
   const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
   const filterEstimatedHeight = 56;
   const filterMinimumTop = insets.top + 4;
-  // Canonical parity: dropdown de filtros sigue el comportamiento de SpotSheet.
+  // Canonical parity: la fila inline de filtros conserva este anclaje respecto a SpotSheet.
   // CountriesSheet no modifica este anclaje para evitar divergencias UX.
   const filterAnchorSheetHeight = isSpotSheetVisible ? sheetHeight : 0;
   const filterAnchorSheetTop = windowHeight - filterAnchorSheetHeight;
   const filterTop = filterAnchorSheetHeight > 0
     ? Math.min(filterDefaultTop, filterAnchorSheetTop - filterEstimatedHeight - 8)
     : filterDefaultTop;
-  const availableSpaceAboveFilter = filterTop - (insets.top + 4);
-  const availableSpaceBelowFilter =
-    filterAnchorSheetHeight > 0
-      ? filterAnchorSheetTop - (filterTop + FILTER_TRIGGER_ESTIMATED_HEIGHT)
-      : windowHeight - insets.bottom - (filterTop + FILTER_TRIGGER_ESTIMATED_HEIGHT);
-  const shouldOpenFilterMenuUp =
-    availableSpaceAboveFilter >= FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP &&
-    availableSpaceBelowFilter < FILTER_MENU_ESTIMATED_HEIGHT + FILTER_MENU_GAP;
   const sloganTop = Math.max(
     insets.top + TOP_OVERLAY_INSET_Y + 40,
     Math.max(filterMinimumTop, filterTop) + FILTER_TRIGGER_ESTIMATED_HEIGHT + 48,
   );
-  const shouldShowFilterDropdown =
-    !createSpotNameOverlayOpen &&
-    !searchV2.isOpen &&
+  const shouldShowInlineTopFilters =
+    !isShellBlockedByOverlay &&
     isGlobeEntryMotionSettled &&
     !isFilterWaitingForCamera &&
     filterTop >= filterMinimumTop;
+  const bottomActionRowBottomOffset = BOTTOM_ACTION_ROW_BOTTOM_GUTTER + insets.bottom;
+  const flowyaBottomOffset = isSpotSheetVisible
+    ? sheetHeight + FLOWYA_ABOVE_PEEK_SHEET_GAP
+    : bottomActionRowBottomOffset + BOTTOM_ACTION_ROW_CLEARANCE + FLOWYA_ABOVE_ROW_GAP;
   const filterOverlayAnimatedStyle = useMemo(
     () => ({
       opacity: filterOverlayEntry,
@@ -4342,7 +4365,7 @@ export function MapScreenVNext() {
   }, [deactivateSearchColdStartBootstrap, handleViewWorld, suspendFilterUntilCameraSettles]);
 
   useEffect(() => {
-    if (!shouldShowFilterDropdown) {
+    if (!shouldShowInlineTopFilters) {
       filterOverlayEntry.stopAnimation();
       filterOverlayEntry.setValue(0);
       return;
@@ -4360,7 +4383,12 @@ export function MapScreenVNext() {
       if (!finished) return;
       filterOverlayHasAnimatedInRef.current = true;
     });
-  }, [shouldShowFilterDropdown, filterOverlayEntry]);
+  }, [shouldShowInlineTopFilters, filterOverlayEntry]);
+
+  useEffect(() => {
+    if (isBottomActionRowVisible && isAuthUser) return;
+    setShowLogoutOption(false);
+  }, [isBottomActionRowVisible, isAuthUser]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -4435,23 +4463,28 @@ export function MapScreenVNext() {
   ]);
 
   useEffect(() => {
-    const isFlowyaLabelVisible = !createSpotNameOverlayOpen && !searchV2.isOpen;
     const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
     const isCountriesSheetVisible = countriesSheetOpen;
     const areMapControlsVisible =
-      !createSpotNameOverlayOpen &&
-      !searchV2.isOpen &&
+      !isShellBlockedByOverlay &&
       sheetState !== "expanded" &&
       (!isCountriesSheetVisible || countriesSheetState !== "expanded");
     /** Con buscador abierto el sheet sigue en estado pero no es visible: no sumar su alto al toast. */
     const bottom =
       searchV2.isOpen
-        ? dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0)
+        ? dockBottomOffset + insets.bottom
         : isSpotSheetVisible
           ? CONTROLS_OVERLAY_BOTTOM + sheetHeight + STATUS_OVER_SHEET_CLEARANCE
           : isCountriesSheetVisible
             ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight + STATUS_OVER_SHEET_CLEARANCE
-            : dockBottomOffset + insets.bottom + (isFlowyaLabelVisible ? FLOWYA_LABEL_CLEARANCE : 0);
+            : bottomActionRowBottomOffset +
+              (isBottomActionRowVisible && isFlowyaFeedbackVisible
+                ? BOTTOM_ACTION_ROW_CLEARANCE + FLOWYA_ABOVE_ROW_GAP
+                : isBottomActionRowVisible
+                  ? BOTTOM_ACTION_ROW_CLEARANCE
+                  : isFlowyaFeedbackVisible
+                    ? FLOWYA_STACK_CLEARANCE
+                    : 0);
     toast.setAnchor({
       placement: "bottom-left",
       left: TOP_OVERLAY_INSET_X + insets.left,
@@ -4474,8 +4507,12 @@ export function MapScreenVNext() {
     insets.right,
     insets.bottom,
     dockBottomOffset,
+    bottomActionRowBottomOffset,
     createSpotNameOverlayOpen,
     searchV2.isOpen,
+    isShellBlockedByOverlay,
+    isBottomActionRowVisible,
+    isFlowyaFeedbackVisible,
     sheetState,
     countriesSheetState,
   ]);
@@ -4583,7 +4620,7 @@ export function MapScreenVNext() {
           accessibilityRole="button"
         />
       ) : null}
-      {shouldShowFilterDropdown ? (
+      {shouldShowInlineTopFilters ? (
         <Animated.View
           style={[
             styles.filterOverlay,
@@ -4592,15 +4629,12 @@ export function MapScreenVNext() {
           ]}
         >
           <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
-            <MapPinFilter
+            <MapPinFilterInline
               value={pinFilter}
               onChange={(next) => handlePinFilterChange(next, { reframe: true })}
               counts={pinCounts}
-              pendingValues={pendingFilterBadges}
-              pulseNonce={pinFilterPulseNonce}
-              menuPlacement={shouldOpenFilterMenuUp ? "up" : "down"}
-              hideActiveCount={showCountriesCounterBubble}
-              onOpenChange={handleFilterMenuOpenChange}
+              layout="auto"
+              availableWidth={topFiltersAvailableWidth}
             />
           </View>
         </Animated.View>
@@ -4624,64 +4658,29 @@ export function MapScreenVNext() {
           </Text>
         </Animated.View>
       ) : null}
-      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
+      {isBottomActionRowVisible ? (
         <View
           style={[
-            styles.profileOverlay,
+            styles.bottomActionRowOverlay,
             {
-              top: TOP_OVERLAY_INSET_Y + insets.top,
               left: TOP_OVERLAY_INSET_X + insets.left,
-              pointerEvents: 'box-none',
+              right: TOP_OVERLAY_INSET_X + insets.right,
+              bottom: bottomActionRowBottomOffset,
+              pointerEvents: "box-none",
             },
           ]}
         >
-          <View style={styles.profileTopRow}>
-            <View style={styles.profileBadgeAnchor}>
-              <IconButton
-                variant="default"
-                onPress={handleProfilePress}
-                accessibilityLabel="Cuenta"
-              >
-                <User
-                  size={24}
-                  color={isAuthUser ? Colors[colorScheme ?? "light"].primary : Colors[colorScheme ?? "light"].text}
-                  strokeWidth={2}
-                />
-              </IconButton>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.profilePointsChip,
-                  {
-                    backgroundColor: (colorScheme ?? "light") === "dark" ? "#FFFFFF" : "#111111",
-                    borderColor: (colorScheme ?? "light") === "dark" ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.2)",
-                  },
-                  pressed ? styles.profilePointsChipPressed : null,
-                ]}
-                onPress={handleTravelerPointsHintPress}
-                accessibilityRole="button"
-                accessibilityLabel={`Tienes ${travelerPointsLabel} flows. Toca para ver cómo sumar más.`}
-              >
-                <Text style={[styles.profilePointsChipText, { color: (colorScheme ?? "light") === "dark" ? "#111111" : "#FFFFFF" }]}>
-                  {travelerPointsChipLabel}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-          {showLogoutOption && isAuthUser ? (
-            <View style={styles.logoutButtonWrap}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.logoutButtonFloating,
-                  pressed && styles.logoutButtonFloatingPressed,
-                ]}
-                onPress={handleLogoutPress}
-                accessibilityLabel="Cerrar sesión"
-                accessibilityRole="button"
-              >
-                <LogOut size={24} color={Colors[colorScheme ?? "light"].stateError} strokeWidth={2} />
-              </Pressable>
-            </View>
-          ) : null}
+          <ExploreSearchActionRow
+            onSearchPress={openSearchPreservingCountriesSheet}
+            onProfilePress={handleProfilePress}
+            onLogoutPress={handleLogoutPress}
+            showLogoutAction={showLogoutOption && isAuthUser}
+            logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+            isAuthUser={isAuthUser}
+            searchPlaceholder="Busca países o lugares"
+            accessibilityLabel="Buscar países o lugares"
+            profileAccessibilityLabel="Cuenta"
+          />
         </View>
       ) : null}
       <CountriesSheet
@@ -4775,7 +4774,7 @@ export function MapScreenVNext() {
                 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel="Abrir lista de spots del filtro activo"
+              accessibilityLabel="Abrir lista de lugares del filtro activo"
             >
               <Text
                 style={[
@@ -4791,31 +4790,11 @@ export function MapScreenVNext() {
                 {String(countriesPlacesCountForOverlay)}
               </Text>
               <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
-                spots
+                lugares
               </Text>
             </Pressable>
           </View>
         </Animated.View>
-      ) : null}
-      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
-        <View
-          style={[
-            styles.createSpotOverlay,
-            {
-              top: TOP_OVERLAY_INSET_Y + insets.top,
-              right: CONTROLS_OVERLAY_RIGHT + insets.right,
-              pointerEvents: 'box-none',
-            },
-          ]}
-        >
-          <IconButton
-            variant="default"
-            onPress={openSearchPreservingCountriesSheet}
-            accessibilityLabel="Buscar lugares"
-          >
-            <Search size={24} color={Colors[colorScheme ?? "light"].text} strokeWidth={2} />
-          </IconButton>
-        </View>
       ) : null}
       {mapControlsOverlayMounted ? (
         <Animated.View
@@ -4842,23 +4821,27 @@ export function MapScreenVNext() {
           />
         </Animated.View>
       ) : null}
-      {!createSpotNameOverlayOpen && !searchV2.isOpen ? (
-        <Pressable
-          style={[styles.flowyaLabelWrap, { left: TOP_OVERLAY_INSET_X + insets.left, bottom: dockBottomOffset + insets.bottom }, WebTouchManipulation]}
-          onPress={() => setShowBetaModal(true)}
-          accessibilityLabel="FLOWYA Beta"
+      {isFlowyaFeedbackVisible ? (
+        <View
+          style={[
+            styles.flowyaStatusRow,
+            {
+              left: TOP_OVERLAY_INSET_X + insets.left,
+              right: TOP_OVERLAY_INSET_X + insets.right,
+              bottom: flowyaBottomOffset,
+              pointerEvents: "box-none",
+            },
+          ]}
         >
-          {({ pressed }) => (
-            <Text
-              style={[
-                TypographyStyles.heading2,
-                { color: Colors[colorScheme ?? "light"].text, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              FLOWYA
-            </Text>
-          )}
-        </Pressable>
+          <FlowyaFeedbackTrigger onPress={() => setShowBetaModal(true)} />
+          {shouldShowFlowsBadge ? (
+            <ExploreFlowsBadge
+              label={travelerFlowsLabel}
+              onPress={handleVisitedCountriesPress}
+              accessibilityLabel="Abrir países visitados"
+            />
+          ) : null}
+        </View>
       ) : null}
       <FlowyaBetaModal
         visible={showBetaModal}
@@ -5449,37 +5432,10 @@ const styles = StyleSheet.create({
     zIndex: 30,
     ...Platform.select({ android: { elevation: 14 } }),
   },
-  profileOverlay: {
+  bottomActionRowOverlay: {
     position: "absolute",
-    left: TOP_OVERLAY_INSET_X,
     zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
-  },
-  profileTopRow: {
-    flexDirection: "column",
-    alignItems: "flex-start",
-  },
-  profileBadgeAnchor: {
-    position: "relative",
-  },
-  profilePointsChip: {
-    position: "absolute",
-    right: -8,
-    top: -8,
-    minHeight: 20,
-    paddingHorizontal: 7,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    justifyContent: "center",
     alignItems: "center",
-  },
-  profilePointsChipPressed: {
-    opacity: 0.82,
-  },
-  profilePointsChipText: {
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: "800",
-    letterSpacing: 0.2,
   },
   countriesOverlay: {
     position: "absolute",
@@ -5490,35 +5446,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  createSpotOverlay: {
-    position: "absolute",
-    right: CONTROLS_OVERLAY_RIGHT,
-    zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
-  },
-  logoutButtonWrap: {
-    marginTop: 8,
-  },
-  logoutButtonFloating: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#000",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  logoutButtonFloatingPressed: {
-    opacity: 0.85,
-  },
   controlsOverlay: {
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
     zIndex: EXPLORE_LAYER_Z.MAP_CONTROLS,
   },
-  flowyaLabelWrap: {
+  flowyaStatusRow: {
     position: "absolute",
     zIndex: EXPLORE_LAYER_Z.FLOWYA_LABEL,
-    alignSelf: "flex-start",
-    padding: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sloganOverlay: {
     position: "absolute",

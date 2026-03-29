@@ -159,7 +159,7 @@ Cerrar la V1 web-first más corta y estable posible desde el estado actual del r
 - `MS-03` Resolver el contrato de tags: o permitir etiquetar spots guardados no propios, o limitar claramente la UI.
 - `MS-04` Congelar la definición de V1 web: qué entra y qué queda fuera.
 - `MS-05` Publicar política de privacidad mínima y copy de consentimiento para pruebas reales.
-- `MS-06` Reestructurar el shell de Explore: input visible abajo, placeholder de invitación, perfil a la izquierda del input y filtros arriba izquierda; tap abre la búsqueda actual. Incluir prueba opcional con filtros inline superiores y pedir confirmación antes de adoptarla.
+- `MS-06` Reestructurar el shell de Explore: input visible abajo, placeholder de invitación, perfil a la derecha del input, logout encima del perfil y filtros inline arriba al centro; tap abre la búsqueda actual. Mantener `FLOWYA` como trigger secundario sin conflicto con toast.
 - `MS-07` Cerrar componentes responsivos web en Search, SpotSheet, CountriesSheet y flows web.
 - `MS-08` Ejecutar validación mínima de seguridad: RLS, migraciones, auth-gates, ownership, geoloc y analytics.
 - `MS-09` Construir perfil/cuenta robusto sobre auth actual.
