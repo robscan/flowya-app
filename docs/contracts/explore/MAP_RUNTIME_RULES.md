@@ -50,6 +50,31 @@ Reglas runtime del mapa en Explorar.
 - Debe existir fallback timeout de seguridad para evitar deadlock visual.
 - Objetivo UX: evitar que controles reaparezcan durante movimiento de cámara y produzcan ruido/lectura ambigua.
 
+7. **Deep-link / post-create sin reset de filtro**
+- Intake `spotId`/`created` no debe forzar `pinFilter = all`.
+- Debe mantener el `pinFilter` activo y, si el spot no coincide con el filtro, aplicar excepción temporal de visibilidad para continuidad.
+- El estado del sheet depende del origen (`extended -> expanded`, `medium -> medium`, `created -> expanded`).
+
+8. **Estrategia de refresco de datos en foco (performance)**
+- Al recuperar foco de Explore, evitar refetch masivo si acaba de ocurrir uno recientemente.
+- Ventana canónica mínima entre refetches completos: `8s`.
+- Si se omite refetch completo y hay spot seleccionado persistido, actualizar solo ese spot (`mergeSpotFromDbById`), incluyendo estado de pins.
+- Si ese merge rápido no encuentra el spot (por ejemplo tras edición/delete rápidos), forzar refetch completo para reconciliar estado local y evitar fantasmas.
+
+## Troubleshooting
+
+1. **Cambio de filtro produce zoom-out inesperado**
+- Confirmar que no exista `fitBounds` global automático en el cambio manual de filtro.
+- El reencuadre debe ocurrir solo por intención explícita o por transición dirigida a un spot concreto.
+
+2. **Tras deep link, el filtro salta a `all`**
+- Es regresión. Auditar intake de params para detectar `setPinFilter("all")` residual.
+- Validar que la selección temporal se preserve cuando no hay match de filtro.
+
+3. **Explore hace refetch completo en cada regreso**
+- Revisar la guardia de ventana mínima entre refetches completos.
+- Si hay spot seleccionado, confirmar uso de `mergeSpotFromDbById` antes de `refetchSpots`.
+
 ## Core puro recomendado
 
 - `shouldReframeToAll({ visibleCount, totalCount }) => boolean`

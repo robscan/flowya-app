@@ -1022,15 +1022,15 @@ export function MapScreenVNext() {
   }, [selectedSpot, setSheetState]);
 
   /** Una fila + pins: actualiza lista y selección sin refetch masivo (rendimiento tras ediciones). */
-  const mergeSpotFromDbById = useCallback(async (spotId: string) => {
-    if (spotId.startsWith("draft_")) return;
+  const mergeSpotFromDbById = useCallback(async (spotId: string): Promise<"merged" | "missing" | "skipped"> => {
+    if (spotId.startsWith("draft_")) return "skipped";
     const { data, error } = await supabase
       .from("spots")
       .select(SPOT_SELECT_FOR_MAP)
       .eq("id", spotId)
       .eq("is_hidden", false)
       .single();
-    if (error || !data) return;
+    if (error || !data) return "missing";
     const pinMap = await getPinsForSpots([spotId]);
     const state = pinMap.get(spotId);
     const saved = state?.saved ?? false;
@@ -1042,7 +1042,7 @@ export function MapScreenVNext() {
       pinStatus: visited ? "visited" : saved ? "to_visit" : "default",
     };
     const visible = onlyVisible([spot as Spot & { isHidden?: boolean }]);
-    if (visible.length === 0) return;
+    if (visible.length === 0) return "missing";
     const merged = visible[0];
     setSpots((prev) => {
       const idx = prev.findIndex((s) => s.id === spotId);
@@ -1052,6 +1052,7 @@ export function MapScreenVNext() {
       return next;
     });
     setSelectedSpot((prev) => (prev?.id === spotId ? merged : prev));
+    return "merged";
   }, []);
 
   const lastFocusFullRefetchAtRef = useRef(0);
@@ -1067,7 +1068,13 @@ export function MapScreenVNext() {
       if (recent) {
         const id = selectedSpot?.id;
         if (id && !id.startsWith("draft_")) {
-          void mergeSpotFromDbById(id);
+          void (async () => {
+            const mergeResult = await mergeSpotFromDbById(id);
+            if (mergeResult !== "missing") return;
+            // Si el spot ya no existe/está oculto tras una edición o delete rápidos, reconciliar el estado local completo.
+            lastFocusFullRefetchAtRef.current = now;
+            await refetchSpots();
+          })();
         } else {
           lastFocusFullRefetchAtRef.current = now;
           void refetchSpots();
