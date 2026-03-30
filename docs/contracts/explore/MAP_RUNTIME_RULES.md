@@ -48,6 +48,7 @@ Reglas runtime del mapa en Explorar.
 - Cualquier navegación programática relevante (`flyTo`, `fitBounds`, `onLoad`) debe activar estado de espera de cámara para overlays de alta prominencia (ej. dropdown de filtros).
 - La espera se libera al recibir señal de viewport asentado (nonce/evento equivalente).
 - Debe existir fallback timeout de seguridad para evitar deadlock visual.
+- Valores canónicos hoy en `MapScreenVNext`: fallback `1600ms` (`FILTER_WAIT_FOR_CAMERA_FALLBACK_MS`) y liberación corta post-settle `70ms` (`FILTER_WAIT_RELEASE_DELAY_MS`).
 - Objetivo UX: evitar que controles reaparezcan durante movimiento de cámara y produzcan ruido/lectura ambigua.
 
 7. **Deep-link / post-create sin reset de filtro**
@@ -60,6 +61,35 @@ Reglas runtime del mapa en Explorar.
 - Ventana canónica mínima entre refetches completos: `8s`.
 - Si se omite refetch completo y hay spot seleccionado persistido, actualizar solo ese spot (`mergeSpotFromDbById`), incluyendo estado de pins.
 - Si ese merge rápido no encuentra el spot (por ejemplo tras edición/delete rápidos), forzar refetch completo para reconciliar estado local y evitar fantasmas.
+- Si no hay spot seleccionado persistido (o es draft), ir directo a `refetchSpots()` completo.
+
+## Flujos operativos (ejemplos)
+
+1. **Deep link / share / post-create**
+- Entrada:
+  - `spotId + sheet=extended|medium`, o
+  - `created=<id>`.
+- Flujo:
+  - fetch por id en DB (`is_hidden=false`),
+  - normalización de pins (`getPinsForSpots`),
+  - `ensureSpotVisibleWithActiveFilter` si no matchea filtro activo,
+  - apertura de sheet (`expanded`/`medium` según origen),
+  - cleanup de URL (`router.replace("/(tabs)")`).
+
+2. **Regreso a Explore con foco reciente (< 8s)**
+- Entrada: `useFocusEffect` con `selectedSpot` persistido.
+- Flujo:
+  - intentar `mergeSpotFromDbById(selectedSpot.id)`,
+  - si devuelve `missing`, ejecutar `refetchSpots()` completo,
+  - mantener selección/sheet solo si el spot sigue visible.
+
+## Interfaces y codepaths verificados
+
+- `components/explorar/MapScreenVNext.tsx`
+  - `useFocusEffect(...)` + `MIN_FOCUS_FULL_REFETCH_MS = 8000`.
+  - `mergeSpotFromDbById(spotId): "merged" | "missing" | "skipped"`.
+  - `refetchSpots()` con invalidación de ids desaparecidos.
+  - `ensureSpotVisibleWithActiveFilter(spot)` para continuidad cross-filter.
 
 ## Troubleshooting
 
