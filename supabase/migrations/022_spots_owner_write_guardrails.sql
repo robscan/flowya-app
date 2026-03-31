@@ -1,6 +1,10 @@
 -- Critical security fix:
 -- Restrict writes on spots to the owning authenticated user and
 -- enforce ownership in hide_spot() to prevent cross-user soft deletes.
+--
+-- NOTE:
+-- This migration intentionally uses a unique version (022) to avoid
+-- version-collision failures in supabase_migrations.schema_migrations.
 
 -- 1) Drop permissive INSERT/UPDATE/DELETE policies on spots.
 DO $$

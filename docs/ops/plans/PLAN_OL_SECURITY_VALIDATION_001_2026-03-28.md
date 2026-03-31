@@ -45,7 +45,7 @@ Referencias:
 
 - confirmar aplicación de:
   - `018_spots_block_client_hard_delete.sql`
-  - `018_spots_owner_write_guardrails.sql`
+  - `022_spots_owner_write_guardrails.sql`
   - `020_user_tags_pin_tags.sql`
   - `021_user_tags_set_user_id_trigger.sql`
 
