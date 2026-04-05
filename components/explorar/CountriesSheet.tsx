@@ -14,13 +14,20 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   Dimensions,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
   type LayoutChangeEvent,
 } from "react-native";
+import {
+  WEB_MODAL_CARD_MAX_WIDTH,
+  WEB_SHEET_MAX_WIDTH,
+  webSearchUsesConstrainedPanelWidth,
+} from "@/lib/web-layout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -132,6 +139,9 @@ export function CountriesSheet({
     };
   }, [activeScheme, filterMode]);
   const viewportHeight = Dimensions.get("window").height;
+  const { width: windowWidth } = useWindowDimensions();
+  const useWebConstrainedSheet =
+    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
 
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -350,7 +360,7 @@ export function CountriesSheet({
   const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
   const isLevelsScrollable = levelsViewportHeight > 0 && levelsContentHeight > levelsViewportHeight + 2;
 
-  return (
+  const sheetAnimated = (
     <Animated.View
       style={[
         styles.container,
@@ -358,7 +368,7 @@ export function CountriesSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
-          bottom: bottomOffset,
+          bottom: useWebConstrainedSheet ? 0 : bottomOffset,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
           pointerEvents: "box-none",
         },
@@ -570,9 +580,31 @@ export function CountriesSheet({
       </Modal>
     </Animated.View>
   );
+
+  if (useWebConstrainedSheet) {
+    return (
+      <View
+        style={[
+          styles.webSheetWidthHost,
+          { bottom: bottomOffset, zIndex: EXPLORE_LAYER_Z.SHEET_BASE },
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={{ width: "100%", maxWidth: WEB_SHEET_MAX_WIDTH }}>{sheetAnimated}</View>
+      </View>
+    );
+  }
+
+  return sheetAnimated;
 }
 
 const styles = StyleSheet.create({
+  webSheetWidthHost: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
   container: {
     position: "absolute",
     left: 0,
@@ -696,7 +728,7 @@ const styles = StyleSheet.create({
   },
   levelsModalCard: {
     width: "100%",
-    maxWidth: 460,
+    maxWidth: WEB_MODAL_CARD_MAX_WIDTH,
     maxHeight: "72%",
     borderRadius: Radius.xl,
     borderWidth: 1,

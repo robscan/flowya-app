@@ -38,12 +38,15 @@ import {
     Dimensions,
     type LayoutChangeEvent,
     Linking,
+    Platform,
     Pressable,
     ScrollView,
     StyleSheet,
     Text,
+    useWindowDimensions,
     View,
 } from "react-native";
+import { WEB_SHEET_MAX_WIDTH, webSearchUsesConstrainedPanelWidth } from "@/lib/web-layout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
     Easing,
@@ -975,6 +978,9 @@ export function SpotSheet({
   const [mediumBodyContentHeight, setMediumBodyContentHeight] = useState(0);
   const [fullBodyContentHeight, setFullBodyContentHeight] = useState(0);
   const [showDiscardDraftConfirm, setShowDiscardDraftConfirm] = useState(false);
+  const { width: windowWidth } = useWindowDimensions();
+  const useWebConstrainedSheet =
+    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
 
   const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     setHeaderHeight(e.nativeEvent.layout.height);
@@ -1332,7 +1338,7 @@ export function SpotSheet({
   const bottomOffset = Math.max(Spacing.md, insets.bottom);
   const sheetBottom = state === "expanded" ? 0 : bottomOffset;
 
-  return (
+  const sheetAnimated = (
     <Animated.View
       style={[
         styles.container,
@@ -1340,7 +1346,7 @@ export function SpotSheet({
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
           height: expandedAnchor,
-          bottom: sheetBottom,
+          bottom: useWebConstrainedSheet ? 0 : sheetBottom,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
         animatedContainerStyle,
@@ -1420,6 +1426,22 @@ export function SpotSheet({
       />
     </Animated.View>
   );
+
+  if (useWebConstrainedSheet) {
+    return (
+      <View
+        style={[
+          styles.webSheetWidthHost,
+          { bottom: sheetBottom, zIndex: EXPLORE_LAYER_Z.SHEET_BASE },
+        ]}
+        pointerEvents="box-none"
+      >
+        <View style={{ width: "100%", maxWidth: WEB_SHEET_MAX_WIDTH }}>{sheetAnimated}</View>
+      </View>
+    );
+  }
+
+  return sheetAnimated;
 }
 
 const HEADER_PADDING_V = 12;
@@ -1427,6 +1449,13 @@ const HEADER_PADDING_H = 14;
 const BODY_PADDING_H = 14;
 
 const styles = StyleSheet.create({
+  /** Web desktop: centra el sheet y limita ancho (OL-WEB-RESPONSIVE-001 WR-03). */
+  webSheetWidthHost: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+  },
   container: {
     position: "absolute",
     left: 0,

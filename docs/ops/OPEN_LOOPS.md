@@ -11,7 +11,7 @@
 
 ## Loop activo único (regla operativa)
 
-- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance documentado en bitácora `319` (WR-01 reglas compartidas + WR-02 búsqueda web). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
+- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web). Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
 - **En espera (cola — sin incluir el loop activo; próximo a activar uno solo al cerrar/pausar el actual):**
   1. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
   2. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
@@ -33,7 +33,7 @@
 ## Estado general (contexto)
 
 - Gates Fase 1 / Fase 2 / Fase 3 base y `OL-P2-006` / `OL-P1-003`: **cerrados** (histórico; bitácora `213` y anteriores).
-- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`.
+- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`.
 
 ---
 
