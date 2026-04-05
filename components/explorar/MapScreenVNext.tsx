@@ -1022,7 +1022,7 @@ export function MapScreenVNext() {
   }, [selectedSpot, setSheetState]);
 
   /** Una fila + pins: actualiza lista y selección sin refetch masivo (rendimiento tras ediciones). */
-  const mergeSpotFromDbById = useCallback(async (spotId: string): Promise<"merged" | "missing" | "skipped"> => {
+  const mergeSpotFromDbById = useCallback(async (spotId: string): Promise<"merged" | "missing" | "error" | "skipped"> => {
     if (spotId.startsWith("draft_")) return "skipped";
     const { data, error } = await supabase
       .from("spots")
@@ -1030,7 +1030,8 @@ export function MapScreenVNext() {
       .eq("id", spotId)
       .eq("is_hidden", false)
       .single();
-    if (error || !data) return "missing";
+    if (error) return "error";
+    if (!data) return "missing";
     const pinMap = await getPinsForSpots([spotId]);
     const state = pinMap.get(spotId);
     const saved = state?.saved ?? false;
@@ -1070,6 +1071,7 @@ export function MapScreenVNext() {
         if (id && !id.startsWith("draft_")) {
           void (async () => {
             const mergeResult = await mergeSpotFromDbById(id);
+            if (mergeResult === "error") return;
             if (mergeResult !== "missing") return;
             // Si el spot ya no existe/está oculto tras una edición o delete rápidos, reconciliar el estado local completo.
             lastFocusFullRefetchAtRef.current = now;
