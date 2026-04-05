@@ -431,7 +431,8 @@ const styles = StyleSheet.create({
   rankingChipsCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'nowrap',
+    /** Web: permitir wrap en viewports estrechos (OL-WEB-RESPONSIVE-001); native mantiene nowrap. */
+    flexWrap: Platform.OS === 'web' ? 'wrap' : 'nowrap',
     gap: Spacing.sm,
     flexShrink: 0,
   },

@@ -7,14 +7,27 @@
  */
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import {
+  WEB_PANEL_PADDING_H,
+  WEB_SEARCH_OVERLAY_MAX_WIDTH,
+  webSearchUsesConstrainedPanelWidth,
+} from '@/lib/web-layout';
 import { getSearchPanelSurfaceColors } from '@/lib/search/searchPanelSurface';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, View, type DimensionValue, type ViewStyle } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+  type DimensionValue,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SearchSurface } from './SearchSurface';
 import type { SearchFloatingProps } from './types';
 
-const PANEL_PADDING_H = 16;
+const PANEL_PADDING_H = WEB_PANEL_PADDING_H;
 const PANEL_PADDING_TOP = 16;
 const PANEL_PADDING_BOTTOM = 0;
 
@@ -45,6 +58,9 @@ export function SearchOverlayWeb<T>({
   onCreateFromPlace,
   activitySummary,
 }: SearchFloatingProps<T>) {
+  const { width: windowWidth } = useWindowDimensions();
+  const constrainSearchPanel =
+    Platform.OS === 'web' && webSearchUsesConstrainedPanelWidth(windowWidth);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -163,18 +179,28 @@ export function SearchOverlayWeb<T>({
       />
       <View
         style={[
-          styles.panel,
-          Platform.OS === 'web' && styles.panelWebScroll,
-          {
-            backgroundColor: panelSurface.backgroundColor,
-            paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
-            paddingBottom: PANEL_PADDING_BOTTOM,
-            paddingLeft: PANEL_PADDING_H,
-            paddingRight: PANEL_PADDING_H,
-          },
-          { pointerEvents: 'box-none' },
+          styles.panelHost,
+          constrainSearchPanel && styles.panelHostAlignCenter,
         ]}
       >
+        <View
+          style={[
+            styles.panel,
+            Platform.OS === 'web' && styles.panelWebScroll,
+            constrainSearchPanel && {
+              maxWidth: WEB_SEARCH_OVERLAY_MAX_WIDTH,
+              width: '100%' as DimensionValue,
+            },
+            {
+              backgroundColor: panelSurface.backgroundColor,
+              paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
+              paddingBottom: PANEL_PADDING_BOTTOM,
+              paddingLeft: PANEL_PADDING_H,
+              paddingRight: PANEL_PADDING_H,
+            },
+            { pointerEvents: 'box-none' },
+          ]}
+        >
         <SearchSurface
           controller={controller}
           defaultItems={defaultItems}
@@ -207,6 +233,7 @@ export function SearchOverlayWeb<T>({
           onInputFocus={() => setIsInputFocused(true)}
           onInputBlur={() => setIsInputFocused(false)}
         />
+        </View>
       </View>
     </View>
   );
@@ -244,6 +271,15 @@ const styles = StyleSheet.create({
     bottom: 0,
     backgroundColor: 'transparent',
   } satisfies ViewStyle,
+  panelHost: {
+    flex: 1,
+    width: '100%',
+    minHeight: 0,
+  } satisfies ViewStyle,
+  panelHostAlignCenter:
+    Platform.OS === 'web'
+      ? { alignItems: 'center' as const }
+      : ({} satisfies ViewStyle),
   panel: {
     flex: 1,
     borderTopLeftRadius: 0,
