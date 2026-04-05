@@ -10,35 +10,50 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 
 import {
+  ActivitySummary,
   ButtonPrimary,
   ButtonSecondary,
+  CardsShowcase,
   ClearIconCircle,
   ColorsShowcase,
   ExploreFlowsBadge,
   ExploreSearchActionRow,
   FlowyaFeedbackTrigger,
   IconButton,
+  ImageFullscreenModal,
   ImagePlaceholder,
   MapControls,
   MapLocationPicker,
   MapPinFilter,
   MapPinFilterInline,
+  MapPinFilterMenuOption,
   MapPinsShowcase,
   SearchPill,
   SearchLauncherField,
   SearchListCard,
+  SearchResultCard,
+  SearchResultsShowcase,
+  SheetHandle,
+  SpotCardMapSelection,
   SpotDetailShowcase,
   SpotImage,
   TagChip,
   TypographyShowcase,
 } from '@/components/design-system';
+import {
+  WEB_MODAL_CARD_MAX_WIDTH,
+  WEB_PANEL_PADDING_H,
+  WEB_SEARCH_OVERLAY_MAX_WIDTH,
+  WEB_SHEET_MAX_WIDTH,
+  WEB_VIEWPORT_REF,
+} from '@/lib/web-layout';
 import { SearchInputV2 } from '@/components/search/SearchInputV2';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Check, MapPinPlus, Search } from 'lucide-react-native';
+import { Check, MapPin, MapPinPlus, Search } from 'lucide-react-native';
 
 export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
@@ -51,6 +66,7 @@ export default function DesignSystemScreen() {
   const [showBetaModal, setShowBetaModal] = useState(false);
   const [dsSearchQuery, setDsSearchQuery] = useState('Ejemplo de búsqueda');
   const [dsSearchFocused, setDsSearchFocused] = useState(false);
+  const [dsImageFullscreenVisible, setDsImageFullscreenVisible] = useState(false);
 
   return (
     <>
@@ -252,6 +268,117 @@ export default function DesignSystemScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Layout web — WR-01 (lib/web-layout)
+          </Text>
+          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
+              Referencias de viewport: mobile {WEB_VIEWPORT_REF.mobileNarrow}–{WEB_VIEWPORT_REF.mobileWide}px, tablet{' '}
+              {WEB_VIEWPORT_REF.tabletMin}–{WEB_VIEWPORT_REF.tabletMax}px, desktop {WEB_VIEWPORT_REF.desktopMin}px+.
+            </Text>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: 0 }}>
+              Anchos canónicos: panel horizontal {WEB_PANEL_PADDING_H}px · overlay búsqueda / sheet{' '}
+              {WEB_SEARCH_OVERLAY_MAX_WIDTH}px (WEB_SHEET_MAX_WIDTH) · modal tarjeta secundaria {WEB_MODAL_CARD_MAX_WIDTH}
+              px.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Barrido DS — listados y resumen (SearchResultCard, ActivitySummary)
+          </Text>
+          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.base }}>
+              SearchResultCard envuelve SearchListCard con shape de spot; ActivitySummary en buscador.
+            </Text>
+            <View style={{ gap: Spacing.md, marginBottom: Spacing.lg, maxWidth: 560 }}>
+              <SearchResultCard
+                spot={{
+                  id: 'ds-1',
+                  title: 'Lugar demo SearchResultCard',
+                  address: 'Dirección de ejemplo',
+                  cover_image_url: null,
+                  pinStatus: 'to_visit',
+                }}
+                onPress={() => {}}
+              />
+              <SearchResultsShowcase />
+            </View>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
+              ActivitySummary
+            </Text>
+            <View style={{ gap: Spacing.md, maxWidth: 400 }}>
+              <ActivitySummary
+                visitedPlacesCount={12}
+                pendingPlacesCount={4}
+                visitedCountriesCount={3}
+              />
+              <ActivitySummary
+                visitedPlacesCount={0}
+                pendingPlacesCount={0}
+                visitedCountriesCount={2}
+                mode="countries-only"
+              />
+              <ActivitySummary
+                visitedPlacesCount={0}
+                pendingPlacesCount={0}
+                visitedCountriesCount={null}
+                isLoading
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
+            Sheet — handle, SpotCard, cards contenedor, MapPinFilterMenuOption
+          </Text>
+          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
+            <View style={{ alignItems: 'center', marginBottom: Spacing.md }}>
+              <SheetHandle onPress={() => {}} />
+            </View>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
+              SpotCardMapSelection (mapa / búsqueda)
+            </Text>
+            <View style={{ maxWidth: WEB_SHEET_MAX_WIDTH, alignSelf: 'stretch' }}>
+              <SpotCardMapSelection
+                spot={{
+                  id: 'ds-card',
+                  title: 'Card de selección en mapa',
+                  description_short: 'Subtítulo o descripción corta.',
+                  cover_image_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
+                }}
+                onCardPress={() => {}}
+                hideActions
+              />
+            </View>
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+              CardsShowcase (patrón contenedor)
+            </Text>
+            <CardsShowcase />
+            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
+              MapPinFilterMenuOption (fila menú desplegable)
+            </Text>
+            <View style={{ gap: Spacing.sm, maxWidth: 320 }}>
+              <MapPinFilterMenuOption
+                label="Todos los lugares"
+                labelColor={colors.text}
+                leadingIcon={<MapPin size={18} color={colors.textSecondary} />}
+                countBadge={
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>42</Text>
+                }
+              />
+              <MapPinFilterMenuOption
+                label="Por visitar"
+                labelColor={colors.stateToVisit}
+                leadingIcon={<MapPin size={18} color={colors.stateToVisit} />}
+              />
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.section}>
           <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Search entry pill</Text>
           <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
             <View style={{ flexDirection: 'row', gap: Spacing.base, alignItems: 'center', flexWrap: 'wrap', marginBottom: Spacing.base }}>
@@ -312,6 +439,25 @@ export default function DesignSystemScreen() {
                 colorScheme="light"
               />
             </View>
+            <Pressable
+              style={({ pressed }) => ({
+                marginTop: Spacing.base,
+                paddingVertical: 12,
+                paddingHorizontal: 20,
+                borderRadius: Radius.md,
+                backgroundColor: colors.primary,
+                opacity: pressed ? 0.9 : 1,
+                alignSelf: 'flex-start',
+              })}
+              onPress={() => setDsImageFullscreenVisible(true)}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>ImageFullscreenModal (demo)</Text>
+            </Pressable>
+            <ImageFullscreenModal
+              visible={dsImageFullscreenVisible}
+              uri="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200"
+              onClose={() => setDsImageFullscreenVisible(false)}
+            />
           </View>
         </View>
 
