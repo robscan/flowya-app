@@ -54,7 +54,7 @@ export function CountriesSheetKpiRow({
         <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
         <View style={styles.kpiLabelRow}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
-          {onCountriesKpiPress && sheetState !== 'expanded' ? (
+          {onCountriesKpiPress && sheetState === 'peek' ? (
             <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
           ) : null}
         </View>

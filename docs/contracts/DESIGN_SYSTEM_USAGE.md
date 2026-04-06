@@ -1,6 +1,6 @@
 # DESIGN_SYSTEM_USAGE — Canon operativo (Explore + Edit Spot)
 
-**Fecha:** 2026-04-05 (actualización: shells Explore `ExploreWelcomeSheet` / `CountriesSheet` documentados en inventario DS 2026-04 y bitácora `329`)
+**Fecha:** 2026-04-06 (actualización: `MapPinFilterInline` con conteos 0, `ExploreSearchActionRow.fullWidth` en banda inferior alineada a WR-01; inventario DS y bitácora `330`)
 
 **Fuentes de verdad:**
 - Runtime Explore: `components/explorar/MapScreenVNext.tsx`

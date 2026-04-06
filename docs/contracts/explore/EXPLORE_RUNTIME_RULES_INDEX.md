@@ -35,3 +35,4 @@
 - `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`
 - `docs/contracts/EXPLORE_SHEET.md`
 - `docs/contracts/ANTI_DUPLICATE_SPOT_RULES.md`
+- `docs/contracts/SYSTEM_STATUS_TOAST.md` — toasts / `useSystemStatus`, anclaje en Explore (incl. sheet `expanded` y paridad nativa §3)

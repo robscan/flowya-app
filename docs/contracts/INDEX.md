@@ -22,6 +22,7 @@
 - **SPOT_SHEET_CONTENT_RULES.md** — Sheet única para spots existentes; campos condicionales (mostrar si hay datos, ocultar si no).
 - **ANTI_DUPLICATE_SPOT_RULES.md** — Prevención de duplicados: todo path de creación debe llamar checkDuplicateSpot antes del INSERT.
 - **SYSTEM_STATUS_BAR.md** — Comunicación sistema-usuario: mensajes de estado, cola hasta 3 líneas, tono asistente de viaje; sustituye toast.
+- **SYSTEM_STATUS_TOAST.md** — Implementación vigente (`system-status-bar.tsx`), anclaje Explore, política sheet `expanded` + toasts, checklist paridad **nativa** (iOS/Android).
 - **ACTIVITY_SUMMARY.md** — Resumen de actividad del usuario (países visitados, lugares visitados, pendientes): métricas canónicas, reglas de cálculo, UX y guardrails.
 - **GAMIFICATION_TRAVELER_LEVELS.md** — Sistema de niveles de exploración + flows (V1 activa), fórmula canónica de score y definición V2 (eventos/telemetría/calibración).
 - **explore/EXPLORE_RUNTIME_RULES_INDEX.md** — Índice modular runtime de Explore (mapa, filtros, controles, buscador) para reconstrucción/reuso cross-platform.

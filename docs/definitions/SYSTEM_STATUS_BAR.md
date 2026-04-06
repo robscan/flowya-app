@@ -2,7 +2,8 @@
 
 **Estado:** Fuente de verdad para mensajes y hints del sistema al usuario.  
 **Alcance:** Reemplazo de toast; mensajes de estado; hints contextuales (futuro).  
-**Última actualización:** 2026-02-23
+**Implementación vigente y reglas Explore (anclaje, sheet expandido, nativos):** [`docs/contracts/SYSTEM_STATUS_TOAST.md`](../contracts/SYSTEM_STATUS_TOAST.md).  
+**Última actualización:** 2026-02-23 (principios); ver contrato TOAST para detalle técnico actual.
 
 ---
 

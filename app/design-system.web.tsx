@@ -76,6 +76,7 @@ const DS_MAP_FILTER_VERSION = {
   chip: 'Map-filter · chip',
   inlineCompact: 'Map-filter · inline compacto',
   inlineWide: 'Map-filter · inline amplio',
+  inlineDisabled: 'Map-filter · inline (Por visitar = 0 → deshabilitado)',
 } as const;
 
 const DS_F1_TAG_CHIPS: { id: string; label: string }[] = [
@@ -114,6 +115,7 @@ export default function DesignSystemScreen() {
   const [dsMapFilterChip, setDsMapFilterChip] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineCompact, setDsMapFilterInlineCompact] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineWide, setDsMapFilterInlineWide] = useState<MapPinFilterValue>('all');
+  const [dsMapFilterInlineDisabled, setDsMapFilterInlineDisabled] = useState<MapPinFilterValue>('all');
   /** Vitrina ds-pat-explore: cerrar sesión solo tras tap en perfil (paridad UX MapScreen). */
   const [dsPatExploreLogoutOpen, setDsPatExploreLogoutOpen] = useState(false);
   const sectionCard = {
@@ -510,7 +512,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Las filas del menú desplegable son MapPinFilterMenuOption (hijo interno de MapPinFilter). Tres bloques interactivos (chip, inline compacto, inline amplio); el estado `MapPinFilterValue` se muestra bajo cada uno al pulsar."
+          description="Las filas del menú desplegable son MapPinFilterMenuOption (hijo interno de MapPinFilter). Cuatro bloques: chip, inline compacto, inline amplio, y amplio con saved=0 (Por visitar deshabilitado, sin badge). El estado `MapPinFilterValue` se muestra bajo cada bloque al pulsar."
         >
           <View style={{ gap: Spacing.sm }}>
             <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.3 }}>
@@ -565,6 +567,29 @@ export default function DesignSystemScreen() {
               Estado:{' '}
               <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, color: colors.text }}>
                 {dsMapFilterInlineWide}
+              </Text>
+            </Text>
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: colors.textSecondary,
+                letterSpacing: 0.3,
+                marginTop: Spacing.sm,
+              }}
+            >
+              {DS_MAP_FILTER_VERSION.inlineDisabled}
+            </Text>
+            <MapPinFilterInline
+              value={dsMapFilterInlineDisabled}
+              onChange={setDsMapFilterInlineDisabled}
+              counts={{ saved: 0, visited: 7 }}
+              layout="wide"
+            />
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: Spacing.xs }}>
+              Estado:{' '}
+              <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, color: colors.text }}>
+                {dsMapFilterInlineDisabled}
               </Text>
             </Text>
           </View>
@@ -955,12 +980,12 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Chrome alineado a MapScreen: fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
+          description="Chrome alineado a MapScreen: fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
         >
           <View
             style={{
               width: '100%',
-              maxWidth: 520,
+              maxWidth: WEB_SHEET_MAX_WIDTH,
               padding: Spacing.base,
               borderRadius: Radius.xl,
               backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(0,0,0,0.32)',
@@ -977,6 +1002,7 @@ export default function DesignSystemScreen() {
               }}
             />
             <ExploreSearchActionRow
+              fullWidth
               onSearchPress={() => {}}
               onProfilePress={() => setDsPatExploreLogoutOpen((v) => !v)}
               onLogoutPress={() => setDsPatExploreLogoutOpen(false)}

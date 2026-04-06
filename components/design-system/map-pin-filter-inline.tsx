@@ -46,14 +46,17 @@ const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'visited', label: 'Visitados' },
 ];
 
+/** Alineado a `map-pin-filter`: sin badge ni número cuando el conteo es 0. */
 function getCount(optValue: MapPinFilterValue, counts?: MapPinFilterCounts): number | undefined {
   if (optValue === 'all' || !counts) return undefined;
-  return optValue === 'saved' ? counts.saved : counts.visited;
+  const value = optValue === 'saved' ? counts.saved : counts.visited;
+  return value > 0 ? value : undefined;
 }
 
-function getFilterAccessibilityLabel(label: string, count?: number): string {
-  if (count == null) return label;
-  return `${label}, ${count} lugares`;
+function getFilterAccessibilityLabel(label: string, count?: number, disabled?: boolean): string {
+  const base = count == null ? label : `${label}, ${count} lugares`;
+  if (disabled) return `${base}. No disponible, sin lugares`;
+  return base;
 }
 
 function FilterIcon({
@@ -127,6 +130,12 @@ export function MapPinFilterInline({
     onChange(optValue);
   };
 
+  const isOptionDisabled = (optValue: MapPinFilterValue): boolean =>
+    optValue !== 'all' &&
+    counts != null &&
+    ((optValue === 'saved' && counts.saved === 0) ||
+      (optValue === 'visited' && counts.visited === 0));
+
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: selectedScale.value }],
   }));
@@ -178,6 +187,7 @@ export function MapPinFilterInline({
       {OPTIONS.map((opt) => {
         const isSelected = value === opt.value;
         const count = getCount(opt.value, counts);
+        const isDisabled = isOptionDisabled(opt.value);
         const pillColors = isSelected ? getSelectedColors(opt.value) : getUnselectedColors();
         const label = opt.label;
         const useAllIconSizer = !showAllLabels && opt.value === 'all' && !isSelected;
@@ -196,15 +206,16 @@ export function MapPinFilterInline({
               {
                 backgroundColor: pillColors.bg,
                 borderColor: isSelected ? pillColors.bg : pillColors.border,
-                opacity: pressed ? 0.85 : 1,
+                opacity: isDisabled ? 0.45 : pressed ? 0.85 : 1,
               },
-              Platform.OS === 'web' && { cursor: 'pointer' },
+              Platform.OS === 'web' && !isDisabled && { cursor: 'pointer' as const },
             ]}
             hitSlop={showAllLabels ? PILL_WIDE_HIT_SLOP : PILL_COMPACT_HIT_SLOP}
+            disabled={isDisabled}
             onPress={() => handleSelect(opt.value)}
             accessibilityRole="radio"
-            accessibilityState={{ checked: isSelected }}
-            accessibilityLabel={getFilterAccessibilityLabel(label, count)}
+            accessibilityState={{ checked: isSelected, disabled: isDisabled }}
+            accessibilityLabel={getFilterAccessibilityLabel(label, count, isDisabled)}
           >
             {useAllIconSizer ? (
               <View style={styles.allIconSizer}>

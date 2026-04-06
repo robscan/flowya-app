@@ -18,7 +18,7 @@ export type ExploreSearchActionRowProps = {
   onLogoutPress?: () => void;
   profileAccessibilityLabel?: string;
   logoutPopoverBottomOffset?: number;
-  /** Sin tope de ancho (p. ej. sheet de Explorar); por defecto la fila flotante limita a 520px. */
+  /** Sin tope de ancho (520px): sheet de Explorar, o mapa en Por visitar/Visitados dentro del host `WEB_SHEET_MAX_WIDTH`. */
   fullWidth?: boolean;
 };
 

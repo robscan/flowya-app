@@ -89,6 +89,7 @@ Reglas runtime del mapa en Explorar.
 
 ## Referencias
 
+- `docs/contracts/SYSTEM_STATUS_TOAST.md` — feedback sistema (toasts) en Explore: anclaje con sheet expandido; paridad nativa.
 - `docs/contracts/MAP_PINS_CONTRACT.md` — paridad visual pins Mapbox ↔ DS (`mapPinSpot`, `spots-layer`); bitácora `321`.
 - `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`
 - `docs/contracts/EXPLORE_SHEET.md`

@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-04-05
+**Fecha:** 2026-04-06
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -11,7 +11,7 @@
 
 ## Loop activo único (regla operativa)
 
-- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web), `322` (pastilla países|flows + niveles exploración en DS; MapControls sin solape con pastilla en peek), `323` (SheetHandle reclasificado como componente en vitrina; ancla `ds-comp-sheet-handle`), `324` (retiro SearchPill/SearchLauncherField en vitrina + tab Explore plantilla; ds-pat-explore solo productivo), `325` (ds-pat-explore: FLOWYA + ExploreMapStatusRow; logout en tap en perfil), `326` (SearchSurfaceShowcase en ds-run-surface; chips # en fila y en cards), `327` (SearchListCard: layout tres filas; chevron en fila de título), `328` (CountriesSheet detalle país + chips + lista), `329` (Explore welcome + cold-start + persistencia países + toasts; cierre DS/bitácora). Vitrina `/design-system`: TOC por anclas, taxonomía por capas, `ButtonsShowcase` + tokens (`DsSpacingSwatches` / radius / elevation), `SearchInputV2` en sección propia — ver inventario. Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
+- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web), `322` (pastilla países|flows + niveles exploración en DS; MapControls sin solape con pastilla en peek), `323` (SheetHandle reclasificado como componente en vitrina; ancla `ds-comp-sheet-handle`), `324` (retiro SearchPill/SearchLauncherField en vitrina + tab Explore plantilla; ds-pat-explore solo productivo), `325` (ds-pat-explore: FLOWYA + ExploreMapStatusRow; logout en tap en perfil), `326` (SearchSurfaceShowcase en ds-run-surface; chips # en fila y en cards), `327` (SearchListCard: layout tres filas; chevron en fila de título), `328` (CountriesSheet detalle país + chips + lista), `329` (Explore welcome + cold-start + persistencia países + toasts; cierre DS/bitácora), `330` (CountriesSheet medium/lista, toasts expanded, filtros 0 deshabilitados, banda inferior WR-01 + `fullWidth`, vitrina DS). Vitrina `/design-system`: TOC por anclas, taxonomía por capas, `ButtonsShowcase` + tokens (`DsSpacingSwatches` / radius / elevation), `SearchInputV2` en sección propia — ver inventario. Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
 - **En espera (cola — sin incluir el loop activo; próximo a activar uno solo al cerrar/pausar el actual):**
   1. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
   2. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
@@ -34,7 +34,7 @@
 ## Estado general (contexto)
 
 - Gates Fase 1 / Fase 2 / Fase 3 base y `OL-P2-006` / `OL-P1-003`: **cerrados** (histórico; bitácora `213` y anteriores).
-- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`.
+- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`.
 
 ---
 
@@ -177,6 +177,7 @@
 - Vitrina **SearchSurface** (`ds-run-surface`, `SearchSurfaceShowcase`): bitácora `326`.
 - **`SearchListCard`** layout tres filas (título+chevron; contenido; meta a ancho completo): bitácora `327`.
 - **Explore welcome + cold-start + persistencia CountriesSheet + toasts**; inventario DS y contratos alineados: bitácora `329`.
+- **CountriesSheet UX + toasts + filtros + banda inferior WR-01**; vitrina `ds-pat-explore` y demo filtros con conteo 0: bitácora `330`.
 - Refactor arquitectura de capas para default no enlazado (zoom canónico sin artefactos) + contraste de contadores de filtro en light: bitácora `272`.
 - Cierre definitivo de visibilidad spots core + política Sticky Context en transiciones de filtro (sin autoswitch): bitácora `273`.
 - Follow-up visibilidad de labels para spots core `default` en filtros `saved/visited` (sin apagado al seleccionar): bitácora `274`.

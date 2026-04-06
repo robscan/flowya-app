@@ -1,6 +1,6 @@
 # Inventario de canon — Design System (2026-04)
 
-Fuente barrel: [`components/design-system/index.ts`](../../components/design-system/index.ts). Vitrina web: [`app/design-system.web.tsx`](../../app/design-system.web.tsx). Layout web compartido: [`lib/web-layout.ts`](../../lib/web-layout.ts).
+Fuente barrel: [`components/design-system/index.ts`](../../components/design-system/index.ts). Vitrina web: [`app/design-system.web.tsx`](../../app/design-system.web.tsx). Layout web compartido: [`lib/web-layout.ts`](../../lib/web-layout.ts). [^1]
 
 ## Vitrina web (taxonomía y navegación)
 
@@ -40,7 +40,7 @@ Fuente barrel: [`components/design-system/index.ts`](../../components/design-sys
 | `explore-countries-flows-pill.tsx` | Sí | Sí (**ds-comp-explore-countries-flows-pill**) | `MapScreenVNext`, `ExploreMapStatusRow` |
 | `explore-flows-badge.tsx` | Sí | Sí | `ExploreCountriesFlowsPill`, Explore shell |
 | `explore-map-status-row.tsx` | Sí | Sí (demo en **ds-pat-explore** con banda inferior) | `MapScreenVNext` |
-| `explore-search-action-row.tsx` | Sí | Sí | Banda inferior Explore |
+| `explore-search-action-row.tsx` | Sí | Sí (**ds-pat-explore** con `fullWidth` para paridad WR-01 / sheet) | Banda inferior Explore; prop `fullWidth` (runtime KPI / `WEB_SHEET_MAX_WIDTH`): bitácora `330`. |
 | `flowya-feedback-trigger.tsx` | Sí | Sí | Explore |
 | `icon-button.tsx` | Sí | Sí (`IconButtonShowcase`) | Sheet, mapa, búsqueda |
 | `image-fullscreen-modal.tsx` | Sí | Sí (`ImagesShowcase`, ds-medios) | SpotSheet, galería |
@@ -49,7 +49,7 @@ Fuente barrel: [`components/design-system/index.ts`](../../components/design-sys
 | `map-controls.tsx` | Sí | No vitrina dedicada (solo apila `IconButton`; matriz en `IconButtonShowcase`) | Mapa Explore |
 | `map-location-picker.tsx` | Sí | Sí | Create spot |
 | `map-pin-filter.tsx` | Sí | Sí | Overlay filtros mapa |
-| `map-pin-filter-inline.tsx` | Sí | Sí | Búsqueda Explore |
+| `map-pin-filter-inline.tsx` | Sí | Sí (**ds-mapa-filters** incl. demo saved=0) | Búsqueda Explore; opciones con conteo 0 deshabilitadas y sin badge: bitácora `330`. |
 | `map-pin-filter-menu-option.tsx` | Sí | No vitrina dedicada (filas dentro de `MapPinFilter`) | Menú 3 opciones (hijo de filtro) |
 | `map-pins.tsx` | Sí | Sí (`MapPinsShowcase`) | Mapa; paridad con `spots-layer` / `mapPinSpot` — ver `docs/contracts/MAP_PINS_CONTRACT.md`, bitácora `321` |
 | `search-launcher-field.tsx` | Sí | Sí (dentro de **ds-pat-explore** vía `ExploreSearchActionRow`; sin demo aislada) | `ExploreSearchActionRow`, `SearchFloatingNative` |
@@ -71,9 +71,11 @@ Fuente barrel: [`components/design-system/index.ts`](../../components/design-sys
 | Componente / ruta | Barrel DS | Vitrina | Nota |
 |---------------------|-----------|---------|------|
 | `components/explorar/ExploreWelcomeSheet.tsx` | No (shell producto) | No (usa demos `SearchListCard` / patrones en vitrina) | Compone `ExploreSearchActionRow`, `SheetHandle`, `SearchResultCard`, `SearchListCard`; prop `browseSectionTitle` opcional. Bitácora `329`. |
-| `components/explorar/CountriesSheet.tsx` | Tipos en `countries-sheet-types.ts` (barrel) | Parcial (KPI, lista, mapa, plantilla) | Persistencia estado/tamaño por filtro; detalle país: bitácora `328`. |
+| `components/explorar/CountriesSheet.tsx` | Tipos en `countries-sheet-types.ts` (barrel) | Parcial (KPI, lista, mapa, plantilla) | Persistencia estado/tamaño por filtro; detalle país: bitácora `328`. Lista países en medium+expanded, toasts si sheet expandido: bitácora `330`. |
 
 ## Criterio
 
 - **Barrel + runtime Explore/search/sheet:** deben poder inspeccionarse en la vitrina web o documentarse aquí como primitiva interna.
-- **Layout web (OL-WEB-RESPONSIVE-001):** anchos máximos alineados con `lib/web-layout.ts` (`WEB_SEARCH_OVERLAY_MAX_WIDTH`, `WEB_SHEET_MAX_WIDTH`, etc.). Avance DS Explore / pastilla visitados: bitácora `322`. Taxonomía SheetHandle: bitácora `323`. Retiro SearchPill/SearchLauncherField en vitrina: bitácora `324`. ds-pat-explore FLOWYA + logout: bitácora `325`. Vitrina SearchSurface (`SearchSurfaceShowcase`): bitácora `326`. `SearchListCard` layout tres filas (chevron en fila de título): bitácora `327`. CountriesSheet detalle por país (chips + lista): bitácora `328`. Explore welcome shell + cold-start/toasts/persistencia: bitácora `329`.
+- **Layout web (OL-WEB-RESPONSIVE-001):** anchos máximos alineados con `lib/web-layout.ts` (`WEB_SEARCH_OVERLAY_MAX_WIDTH`, `WEB_SHEET_MAX_WIDTH`, etc.). Avance DS Explore / pastilla visitados: bitácora `322`. Taxonomía SheetHandle: bitácora `323`. Retiro SearchPill/SearchLauncherField en vitrina: bitácora `324`. ds-pat-explore FLOWYA + logout: bitácora `325`. Vitrina SearchSurface (`SearchSurfaceShowcase`): bitácora `326`. `SearchListCard` layout tres filas (chevron en fila de título): bitácora `327`. CountriesSheet detalle por país (chips + lista): bitácora `328`. Explore welcome shell + cold-start/toasts/persistencia: bitácora `329`. CountriesSheet medium/lista, toasts expanded, filtros inline con 0, banda inferior `fullWidth`: bitácora `330`.
+
+[^1]: Última actualización de inventario vinculada a cierre de producto: bitácora `330` (abril 2026).

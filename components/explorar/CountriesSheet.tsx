@@ -104,7 +104,7 @@ const DETAIL_TAG_ROW_HEIGHT = 52;
 const DETAIL_LIST_MIN_HEIGHT = 240;
 const PLACES_SCOPE_MENU_MAX_HEIGHT = 380;
 const PLACES_SCOPE_MENU_ENTRANCE_MS = 280;
-/** Entrada de listas (países / lugares) en expanded: fade + slide suave. */
+/** Entrada de listas (países / lugares) en medium o expanded: fade + slide suave. */
 const LIST_ENTRANCE_MS = 300;
 
 /** Web: evita selección de texto en chips (alineado a SearchSurface). */
@@ -417,7 +417,7 @@ export function CountriesSheet({
   const listEntranceTranslateY = useSharedValue(0);
 
   const listEntranceKey = useMemo(() => {
-    if (!visible || state !== "expanded") return "";
+    if (!visible || (state !== "medium" && state !== "expanded")) return "";
     if (isCountryDetailMode) {
       if (countryDetail == null) return "";
       const tagSeg = selectedCountryDetailTagFilterId ?? "none";
@@ -485,7 +485,7 @@ export function CountriesSheet({
         0,
         maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
       );
-  const showExpandedList = state === "expanded";
+  const showPlacesList = state === "medium" || state === "expanded";
   const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
   const previewCountryCodes = items
@@ -737,7 +737,7 @@ export function CountriesSheet({
               </View>
             </View>
           ) : null}
-          {!showExpandedList ? null : (
+          {!showPlacesList ? null : (
             <Animated.View
               style={[
                 styles.listEntranceWrap,
@@ -813,7 +813,7 @@ export function CountriesSheet({
             />
           ) : null}
 
-          {!showExpandedList ? null : (
+          {!showPlacesList ? null : (
             <Animated.View
               style={[
                 styles.listEntranceWrap,
