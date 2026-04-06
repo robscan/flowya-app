@@ -1060,7 +1060,7 @@ export function MapScreenVNext() {
       .select(SPOT_SELECT_FOR_MAP)
       .eq("id", spotId)
       .eq("is_hidden", false)
-      .single();
+      .maybeSingle();
     if (error) return "error";
     if (!data) return "missing";
     const pinMap = await getPinsForSpots([spotId]);
