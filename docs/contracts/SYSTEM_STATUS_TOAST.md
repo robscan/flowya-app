@@ -52,8 +52,9 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 | Condición | `bottom` (resumen) |
 |-----------|---------------------|
 | **Buscador abierto** (`searchV2.isOpen`) | **No** sumar altura del sheet: `dockBottomOffset + insets.bottom` (+ clearance FLOWYA si aplica). Evita toast «flotando» como si el sheet visible fuera el del mapa. |
-| Spot/POI con sheet visible (sheet no cubierto por búsqueda) | `CONTROLS_OVERLAY_BOTTOM` (20) + `sheetHeight` + `STATUS_OVER_SHEET_CLEARANCE` (18) |
-| Sheet de países expandido | Similar con `countriesSheetHeight` |
+| **Cualquier sheet Explore en `expanded`** (Spot/POI, países o bienvenida) | Borde inferior de pantalla: `CONTROLS_OVERLAY_BOTTOM` (20) + `insets.bottom` — **no** se suma la altura del sheet; el toast queda en la parte baja del viewport. |
+| Spot/POI con sheet visible en peek o medium | `CONTROLS_OVERLAY_BOTTOM` (20) + `sheetHeight` + `STATUS_OVER_SHEET_CLEARANCE` (18) |
+| Sheet de países en peek o medium | Similar con `countriesSheetHeight` |
 | Resto | `dockBottomOffset` (12) + `insets.bottom` + `FLOWYA_LABEL_CLEARANCE` (60) si la etiqueta FLOWYA es visible |
 
 **Placement:** `bottom-left` con `left: TOP_OVERLAY_INSET_X + insets.left`, `bottom` calculado como arriba.
@@ -62,7 +63,21 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 
 **Cleanup:** al cambiar dependencias o desmontar, `resetAnchor()` restaura top-center por defecto.
 
-### 2.3 Reset
+### 2.3 Política **sheet `expanded`** + toasts (2026-04, Explore)
+
+**Contexto (histórico en producto):** en un momento se evitaban el toast de **cambio de filtro** y parte del feedback de **pin** cuando algún sheet (Spot, países o bienvenida) estaba en `expanded`, para reducir ruido visual.
+
+**Regla vigente:**
+
+1. **No** se ocultan toasts solo por tener un sheet en `expanded`. El usuario debe recibir el mismo feedback de filtro y de acciones en pin que en peek/medium.
+2. **Posición:** cuando **cualquier** sheet Explore relevante está en `expanded`, el ancla usa **borde inferior del viewport** (`CONTROLS_OVERLAY_BOTTOM + insets.bottom`, sin sumar la altura del sheet). Así el mensaje sigue legible y no queda «subido» por encima de un sheet casi a pantalla completa.
+3. **Excepciones puntuales (no son «expanded»):**
+   - `suppressToastRef`: ref que handlers pueden poner a `true` un instante para flujos concretos; se resetea a `false` cada render en `MapScreenVNext`.
+   - `handlePinFilterChange(..., { toastMessage: "" })`: suprime **solo ese** toast de filtro (p. ej. al abrir países visitados desde la pastilla, donde el sheet ya comunica el contexto). No depende del estado del sheet.
+
+**Implementación de referencia:** `components/explorar/MapScreenVNext.tsx` — `useEffect` de `toast.setAnchor` (`anyExploreSheetExpanded`) y llamadas a `toast.show` sin ref de supresión por expanded.
+
+### 2.4 Reset
 
 - `resetAnchor()` → vuelve a `top-center` con `top` por plataforma.
 
@@ -74,9 +89,10 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 2. **API idéntica:** `show`, `setAnchor`, `resetAnchor`.
 3. **Duración** y **replaceVisible** con la misma semántica.
 4. **Explore:** al abrir búsqueda a pantalla completa, **recalcular** anclaje inferior sin altura del SpotSheet; al cerrar búsqueda, restaurar lógica con sheet.
-5. **Contraste:** paleta invertida; texto 16/600 semibold, línea ~21, máximo 2 líneas (`numberOfLines={2}`).
-6. **Touch:** el toast debe ser tocable para cerrar; el contenedor no debe interceptar interacciones del mapa (`pointerEvents` acorde).
-7. **Safe area:** `insets` deben incluirse en `bottom`/`left`/`right` como en web.
+5. **Explore + sheet `expanded`:** replicar la tabla del §2.2: con sheet expandido, **no** subir el toast sumando `sheetHeight` / `countriesSheetHeight`; anclar al **borde inferior de pantalla** (misma fórmula que web). **No** reintroducir supresión de toasts de filtro/pin solo porque el sheet esté expandido.
+6. **Contraste:** paleta invertida; texto 16/600 semibold, línea ~21, máximo 2 líneas (`numberOfLines={2}`).
+7. **Touch:** el toast debe ser tocable para cerrar; el contenedor no debe interceptar interacciones del mapa (`pointerEvents` acorde).
+8. **Safe area:** `insets` deben incluirse en `bottom`/`left`/`right` como en web.
 
 ---
 

@@ -200,7 +200,7 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
                   <Text
                     key={message.id}
                     style={[styles.textSubtitle, { color: activePalette.textColor }]}
-                    numberOfLines={2}
+                    numberOfLines={5}
                   >
                     {message.text}
                   </Text>
@@ -230,8 +230,10 @@ const styles = StyleSheet.create({
     ...Shadow.card,
   },
   stackTopCenter: {
-    maxWidth: 420,
+    maxWidth: 440,
     width: '100%',
+    /** Overlay con `alignItems: 'center'`: sin `stretch` el ancho colapsa y el texto se corta con `…`. */
+    alignSelf: 'stretch',
   },
   stackBottomLeft: {
     maxWidth: 320,
@@ -239,8 +241,9 @@ const styles = StyleSheet.create({
   },
   textSubtitle: {
     fontSize: 16,
-    lineHeight: 21,
+    lineHeight: 22,
     fontWeight: '600',
     textAlign: 'left',
+    flexShrink: 1,
   },
 });

@@ -40,6 +40,7 @@ import {
   requestCurrentLocation,
   type RequestCurrentLocationResult,
 } from '@/lib/geolocation/request-user-location';
+import { Colors } from '@/constants/theme';
 import { installStyleImageFallback } from '@/lib/map-core/style-image-fallback';
 
 export type MapCoreSelectedSpot = { id: string; longitude: number; latitude: number } | null;
@@ -246,8 +247,9 @@ export function useMapCore(
   useEffect(() => {
     const map = mapInstance;
     if (!map) return;
-    return installStyleImageFallback(map);
-  }, [mapInstance]);
+    const mapPinPalette = isDarkStyle ? Colors.dark.mapPinSpot : Colors.light.mapPinSpot;
+    return installStyleImageFallback(map, { mapPinPalette });
+  }, [mapInstance, isDarkStyle]);
 
   useEffect(() => {
     const map = mapInstance;

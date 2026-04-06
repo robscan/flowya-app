@@ -367,3 +367,27 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
     }, SHARE_COOLDOWN_MS);
   }
 }
+
+const PREVIEW_DESIGN_W = 1600;
+const PREVIEW_DESIGN_H = 2000;
+
+/**
+ * Genera un PNG en data URL con la misma composición que `shareCountriesCard` (vitrina DS / preview).
+ * Solo web (`document` + canvas). Útil para mostrar la tarjeta sin disparar el flujo de compartir.
+ */
+export async function getShareCountriesCardPreviewDataUrl(
+  input: ShareCountriesCardInput,
+  options?: { width?: number },
+): Promise<string | null> {
+  if (typeof document === "undefined") return null;
+  const width = Math.min(Math.max(options?.width ?? 480, 200), 2400);
+  const height = Math.round((width * PREVIEW_DESIGN_H) / PREVIEW_DESIGN_W);
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const mapImage = input.mapSnapshotDataUrl ? await loadImageFromDataUrl(input.mapSnapshotDataUrl) : null;
+  drawCard(ctx, input, mapImage);
+  return canvas.toDataURL("image/png");
+}

@@ -22,8 +22,8 @@ export default function DesignSystemPlaceholder() {
           Design System is available on web. Open this app in a browser to view canonical UI
           components.
         </Text>
-        <Link href="/(tabs)/explore" asChild>
-          <Text style={[styles.link, { color: colors.tint }]}>← Back to Explore</Text>
+        <Link href="/" asChild>
+          <Text style={[styles.link, { color: colors.tint }]}>← Volver al mapa</Text>
         </Link>
       </View>
     </>

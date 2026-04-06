@@ -1,6 +1,7 @@
 import { SheetHandle } from "@/components/design-system/sheet-handle";
 import { Radius, Spacing } from "@/constants/theme";
 import { ArrowLeft, Share2, X } from "lucide-react-native";
+import type { ReactNode } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -16,11 +17,15 @@ export type SpotSheetHeaderProps = {
   isPoiMode: boolean;
   poiLoading: boolean;
   displayTitle: string;
+  /** Si se define, sustituye el título centrado (el área no dispara expandir/reducir el sheet; usa el handle). */
+  titleSlot?: ReactNode;
   state: "peek" | "medium" | "expanded";
   colors: HeaderColors;
   onHeaderTap: () => void;
   onShare: () => void;
   shareDisabled?: boolean;
+  /** Si está definido, el botón izquierdo es «Atrás» en lugar de compartir (p. ej. detalle país en CountriesSheet). */
+  backAction?: { onPress: () => void };
   onDraftBackToPlacing?: () => void;
   onClose: () => void;
   onDragAreaLayout: (e: LayoutChangeEvent) => void;
@@ -35,11 +40,13 @@ export function SpotSheetHeader({
   isPoiMode,
   poiLoading,
   displayTitle,
+  titleSlot,
   state,
   colors,
   onHeaderTap,
   onShare,
   shareDisabled = false,
+  backAction,
   onDraftBackToPlacing,
   onClose,
   onDragAreaLayout,
@@ -51,7 +58,19 @@ export function SpotSheetHeader({
         <SheetHandle onPress={onHeaderTap} />
       </View>
       <View style={styles.headerRow} onLayout={onHeaderLayout}>
-        {!isDraft ? (
+        {!isDraft && backAction ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { backgroundColor: colors.borderSubtle, opacity: pressed ? 0.86 : 1 },
+            ]}
+            onPress={backAction.onPress}
+            accessibilityLabel="Volver"
+            accessibilityRole="button"
+          >
+            <ArrowLeft size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        ) : !isDraft ? (
           <Pressable
             style={({ pressed }) => [
               styles.headerActionButton,
@@ -103,6 +122,10 @@ export function SpotSheetHeader({
                 </Text>
               </View>
             </View>
+          </View>
+        ) : titleSlot != null ? (
+          <View style={styles.titleWrap} pointerEvents="box-none">
+            {titleSlot}
           </View>
         ) : (
           <Pressable

@@ -62,7 +62,6 @@ export function SearchFloatingNative<T>({
   onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
-  activitySummary,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -201,7 +200,6 @@ export function SearchFloatingNative<T>({
                     onRequestDeleteUserTag={onRequestDeleteUserTag}
                     placeSuggestions={placeSuggestions}
                     onCreateFromPlace={onCreateFromPlace}
-                    activitySummary={activitySummary}
                     onClosePress={requestClose}
                     scrollViewKeyboardDismissMode="on-drag"
                 />

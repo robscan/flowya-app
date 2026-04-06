@@ -1,16 +1,16 @@
 /**
  * Design System: map pins (canonical).
- * Unified pin visuals: user location (blue circle), spot dots (fill + outline).
- * Colors from theme; same shape for all spot states, color varies by status.
- * Reposo: tamaño base, sin icono. Activo (seleccionado): grande, con icono si to_visit/visited.
- * Status visual: puede derivarse de saved/visited (visited > to_visit > default).
+ * Default (mapa): tokens `Colors.*.mapPinSpot.default` + radios `unselected`/`selected` — misma fuente que
+ * `lib/map-core/spots-layer.ts` (círculos + capas DEFAULT_PLUS_* + labels). Ver bitácoras 268–271.
+ * `plain` = solo círculo; `flowya_unlinked` = círculo + «+». Por visitar/visitado: `getCompositePinMetrics`.
  */
 
 import { Check, Pin } from 'lucide-react-native';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
+  interpolateColor,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -19,19 +19,16 @@ import Animated, {
 import { Colors, Fonts, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MAPBOX_LABEL_STYLE_DARK, MAPBOX_LABEL_STYLE_LIGHT } from '@/lib/map-core/constants';
+import {
+  getCompositePinMetrics,
+  getSpotCircleMetrics,
+  getUserLocationPinSize,
+} from '@/lib/map-core/map-pin-metrics';
 
 const PIN_SELECT_DURATION_MS = 200;
 const PIN_HOVER_PRESS_DURATION_MS = 100;
 const PIN_EASING = Easing.out(Easing.cubic);
 
-const LOCATION_PIN_SIZE = 14;
-
-/** Jerarquía canónica: Nivel 1 = protagonista (spot seleccionado). Nivel 2 = presencia (reposo). Alineado con Mapbox POI (~16–20px base). */
-const SPOT_PIN_SIZE = 14;
-const SPOT_PIN_SELECTED_SIZE = 32;
-const SPOT_PIN_STROKE = 2;
-const SPOT_PIN_SELECTED_STROKE = 3;
-const SPOT_PIN_ICON_SIZE = 18;
 const PIN_LABEL_FONT_SIZE = 12;
 const PIN_LABEL_GAP = 7;
 const PIN_LABEL_MAX_WIDTH = 90;
@@ -46,7 +43,9 @@ function makeTextShadowStyle(color: string, radius: number, offsetX = 0, offsetY
   return { textShadow: `${offsetX}px ${offsetY}px ${radius}px ${color}` } as const;
 }
 
-/** Pin de ubicación del usuario: círculo azul clásico. No reutiliza MapPinSpot. */
+type ThemeColors = (typeof Colors)['light'];
+
+/** Pin de ubicación del usuario: círculo azul; tamaño desde `getUserLocationPinSize` (factor sobre radio en reposo). */
 export function MapPinLocation({
   colorScheme: colorSchemeOverride,
 }: {
@@ -56,14 +55,15 @@ export function MapPinLocation({
   const colorScheme = colorSchemeOverride ?? systemScheme ?? 'light';
   const colors = Colors[colorScheme];
   const fill = colors.location?.primary ?? colors.pinUserLocation;
+  const size = getUserLocationPinSize(colors.mapPinSpot);
   return (
     <View
       style={[
         styles.locationPin,
         {
-          width: LOCATION_PIN_SIZE,
-          height: LOCATION_PIN_SIZE,
-          borderRadius: LOCATION_PIN_SIZE / 2,
+          width: size,
+          height: size,
+          borderRadius: size / 2,
           backgroundColor: fill,
           opacity: 1,
         },
@@ -74,40 +74,38 @@ export function MapPinLocation({
 
 export type SpotPinStatus = 'default' | 'to_visit' | 'visited';
 
+/**
+ * Solo aplica con `status === 'default'`.
+ * - `plain`: solo círculo (p. ej. vista catálogo / foco en color).
+ * - `flowya_unlinked`: pin nativo sin POI — círculo + «+» como capas `DEFAULT_PLUS_*` en Mapbox.
+ */
+export type MapPinDefaultStyle = 'plain' | 'flowya_unlinked';
+
+/** Relleno spot en mapa: `to_visit`/`visited` = `pin.*`; `default` = `mapPinSpot.default.fill` (capas circle Mapbox). */
 function getSpotPinFillColor(colors: (typeof Colors)['light'], status: SpotPinStatus): string {
+  if (status === 'default') {
+    return colors.mapPinSpot.default.fill;
+  }
   const pin = colors.pin;
   if (!pin) {
-    switch (status) {
-      case 'to_visit':
-        return colors.pinSpotToVisit;
-      case 'visited':
-        return colors.pinSpotVisited;
-      default:
-        return colors.pinSpotDefault;
-    }
+    return status === 'to_visit' ? colors.pinSpotToVisit : colors.pinSpotVisited;
   }
-  switch (status) {
-    case 'to_visit':
-      return pin.planned;
-    case 'visited':
-      return pin.visited;
-    default:
-      return pin.default;
-  }
+  return status === 'to_visit' ? pin.planned : pin.visited;
 }
 
-function getSpotPinOutlineColor(colors: (typeof Colors)['light']): string {
-  return colors.pin?.outline ?? colors.pinSpotOutline;
+function getSavedPinHaloColor(colors: ThemeColors, status: 'to_visit' | 'visited'): string {
+  return status === 'to_visit' ? colors.mapPinSpot.toVisit.stroke : colors.mapPinSpot.visited.stroke;
 }
 
 /** Pin de spot: círculo sólido con borde + label opcional debajo. Pin y label se mueven juntos. */
-/** Reposo (no seleccionado): tamaño base, sin icono. Activo (seleccionado): grande, con icono Pin si to_visit o visited. */
-/** Hover y press son solo feedback visual; selected tiene siempre prioridad. Animaciones: scale al seleccionar; hover 1.08x y press 0.95x en reposo. */
+/** Por visitar / visitado: icono Pin o Check siempre visible (como bitmap Mapbox), reposo y seleccionado. */
+/** Hover y press: feedback; selected anima tamaño. */
 export function MapPinSpot({
   status = 'default',
   label,
   selected = false,
   colorScheme: colorSchemeOverride,
+  defaultPinStyle = 'plain',
 }: {
   status?: SpotPinStatus;
   /** Nombre del spot; se muestra debajo del pin, centrado, caption. */
@@ -115,14 +113,22 @@ export function MapPinSpot({
   /** Si está seleccionado, el label puede tener mayor peso/opacidad. */
   selected?: boolean;
   colorScheme?: 'light' | 'dark';
+  /** Solo `status === 'default'`. `flowya_unlinked` = círculo + «+» (spot sin POI en mapa). */
+  defaultPinStyle?: MapPinDefaultStyle;
 } = {}) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
   const systemScheme = useColorScheme();
   const colorScheme = colorSchemeOverride ?? systemScheme ?? 'light';
   const colors = Colors[colorScheme];
+  const mp = colors.mapPinSpot;
+  const isComposite = status === 'to_visit' || status === 'visited';
+  const circleRest = useMemo(() => getSpotCircleMetrics(mp, false), [mp]);
+  const circleSel = useMemo(() => getSpotCircleMetrics(mp, true), [mp]);
+  const compositeRest = useMemo(() => getCompositePinMetrics(mp, false), [mp]);
+  const compositeSel = useMemo(() => getCompositePinMetrics(mp, true), [mp]);
   const fill = getSpotPinFillColor(colors, status);
-  const outline = getSpotPinOutlineColor(colors);
+  const haloColor = isComposite ? getSavedPinHaloColor(colors, status) : undefined;
   const mapboxLabelStyle =
     colorScheme === 'dark' ? MAPBOX_LABEL_STYLE_DARK : MAPBOX_LABEL_STYLE_LIGHT;
   const labelColor = mapboxLabelStyle.textColor;
@@ -164,10 +170,10 @@ export function MapPinSpot({
     });
   }, [selected, isPressed, pressProgress]);
 
-  const pinAnimatedStyle = useAnimatedStyle(() => {
+  const circlePinAnimatedStyle = useAnimatedStyle(() => {
     const p = selectedProgress.value;
-    const w = SPOT_PIN_SIZE + (SPOT_PIN_SELECTED_SIZE - SPOT_PIN_SIZE) * p;
-    const s = SPOT_PIN_STROKE + (SPOT_PIN_SELECTED_STROKE - SPOT_PIN_STROKE) * p;
+    const w = circleRest.diameter + (circleSel.diameter - circleRest.diameter) * p;
+    const s = circleRest.strokeWidth + (circleSel.strokeWidth - circleRest.strokeWidth) * p;
     const hoverScale = 1 + 0.08 * hoverProgress.value;
     const pressScale = 1 - 0.05 * pressProgress.value;
     const interactScale = pressProgress.value > 0 ? pressScale : hoverScale;
@@ -178,24 +184,76 @@ export function MapPinSpot({
       borderWidth: s,
       transform: [{ scale: interactScale }],
     };
-  }, []);
+  }, [circleRest.diameter, circleRest.strokeWidth, circleSel.diameter, circleSel.strokeWidth]);
 
-  const innerAnimatedStyle = useAnimatedStyle(() => {
+  const circleInnerAnimatedStyle = useAnimatedStyle(() => {
     const p = selectedProgress.value;
-    const w = SPOT_PIN_SIZE + (SPOT_PIN_SELECTED_SIZE - SPOT_PIN_SIZE) * p;
-    const s = SPOT_PIN_STROKE + (SPOT_PIN_SELECTED_STROKE - SPOT_PIN_STROKE) * p;
+    const w = circleRest.diameter + (circleSel.diameter - circleRest.diameter) * p;
+    const s = circleRest.strokeWidth + (circleSel.strokeWidth - circleRest.strokeWidth) * p;
     const inner = w - s * 2;
     return {
       width: inner,
       height: inner,
       borderRadius: inner / 2,
     };
-  }, []);
+  }, [circleRest.diameter, circleRest.strokeWidth, circleSel.diameter, circleSel.strokeWidth]);
 
-  const iconOpacityStyle = useAnimatedStyle(
-    () => ({ opacity: hasStatusIcon ? selectedProgress.value : 0 }),
-    [hasStatusIcon]
-  );
+  const compositeOuterAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const outer =
+      compositeRest.outerSpriteSize + (compositeSel.outerSpriteSize - compositeRest.outerSpriteSize) * p;
+    const hoverScale = 1 + 0.08 * hoverProgress.value;
+    const pressScale = 1 - 0.05 * pressProgress.value;
+    const interactScale = pressProgress.value > 0 ? pressScale : hoverScale;
+    return {
+      width: outer,
+      height: outer,
+      alignItems: 'center',
+      justifyContent: 'center',
+      transform: [{ scale: interactScale }],
+    };
+  }, [compositeRest.outerSpriteSize, compositeSel.outerSpriteSize]);
+
+  const compositeDiscAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const disc =
+      compositeRest.discOuterDiameter + (compositeSel.discOuterDiameter - compositeRest.discOuterDiameter) * p;
+    const halo =
+      compositeRest.haloStrokeWidth + (compositeSel.haloStrokeWidth - compositeRest.haloStrokeWidth) * p;
+    return {
+      width: disc,
+      height: disc,
+      borderRadius: disc / 2,
+      borderWidth: halo,
+    };
+  }, [compositeRest.discOuterDiameter, compositeRest.haloStrokeWidth, compositeSel.discOuterDiameter, compositeSel.haloStrokeWidth]);
+
+  const compositeIconScaleStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const sz = compositeRest.iconSize + (compositeSel.iconSize - compositeRest.iconSize) * p;
+    return {
+      transform: [{ scale: sz / compositeSel.iconSize }],
+    };
+  }, [compositeRest.iconSize, compositeSel.iconSize]);
+
+  const showFlowyaPlus = status === 'default' && defaultPinStyle === 'flowya_unlinked';
+
+  const plusTextAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    const fs = mp.unselected.plusTextSize + (mp.selected.plusTextSize - mp.unselected.plusTextSize) * p;
+    return {
+      fontSize: fs,
+      lineHeight: fs + 2,
+    };
+  }, [mp.unselected.plusTextSize, mp.selected.plusTextSize]);
+
+  /** Alineado con `circle-stroke-color`: `mapPinSpot.default.stroke` → `selected.defaultStroke`. */
+  const circleStrokeAnimatedStyle = useAnimatedStyle(() => {
+    const p = selectedProgress.value;
+    return {
+      borderColor: interpolateColor(p, [0, 1], [mp.default.stroke, mp.selected.defaultStroke]),
+    };
+  }, [mp.default.stroke, mp.selected.defaultStroke]);
 
   return (
     <View
@@ -212,54 +270,89 @@ export function MapPinSpot({
           } as Record<string, unknown>)
         : {})}
     >
-      <Animated.View
-        style={[
-          styles.spotPinOuter,
-          { borderColor: outline },
-          pinAnimatedStyle,
-        ]}
-      >
-        <Animated.View
-          style={[
-            styles.spotPinInner,
-            { backgroundColor: fill },
-            innerAnimatedStyle,
-          ]}
-        >
-          {hasStatusIcon ? (
-            <Animated.View style={[StyleSheet.absoluteFill, iconOpacityStyle, styles.spotPinIconWrap]}>
-              {status === 'visited' ? (
-                <Check
-                  size={SPOT_PIN_ICON_SIZE}
-                  color="#ffffff"
-                  strokeWidth={2.5}
-                  style={styles.spotPinIcon}
-                />
-              ) : (
-                <Pin
-                  size={SPOT_PIN_ICON_SIZE}
-                  color="#ffffff"
-                  strokeWidth={2}
-                  style={styles.spotPinIcon}
-                />
-              )}
-            </Animated.View>
-          ) : null}
+      {isComposite ? (
+        <Animated.View style={[styles.spotPinOuter, compositeOuterAnimatedStyle]}>
+          <Animated.View
+            style={[
+              styles.spotPinInner,
+              compositeDiscAnimatedStyle,
+              { borderColor: haloColor, backgroundColor: fill },
+            ]}
+          >
+            {hasStatusIcon ? (
+              <Animated.View style={[styles.spotPinIconWrap, compositeIconScaleStyle]}>
+                {status === 'visited' ? (
+                  <Check
+                    size={compositeSel.iconSize}
+                    color="#ffffff"
+                    strokeWidth={compositeSel.checkIconStrokeWidth}
+                    style={styles.spotPinIcon}
+                  />
+                ) : (
+                  <Pin
+                    size={compositeSel.iconSize}
+                    color="#ffffff"
+                    strokeWidth={compositeSel.pinIconStrokeWidth}
+                    style={styles.spotPinIcon}
+                  />
+                )}
+              </Animated.View>
+            ) : null}
+          </Animated.View>
         </Animated.View>
-      </Animated.View>
+      ) : (
+        <Animated.View
+          style={[styles.spotPinOuter, circlePinAnimatedStyle, circleStrokeAnimatedStyle]}
+        >
+          <Animated.View
+            style={[
+              styles.spotPinInner,
+              { backgroundColor: mp.default.fill },
+              circleInnerAnimatedStyle,
+            ]}
+          >
+            {showFlowyaPlus ? (
+              <Animated.Text
+                style={[
+                  styles.spotPinPlusGlyph,
+                  plusTextAnimatedStyle,
+                  {
+                    color: mp.default.plusText,
+                    fontFamily: Fonts.sans,
+                    textShadowColor: mp.default.plusHalo,
+                    textShadowOffset: { width: 0, height: 0 },
+                    textShadowRadius: mp.default.plusHaloWidth * 4,
+                  },
+                ]}
+              >
+                +
+              </Animated.Text>
+            ) : null}
+          </Animated.View>
+        </Animated.View>
+      )}
       {label ? (
         <Text
           style={[
             styles.spotPinLabel,
-            {
-              color: labelColor,
-              opacity: 1,
-              fontWeight: labelWeight,
-              fontFamily: Fonts.sans,
-              fontSize: labelFontSize,
-              lineHeight: labelFontSize + 2,
-              ...(savedLabelShadowStyle ?? {}),
-            },
+            status === 'default'
+              ? {
+                  color: mp.default.labelText,
+                  fontWeight: labelWeight,
+                  fontFamily: Fonts.sans,
+                  fontSize: labelFontSize,
+                  lineHeight: labelFontSize + 2,
+                  ...makeTextShadowStyle(mp.default.labelHalo, mp.default.labelHaloWidth * 2),
+                }
+              : {
+                  color: labelColor,
+                  opacity: 1,
+                  fontWeight: labelWeight,
+                  fontFamily: Fonts.sans,
+                  fontSize: labelFontSize,
+                  lineHeight: labelFontSize + 2,
+                  ...(savedLabelShadowStyle ?? {}),
+                },
           ]}
           numberOfLines={2}
           ellipsizeMode="tail"
@@ -270,14 +363,6 @@ export function MapPinSpot({
     </View>
   );
 }
-
-/** Scope G visual: pin "spot en creación" en Create Spot — primary, más grande, foco principal. */
-const CREATING_PIN_SIZE = 20;
-const CREATING_PIN_STROKE = 2;
-
-/** Scope G visual: pin "spot existente" en Create Spot — secondary, tenue, informativo. */
-const EXISTING_PIN_SIZE = 10;
-const EXISTING_PIN_STROKE = 1;
 
 export function MapPinCreating({
   label,
@@ -290,9 +375,12 @@ export function MapPinCreating({
   const systemScheme = useColorScheme();
   const colorScheme = colorSchemeOverride ?? systemScheme ?? 'light';
   const colors = Colors[colorScheme];
+  const mp = colors.mapPinSpot;
+  const creatingSize = mp.selected.radius * 2 - 4;
+  const creatingStroke = Math.min(2, mp.selected.strokeWidth);
   const fill = colors.primary ?? colors.tint;
   const outline = colors.pin?.outline ?? colors.pinSpotOutline ?? '#fff';
-  const inner = CREATING_PIN_SIZE - CREATING_PIN_STROKE * 2;
+  const inner = creatingSize - creatingStroke * 2;
   return (
     <View
       style={[styles.creatingPinWithLabel, { pointerEvents: 'box-none' }]}
@@ -301,10 +389,10 @@ export function MapPinCreating({
         style={[
           styles.creatingPinOuter,
           {
-            width: CREATING_PIN_SIZE,
-            height: CREATING_PIN_SIZE,
-            borderRadius: CREATING_PIN_SIZE / 2,
-            borderWidth: CREATING_PIN_STROKE,
+            width: creatingSize,
+            height: creatingSize,
+            borderRadius: creatingSize / 2,
+            borderWidth: creatingStroke,
             borderColor: outline,
           },
         ]}
@@ -356,9 +444,12 @@ export function MapPinExisting({
   const systemScheme = useColorScheme();
   const colorScheme = colorSchemeOverride ?? systemScheme ?? 'light';
   const colors = Colors[colorScheme];
+  const mp = colors.mapPinSpot;
+  const existingSize = Math.round(mp.unselected.radius * 1.25);
+  const existingStroke = mp.unselected.strokeWidth;
   const fill = colors.secondary ?? colors.textSecondary;
   const outline = colors.border ?? colors.borderSubtle ?? 'rgba(0,0,0,0.1)';
-  const inner = EXISTING_PIN_SIZE - EXISTING_PIN_STROKE * 2;
+  const inner = existingSize - existingStroke * 2;
   return (
     <View
       style={[styles.existingPinWithLabel, { pointerEvents: 'box-none' }]}
@@ -367,10 +458,10 @@ export function MapPinExisting({
         style={[
           styles.existingPinOuter,
           {
-            width: EXISTING_PIN_SIZE,
-            height: EXISTING_PIN_SIZE,
-            borderRadius: EXISTING_PIN_SIZE / 2,
-            borderWidth: EXISTING_PIN_STROKE,
+            width: existingSize,
+            height: existingSize,
+            borderRadius: existingSize / 2,
+            borderWidth: existingStroke,
             borderColor: outline,
           },
         ]}
@@ -410,13 +501,20 @@ export function MapPinExisting({
   );
 }
 
-/** Tamaños exportados para alinear Marker anchor si se necesita. */
+/** Tamaños de referencia (light): círculos default vs sprite guardados + ubicación / create. */
+const _lightMp = Colors.light.mapPinSpot;
+const _cRest = getCompositePinMetrics(_lightMp, false);
+const _cSel = getCompositePinMetrics(_lightMp, true);
 export const MAP_PIN_SIZES = {
-  location: LOCATION_PIN_SIZE,
-  spot: SPOT_PIN_SIZE,
-  spotSelected: SPOT_PIN_SELECTED_SIZE,
-  creating: CREATING_PIN_SIZE,
-  existing: EXISTING_PIN_SIZE,
+  location: getUserLocationPinSize(_lightMp),
+  spot: _lightMp.unselected.radius * 2,
+  spotSelected: _lightMp.selected.radius * 2,
+  spotSavedRestOuter: _cRest.outerSpriteSize,
+  spotSavedSelectedOuter: _cSel.outerSpriteSize,
+  spotSavedRestDisc: _cRest.discOuterDiameter,
+  spotSavedSelectedDisc: _cSel.discOuterDiameter,
+  creating: _lightMp.selected.radius * 2 - 4,
+  existing: Math.round(_lightMp.unselected.radius * 1.25),
 } as const;
 
 const styles = StyleSheet.create({
@@ -464,6 +562,12 @@ const styles = StyleSheet.create({
   spotPinInner: {
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'visible',
+  },
+  spotPinPlusGlyph: {
+    fontWeight: '700',
+    textAlign: 'center',
+    includeFontPadding: false,
   },
   spotPinIconWrap: {
     alignItems: 'center',
@@ -502,101 +606,128 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: Spacing.md,
   },
+  subsectionTitle: {
+    fontFamily: Fonts.sans,
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  subsectionTitleFirst: {
+    marginTop: 0,
+  },
+  showcaseRowWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+    gap: Spacing.lg,
+    marginBottom: Spacing.base,
+  },
 });
 
-/** Showcase de pines para la pantalla Design System: light y dark. */
+/** Matriz canónica: reposo / seleccionado × estado. Default en mapa = pin Flowya sin POI (`flowya_unlinked`). */
+const SPOT_PIN_MATRIX: {
+  status: SpotPinStatus;
+  selected: boolean;
+  caption: string;
+  defaultPinStyle?: MapPinDefaultStyle;
+}[] = [
+  {
+    status: 'default',
+    selected: false,
+    caption: 'Default (Flowya sin POI) · reposo',
+    defaultPinStyle: 'flowya_unlinked',
+  },
+  {
+    status: 'default',
+    selected: true,
+    caption: 'Default (Flowya sin POI) · seleccionado',
+    defaultPinStyle: 'flowya_unlinked',
+  },
+  { status: 'to_visit', selected: false, caption: 'Por visitar · reposo' },
+  { status: 'to_visit', selected: true, caption: 'Por visitar · seleccionado' },
+  { status: 'visited', selected: false, caption: 'Visitado · reposo' },
+  { status: 'visited', selected: true, caption: 'Visitado · seleccionado' },
+];
+
+/** Showcase: solo mapa claro (Explore); tamaños = `theme.mapPinSpot` + proporciones documentadas. */
 export function MapPinsShowcase() {
-  const pinRow = (mode: 'light' | 'dark') => (
-    <View
-      key={mode}
-      style={[
-        styles.modeBox,
-        {
-          backgroundColor: mode === 'light' ? Colors.light.background : Colors.dark.background,
-        },
-      ]}
-    >
-      <Text
-        style={[
-          styles.modeTitle,
-          { color: mode === 'light' ? Colors.light.text : Colors.dark.text },
-        ]}
-      >
-        {mode === 'light' ? 'Light mode' : 'Dark mode'}
+  const fg = Colors.light.text;
+  const meta = Colors.light.textSecondary;
+  const mode = 'light' as const;
+
+  return (
+    <View style={[styles.modeBox, { backgroundColor: Colors.light.background }]}>
+      <Text style={[styles.modeTitle, { color: fg }]}>Mapa claro (Explore)</Text>
+      <Text style={[styles.showcaseLabel, { color: meta, marginBottom: Spacing.md, maxWidth: 540, lineHeight: 18 }]}>
+        Default Flowya sin POI: relleno/borde/label/plus desde `Colors.light.mapPinSpot.default` (misma pintura que
+        `spots-layer`: circle + DEFAULT_PLUS_* + labels; bitácoras 268–271). `flowya_unlinked` muestra el «+».
+        Por visitar / visitado: `getCompositePinMetrics` + `pin-status-images`.
       </Text>
-      <View style={styles.showcaseRow}>
+
+      <Text style={[styles.subsectionTitle, styles.subsectionTitleFirst, { color: fg }]}>Ubicación</Text>
+      <View style={styles.showcaseRowWrap}>
         <View style={styles.showcaseItem}>
           <MapPinLocation colorScheme={mode} />
-          <Text
-            style={[
-              styles.showcaseLabel,
-              { color: mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary },
-            ]}
-          >
-            Ubicación (sin label)
-          </Text>
+          <Text style={[styles.showcaseLabel, { color: meta }]}>Usuario (sin label)</Text>
         </View>
-        <View style={styles.showcaseItem}>
-          <MapPinSpot status="default" colorScheme={mode} label="Lugar con nombre" />
-          <Text
-            style={[
-              styles.showcaseLabel,
-              { color: mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary },
-            ]}
-          >
-            Spot + label
-          </Text>
-        </View>
+      </View>
+
+      <Text style={[styles.subsectionTitle, { color: fg }]}>Default — solo círculo (`plain`)</Text>
+      <Text style={[styles.showcaseLabel, { color: meta, marginBottom: Spacing.sm, maxWidth: 440 }]}>
+        Sin «+» central; útil para vistas mínimas o cuando el foco es solo el color del pin. En mapa, el pin nativo sin
+        POI usa `flowya_unlinked`.
+      </Text>
+      <View style={styles.showcaseRowWrap}>
         <View style={styles.showcaseItem}>
           <MapPinSpot
-            status="to_visit"
+            status="default"
             colorScheme={mode}
-            label="Por visitar"
+            label={null}
+            selected={false}
+            defaultPinStyle="plain"
           />
-          <Text
-            style={[
-              styles.showcaseLabel,
-              { color: mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary },
-            ]}
-          >
-            Por visitar
-          </Text>
-        </View>
-        <View style={styles.showcaseItem}>
-          <MapPinSpot status="visited" colorScheme={mode} label="Visitado" />
-          <Text
-            style={[
-              styles.showcaseLabel,
-              { color: mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary },
-            ]}
-          >
-            Visitado
-          </Text>
+          <Text style={[styles.showcaseLabel, { color: meta }]}>Plain · sin label</Text>
         </View>
         <View style={styles.showcaseItem}>
           <MapPinSpot
             status="default"
             colorScheme={mode}
-            label="Seleccionado"
-            selected
+            label="Lugar"
+            selected={false}
+            defaultPinStyle="plain"
           />
-          <Text
-            style={[
-              styles.showcaseLabel,
-              { color: mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary },
-            ]}
-          >
-            Seleccionado
-          </Text>
+          <Text style={[styles.showcaseLabel, { color: meta }]}>Plain · con nombre</Text>
+        </View>
+      </View>
+
+      <Text style={[styles.subsectionTitle, { color: fg }]}>Spot — todos los estados (reposo / seleccionado)</Text>
+      <View style={styles.showcaseRowWrap}>
+        {SPOT_PIN_MATRIX.map((cell) => (
+          <View key={`${cell.status}-${cell.selected ? 's' : 'r'}`} style={styles.showcaseItem}>
+            <MapPinSpot
+              status={cell.status}
+              colorScheme={mode}
+              label="Nombre"
+              selected={cell.selected}
+              defaultPinStyle={cell.defaultPinStyle}
+            />
+            <Text style={[styles.showcaseLabel, { color: meta }]}>{cell.caption}</Text>
+          </View>
+        ))}
+      </View>
+
+      <Text style={[styles.subsectionTitle, { color: fg }]}>Create spot</Text>
+      <View style={styles.showcaseRowWrap}>
+        <View style={styles.showcaseItem}>
+          <MapPinCreating colorScheme={mode} label="Nuevo lugar" />
+          <Text style={[styles.showcaseLabel, { color: meta }]}>Creando (foco)</Text>
+        </View>
+        <View style={styles.showcaseItem}>
+          <MapPinExisting colorScheme={mode} label="Ya existe" />
+          <Text style={[styles.showcaseLabel, { color: meta }]}>Existente (referencia)</Text>
         </View>
       </View>
     </View>
-  );
-
-  return (
-    <>
-      {pinRow('light')}
-      {pinRow('dark')}
-    </>
   );
 }

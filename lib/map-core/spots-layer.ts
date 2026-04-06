@@ -56,7 +56,10 @@ function andNonCluster(filter: [string, ...unknown[]]): [string, ...unknown[]] {
 const CIRCLES_DEFAULT_UNLINKED_LAYER_ID = 'flowya-spots-circles-default-unlinked';
 const CIRCLES_DEFAULT_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-circles-default-unlinked-selected';
 const CIRCLES_SAVED_VISITED_LAYER_ID = 'flowya-spots-circles-saved-visited';
-/** Capa única chip+icono compuesto (Pin/CheckCircle) para por visitar/visitados. Resuelve traslape. */
+/**
+ * Capa única chip+icono compuesto (Pin/CheckCircle) para por visitar/visitados. Resuelve traslape.
+ * Sprites `FLOWYA_PIN_*`: mismo canvas base que `map-pin-metrics` / `pin-status-images`; `layout.icon-size` = `makiIconSize`.
+ */
 const PINS_SAVED_VISITED_LAYER_ID = 'flowya-spots-pins-saved-visited';
 const DEFAULT_PLUS_UNLINKED_LAYER_ID = 'flowya-spots-default-plus-unlinked';
 const DEFAULT_PLUS_UNLINKED_SELECTED_LAYER_ID = 'flowya-spots-default-plus-unlinked-selected';

@@ -8,6 +8,17 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+/**
+ * Fila de resultado de búsqueda (mapa / listados).
+ *
+ * **Layout en columnas (2026-04):** `[media | columnaTexto]`. El chevron no es una tercera columna del card.
+ *
+ * 1. **Fila título:** `title` + `ChevronRight` (misma fila; el título usa `flex:1` + `minWidth:0` para envolver sin robar ancho a las filas inferiores).
+ * 2. **Fila contenido:** `subtitle` o CTA de nota (`edit_description`).
+ * 3. **Fila meta:** distancia, chip de estado pin, landmark, `#tags`, Etiquetar — `rankingChipsCluster` con `flexWrap` para usar el ancho completo de la columna de texto.
+ *
+ * Media: imagen al borde izquierdo, placeholder «Agregar imagen», o icono maki. Ver contrato en `docs/contracts/DESIGN_SYSTEM_USAGE.md` §6.2.
+ */
 export type SearchListCardProps = {
   title: string;
   subtitle?: string | null;
@@ -18,7 +29,11 @@ export type SearchListCardProps = {
   pinStatus?: 'default' | 'to_visit' | 'visited';
   selected?: boolean;
   disabled?: boolean;
-  /** Señal "cerca": ej. "A 1.2 km". Discreta, no sobrecarga. */
+  /**
+   * Señal "cerca" (ej. "1,2 km" sin prefijo; el UI añade "A ").
+   * Canon: con ubicación de usuario va en la **misma franja** que chips de estado, #etiquetas y Etiquetar
+   * (un solo cluster inline), no en una línea aparte.
+   */
   distanceText?: string | null;
   /** Señal "landmark": POI destacado. */
   isLandmark?: boolean;
@@ -188,9 +203,19 @@ export function SearchListCard({
         </View>
       )}
       <View style={[styles.content, hasLeadingMediaBlock ? styles.contentWithMedia : null]}>
-        <Text style={[styles.title, { color: colors.text }]} numberOfLines={2}>
-          {title}
-        </Text>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, styles.titleInRow, { color: colors.text }]} numberOfLines={2}>
+            {title}
+          </Text>
+          {showChevron ? (
+            <ChevronRight
+              size={20}
+              color={colors.textSecondary}
+              strokeWidth={2}
+              style={styles.chevronInTitleRow}
+            />
+          ) : null}
+        </View>
         {subtitle ? (
           <Text
             style={[styles.subtitle, { color: colors.textSecondary }]}
@@ -220,23 +245,17 @@ export function SearchListCard({
           </View>
         ) : null}
         {showRankingSignals ? (
-          <View style={styles.rankingSignals}>
-            {distanceText != null ? (
-              <Text
-                style={[styles.rankingSignal, { color: colors.textSecondary }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
-                A {distanceText}
-              </Text>
-            ) : null}
-            {/**
-             * Pin + landmark + etiquetas + «Etiquetar» en un cluster nowrap.
-             * Evita que flexWrap del padre deje «Etiquetar» solo en segunda línea (último hermano).
-             */}
-            {showPinStatusChip || showTagChips || addTagAction != null || isLandmark ? (
-              <View style={styles.rankingChipsCluster}>
-                {showPinStatusChip ? (
+          <View style={styles.rankingChipsCluster}>
+              {distanceText != null ? (
+                <Text
+                  style={[styles.rankingSignal, { color: colors.textSecondary }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  A {distanceText}
+                </Text>
+              ) : null}
+              {showPinStatusChip ? (
                   <View
                     style={[
                       styles.rankingChip,
@@ -312,14 +331,9 @@ export function SearchListCard({
                     <Text style={[styles.etiquetarLabel, { color: colors.primary }]}>{addTagAction.label}</Text>
                   </View>
                 ) : null}
-              </View>
-            ) : null}
           </View>
         ) : null}
       </View>
-      {showChevron ? (
-        <ChevronRight size={20} color={colors.textSecondary} strokeWidth={2} style={styles.chevron} />
-      ) : null}
     </Pressable>
   );
 }
@@ -330,7 +344,7 @@ export const ResultRow = SearchListCard;
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
-    /** flex-start: icono + chevron alineados arriba con el título; si center, la flecha parece del bloque «Etiquetar». */
+    /** Icono/imagen a la izquierda; columna de texto: fila título+chevron, contenido y meta a ancho completo. */
     alignItems: 'flex-start',
     gap: Spacing.md,
     borderRadius: Radius.lg,
@@ -357,11 +371,26 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: Spacing.base,
     paddingBottom: Spacing.base,
-    paddingRight: Spacing.xs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.xs,
+    width: '100%',
+    minWidth: 0,
   },
   title: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  /** Ocupa el espacio entre media y chevron; permite wrap del título sin reservar columna vacía abajo. */
+  titleInRow: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chevronInTitleRow: {
+    flexShrink: 0,
+    marginTop: 2,
   },
   subtitle: {
     fontSize: 13,
@@ -420,21 +449,15 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  rankingSignals: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: Spacing.sm,
-    marginTop: 4,
-  },
-  /** Pin + chips + Etiquetar: una unidad; el padre ya no parte solo «Etiquetar» al hacer wrap. */
+  /** Distancia + pin + landmark + #tags + Etiquetar (misma franja que SpotSheetMetaRow). */
   rankingChipsCluster: {
     flexDirection: 'row',
     alignItems: 'center',
-    /** Web: permitir wrap en viewports estrechos (OL-WEB-RESPONSIVE-001); native mantiene nowrap. */
-    flexWrap: Platform.OS === 'web' ? 'wrap' : 'nowrap',
+    marginTop: 4,
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     flexShrink: 0,
+    alignContent: 'flex-start',
   },
   /** Puede acortarse con puntos si hace falta espacio para el cluster. */
   rankingSignal: {
@@ -473,9 +496,5 @@ const styles = StyleSheet.create({
   rankingChipLabel: {
     fontSize: 11,
     fontWeight: '500',
-  },
-  chevron: {
-    alignSelf: 'flex-start',
-    marginTop: 2,
   },
 });

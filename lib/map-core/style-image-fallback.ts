@@ -2,6 +2,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 
 import { layouts, svgArray } from '@mapbox/maki/browser.esm.js';
 
+import { Colors } from '@/constants/theme';
+import type { MapPinSpotPalette } from '@/lib/map-core/map-pin-metrics';
+
 import {
   addPinStatusImage,
   FLOWYA_PIN_TO_VISIT,
@@ -110,14 +113,14 @@ function createGenericFallbackImage(id: string, sizePx = 32): ImageData | null {
 }
 
 /** Añade icono Maki real (park, museum, etc.) o fallback genérico. */
-function addFallbackImage(map: MapboxMap, id: string): void {
+function addFallbackImage(map: MapboxMap, id: string, mapPinPalette: MapPinSpotPalette): void {
   try {
-    if (map.hasImage(id)) return;
-
     if (id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_VISITED) {
-      addPinStatusImage(map, id);
+      addPinStatusImage(map, id, mapPinPalette);
       return;
     }
+
+    if (map.hasImage(id)) return;
 
     const makiKey = normalizeMakiId(id);
     const svg = getMakiSvg(makiKey);
@@ -158,18 +161,22 @@ const FALLBACK_IDS_TO_PRELOAD = [
   FLOWYA_PIN_VISITED,
 ];
 
-export function installStyleImageFallback(map: MapboxMap): () => void {
+export function installStyleImageFallback(
+  map: MapboxMap,
+  options?: { mapPinPalette?: MapPinSpotPalette }
+): () => void {
+  const mapPinPalette = options?.mapPinPalette ?? Colors.light.mapPinSpot;
   if (typeof document !== 'undefined') {
     for (const id of FALLBACK_IDS_TO_PRELOAD) {
-      addFallbackImage(map, id);
+      addFallbackImage(map, id, mapPinPalette);
     }
   }
   const onStyleImageMissing = (e: { id?: string }) => {
     const id = typeof e?.id === 'string' ? e.id : '';
     if (!shouldProvideFallbackImage(id)) return;
     try {
-      if (map.hasImage(id)) return;
-      addFallbackImage(map, id);
+      if (id !== FLOWYA_PIN_TO_VISIT && id !== FLOWYA_PIN_VISITED && map.hasImage(id)) return;
+      addFallbackImage(map, id, mapPinPalette);
     } catch {
       /* ignore */
     }

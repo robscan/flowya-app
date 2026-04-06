@@ -19,7 +19,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -35,6 +34,8 @@ import {
   type PlaceResult,
 } from '@/lib/places/searchPlaces';
 import { getSpotsNearby, type SpotNearby } from '@/lib/spot-duplicate-check';
+
+import { SearchInputV2 } from '@/components/search/SearchInputV2';
 
 import { MapControls } from './map-controls';
 import { MapPinCreating, MapPinExisting } from './map-pins';
@@ -119,6 +120,7 @@ export function MapLocationPicker({
   const [confirmButtonFocused, setConfirmButtonFocused] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<PlaceResult[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedFromSearch, setSelectedFromSearch] = useState<PlaceResult | null>(null);
@@ -341,20 +343,26 @@ export function MapLocationPicker({
         >
           <View
             style={[
-              styles.searchRow,
-              { borderColor: colors.border, backgroundColor: colors.background },
+              styles.searchPillRow,
+              {
+                borderWidth: searchFocused ? 2 : 1,
+                borderColor: searchFocused ? colors.tint : colors.borderSubtle,
+                backgroundColor: colors.background,
+              },
             ]}
           >
-            <Search size={18} color={colors.textSecondary} strokeWidth={2} />
-            <TextInput
-              style={[styles.searchInput, { color: colors.text }]}
-              placeholder="Buscar lugar (mín. 3 letras)"
-              placeholderTextColor={colors.textSecondary}
+            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+            <SearchInputV2
               value={searchQuery}
               onChangeText={setSearchQuery}
+              onClear={() => setSearchQuery('')}
+              embedded
+              placeholder="Buscar lugar (mín. 3 letras)"
+              accessibilityLabel="Buscar lugar"
               autoCorrect={false}
               autoCapitalize="none"
-              accessibilityLabel="Buscar lugar"
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
             />
           </View>
           {searchLoading ? (
@@ -513,24 +521,17 @@ const styles = StyleSheet.create({
     maxHeight: 220,
     zIndex: 2,
   } satisfies ViewStyle,
-  searchRow: {
+  /** Misma cápsula que DS «Búsqueda en mapa — SearchInputV2 (embebido)». */
+  searchPillRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
+    height: 44,
+    paddingLeft: Spacing.base,
+    paddingRight: Spacing.sm,
     gap: Spacing.sm,
-    borderWidth: 1,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    borderRadius: 22,
   } satisfies ViewStyle,
-  searchInput: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 4,
-    ...Platform.select({
-      web: { outlineWidth: 0 },
-      default: {},
-    }),
-  } as TextStyle,
   searchLoadingRow: {
     paddingVertical: Spacing.sm,
     alignItems: 'center',

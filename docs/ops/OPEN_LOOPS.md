@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-04-05
+**Fecha:** 2026-04-06
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -11,7 +11,7 @@
 
 ## Loop activo único (regla operativa)
 
-- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web). Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
+- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web), `322` (pastilla países|flows + niveles exploración en DS; MapControls sin solape con pastilla en peek), `323` (SheetHandle reclasificado como componente en vitrina; ancla `ds-comp-sheet-handle`), `324` (retiro SearchPill/SearchLauncherField en vitrina + tab Explore plantilla; ds-pat-explore solo productivo), `325` (ds-pat-explore: FLOWYA + ExploreMapStatusRow; logout en tap en perfil), `326` (SearchSurfaceShowcase en ds-run-surface; chips # en fila y en cards), `327` (SearchListCard: layout tres filas; chevron en fila de título), `328` (CountriesSheet detalle país + chips + lista), `329` (Explore welcome + cold-start + persistencia países + toasts; cierre DS/bitácora), `330` (CountriesSheet medium/lista, toasts expanded, filtros 0 deshabilitados, banda inferior WR-01 + `fullWidth`, vitrina DS). Vitrina `/design-system`: TOC por anclas, taxonomía por capas, `ButtonsShowcase` + tokens (`DsSpacingSwatches` / radius / elevation), `SearchInputV2` en sección propia — ver inventario. Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
 - **En espera (cola — sin incluir el loop activo; próximo a activar uno solo al cerrar/pausar el actual):**
   1. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
   2. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
@@ -23,6 +23,7 @@
   8. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
   9. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
 - **Seguimiento (abiertos pero no “en cola” de ejecución inmediata):** `OL-SEARCHV2-EMPTY-K-ANONYMITY-001` (comportamiento aceptado con pocos usuarios); ítems búsqueda **OL-URGENT-MAKI-001** / **OL-URGENT-CLUSTER-001** marcados **abordados** en bitácora.
+- **OL-EXPLORE-COLD-START-RETIRE-001** — Monitoreo: listas **fallback** de exploración inicial (buscador vacío + sheet bienvenida) usan `lib/search/coldStartWorldRecommendations.ts` mientras `useExploreColdStartFallback` sea verdadero (bootstrap de sesión o hasta primera carga de spots). **Objetivo de salida:** cuando haya densidad suficiente de datos/listados generados por usuarios, retirar cold-start y mostrar solo fuentes UGC/RPC; definir criterios cuantitativos (ej. volumen de spots, engagement) antes del corte. Código: `MapScreenVNext` (`useExploreColdStartFallback`, `shouldShowColdStartWorldEmpty`, `welcomeExploreListItems`).
 - **Cierre de código reciente (2026-03-11):** PR #98 — lightbox en SpotSheet, ajuste de solapamiento de pin con filtro activo, plan [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Trazabilidad: bitácora `307`.
 - **Integración reciente:** contrato SpotSheet + seguridad Supabase spots (PRs #101, #99, #100). Bitácora `308`. **Migraciones críticas** `018_spots_block_client_hard_delete.sql`, `018_spots_owner_write_guardrails.sql`: **aplicadas y verificadas** en entornos objetivo (2026-04-05).
 - **Etiquetas Explore (2026-03-22):** PR #106 — `user_tags` / `pin_tags`, UI en búsqueda y sheet. Contratos `USER_TAGS_EXPLORE.md`, `SYSTEM_STATUS_TOAST.md`. Bitácora `310`. **Migraciones** `020_user_tags_pin_tags.sql`, `021_user_tags_set_user_id_trigger.sql`: **aplicadas y verificadas** en entornos objetivo (2026-04-05).
@@ -33,7 +34,7 @@
 ## Estado general (contexto)
 
 - Gates Fase 1 / Fase 2 / Fase 3 base y `OL-P2-006` / `OL-P1-003`: **cerrados** (histórico; bitácora `213` y anteriores).
-- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`.
+- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`.
 
 ---
 
@@ -94,6 +95,7 @@
 - Máxima prioridad estratégica: experiencia de búsqueda.
 - No abrir `OL-CONTENT-004/005` sin cerrar contratos y research previo.
 - No bloquear UX principal por dependencias externas.
+- **Cambios de alcance / DS / producto:** con cada ajuste cerrado, añadir entrada en `docs/bitacora/` y sincronizar este archivo (OL activo + trazabilidad).
 
 ---
 
@@ -105,7 +107,7 @@
 
 ## Proyecto: Explore shell / layout
 
-- **OL-EXPLORE-RESTRUCTURE-001** — cerrado. Explore web ya cuenta con shell inferior `input + perfil`, filtros inline superiores responsivos, `FLOWYA` secundario, badge `países | flows`, coordinación con toast/logout y trigger de países visitados desde la banda inferior. Plan: [PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md). Evidencia: bitácora `315`.
+- **OL-EXPLORE-RESTRUCTURE-001** — cerrado. Explore web ya cuenta con shell inferior `input + perfil`, filtros inline superiores responsivos, `FLOWYA` secundario, badge `países | flows`, coordinación con toast/logout y trigger de países visitados desde la banda inferior. Plan: [PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md](plans/PLAN_OL_EXPLORE_RESTRUCTURE_001_2026-03-28.md). Evidencia: bitácora `315`. Componente canónico de la pastilla `países | flows` + ajuste de anclaje de MapControls en peek: bitácora `322`.
 
 ---
 
@@ -167,6 +169,15 @@
 - Fix de arquitectura teclado/foco en Paso 0 (owner único, blur solo en apertura): bitácora `269`.
 - Ajuste visual pin default Flowya sin link (`+` y paleta base): bitácora `270`.
 - Ajuste final de label default (swap relleno/sombra): bitácora `271`.
+- Paridad Design System ↔ Mapbox (`map-pin-metrics`, tokens `mapPinSpot`, `defaultPinStyle`, contrato `MAP_PINS_CONTRACT`): bitácora `321`.
+- DS Explore: `TravelerLevelsList` / `TravelerLevelsModal` en vitrina; `ExploreCountriesFlowsPill` + `ExploreMapStatusRow`; MapControls elevados en peek para no tapar pastilla; `layer-z` FLOWYA sin hack de z sobre controles: bitácora `322`.
+- Taxonomía vitrina: `SheetHandle` en **Componentes** (no Templates); ancla `ds-comp-sheet-handle`: bitácora `323`.
+- Vitrina Explore: sin `SearchPill` / `SearchLauncherField` aislados; tab plantilla `explore` eliminado: bitácora `324`.
+- `ds-pat-explore` con FLOWYA + `ExploreMapStatusRow` y logout tras tap en perfil: bitácora `325`.
+- Vitrina **SearchSurface** (`ds-run-surface`, `SearchSurfaceShowcase`): bitácora `326`.
+- **`SearchListCard`** layout tres filas (título+chevron; contenido; meta a ancho completo): bitácora `327`.
+- **Explore welcome + cold-start + persistencia CountriesSheet + toasts**; inventario DS y contratos alineados: bitácora `329`.
+- **CountriesSheet UX + toasts + filtros + banda inferior WR-01**; vitrina `ds-pat-explore` y demo filtros con conteo 0: bitácora `330`.
 - Refactor arquitectura de capas para default no enlazado (zoom canónico sin artefactos) + contraste de contadores de filtro en light: bitácora `272`.
 - Cierre definitivo de visibilidad spots core + política Sticky Context en transiciones de filtro (sin autoswitch): bitácora `273`.
 - Follow-up visibilidad de labels para spots core `default` en filtros `saved/visited` (sin apagado al seleccionar): bitácora `274`.

@@ -1,7 +1,8 @@
 # Contrato: System Status Bar
 
-**Fuente de verdad:** [docs/definitions/SYSTEM_STATUS_BAR.md](../definitions/SYSTEM_STATUS_BAR.md)  
-**Última actualización:** 2026-02-23
+**Fuente de verdad (producto/tiempo):** [docs/definitions/SYSTEM_STATUS_BAR.md](../definitions/SYSTEM_STATUS_BAR.md)  
+**Implementación y anclaje / nativos:** [SYSTEM_STATUS_TOAST.md](./SYSTEM_STATUS_TOAST.md) — código real (`useSystemStatus`), Explore, sheet expandido.  
+**Última actualización:** 2026-02-23 (contrato); ver SYSTEM_STATUS_TOAST para reglas 2026-04.
 
 ---
 

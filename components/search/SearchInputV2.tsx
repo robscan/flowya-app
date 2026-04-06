@@ -38,6 +38,8 @@ export type SearchInputV2Props = {
   embedded?: boolean;
   onFocus?: () => void;
   onBlur?: () => void;
+  autoCorrect?: boolean;
+  autoCapitalize?: "none" | "sentences" | "words" | "characters";
 };
 
 export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function SearchInputV2(
@@ -53,6 +55,8 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
     embedded = false,
     onFocus,
     onBlur,
+    autoCorrect,
+    autoCapitalize,
   },
   ref
 ) {
@@ -92,6 +96,8 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
         selectionColor="transparent"
         onFocus={onFocus}
         onBlur={onBlur}
+        autoCorrect={autoCorrect}
+        autoCapitalize={autoCapitalize}
       />
       {clearVisible ? (
         <View style={styles.clearWrap as StyleProp<ViewStyle>}>
@@ -100,7 +106,6 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
             accessibilityLabel="Limpiar búsqueda"
             iconColor={colors.textSecondary}
             backgroundColor={colors.text}
-            variant="search"
           />
         </View>
       ) : null}

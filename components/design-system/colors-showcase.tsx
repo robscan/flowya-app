@@ -1,15 +1,15 @@
 /**
  * Design System: showcase de la paleta global de colores.
- * Light y Dark; ejemplos de uso (botones, pines).
+ * Light y Dark; cada swatch muestra valor (hex/rgba) y ruta en código (Colors.light|dark.*).
  */
 
-import { StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Spacing } from '@/constants/theme';
-import { MapPinLocation, MapPinSpot } from './map-pins';
 
-const SWATCH_SIZE = 40;
+const SWATCH_SIZE = 44;
 const SWATCH_GAP = Spacing.sm;
+const MONO = Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' });
 
 function SwatchRow({
   mode,
@@ -18,28 +18,38 @@ function SwatchRow({
   mode: 'light' | 'dark';
   tokens: { name: string; key: keyof (typeof Colors)['light'] }[];
 }) {
-  const colors = Colors[mode];
+  const palette = Colors[mode];
   const labelColor = mode === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary;
+  const codePrefix = mode === 'light' ? 'Colors.light' : 'Colors.dark';
 
   return (
     <View style={styles.swatchRow}>
-      {tokens.map(({ name, key }) => (
-        <View key={key} style={styles.swatchItem}>
-          <View
-            style={[
-              styles.swatch,
-              {
-                backgroundColor: colors[key] as string,
-                borderColor: labelColor,
-                borderWidth: key === 'background' || key === 'backgroundElevated' ? 1 : 0,
-              },
-            ]}
-          />
-          <Text style={[styles.swatchLabel, { color: labelColor }]} numberOfLines={1}>
-            {name}
-          </Text>
-        </View>
-      ))}
+      {tokens.map(({ name, key }) => {
+        const raw = palette[key] as string;
+        return (
+          <View key={key} style={styles.swatchItem}>
+            <View
+              style={[
+                styles.swatch,
+                {
+                  backgroundColor: raw,
+                  borderColor: labelColor,
+                  borderWidth: key === 'background' || key === 'backgroundElevated' ? 1 : 0,
+                },
+              ]}
+            />
+            <Text style={[styles.swatchName, { color: labelColor }]} numberOfLines={2}>
+              {name}
+            </Text>
+            <Text style={[styles.valueText, { color: labelColor }]} selectable>
+              {raw}
+            </Text>
+            <Text style={[styles.codeText, { color: labelColor }]} selectable numberOfLines={2}>
+              {`${codePrefix}.${String(key)}`}
+            </Text>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -84,15 +94,16 @@ export function ColorsShowcase() {
 
   return (
     <>
-      <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>
-        Paleta Light
+      <Text style={[styles.lede, { color: Colors.light.textSecondary }]}>
+        Fuente: <Text style={{ fontFamily: MONO }}>constants/theme.ts</Text> — objeto{' '}
+        <Text style={{ fontFamily: MONO }}>Colors.light</Text> / <Text style={{ fontFamily: MONO }}>Colors.dark</Text>;
+        cada fila muestra el valor resuelto y la ruta de la clave.
       </Text>
+      <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>Paleta Light</Text>
       <View style={[styles.modeBlock, { backgroundColor: Colors.light.background }]}>
         <SwatchRow mode="light" tokens={baseTokens} />
       </View>
-      <Text style={[styles.sectionLabel, { color: Colors.dark.textSecondary }]}>
-        Paleta Dark
-      </Text>
+      <Text style={[styles.sectionLabel, { color: Colors.dark.textSecondary }]}>Paleta Dark</Text>
       <View style={[styles.modeBlock, { backgroundColor: Colors.dark.background }]}>
         <SwatchRow mode="dark" tokens={baseTokens} />
       </View>
@@ -120,40 +131,16 @@ export function ColorsShowcase() {
       <View style={[styles.modeBlock, { backgroundColor: Colors.dark.background }]}>
         <SwatchRow mode="dark" tokens={countriesVisitedTokens} />
       </View>
-      <Text style={[styles.sectionLabel, { color: Colors.light.textSecondary }]}>
-        Uso: pines (referencian primary, text, stateToVisit, stateSuccess)
-      </Text>
-      <View style={styles.usageRow}>
-        <View style={styles.usageItem}>
-          <MapPinLocation colorScheme="light" />
-          <Text style={[styles.usageLabel, { color: Colors.light.textSecondary }]}>
-            primary
-          </Text>
-        </View>
-        <View style={styles.usageItem}>
-          <MapPinSpot status="default" colorScheme="light" />
-          <Text style={[styles.usageLabel, { color: Colors.light.textSecondary }]}>
-            text
-          </Text>
-        </View>
-        <View style={styles.usageItem}>
-          <MapPinSpot status="to_visit" colorScheme="light" />
-          <Text style={[styles.usageLabel, { color: Colors.light.textSecondary }]}>
-            stateToVisit
-          </Text>
-        </View>
-        <View style={styles.usageItem}>
-          <MapPinSpot status="visited" colorScheme="light" />
-          <Text style={[styles.usageLabel, { color: Colors.light.textSecondary }]}>
-            stateSuccess
-          </Text>
-        </View>
-      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  lede: {
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: Spacing.md,
+  },
   sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
@@ -170,8 +157,9 @@ const styles = StyleSheet.create({
     gap: SWATCH_GAP,
   },
   swatchItem: {
-    alignItems: 'center',
-    width: SWATCH_SIZE + 60,
+    width: 168,
+    alignItems: 'flex-start',
+    marginBottom: Spacing.sm,
   },
   swatch: {
     width: SWATCH_SIZE,
@@ -179,20 +167,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: Spacing.xs,
   },
-  swatchLabel: {
+  swatchName: {
     fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 2,
   },
-  usageRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.lg,
-    alignItems: 'center',
+  valueText: {
+    fontSize: 10,
+    lineHeight: 14,
+    marginBottom: 4,
   },
-  usageItem: {
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  usageLabel: {
-    fontSize: 11,
+  codeText: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontFamily: MONO,
   },
 });

@@ -33,7 +33,9 @@ import { TypographyStyles } from './typography';
 
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
-const MIN_TOUCH_TARGET = 44;
+/** Altura = contenido + padding simétrico; hitSlop refuerza el área táctil sin inflar top/bottom. */
+const PILL_COMPACT_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
+const PILL_WIDE_HIT_SLOP = { top: 6, bottom: 6, left: 4, right: 4 };
 const DEFAULT_WIDE_MIN_WIDTH = 350;
 const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
 const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
@@ -44,14 +46,17 @@ const OPTIONS: { value: MapPinFilterValue; label: string }[] = [
   { value: 'visited', label: 'Visitados' },
 ];
 
+/** Alineado a `map-pin-filter`: sin badge ni número cuando el conteo es 0. */
 function getCount(optValue: MapPinFilterValue, counts?: MapPinFilterCounts): number | undefined {
   if (optValue === 'all' || !counts) return undefined;
-  return optValue === 'saved' ? counts.saved : counts.visited;
+  const value = optValue === 'saved' ? counts.saved : counts.visited;
+  return value > 0 ? value : undefined;
 }
 
-function getFilterAccessibilityLabel(label: string, count?: number): string {
-  if (count == null) return label;
-  return `${label}, ${count} lugares`;
+function getFilterAccessibilityLabel(label: string, count?: number, disabled?: boolean): string {
+  const base = count == null ? label : `${label}, ${count} lugares`;
+  if (disabled) return `${base}. No disponible, sin lugares`;
+  return base;
 }
 
 function FilterIcon({
@@ -125,6 +130,12 @@ export function MapPinFilterInline({
     onChange(optValue);
   };
 
+  const isOptionDisabled = (optValue: MapPinFilterValue): boolean =>
+    optValue !== 'all' &&
+    counts != null &&
+    ((optValue === 'saved' && counts.saved === 0) ||
+      (optValue === 'visited' && counts.visited === 0));
+
   const pulseAnimatedStyle = useAnimatedStyle(() => ({
     transform: [{ scale: selectedScale.value }],
   }));
@@ -176,6 +187,7 @@ export function MapPinFilterInline({
       {OPTIONS.map((opt) => {
         const isSelected = value === opt.value;
         const count = getCount(opt.value, counts);
+        const isDisabled = isOptionDisabled(opt.value);
         const pillColors = isSelected ? getSelectedColors(opt.value) : getUnselectedColors();
         const label = opt.label;
         const useAllIconSizer = !showAllLabels && opt.value === 'all' && !isSelected;
@@ -183,7 +195,6 @@ export function MapPinFilterInline({
           count != null &&
           !isSelected &&
           (resolvedLayout === 'compact' || showCountBadgesInWide);
-        const isWideInactive = showAllLabels && !isSelected;
         const isCompactSelected = !showAllLabels && isSelected;
 
         const pillContent = (
@@ -192,18 +203,19 @@ export function MapPinFilterInline({
             style={({ pressed }) => [
               styles.pill,
               showAllLabels ? styles.pillWide : null,
-              isWideInactive ? styles.pillWideInactive : null,
               {
                 backgroundColor: pillColors.bg,
                 borderColor: isSelected ? pillColors.bg : pillColors.border,
-                opacity: pressed ? 0.85 : 1,
+                opacity: isDisabled ? 0.45 : pressed ? 0.85 : 1,
               },
-              Platform.OS === 'web' && { cursor: 'pointer' },
+              Platform.OS === 'web' && !isDisabled && { cursor: 'pointer' as const },
             ]}
+            hitSlop={showAllLabels ? PILL_WIDE_HIT_SLOP : PILL_COMPACT_HIT_SLOP}
+            disabled={isDisabled}
             onPress={() => handleSelect(opt.value)}
             accessibilityRole="radio"
-            accessibilityState={{ checked: isSelected }}
-            accessibilityLabel={getFilterAccessibilityLabel(label, count)}
+            accessibilityState={{ checked: isSelected, disabled: isDisabled }}
+            accessibilityLabel={getFilterAccessibilityLabel(label, count, isDisabled)}
           >
             {useAllIconSizer ? (
               <View style={styles.allIconSizer}>
@@ -218,7 +230,6 @@ export function MapPinFilterInline({
                   TypographyStyles.filterLabel,
                   isCompactSelected ? styles.labelCompactSelected : null,
                   showAllLabels ? styles.labelWide : null,
-                  isWideInactive ? styles.labelWideInactive : null,
                   { color: pillColors.text },
                 ]}
                 numberOfLines={1}
@@ -231,7 +242,6 @@ export function MapPinFilterInline({
                 style={[
                   styles.countBadge,
                   showAllLabels ? styles.countBadgeWide : null,
-                  isWideInactive ? styles.countBadgeWideInactive : null,
                   {
                     backgroundColor: countBadgeColors.background,
                     borderColor: countBadgeColors.border,
@@ -277,28 +287,25 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: 'nowrap',
   },
+  /** Mismo padding en los cuatro lados (compact y base); activo/inactivo no cambia el recuadro. */
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    minHeight: MIN_TOUCH_TARGET,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
+  /** Amplio: mismo recuadro activo / inactivo (solo cambian color y contenido). */
   pillWide: {
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 10,
   },
-  pillWideInactive: {
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
+  /** Inline amplio: mismo cuerpo tipográfico en activo e inactivo (solo cambia color de `pillColors`). */
   labelWide: {
     fontSize: 15,
     lineHeight: 19,
@@ -308,10 +315,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: -0.1,
-  },
-  labelWideInactive: {
-    fontSize: 14,
-    lineHeight: 17,
   },
   allIconSizer: {
     width: 22,
@@ -332,12 +335,6 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    paddingHorizontal: 4,
-  },
-  countBadgeWideInactive: {
-    minWidth: 17,
-    height: 17,
-    borderRadius: 8.5,
     paddingHorizontal: 4,
   },
   countBadgeText: {

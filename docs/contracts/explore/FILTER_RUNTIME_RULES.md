@@ -21,6 +21,7 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
   - si ya estaba en un filtro (`saved`/`visited`), el toast recuerda explícitamente el contexto actual.
 - MapPinFilterInline (buscador): sin subtítulos para no saturar.
 - MapPinFilter: a11y incluye intención; en futuro se evaluará comportamiento adaptativo.
+- **Toast y sheet expandido (2026-04):** el mensaje de cambio de filtro **sí** se muestra aunque SpotSheet / países / bienvenida estén en `expanded`. Posición: [`SYSTEM_STATUS_TOAST.md`](../SYSTEM_STATUS_TOAST.md) §2.2–2.3 (borde inferior del viewport; no ocultar solo por sheet expandido). Única omisión explícita: `handlePinFilterChange` con `toastMessage: ""` (p. ej. pastilla visitados → abre sheet de países) para no duplicar intención.
 
 1. **Filtros disponibles**
 - `all`, `saved`, `visited`.
@@ -87,17 +88,25 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - La excepción es de un solo spot (última mutación gana).
 - Si el spot default está enlazado a POI Mapbox, la excepción no persiste fuera de selección activa.
 
+12. **Sheet de contador de países (`CountriesSheet`, 2026-04)**
+- **Accionables (burbuja «Países» del overlay, KPI «países» y KPI «lugares» en el sheet):** no usar **`peek`** como primera posición al abrir. Snapshot persistido en `peek` se trata como **`medium`**. KPI «países» (fila resumen) lleva el sheet a **`medium`** y vuelve a la vista de lista de países (cierra detalle / listado «todos los lugares»). KPI «lugares» y la burbuja de lugares del overlay abren en **`expanded`** con listado de lugares.
+- **Cambio de filtro `Por visitar` ↔ `Visitados` con el sheet de países abierto:** se conserva el **mismo nivel** (`peek`/`medium`/`expanded`) del filtro que se deja, en lugar de restaurar solo el snapshot del filtro destino (evita saltar a un `expanded` guardado hace tiempo y refuerza sensación de **recarga** de la misma superficie). El sheet permanece **abierto** aunque el destino no tuviera `open: true` en persistencia (primera vez en ese filtro con sheet ya visible). Se limpia `countryDetail` / listado al cruzar filtros para datos coherentes con el nuevo bucket.
+
 ## Troubleshooting
 
-1. **En nativo siempre vuelve a `Todos` al reabrir**
+1. **Tras ir a `Todos` y volver a `saved`/`visited`, el sheet de contador de países no reaparece**
+- Causa histórica: carrera entre restauración de persistencia al cambiar `pinFilter` y el efecto que escribe `{ open, state }` en `countriesSheetPersistRef` con estado obsoleto (`open: false` en el primer frame).
+- Implementación: restauración en `useLayoutEffect` en `MapScreenVNext` (antes del `useEffect` de sync) para que el snapshot guardado al salir de `saved`/`visited` no se pise al volver desde `all`.
+
+2. **En nativo siempre vuelve a `Todos` al reabrir**
 - Verificar que se hidrate `mapPinFilterPreference` al montar.
 - Confirmar que la escritura de preferencia no ocurra antes de terminar la hidratación inicial.
 
-2. **`saved`/`visited` aparece vacío tras deep link o post-edit**
+3. **`saved`/`visited` aparece vacío tras deep link o post-edit**
 - Comportamiento esperado: no hay auto-switch a `all`.
 - Revisar la excepción temporal de visibilidad (`recentlyMutatedSpotId` + TTL).
 
-3. **Badges pendientes se pisan entre filtros**
+4. **Badges pendientes se pisan entre filtros**
 - Verificar persistencia como objeto completo `{ saved, visited }`, no escrituras parciales por clave.
 
 ## Core puro recomendado
@@ -112,6 +121,7 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
 ## Referencias
 
+- `docs/contracts/SYSTEM_STATUS_TOAST.md`
 - `docs/contracts/MAP_PINS_CONTRACT.md`
 - `docs/bitacora/2026/02/095-pins-por-visitar-y-map-pin-filter-dropdown.md`
 - `docs/bitacora/2026/02/175-map-pin-filter-pending-badge-position-y-focus-spot.md`
