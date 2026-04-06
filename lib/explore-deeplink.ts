@@ -4,6 +4,7 @@
  *
  * sheet=extended → post-edit (guardar): sheet más expandido.
  * sheet=medium   → compartir: sheet estado medio.
+ * Post-create usa el query `created=<uuid>` (sin estos helpers); lo arma el flujo de creación.
  */
 
 const MAP_ROUTE = "/(tabs)";

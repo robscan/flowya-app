@@ -46,10 +46,14 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Web: lectura síncrona en boot.
 - Nativo: hidratación asíncrona en mount.
 - Guardrail: en nativo no escribir la preferencia antes de completar la hidratación inicial, para no sobrescribir con default `all`.
+- APIs (`lib/storage/mapPinFilterPreference.ts`): `getMapPinFilterPreference()` (sync; web efectiva, nativo default hasta hidratar), `loadMapPinFilterPreferenceAsync()`, `setMapPinFilterPreference(next)` (best-effort, sin throw).
+- Clave de storage: `flowya_map_pin_filter_preference`.
 
 5. **Persistencia local de pendientes**
 - Pendientes se guardan localmente y sobreviven recarga/sesión local.
 - Persistencia por objeto completo `{ saved, visited }` para evitar sobrescritura parcial.
+- APIs (`lib/storage/mapPinPendingBadges.ts`): `getMapPinPendingBadges()` / `loadMapPinPendingBadgesAsync()`, `setMapPinPendingBadges({ saved, visited })`.
+- Clave de storage: `flowya_map_pin_pending_badges`.
 
 6. **Acción de reset**
 - En `saved/visited`, trigger muestra `X` para volver a `Todos`.
@@ -87,6 +91,7 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - El spot mutado reciente se mantiene visible temporalmente (TTL canónico: `10s`) para evitar desaparición percibida.
 - La excepción es de un solo spot (última mutación gana).
 - Si el spot default está enlazado a POI Mapbox, la excepción no persiste fuera de selección activa.
+- Fuente del TTL: `RECENT_MUTATION_TTL_MS = 10_000` en `core/explore/runtime/state.ts`.
 
 12. **Sheet de contador de países (`CountriesSheet`, 2026-04)**
 - **Accionables (burbuja «Países» del overlay, KPI «países» y KPI «lugares» en el sheet):** no usar **`peek`** como primera posición al abrir. Snapshot persistido en `peek` se trata como **`medium`**. KPI «países» (fila resumen) lleva el sheet a **`medium`** y vuelve a la vista de lista de países (cierra detalle / listado «todos los lugares»). KPI «lugares» y la burbuja de lugares del overlay abren en **`expanded`** con listado de lugares.
@@ -101,6 +106,7 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 2. **En nativo siempre vuelve a `Todos` al reabrir**
 - Verificar que se hidrate `mapPinFilterPreference` al montar.
 - Confirmar que la escritura de preferencia no ocurra antes de terminar la hidratación inicial.
+- Validar que `pinFilterStorageReady` pase a listo incluso si falla la lectura inicial de AsyncStorage (evita bloqueo perpetuo de sync).
 
 3. **`saved`/`visited` aparece vacío tras deep link o post-edit**
 - Comportamiento esperado: no hay auto-switch a `all`.
@@ -108,6 +114,10 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
 4. **Badges pendientes se pisan entre filtros**
 - Verificar persistencia como objeto completo `{ saved, visited }`, no escrituras parciales por clave.
+
+5. **Filtro no persiste en web (modo privado / bloqueo de storage)**
+- Comportamiento esperado: fallback en memoria cuando `localStorage` falla (`setItem` best-effort).
+- La UI no debe depender de excepciones de persistencia para reflejar el filtro visible actual.
 
 ## Core puro recomendado
 
