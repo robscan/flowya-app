@@ -7,8 +7,7 @@
 
 import { IconButton } from '@/components/design-system/icon-button';
 import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-inline';
-import { ResultRow } from '@/components/design-system/search-list-card';
-import { ActivitySummary } from '@/components/design-system/activity-summary';
+import { SearchListCard } from '@/components/design-system/search-list-card';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useState } from 'react';
@@ -74,7 +73,6 @@ export function SearchSurface<T>({
   onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
-  activitySummary,
   onClosePress,
   onScrollDismissKeyboard,
   scrollViewKeyboardDismissMode = 'on-drag',
@@ -129,6 +127,8 @@ export function SearchSurface<T>({
       }
     : {};
 
+  const showTagFilterRow = tagFilterOptions.length > 0 && onTagFilterChange != null;
+
   return (
     <View style={styles.contentWrap}>
       <View style={styles.topRow}>
@@ -150,7 +150,51 @@ export function SearchSurface<T>({
           <X size={24} color={colors.text} strokeWidth={2} />
         </IconButton>
       </View>
-      {tagFilterOptions.length > 0 && onTagFilterChange != null ? (
+      <View
+        style={[
+          styles.searchRow,
+          { marginBottom: showTagFilterRow ? Spacing.sm : Spacing.md },
+        ]}
+      >
+        <View
+          style={[
+            styles.searchPill,
+            {
+              backgroundColor: colors.background,
+              borderColor: searchInputFocused ? colors.tint : colors.border,
+              borderWidth: searchInputFocused ? 2 : 1,
+            },
+          ]}
+          accessibilityRole="search"
+        >
+          <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+          <SearchInputV2
+            value={controller.query}
+            onChangeText={controller.setQuery}
+            onClear={controller.clear}
+            placeholder={searchPlaceholder}
+            placeholderTextColor={searchPlaceholderColor}
+            autoFocus
+            embedded
+            accessibilityLabel={
+              pinFilter === 'saved'
+                ? 'Buscar en tus lugares por visitar'
+                : pinFilter === 'visited'
+                  ? 'Buscar en tus lugares visitados'
+                  : 'Buscar en el mapa'
+            }
+            onFocus={() => {
+              setSearchInputFocused(true);
+              onInputFocus?.();
+            }}
+            onBlur={() => {
+              setSearchInputFocused(false);
+              onInputBlur?.();
+            }}
+          />
+        </View>
+      </View>
+      {showTagFilterRow ? (
         <View style={styles.tagFilterRow}>
           <View style={styles.tagFilterScrollWrap}>
             <ScrollView
@@ -282,56 +326,6 @@ export function SearchSurface<T>({
           ) : null}
         </View>
       ) : null}
-      <View style={styles.searchRow}>
-        <View
-          style={[
-            styles.searchPill,
-            {
-              backgroundColor: colors.background,
-              borderColor: searchInputFocused ? colors.tint : colors.border,
-              borderWidth: searchInputFocused ? 2 : 1,
-            },
-          ]}
-          accessibilityRole="search"
-        >
-          <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-          <SearchInputV2
-            value={controller.query}
-            onChangeText={controller.setQuery}
-            onClear={controller.clear}
-            placeholder={searchPlaceholder}
-            placeholderTextColor={searchPlaceholderColor}
-            autoFocus
-            embedded
-            accessibilityLabel={
-              pinFilter === 'saved'
-                ? 'Buscar en tus lugares por visitar'
-                : pinFilter === 'visited'
-                  ? 'Buscar en tus lugares visitados'
-                  : 'Buscar en el mapa'
-            }
-            onFocus={() => {
-              setSearchInputFocused(true);
-              onInputFocus?.();
-            }}
-            onBlur={() => {
-              setSearchInputFocused(false);
-              onInputBlur?.();
-            }}
-          />
-        </View>
-      </View>
-      {activitySummary?.isVisible ? (
-        <View style={styles.activitySummaryWrap}>
-          <ActivitySummary
-            visitedPlacesCount={activitySummary.visitedPlacesCount}
-            pendingPlacesCount={activitySummary.pendingPlacesCount}
-            visitedCountriesCount={activitySummary.visitedCountriesCount}
-            isLoading={activitySummary.isLoading}
-            mode="countries-only"
-          />
-        </View>
-      ) : null}
       <View style={styles.resultsArea}>
         {!shouldRenderResultsOnEmpty &&
         isEmpty &&
@@ -453,7 +447,7 @@ export function SearchSurface<T>({
                   </Text>
                   <View style={styles.cardsList}>
                     {placeSuggestions.slice(0, 3).map((place) => (
-                      <ResultRow
+                      <SearchListCard
                         key={place.id}
                         title={place.name}
                         subtitle={place.fullName}
@@ -495,7 +489,7 @@ export function SearchSurface<T>({
                   </Text>
                   <View style={styles.cardsList}>
                     {placeSuggestions.map((place) => (
-                      <ResultRow
+                      <SearchListCard
                         key={place.id}
                         title={place.name}
                         subtitle={place.fullName}
@@ -547,11 +541,12 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  /** Debajo de SearchInputV2; separa chips del listado (OL-WEB-RESPONSIVE-001). */
   tagFilterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
     maxHeight: 48,
     minHeight: 40,
   },
@@ -628,11 +623,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   searchRow: {
-    marginBottom: Spacing.md,
-    flexShrink: 0,
-  },
-  activitySummaryWrap: {
-    marginBottom: Spacing.sm,
     flexShrink: 0,
   },
   searchPill: {

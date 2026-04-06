@@ -18,6 +18,8 @@ export type ExploreSearchActionRowProps = {
   onLogoutPress?: () => void;
   profileAccessibilityLabel?: string;
   logoutPopoverBottomOffset?: number;
+  /** Sin tope de ancho (p. ej. sheet de Explorar); por defecto la fila flotante limita a 520px. */
+  fullWidth?: boolean;
 };
 
 export function ExploreSearchActionRow({
@@ -30,6 +32,7 @@ export function ExploreSearchActionRow({
   onLogoutPress,
   profileAccessibilityLabel = 'Cuenta',
   logoutPopoverBottomOffset = 52,
+  fullWidth = false,
 }: ExploreSearchActionRowProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -41,6 +44,7 @@ export function ExploreSearchActionRow({
     <View
       style={[
         styles.row,
+        !fullWidth && styles.rowCappedWidth,
         {
           backgroundColor: containerBackground,
           borderColor: containerBorder,
@@ -85,13 +89,16 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'stretch',
     gap: Spacing.xs,
     width: '100%',
-    maxWidth: 520,
     padding: 8,
     borderRadius: Radius.pill,
     borderWidth: 1,
     ...Shadow.subtle,
+  },
+  rowCappedWidth: {
+    maxWidth: 520,
   },
   profileWrap: {
     position: 'relative',

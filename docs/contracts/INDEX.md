@@ -15,7 +15,7 @@
 - **DESIGN_SYSTEM_USAGE.md** — Uso de componentes canónicos en Explore/Edit Spot; inventario mínimo vigente y matriz de deprecación.
 - **DATA_MODEL_CURRENT.md** — Modelo de datos vigente (referencia operativa).
 - **PROFILE_AUTH_CONTRACT_CURRENT.md** — Contrato de autenticación/perfil (referencia operativa).
-- **MAP_PINS_CONTRACT.md** — Map pins: tamaños, jerarquía de capas (ubicación > seleccionado > resto), animaciones.
+- **MAP_PINS_CONTRACT.md** — Map pins: fuentes de verdad (`mapPinSpot`, `map-pin-metrics`, `spots-layer`), paridad DS ↔ Mapbox, `MAP_PIN_SIZES`, `defaultPinStyle`, animaciones, reglas anti-regresión (bitácora 321).
 - **KEYBOARD_AND_TEXT_INPUTS.md** — Teclado y campos de texto: foco/teclado, CTA sticky sobre teclado, scroll cierra teclado.
 - **RECORDAR_ENTRY_SPOT_SHEET.md** — Entry "Mi diario" en SpotSheet: condición (saved/visited), layout (dos botones en fila responsiva), accesibilidad.
 - **CREATE_SPOT_LONG_PRESS.md** — Reglas long-press para create spot: solo un dedo, 3s, umbral arrastre 10px, multi-touch cancela.

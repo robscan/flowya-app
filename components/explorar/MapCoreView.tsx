@@ -133,6 +133,7 @@ export function MapCoreView({
               <MapPinSpot
                 status={previewStatus}
                 selected
+                defaultPinStyle={previewStatus === 'default' ? 'flowya_unlinked' : undefined}
                 label={previewPinLabel?.trim() || undefined}
               />
             </View>

@@ -17,7 +17,6 @@ export type SearchLauncherFieldProps = {
 };
 
 const MAP_BG = '#ffffff';
-const MAP_TEXT = '#1d1d1f';
 const MAP_BORDER = 'rgba(0, 0, 0, 0.08)';
 const MAP_BG_PRESSED = 'rgba(255,255,255,0.92)';
 

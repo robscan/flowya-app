@@ -37,7 +37,9 @@ import { MapPinFilterMenuOption } from './map-pin-filter-menu-option';
 const DROPDOWN_DURATION_MS = 200;
 const DROPDOWN_EASING = Easing.out(Easing.cubic);
 const PULSE_DURATION_MS = 120;
-const MIN_TOUCH_TARGET = 44;
+/** Padding simétrico en trigger y menú; hitSlop refuerza táctil sin minHeight. */
+const TRIGGER_HIT_SLOP = { top: 6, bottom: 6, left: 4, right: 4 } as const;
+const MENU_OPTION_HIT_SLOP = { top: 4, bottom: 4, left: 2, right: 2 } as const;
 const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
 const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
 
@@ -257,6 +259,7 @@ export function MapPinFilter({
               },
               Platform.OS === 'web' && { cursor: 'pointer' },
             ]}
+            hitSlop={TRIGGER_HIT_SLOP}
             onPress={() => {
               setOpen((o) => {
                 const next = !o;
@@ -321,7 +324,6 @@ export function MapPinFilter({
               accessibilityLabel="Volver a Todos"
               iconColor={colors.pin.outline}
               backgroundColor={selectedColors.bg}
-              variant="filter"
             />
           ) : null}
         </View>
@@ -419,6 +421,7 @@ export function MapPinFilter({
                     ? ([{ cursor: isDisabled ? ('auto' as const) : ('pointer' as const) }] as const)
                     : ([] as const)),
                 ]}
+                hitSlop={MENU_OPTION_HIT_SLOP}
                 disabled={isDisabled}
                 onPress={() => handleSelect(opt.value)}
                 accessibilityRole="menuitem"
@@ -471,9 +474,8 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     gap: Spacing.sm,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    minHeight: MIN_TOUCH_TARGET,
     borderRadius: Radius.pill,
     borderWidth: 1,
   },
@@ -494,13 +496,15 @@ const styles = StyleSheet.create({
   },
   menu: {
     alignSelf: 'center',
+    alignItems: 'stretch',
     borderRadius: Radius.lg,
     borderWidth: 1,
     overflow: 'hidden',
   },
   menuOption: {
-    minHeight: MIN_TOUCH_TARGET,
-    paddingVertical: Spacing.sm,
+    width: '100%',
+    alignSelf: 'stretch',
+    paddingVertical: Spacing.base,
     paddingHorizontal: Spacing.base,
     justifyContent: 'center',
   },

@@ -1,6 +1,6 @@
 # DESIGN_SYSTEM_USAGE — Canon operativo (Explore + Edit Spot)
 
-**Fecha:** 2026-02-26
+**Fecha:** 2026-04-05 (actualización: shells Explore `ExploreWelcomeSheet` / `CountriesSheet` documentados en inventario DS 2026-04 y bitácora `329`)
 
 **Fuentes de verdad:**
 - Runtime Explore: `components/explorar/MapScreenVNext.tsx`
@@ -33,6 +33,8 @@ Cualquier UI fuera de ese alcance se considera candidata a deprecación hasta nu
 - `SearchListCard`
 - `SheetHandle`
 - `SpotSheet`
+
+**Shells de pantalla (no barrel DS):** `ExploreWelcomeSheet` y `CountriesSheet` viven en `components/explorar/` y componen primitivas del barrel (`ExploreSearchActionRow`, `SheetHandle`, `SearchResultCard` → `SearchListCard`, KPI/lista países). No duplicar patrones de lista: reutilizar `SearchListCard` y tokens de `theme.ts`. Inventario: `docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md` (sección runtime Explore).
 
 ### Edit Spot
 - `IconButton`
@@ -191,10 +193,18 @@ Regla:
 
 Componente canónico: `components/design-system/search-list-card.tsx`
 
+Estructura vertical de la **columna de texto** (el chevron va solo en la primera fila, no como columna fija a la derecha de todo el bloque):
+
+1. **Fila título:** título + icono de navegación (chevron) a la derecha en la misma fila.
+2. **Fila contenido:** subtítulo o CTA de nota breve.
+3. **Fila meta:** distancia + micro-señales (estado pin, landmark, `#tags`, Etiquetar) en un cluster con wrap según ancho.
+
+Así, subtítulo y meta usan el ancho disponible junto a la media sin reservar hueco de chevron en las filas 2 y 3.
+
 Reglas de layout:
 - Con imagen: media integrada al borde izquierdo (sin padding superior/inferior/izquierdo de la card).
 - Sin imagen: placeholder accionable en el slot de media ("Agregar imagen").
-- Sin descripción corta (visitados): CTA inline en slot de subtítulo ("Agregar una descripción corta.").
+- Sin descripción corta (visitados): CTA inline en slot de subtítulo ("Escribe una nota personal breve.").
 - El contenedor de texto debe soportar crecimiento vertical (sin clipping con textos largos).
 
 Reglas tipográficas:

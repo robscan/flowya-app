@@ -33,7 +33,9 @@ import { TypographyStyles } from './typography';
 
 const PULSE_DURATION_MS = 120;
 const PULSE_EASING = Easing.out(Easing.cubic);
-const MIN_TOUCH_TARGET = 44;
+/** Altura = contenido + padding simétrico; hitSlop refuerza el área táctil sin inflar top/bottom. */
+const PILL_COMPACT_HIT_SLOP = { top: 8, bottom: 8, left: 4, right: 4 };
+const PILL_WIDE_HIT_SLOP = { top: 6, bottom: 6, left: 4, right: 4 };
 const DEFAULT_WIDE_MIN_WIDTH = 350;
 const FILTER_SELECTED_TO_VISIT = Colors.dark.stateToVisit;
 const FILTER_SELECTED_VISITED = Colors.dark.stateSuccess;
@@ -183,7 +185,6 @@ export function MapPinFilterInline({
           count != null &&
           !isSelected &&
           (resolvedLayout === 'compact' || showCountBadgesInWide);
-        const isWideInactive = showAllLabels && !isSelected;
         const isCompactSelected = !showAllLabels && isSelected;
 
         const pillContent = (
@@ -192,7 +193,6 @@ export function MapPinFilterInline({
             style={({ pressed }) => [
               styles.pill,
               showAllLabels ? styles.pillWide : null,
-              isWideInactive ? styles.pillWideInactive : null,
               {
                 backgroundColor: pillColors.bg,
                 borderColor: isSelected ? pillColors.bg : pillColors.border,
@@ -200,6 +200,7 @@ export function MapPinFilterInline({
               },
               Platform.OS === 'web' && { cursor: 'pointer' },
             ]}
+            hitSlop={showAllLabels ? PILL_WIDE_HIT_SLOP : PILL_COMPACT_HIT_SLOP}
             onPress={() => handleSelect(opt.value)}
             accessibilityRole="radio"
             accessibilityState={{ checked: isSelected }}
@@ -218,7 +219,6 @@ export function MapPinFilterInline({
                   TypographyStyles.filterLabel,
                   isCompactSelected ? styles.labelCompactSelected : null,
                   showAllLabels ? styles.labelWide : null,
-                  isWideInactive ? styles.labelWideInactive : null,
                   { color: pillColors.text },
                 ]}
                 numberOfLines={1}
@@ -231,7 +231,6 @@ export function MapPinFilterInline({
                 style={[
                   styles.countBadge,
                   showAllLabels ? styles.countBadgeWide : null,
-                  isWideInactive ? styles.countBadgeWideInactive : null,
                   {
                     backgroundColor: countBadgeColors.background,
                     borderColor: countBadgeColors.border,
@@ -277,28 +276,25 @@ const styles = StyleSheet.create({
     gap: 6,
     flexWrap: 'nowrap',
   },
+  /** Mismo padding en los cuatro lados (compact y base); activo/inactivo no cambia el recuadro. */
   pill: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: Spacing.xs,
-    minHeight: MIN_TOUCH_TARGET,
-    paddingVertical: Spacing.xs,
+    paddingVertical: Spacing.sm,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.pill,
     borderWidth: 1,
     alignSelf: 'flex-start',
   },
+  /** Amplio: mismo recuadro activo / inactivo (solo cambian color y contenido). */
   pillWide: {
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 10,
   },
-  pillWideInactive: {
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
+  /** Inline amplio: mismo cuerpo tipográfico en activo e inactivo (solo cambia color de `pillColors`). */
   labelWide: {
     fontSize: 15,
     lineHeight: 19,
@@ -308,10 +304,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     letterSpacing: -0.1,
-  },
-  labelWideInactive: {
-    fontSize: 14,
-    lineHeight: 17,
   },
   allIconSizer: {
     width: 22,
@@ -332,12 +324,6 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    paddingHorizontal: 4,
-  },
-  countBadgeWideInactive: {
-    minWidth: 17,
-    height: 17,
-    borderRadius: 8.5,
     paddingHorizontal: 4,
   },
   countBadgeText: {

@@ -101,7 +101,7 @@ Props relevantes: `label`, `showHash` (default `true` → muestra `#nombre`), `o
 
 ## 6) Cards de resultado (`SearchListCard`)
 
-- `tagChips`: array `{ id, label }` — se muestran como chips compactos en la fila de señales (junto a distancia, landmark, estado pin).
+- `tagChips`: array `{ id, label }` — se muestran como chips compactos en la **tercera fila** del card (fila de señales / meta), junto a distancia, landmark y estado pin; no en la misma fila que el título.
 - Quick action `kind: 'add_tag'` — CTA «Etiquetar» alineada con listados; debe coordinarse con `suppressCardPress` (ventana ~650 ms) para no disparar `onPress` de la fila.
 
 ---

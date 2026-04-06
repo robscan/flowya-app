@@ -1,121 +1,102 @@
 # MAP_PINS_CONTRACT — Contrato de map pins (Explorar)
 
-**Fuentes de verdad:** `components/design-system/map-pins.tsx`, `components/explorar/MapCoreView.tsx`, `lib/map-core/spots-layer.ts`, `app/design-system.web.tsx`.
+**Fuentes de verdad (orden de lectura):**
+
+1. `constants/theme.ts` → `Colors.*.mapPinSpot` (radios, trazos, `default.*` para fill/stroke/label/plus, `makiIconSize`, etc.).
+2. `lib/map-core/map-pin-metrics.ts` — fórmulas compartidas (círculos vs sprite compuesto); debe coincidir con `spots-layer` y `pin-status-images`.
+3. `lib/map-core/spots-layer.ts` — pintura de capas Mapbox (`circle`, `DEFAULT_PLUS_*`, `PINS_SAVED_VISITED`, labels).
+4. `lib/map-core/pin-status-images.ts` — bitmaps `FLOWYA_PIN_*`; colores desde `mapPinSpotPalette`, sin hex duplicados.
+5. `components/design-system/map-pins.tsx` — `MapPinSpot`, `MapPinLocation`, vitrina; **paridad obligatoria** con lo anterior.
+6. `components/explorar/MapCoreView.tsx` — markers React (preview, usuario).
+7. `app/design-system.web.tsx` — sección Map pins.
+
+**Anti-regresión:** si el DS y el mapa divergen, casi siempre alguien usó `pin.default` / `pin.outline` para un pin en mapa. Los pins **default** en mapa usan **`mapPinSpot.default.*`**, no `pin.*` (salvo estados `to_visit`/`visited`, donde el relleno sigue `pin.planned` / `pin.visited` alineados al theme). Detalle en bitácora **321**.
 
 ---
 
-## 1) Tamaños (MAP_PIN_SIZES)
+## 1) Tamaños (`MAP_PIN_SIZES`, light)
 
-| Constante | Valor | Uso |
-|-----------|-------|-----|
-| `SPOT_PIN_SIZE` | 14 | Nivel 2 — reposo (spots no seleccionados) |
-| `SPOT_PIN_SELECTED_SIZE` | 32 | Nivel 1 — protagonista (spot seleccionado) |
-| `SPOT_PIN_ICON_SIZE` | 18 | Icono dentro del pin seleccionado (to_visit/visited) |
-| `SPOT_PIN_STROKE` | 2 | Borde en reposo |
-| `SPOT_PIN_SELECTED_STROKE` | 3 | Borde en seleccionado |
-| `LOCATION_PIN_SIZE` | 14 | Pin de ubicación del usuario |
+Valores derivados de `Colors.light.mapPinSpot` y `getCompositePinMetrics` / `getUserLocationPinSize` — ver export en `map-pins.tsx`.
 
-Export: `MAP_PIN_SIZES` en `map-pins.tsx` para anchor/consumidores externos.
+| Clave | Significado |
+|-------|-------------|
+| `location` | Punto usuario (`getUserLocationPinSize`) |
+| `spot` / `spotSelected` | Diámetro círculo default (unselected / selected radius × 2) |
+| `spotSavedRestOuter` / `spotSavedSelectedOuter` | Caja sprite guardados (por visitar/visitado) |
+| `spotSavedRestDisc` / `spotSavedSelectedDisc` | Disco visible compuesto |
+| `creating` / `existing` | Create spot (Scope G) |
+
+No usar números mágicos en componentes nuevos: preferir tokens o `map-pin-metrics`.
 
 ---
 
 ## 2) Jerarquía de capas (stacking)
 
-En `MapCoreView` actual:
+En `MapCoreView`:
 
-1. **Spots** se renderizan como `SymbolLayer` nativa (no Marker DOM), gestionados en `useMapCore`.
-2. **Ubicación del usuario** se renderiza como Marker React.
-3. **Preview temporal** (draft/POI/Landmark) se renderiza como Marker React.
-
-Regla práctica: la señal temporal de preview y la ubicación de usuario deben quedar visualmente por encima del contexto base.
+1. **Spots** en mapa: capas nativas Mapbox (`useMapCore` / `spots-layer`), no Marker DOM.
+2. **Ubicación del usuario** — Marker React + `MapPinLocation`.
+3. **Preview** (crear spot, etc.) — Marker React + `MapPinSpot` (`defaultPinStyle="flowya_unlinked"` cuando `status === 'default'` para paridad con capas `DEFAULT_PLUS_*`).
 
 ---
 
-## 3) Animaciones MapPinSpot
+## 3) `MapPinSpot` — reglas de paridad
+
+| Estado | Modelo visual | Tokens / notas |
+|--------|----------------|-----------------|
+| `default` + `plain` | Solo círculo | `mapPinSpot.default.fill`, borde `default.stroke` → `selected.defaultStroke` si `selected` |
+| `default` + `flowya_unlinked` | Círculo + «+» | Mismo relleno/borde; «+» con `default.plusText`, `plusHalo`, tamaños `unselected/selected.plusTextSize` |
+| `to_visit` / `visited` | Sprite compuesto | `getCompositePinMetrics`; icono Pin/Check siempre visible (como bitmap Mapbox) |
+
+**Labels:** con `status === 'default'`, texto bajo pin con `default.labelText` y halo `default.labelHalo` (bitácora 271). Otros estados: estilo reforzado según implementación actual en `map-pins.tsx`.
+
+---
+
+## 4) Animaciones (`MapPinSpot`)
 
 | Transición | Duración | Easing |
 |------------|----------|--------|
-| selected ↔ unselected (size 12↔36) | 200 ms | Easing.out(Easing.cubic) |
-| Hover (scale 1.08x, solo reposo) | 100 ms | idem |
-| Press (scale 0.95x, solo reposo) | 100 ms | idem |
-| Icono fade-in al seleccionar | 200 ms (con selected) | idem |
+| selected ↔ unselected (tamaño círculo / compuesto) | 200 ms | `Easing.out(Easing.cubic)` |
+| Hover (scale ~1.08, solo reposo) | 100 ms | idem |
+| Press (scale ~0.95, solo reposo) | 100 ms | idem |
 
 ---
 
-## 4) Componentes
+## 5) Componentes auxiliares
 
-- **MapPinSpot:** Spot en mapa; props `status`, `label`, `selected`, `colorScheme`.
-- **MapPinLocation:** Ubicación del usuario; círculo azul.
-- **MapPinCreating / MapPinExisting:** Create Spot (Scope G); 20px y 10px respectivamente.
+- **MapPinLocation** — `getUserLocationPinSize`.
+- **MapPinCreating / MapPinExisting** — Create Spot; proporciones desde `mapPinSpot` donde aplica.
 
-### Preview temporal en mapa (MapCoreView)
+### Preview en `MapCoreView`
 
-`MapCoreView` usa `MapPinSpot` como preview canónico para selección temporal (`draft`, `POI`, `landmark`).
-
-Estado visual temporal:
-
-- `previewPinState="default"`
-- `previewPinState="to_visit"` (accent naranja para feedback de acción)
-- `previewPinState="visited"` (accent verde para feedback de acción)
+- `previewPinState` y `MapPinSpot` con `defaultPinStyle` acorde a `status` (ver código).
 
 ---
 
-## 5) Guía canónica para texto en mapa (labels)
+## 6) Imágenes Mapbox (`FLOWYA_PIN_*`)
 
-### 5.1 Fuente visual del texto
-- Labels de spots persistidos: `lib/map-core/spots-layer.ts` (`flowya-spots-labels`).
-- Label de preview: `MapPinSpot` solo cuando aplica (ej. draft). En selección POI se evita competir con labels del mapa.
-
-### 5.2 Regla de tipografía
-- `default`: tipografía base Mapbox (`MAPBOX_LABEL_STYLE_*`).
-- `to_visit` / `visited`: un solo estilo reforzado (bold), mismo para ambos estados.
-- No mezclar pesos distintos por estado si no hay contrato explícito.
-
-### 5.3 Regla de separación pin↔texto
-- El `text-offset` debe ser dinámico:
-  - pin seleccionado (más grande) => mayor offset;
-  - pin no seleccionado => menor offset.
-- Objetivo: evitar empalme visual cuando el pin escala al seleccionar.
-
-### 5.4 Sombra/halo
-- Usar halo suave para `to_visit/visited` (legibilidad), no sombra dura.
-- `default` mantiene halo base de Mapbox.
-
-### 5.5 Regla de cambios
-- Si se modifica tipografía/gap/sombra de labels en mapa:
-  - actualizar `spots-layer` en rama de creación y rama de actualización (cuando capa ya existe),
-  - validar en dark/light,
-  - validar `default / to_visit / visited` con zoom in/out.
+- Registro: `style-image-fallback` + `installStyleImageFallback(map, { mapPinPalette })` con paleta light/dark según `isDarkStyle` (`useMapCore`).
+- Al cambiar tema del mapa, las imágenes se regeneran desde `palette`.
 
 ---
 
-## 6) Referencias
+## 7) Guía labels en mapa (spots-layer)
 
-- Bitácora 096: tamaños, animaciones, z-index.
-- Bitácora 095: MapPinFilter dropdown.
-- Bitácora 010: estados visuales spot (selected solo para tamaño).
-- Bitácora 121: preview diferenciado POI/Landmark + rollback/toasts.
-- DESIGN_SYSTEM_USAGE: componentes canónicos.
+- `text-offset` / `text-size` dinámicos según `selected` y `mapPinSpot` (ver `spots-layer`).
+- Cambios en labels: actualizar **tanto** `spots-layer` como, si aplica, labels en `MapPinSpot` para default.
 
 ---
 
-## 7) Reglas de visibilidad linking (Track A)
+## 8) Referencias históricas
 
-- Si `link_status=linked` y `saved=false` y `visited=false`, el pin FLOWYA puede ocultarse detrás de flag.
-- Guardrail QA 2026-02-25: ocultamiento `linked+unsaved` solo aplica si landmarks base están habilitados (`ff_map_landmark_labels=ON`).
-- Guardrail UX 2026-03-01: en filtro `all` (sin filtro activo), **no ocultar** spots `linked+unsaved`; deben permanecer visibles en estado inactivo para evitar desaparición percibida.
-- El ocultamiento `linked+unsaved` queda restringido a filtros activos (`saved`/`visited`) cuando aplica la regla de ruido visual.
-- `uncertain` y `unlinked` nunca se ocultan automáticamente.
-- Guardrail de seguridad: no ocultar un spot `linked+unsaved` si no existe `linked_place_id` válido.
-- Cuando hay `saved` o `visited`, el pin FLOWYA siempre se mantiene visible.
+- **096** — tamaños, animaciones.  
+- **095** — MapPinFilter.  
+- **268–271** — default Flowya sin POI, color, label.  
+- **305** — pins por visitar / visitados compuestos.  
+- **321** — paridad DS ↔ Mapbox, `map-pin-metrics`, contrato unificado.
 
-## 8) Zoom y excepción `forceVisible` (Track A, 2026-03-02)
+---
 
-- `default` no enlazado usa comportamiento tipo POI:
-  - visible por zoom desde `DEFAULT_UNLINKED_MIN_ZOOM = 13`.
-- Excepción canónica para continuidad post-acción:
-  - `SpotForLayer.forceVisible=true` permite bypass temporal del gating de zoom.
-  - Se aplica solo a selección activa o spot mutado reciente.
-- Alcance y límites:
-  - máximo 1 spot mutado reciente (TTL `10s`) + selección activa;
-  - no convertir en visibilidad persistente para defaults enlazados a POI cuando no están seleccionados.
+## 9) Reglas de visibilidad linking (Track A)
+
+- Ver secciones 7–8 del contrato anterior: filtros `all` / `saved` / `visited`, `forceVisible`, zoom mínimo default unlinked (`DEFAULT_UNLINKED_MIN_ZOOM`), etc. La lógica de producto no cambia por la paridad visual; solo se documenta aquí que los **colores** del pin default visible siguen `mapPinSpot.default`.

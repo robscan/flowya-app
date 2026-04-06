@@ -1,19 +1,24 @@
-import { CountriesMapPreview } from "@/components/explorar/CountriesMapPreview";
+import { CountriesMapPreview } from "@/components/design-system/countries-map-preview";
+import { CountriesSheetCountryList } from "@/components/design-system/countries-sheet-country-list";
+import { CountriesSheetKpiRow } from "@/components/design-system/countries-sheet-kpi-row";
+import { CountriesSheetVisitedProgress } from "@/components/design-system/countries-sheet-visited-progress";
+import type { SearchResultCardProps } from "@/components/design-system/search-result-card";
+import type {
+  CountriesSheetListDetail,
+  CountriesSheetState,
+  CountrySheetItem,
+} from "@/components/design-system/countries-sheet-types";
+import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { ChevronDown } from "lucide-react-native";
+import { Colors, Elevation, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import {
-  TRAVELER_LEVELS,
-  computeTravelerPoints,
-  formatTravelerLevelPointsRange,
-  resolveTravelerLevelByPoints,
-} from "@/lib/traveler-levels";
-import { List, X } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
-  Modal,
+  FlatList,
   Platform,
   Pressable,
   ScrollView,
@@ -22,12 +27,9 @@ import {
   useWindowDimensions,
   View,
   type LayoutChangeEvent,
+  type ViewStyle,
 } from "react-native";
-import {
-  WEB_MODAL_CARD_MAX_WIDTH,
-  WEB_SHEET_MAX_WIDTH,
-  webSearchUsesConstrainedPanelWidth,
-} from "@/lib/web-layout";
+import { WEB_SHEET_MAX_WIDTH, webSearchUsesConstrainedPanelWidth } from "@/lib/web-layout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -43,13 +45,11 @@ import {
   resolveNextSheetStateFromGesture,
 } from "@/components/explorar/spot-sheet/sheet-logic";
 
-export type CountriesSheetState = "peek" | "medium" | "expanded";
-
-export type CountrySheetItem = {
-  key: string;
-  label: string;
-  count: number;
-};
+export type {
+  CountriesSheetListDetail,
+  CountriesSheetState,
+  CountrySheetItem,
+} from "@/components/design-system/countries-sheet-types";
 
 type CountriesSheetProps = {
   visible: boolean;
@@ -75,6 +75,15 @@ type CountriesSheetProps = {
     countryCode: string,
     bounds: [[number, number], [number, number]],
   ) => void;
+  countryDetail?: CountriesSheetListDetail | null;
+  onCountryDetailBack?: () => void;
+  countryDetailSpots?: SearchResultCardProps["spot"][];
+  renderCountryDetailItem?: (spot: SearchResultCardProps["spot"]) => React.ReactNode;
+  countryDetailTagFilterOptions?: { id: string; name: string; count: number }[];
+  selectedCountryDetailTagFilterId?: string | null;
+  onCountryDetailTagFilterChange?: (tagId: string | null) => void;
+  /** Listado de lugares: desde el menú del título, volver a `all_places` o cambiar de país. */
+  onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
 };
 
 const SHEET_PEEK_HEIGHT = 96;
@@ -91,6 +100,18 @@ const MAP_PREVIEW_HEIGHT = 172;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 const PROGRESS_BLOCK_HEIGHT = 62;
+const DETAIL_TAG_ROW_HEIGHT = 52;
+const DETAIL_LIST_MIN_HEIGHT = 240;
+const PLACES_SCOPE_MENU_MAX_HEIGHT = 380;
+const PLACES_SCOPE_MENU_ENTRANCE_MS = 280;
+/** Entrada de listas (países / lugares) en expanded: fade + slide suave. */
+const LIST_ENTRANCE_MS = 300;
+
+/** Web: evita selección de texto en chips (alineado a SearchSurface). */
+const webTagChipNoSelect =
+  Platform.OS === "web"
+    ? ({ userSelect: "none", WebkitUserSelect: "none" } as const)
+    : null;
 
 export function CountriesSheet({
   visible,
@@ -113,10 +134,40 @@ export function CountriesSheet({
   onSheetHeightChange,
   onMapSnapshotChange,
   onMapCountryPress,
+  countryDetail = null,
+  onCountryDetailBack,
+  countryDetailSpots = [],
+  renderCountryDetailItem,
+  countryDetailTagFilterOptions = [],
+  selectedCountryDetailTagFilterId = null,
+  onCountryDetailTagFilterChange,
+  onPlacesListScopeChange,
 }: CountriesSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceColorScheme = useColorScheme();
   const activeScheme = forceColorScheme ?? (deviceColorScheme === "dark" ? "dark" : "light");
+  const listViewHeaderTitle = useMemo(() => {
+    if (countryDetail == null) return title;
+    if (countryDetail.kind === "country") return countryDetail.label;
+    return "Todos";
+  }, [countryDetail, title]);
+
+  const showPlacesScopeDropdown =
+    countryDetail?.kind === "all_places" || countryDetail?.kind === "country";
+
+  const handlePlacesScopeSelectTodos = useCallback(() => {
+    onPlacesListScopeChange?.({ kind: "all_places" });
+    setPlacesScopeMenuOpen(false);
+  }, [onPlacesListScopeChange]);
+
+  const handlePlacesScopeSelectCountry = useCallback(
+    (item: CountrySheetItem) => {
+      onItemPress(item);
+      setPlacesScopeMenuOpen(false);
+    },
+    [onItemPress],
+  );
+
   const colors = useMemo(() => {
     const base = Colors[activeScheme];
     const panelOverrides =
@@ -147,8 +198,42 @@ export function CountriesSheet({
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [summaryHeight, setSummaryHeight] = useState(0);
   const [showLevelsModal, setShowLevelsModal] = useState(false);
-  const [levelsViewportHeight, setLevelsViewportHeight] = useState(0);
-  const [levelsContentHeight, setLevelsContentHeight] = useState(0);
+  const [placesScopeMenuOpen, setPlacesScopeMenuOpen] = useState(false);
+
+  const isCountryDetailMode = countryDetail != null;
+  const showDetailTagRow =
+    isCountryDetailMode &&
+    countryDetailTagFilterOptions.length > 0 &&
+    onCountryDetailTagFilterChange != null;
+
+  useEffect(() => {
+    if (countryDetail != null) setSummaryHeight(0);
+  }, [countryDetail]);
+
+  useEffect(() => {
+    if (!visible || countryDetail == null) {
+      setPlacesScopeMenuOpen(false);
+    }
+  }, [visible, countryDetail]);
+
+  const placesScopeMenuEntrance = useSharedValue(0);
+  const placesScopeMenuEntranceAnimatedStyle = useAnimatedStyle(() => {
+    const t = placesScopeMenuEntrance.value;
+    return {
+      opacity: t,
+      transform: [{ translateY: (1 - t) * -12 }],
+    };
+  });
+
+  useEffect(() => {
+    if (showPlacesScopeDropdown && placesScopeMenuOpen) {
+      placesScopeMenuEntrance.value = 0;
+      placesScopeMenuEntrance.value = withTiming(1, {
+        duration: PLACES_SCOPE_MENU_ENTRANCE_MS,
+        easing: Easing.out(Easing.cubic),
+      });
+    }
+  }, [showPlacesScopeDropdown, placesScopeMenuOpen, placesScopeMenuEntrance]);
 
   const collapsedFromMeasure =
     dragAreaHeight > 0
@@ -160,12 +245,18 @@ export function CountriesSheet({
   const mediumAnchor = Math.round(viewportHeight * SHEET_MEDIUM_RATIO);
   const expandedAnchor = viewportHeight;
 
-  const mediumBaselineHeight =
+  const listMediumBaseline =
     collapsedAnchor +
     summaryHeight +
     MAP_PREVIEW_BLOCK_HEIGHT +
     (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0) +
     CONTAINER_PADDING_BOTTOM;
+  const countryDetailMediumBaseline =
+    collapsedAnchor +
+    (showDetailTagRow ? DETAIL_TAG_ROW_HEIGHT : 0) +
+    DETAIL_LIST_MIN_HEIGHT +
+    CONTAINER_PADDING_BOTTOM;
+  const mediumBaselineHeight = isCountryDetailMode ? countryDetailMediumBaseline : listMediumBaseline;
   const mediumVisible = Math.min(mediumAnchor, mediumBaselineHeight);
   const expandedVisibleLimit = Math.max(
     collapsedAnchor + 120,
@@ -322,6 +413,53 @@ export function CountriesSheet({
     transform: [{ translateY: translateYShared.value }],
   }));
 
+  const listEntranceOpacity = useSharedValue(1);
+  const listEntranceTranslateY = useSharedValue(0);
+
+  const listEntranceKey = useMemo(() => {
+    if (!visible || state !== "expanded") return "";
+    if (isCountryDetailMode) {
+      if (countryDetail == null) return "";
+      const tagSeg = selectedCountryDetailTagFilterId ?? "none";
+      const base =
+        countryDetail.kind === "country" ? `d:c:${countryDetail.key}` : "d:all";
+      /** `filterMode`: misma animación al recargar por visitar ↔ visitados. Tag: chips. */
+      return `${base}:f:${filterMode}:t:${tagSeg}`;
+    }
+    return `m:f:${filterMode}:n:${items.length}`;
+  }, [
+    visible,
+    state,
+    isCountryDetailMode,
+    countryDetail,
+    filterMode,
+    items.length,
+    selectedCountryDetailTagFilterId,
+  ]);
+
+  useLayoutEffect(() => {
+    if (!visible || !listEntranceKey) {
+      listEntranceOpacity.value = 1;
+      listEntranceTranslateY.value = 0;
+      return;
+    }
+    listEntranceOpacity.value = 0;
+    listEntranceTranslateY.value = 12;
+    listEntranceOpacity.value = withTiming(1, {
+      duration: LIST_ENTRANCE_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    listEntranceTranslateY.value = withTiming(0, {
+      duration: LIST_ENTRANCE_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [visible, listEntranceKey]);
+
+  const listEntranceAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: listEntranceOpacity.value,
+    transform: [{ translateY: listEntranceTranslateY.value }],
+  }));
+
   if (!visible) return null;
 
   const visibleHeightForState = getSheetHeightForState(
@@ -330,14 +468,23 @@ export function CountriesSheet({
     mediumVisible,
     expandedVisible,
   );
-  const maxBodyHeight = Math.max(
-    0,
-    visibleHeightForState - collapsedAnchor - summaryHeight - CONTAINER_PADDING_BOTTOM,
-  );
-  const maxListHeight = Math.max(
-    0,
-    maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
-  );
+  const tagDetailGap =
+    isCountryDetailMode && showDetailTagRow ? DETAIL_TAG_ROW_HEIGHT + Spacing.sm : 0;
+  const maxBodyHeight = isCountryDetailMode
+    ? Math.max(
+        0,
+        visibleHeightForState - collapsedAnchor - tagDetailGap - CONTAINER_PADDING_BOTTOM,
+      )
+    : Math.max(
+        0,
+        visibleHeightForState - collapsedAnchor - summaryHeight - CONTAINER_PADDING_BOTTOM,
+      );
+  const maxListHeight = isCountryDetailMode
+    ? Math.max(120, maxBodyHeight)
+    : Math.max(
+        0,
+        maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
+      );
   const showExpandedList = state === "expanded";
   const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
@@ -358,8 +505,6 @@ export function CountriesSheet({
   const currentTravelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
   const currentTravelerLevel = resolveTravelerLevelByPoints(currentTravelerPoints);
   const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
-  const isLevelsScrollable = levelsViewportHeight > 0 && levelsContentHeight > levelsViewportHeight + 2;
-
   const sheetAnimated = (
     <Animated.View
       style={[
@@ -375,209 +520,340 @@ export function CountriesSheet({
         animatedContainerStyle,
       ]}
     >
-      <GestureDetector gesture={panGesture}>
-        <SpotSheetHeader
-          isDraft={false}
-          isPlacingDraftSpot={false}
-          isPoiMode={false}
-          poiLoading={false}
-          displayTitle={title}
-          state={state}
-          colors={colors}
-          onHeaderTap={handleHeaderTap}
-          onShare={onShare}
-          shareDisabled={shareDisabled}
-          onClose={onClose}
-          onDragAreaLayout={onDragAreaLayout}
-          onHeaderLayout={onHeaderLayout}
-        />
-      </GestureDetector>
-
-      <View
-        style={styles.summaryWrap}
-        onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
-      >
+      {showPlacesScopeDropdown && placesScopeMenuOpen ? (
         <Pressable
-          onPress={onCountriesKpiPress}
-          disabled={onCountriesKpiPress == null}
-          style={({ pressed }) => [
-            styles.summaryChip,
-            pressed && onCountriesKpiPress != null ? styles.summaryChipPressed : null,
-          ]}
-          accessibilityRole={onCountriesKpiPress ? "button" : undefined}
-          accessibilityLabel={onCountriesKpiPress ? "Ver lista completa de países" : undefined}
-        >
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
-          <View style={styles.kpiLabelRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
-            {onCountriesKpiPress && state !== "expanded" ? (
-              <List size={14} color={colors.primary} strokeWidth={2.2} />
-            ) : null}
-          </View>
-        </Pressable>
-        <Pressable
-          onPress={onSpotsKpiPress}
-          disabled={onSpotsKpiPress == null}
-          style={({ pressed }) => [
-            styles.summaryChip,
-            pressed && onSpotsKpiPress != null ? styles.summaryChipPressed : null,
-          ]}
-          accessibilityRole={onSpotsKpiPress ? "button" : undefined}
-          accessibilityLabel={onSpotsKpiPress ? "Abrir buscador con lugares del filtro" : undefined}
-        >
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
-          <View style={styles.kpiLabelRow}>
-            <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>lugares</Text>
-            {onSpotsKpiPress ? (
-              <List size={14} color={colors.primary} strokeWidth={2.2} />
-            ) : null}
-          </View>
-        </Pressable>
-        <View style={styles.summaryChip}>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>
-            {pointsLabel}
-          </Text>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>
-            {filterMode === "visited" ? "flows" : "flows por obtener"}
-          </Text>
-        </View>
-      </View>
-
-      <View style={styles.mapPreviewWrap}>
-        <CountriesMapPreview
-          countryCodes={previewCountryCodes}
-          height={MAP_PREVIEW_HEIGHT}
-          highlightColor={previewHighlightColor}
-          forceColorScheme={activeScheme}
-          baseCountryColor={previewBaseCountryColor}
-          lineCountryColor={previewLineCountryColor}
-          onSnapshotChange={onMapSnapshotChange}
-          onCountryPress={onMapCountryPress}
+          style={styles.placesScopeBackdrop}
+          onPress={() => setPlacesScopeMenuOpen(false)}
+          accessibilityLabel="Cerrar menú de lugares"
+          accessibilityRole="button"
         />
-      </View>
-      {filterMode === "visited" ? (
-        <View style={styles.progressWrap}>
-          <View style={[styles.progressTrack, { backgroundColor: colors.borderSubtle }]}>
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${normalizedWorldPercentage}%`,
-                  backgroundColor: colors.stateSuccess,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.progressMetaRow}>
-            <Text style={[styles.progressCopy, { color: colors.textSecondary }]}>
-              Nivel: <Text style={[styles.progressCopyLevelName, { color: colors.text }]}>{currentTravelerLevel.label}</Text>
-            </Text>
-            <Pressable
-              onPress={() => setShowLevelsModal(true)}
-              style={({ pressed }) => [styles.progressLevelButton, pressed ? styles.progressLevelButtonPressed : null]}
-              accessibilityRole="button"
-              accessibilityLabel={`Ver niveles de exploración. Nivel actual ${currentTravelerLevel.level} de ${TRAVELER_LEVELS.length} con ${currentTravelerPoints} flows`}
-            >
-              <Text style={[styles.progressLevelButtonText, { color: colors.textSecondary }]}>{`${currentTravelerLevel.level}/${TRAVELER_LEVELS.length}`}</Text>
-              <List size={14} color={colors.primary} strokeWidth={2.2} />
-            </Pressable>
-          </View>
-        </View>
       ) : null}
+      <View style={showPlacesScopeDropdown ? styles.placesScopeHeaderWrap : undefined}>
+        <GestureDetector gesture={panGesture}>
+          <SpotSheetHeader
+            isDraft={false}
+            isPlacingDraftSpot={false}
+            isPoiMode={false}
+            poiLoading={false}
+            displayTitle={listViewHeaderTitle}
+            titleSlot={
+              showPlacesScopeDropdown ? (
+                <Pressable
+                  style={styles.placesScopeTrigger}
+                  onPress={() => setPlacesScopeMenuOpen((o) => !o)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    countryDetail?.kind === "country"
+                      ? `Lugares: ${countryDetail.label}. Cambiar país o todos`
+                      : "Filtrar lugares: Todos o un país"
+                  }
+                  accessibilityState={{ expanded: placesScopeMenuOpen }}
+                >
+                  <Text
+                    style={[styles.placesScopeTriggerText, { color: colors.text }]}
+                    numberOfLines={1}
+                  >
+                    {countryDetail?.kind === "country" ? countryDetail.label : "Todos"}
+                  </Text>
+                  <View
+                    style={{
+                      transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
+                    }}
+                  >
+                    <ChevronDown size={20} color={colors.text} strokeWidth={2.2} />
+                  </View>
+                </Pressable>
+              ) : undefined
+            }
+            state={state}
+            colors={colors}
+            onHeaderTap={handleHeaderTap}
+            onShare={onShare}
+            shareDisabled={shareDisabled}
+            backAction={
+              countryDetail != null && onCountryDetailBack != null
+                ? { onPress: onCountryDetailBack }
+                : undefined
+            }
+            onClose={onClose}
+            onDragAreaLayout={onDragAreaLayout}
+            onHeaderLayout={onHeaderLayout}
+          />
+        </GestureDetector>
 
-      {!showExpandedList ? null : items.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyLabel}</Text>
-        </View>
-      ) : (
-        <ScrollView
-          style={[styles.listScroll, { maxHeight: expandedListMaxHeight }]}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={true}
-        >
-          {items.map((item) => (
-            <Pressable
-              key={item.key}
-              onPress={() => onItemPress(item)}
-              style={({ pressed }) => [styles.item, pressed && styles.itemPressed]}
-              accessibilityRole="button"
-              accessibilityLabel={`Buscar en ${item.label}`}
-            >
-                <Text style={[styles.itemLabel, { color: colors.text }]}>{item.label}</Text>
-                <View style={styles.itemRight}>
-                <Text style={[styles.itemCount, { color: colors.textSecondary }]}>{`${item.count} lugares`}</Text>
-                <List size={14} color={colors.primary} strokeWidth={2.2} />
-                </View>
-              </Pressable>
-          ))}
-        </ScrollView>
-      )}
-
-      <Modal
-        visible={showLevelsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLevelsModal(false)}
-      >
-        <View style={styles.levelsModalBackdrop}>
-          <Pressable style={styles.levelsModalDismiss} onPress={() => setShowLevelsModal(false)} />
-          <View
+        {showPlacesScopeDropdown && placesScopeMenuOpen ? (
+          <Animated.View
             style={[
-              styles.levelsModalCard,
-              {
-                backgroundColor: colors.backgroundElevated,
-                borderColor: colors.borderSubtle,
-              },
+              styles.placesScopeMenuDropWrap,
+              Elevation.card,
+              placesScopeMenuEntranceAnimatedStyle,
             ]}
           >
-            <View style={styles.levelsModalHeader}>
-              <Text style={[styles.levelsModalTitle, { color: colors.text }]}>Niveles de exploración</Text>
-              <Pressable
-                onPress={() => setShowLevelsModal(false)}
-                style={({ pressed }) => [
-                  styles.levelsModalCloseButton,
-                  { backgroundColor: colors.background },
-                  pressed ? styles.levelsModalCloseButtonPressed : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Cerrar niveles de exploración"
-              >
-                <X size={20} color={colors.text} strokeWidth={2.2} />
-              </Pressable>
-            </View>
-            <ScrollView
-              style={styles.levelsList}
-              contentContainerStyle={styles.levelsListContent}
-              onLayout={(event) => setLevelsViewportHeight(Math.round(event.nativeEvent.layout.height))}
-              onContentSizeChange={(_, h) => setLevelsContentHeight(Math.round(h))}
-              scrollEnabled={isLevelsScrollable}
-              showsVerticalScrollIndicator={isLevelsScrollable}
+            <View
+              style={[
+                styles.placesScopeMenuDropSurface,
+                {
+                  borderColor: colors.borderSubtle,
+                  backgroundColor: colors.backgroundElevated,
+                },
+              ]}
             >
-              {TRAVELER_LEVELS.map((level) => {
-                const isCurrent = level.level === currentTravelerLevel.level;
-                return (
-                  <View
-                    key={level.level}
+              <ScrollView
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                style={{ maxHeight: PLACES_SCOPE_MENU_MAX_HEIGHT }}
+              >
+                <Pressable
+                  onPress={handlePlacesScopeSelectTodos}
+                  style={({ pressed }) => [
+                    styles.placesScopeMenuRow,
+                    pressed && styles.placesScopeMenuRowPressed,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel="Todos los lugares"
+                  accessibilityState={{ selected: countryDetail?.kind === "all_places" }}
+                >
+                  <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>Todos</Text>
+                  {countryDetail?.kind === "all_places" ? (
+                    <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
+                  ) : (
+                    <View style={styles.placesScopeMenuCheckSpacer} />
+                  )}
+                </Pressable>
+                {items.map((item) => {
+                  const countrySelected =
+                    countryDetail?.kind === "country" && countryDetail.key === item.key;
+                  return (
+                    <Pressable
+                      key={item.key}
+                      onPress={() => handlePlacesScopeSelectCountry(item)}
+                      style={({ pressed }) => [
+                        styles.placesScopeMenuRow,
+                        pressed && styles.placesScopeMenuRowPressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${item.label}, ${item.count} lugares`}
+                      accessibilityState={{ selected: countrySelected }}
+                    >
+                      <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>{item.label}</Text>
+                      <View style={styles.placesScopeMenuRowEnd}>
+                        <Text style={[styles.placesScopeMenuCount, { color: colors.textSecondary }]}>
+                          {item.count} lugares
+                        </Text>
+                        {countrySelected ? (
+                          <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
+                        ) : (
+                          <View style={styles.placesScopeMenuCheckSpacer} />
+                        )}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </Animated.View>
+        ) : null}
+      </View>
+
+      {isCountryDetailMode ? (
+        <>
+          {showDetailTagRow ? (
+            <View style={styles.tagFilterRow}>
+              <View style={styles.tagFilterScrollWrap}>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                  removeClippedSubviews={false}
+                  style={[
+                    styles.tagFilterScroll,
+                    Platform.OS === "web" ? ({ touchAction: "pan-x" } as ViewStyle) : null,
+                  ]}
+                  contentContainerStyle={styles.tagFilterScrollContent}
+                >
+                  <Pressable
+                    onPress={() => onCountryDetailTagFilterChange?.(null)}
                     style={[
-                      styles.levelRow,
+                      styles.tagFilterChip,
+                      webTagChipNoSelect,
                       {
-                        backgroundColor: isCurrent ? colors.background : "transparent",
+                        backgroundColor:
+                          selectedCountryDetailTagFilterId == null ? colors.tint : colors.background,
+                        borderColor: colors.borderSubtle,
                       },
                     ]}
+                    accessibilityLabel="Sin filtrar por etiqueta"
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: selectedCountryDetailTagFilterId == null }}
                   >
-                    <Text style={[styles.levelRowTitle, { color: isCurrent ? colors.text : colors.textSecondary }]}>
-                      {`Nivel ${level.level}: ${level.label}`}
+                    <Text
+                      style={[
+                        styles.tagFilterChipLabel,
+                        webTagChipNoSelect,
+                        {
+                          color:
+                            selectedCountryDetailTagFilterId == null ? colors.background : colors.text,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      Cualquiera
                     </Text>
-                    <Text style={[styles.levelRowRange, { color: colors.textSecondary }]}>
-                      {formatTravelerLevelPointsRange(level)}
-                    </Text>
-                  </View>
-                );
-              })}
-            </ScrollView>
+                  </Pressable>
+                  {countryDetailTagFilterOptions.map((opt) => {
+                    const selected = selectedCountryDetailTagFilterId === opt.id;
+                    return (
+                      <Pressable
+                        key={opt.id}
+                        onPress={() => onCountryDetailTagFilterChange?.(selected ? null : opt.id)}
+                        style={[
+                          styles.tagFilterChip,
+                          webTagChipNoSelect,
+                          {
+                            backgroundColor: selected ? colors.tint : colors.background,
+                            borderColor: colors.borderSubtle,
+                          },
+                        ]}
+                        accessibilityLabel={`Filtrar por ${opt.name}`}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                      >
+                        <Text
+                          style={[
+                            styles.tagFilterChipLabel,
+                            webTagChipNoSelect,
+                            { color: selected ? colors.background : colors.text },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          #{opt.name}
+                          {opt.count > 0 ? ` (${opt.count})` : ""}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            </View>
+          ) : null}
+          {!showExpandedList ? null : (
+            <Animated.View
+              style={[
+                styles.listEntranceWrap,
+                { maxHeight: expandedListMaxHeight },
+                listEntranceAnimatedStyle,
+              ]}
+            >
+              {countryDetailSpots.length === 0 ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                    No hay lugares con este criterio. Prueba a quitar el filtro de etiqueta.
+                  </Text>
+                </View>
+              ) : renderCountryDetailItem != null ? (
+                <FlatList
+                  data={countryDetailSpots}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
+                  )}
+                  style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
+                  keyboardShouldPersistTaps="handled"
+                  windowSize={8}
+                />
+              ) : null}
+            </Animated.View>
+          )}
+        </>
+      ) : (
+        <>
+          <CountriesSheetKpiRow
+            filterMode={filterMode}
+            summaryCountriesCount={summaryCountriesCount}
+            summaryPlacesCount={summaryPlacesCount}
+            pointsLabel={pointsLabel}
+            colors={{
+              text: colors.text,
+              textSecondary: colors.textSecondary,
+              primary: colors.primary,
+            }}
+            sheetState={state}
+            onCountriesKpiPress={onCountriesKpiPress}
+            onSpotsKpiPress={onSpotsKpiPress}
+            onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
+          />
+
+          <View style={styles.mapPreviewWrap}>
+            <CountriesMapPreview
+              countryCodes={previewCountryCodes}
+              height={MAP_PREVIEW_HEIGHT}
+              highlightColor={previewHighlightColor}
+              forceColorScheme={activeScheme}
+              baseCountryColor={previewBaseCountryColor}
+              lineCountryColor={previewLineCountryColor}
+              onSnapshotChange={onMapSnapshotChange}
+              onCountryPress={onMapCountryPress}
+            />
           </View>
-        </View>
-      </Modal>
+          {filterMode === "visited" ? (
+            <CountriesSheetVisitedProgress
+              worldPercentage={normalizedWorldPercentage}
+              levelLabel={currentTravelerLevel.label}
+              levelIndex={currentTravelerLevel.level}
+              currentTravelerPoints={currentTravelerPoints}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                primary: colors.primary,
+                borderSubtle: colors.borderSubtle,
+                stateSuccess: colors.stateSuccess,
+              }}
+              onPressLevels={() => setShowLevelsModal(true)}
+            />
+          ) : null}
+
+          {!showExpandedList ? null : (
+            <Animated.View
+              style={[
+                styles.listEntranceWrap,
+                { maxHeight: expandedListMaxHeight },
+                listEntranceAnimatedStyle,
+              ]}
+            >
+              {items.length === 0 ? (
+                <View style={styles.emptyWrap}>
+                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyLabel}</Text>
+                </View>
+              ) : (
+                <CountriesSheetCountryList
+                  items={items}
+                  onItemPress={onItemPress}
+                  maxHeight={expandedListMaxHeight}
+                  colors={{
+                    text: colors.text,
+                    textSecondary: colors.textSecondary,
+                    primary: colors.primary,
+                  }}
+                />
+              )}
+            </Animated.View>
+          )}
+        </>
+      )}
+
+      <TravelerLevelsModal
+        visible={showLevelsModal}
+        onClose={() => setShowLevelsModal(false)}
+        currentLevel={currentTravelerLevel}
+        colors={{
+          text: colors.text,
+          textSecondary: colors.textSecondary,
+          background: colors.background,
+          backgroundElevated: colors.backgroundElevated,
+          borderSubtle: colors.borderSubtle,
+        }}
+      />
     </Animated.View>
   );
 
@@ -624,86 +900,6 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.sm,
     paddingBottom: Spacing.base,
   },
-  summaryWrap: {
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.xs,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    paddingHorizontal: Spacing.base,
-  },
-  summaryChip: {
-    flex: 1,
-    minHeight: 40,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  progressTrack: {
-    width: "100%",
-    height: 6,
-    borderRadius: 999,
-    overflow: "hidden",
-    marginTop: 6,
-    marginBottom: 4,
-  },
-  progressFill: {
-    height: "100%",
-    borderRadius: 999,
-  },
-  progressCopy: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "400",
-  },
-  progressCopyLevelName: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: "700",
-  },
-  progressMetaRow: {
-    marginTop: 2,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: Spacing.sm,
-  },
-  progressLevelButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderRadius: Radius.pill,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-  },
-  progressLevelButtonPressed: {
-    opacity: 0.72,
-  },
-  progressLevelButtonText: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: "600",
-  },
-  summaryChipPressed: {
-    opacity: 0.82,
-  },
-  kpiLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    marginTop: 1,
-  },
-  summaryValue: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: "700",
-  },
-  summaryLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
   mapPreviewWrap: {
     height: MAP_PREVIEW_HEIGHT,
     borderRadius: Radius.lg,
@@ -711,125 +907,134 @@ const styles = StyleSheet.create({
     marginTop: MAP_PREVIEW_TOP_GAP,
     overflow: "hidden",
   },
-  progressWrap: {
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.md,
-    paddingHorizontal: Spacing.base,
-  },
-  levelsModalBackdrop: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: Spacing.base,
-  },
-  levelsModalDismiss: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.48)",
-  },
-  levelsModalCard: {
-    width: "100%",
-    maxWidth: WEB_MODAL_CARD_MAX_WIDTH,
-    maxHeight: "72%",
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    overflow: "hidden",
-  },
-  levelsModalHeader: {
-    paddingHorizontal: Spacing.base,
-    paddingTop: Spacing.base,
-    paddingBottom: Spacing.base,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
-  levelsModalTitle: {
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: "800",
-    flex: 1,
-  },
-  levelsModalCloseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.pill,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  levelsModalCloseButtonPressed: {
-    opacity: 0.72,
-  },
-  levelsList: {
-    width: "100%",
-  },
-  levelsListContent: {
-    paddingHorizontal: 0,
-    paddingBottom: Spacing.base,
-    gap: 0,
-  },
-  levelRow: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.sm,
-  },
-  levelRowTitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "600",
-    flex: 1,
-  },
-  levelRowRange: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "600",
-    minWidth: 92,
-    textAlign: "right",
-  },
   emptyText: {
     fontSize: 14,
     lineHeight: 20,
   },
-  listScroll: {
-    marginTop: Spacing.sm,
+  placesScopeTrigger: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    minWidth: 0,
+    flex: 1,
+    paddingVertical: 4,
   },
-  listContent: {
-    paddingBottom: Spacing.sm,
-    marginTop: Spacing.sm,
+  placesScopeTriggerText: {
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    lineHeight: 24,
+    flexShrink: 1,
   },
-  item: {
-    minHeight: 44,
-    paddingHorizontal: Spacing.base,
-    paddingVertical: Spacing.sm,
+  placesScopeBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: EXPLORE_LAYER_Z.SHEET_PLACES_SCOPE_SCRIM,
+  },
+  placesScopeHeaderWrap: {
+    position: "relative",
+    zIndex: EXPLORE_LAYER_Z.SHEET_HEADER_DROPDOWN,
+  },
+  placesScopeMenuDropWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: "100%",
+    marginTop: 0,
+    borderBottomLeftRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
+  },
+  placesScopeMenuDropSurface: {
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    borderBottomLeftRadius: Radius.lg,
+    borderBottomRightRadius: Radius.lg,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  placesScopeMenuRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    paddingVertical: Spacing.sm,
+    minHeight: 44,
   },
-  itemPressed: {
-    opacity: 0.72,
+  placesScopeMenuRowPressed: {
+    opacity: 0.85,
   },
-  itemLabel: {
-    fontSize: 14,
-    lineHeight: 20,
+  placesScopeMenuLabel: {
+    fontSize: 15,
     fontWeight: "600",
     flex: 1,
+    minWidth: 0,
   },
-  itemCount: {
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: "600",
-    minWidth: 64,
-    textAlign: "right",
+  placesScopeMenuCount: {
+    fontSize: 13,
+    fontWeight: "500",
+    flexShrink: 0,
   },
-  itemRight: {
+  placesScopeMenuCheck: {
+    fontSize: 16,
+    fontWeight: "700",
+    width: 22,
+    textAlign: "center",
+  },
+  placesScopeMenuCheckSpacer: {
+    width: 22,
+  },
+  placesScopeMenuRowEnd: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    minWidth: 88,
-    justifyContent: "flex-end",
+    flexShrink: 0,
+  },
+  listEntranceWrap: {
+    width: "100%",
+    overflow: "hidden",
+  },
+  detailPlacesFlatList: {
+    flexGrow: 0,
+    width: "100%",
+  },
+  detailItemWrap: {
+    marginBottom: Spacing.sm,
+  },
+  tagFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: Spacing.md,
+    maxHeight: DETAIL_TAG_ROW_HEIGHT,
+    minHeight: 40,
+  },
+  tagFilterScrollWrap: {
+    flex: 1,
+    minWidth: 0,
+    maxHeight: DETAIL_TAG_ROW_HEIGHT,
+  },
+  tagFilterScroll: {
+    flex: 1,
+    flexGrow: 1,
+    flexShrink: 1,
+    minWidth: 0,
+    maxHeight: DETAIL_TAG_ROW_HEIGHT,
+  },
+  tagFilterScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingRight: Spacing.sm,
+  },
+  tagFilterChip: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 6,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    maxWidth: 220,
+  },
+  tagFilterChipLabel: {
+    fontSize: 13,
+    fontWeight: "600",
   },
 });

@@ -1,42 +1,53 @@
 /**
- * Design System screen (web-only).
- * Canonical visual playground for active Explore/Edit Spot components.
+ * Design System (web-only). Intro (inicio + alcance), luego Primitivos → Componentes → Templates.
+ * TOC interactivo; anclas `nativeID` por sección.
  */
 
 import { Link, Stack } from 'expo-router';
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 
+import { DesignSystemGroupHeading, DesignSystemSection } from '@/components/design-system/design-system-section';
+import { buildInitialTocExpanded, DS_TOC_GROUPS, DsTocNav } from '@/components/design-system/ds-toc-nav';
+import { DsElevationSwatches, DsRadiusSwatches, DsSpacingSwatches } from '@/components/design-system/ds-token-swatches';
 import {
-  ActivitySummary,
-  ButtonPrimary,
-  ButtonSecondary,
-  CardsShowcase,
-  ClearIconCircle,
+  ButtonsShowcase,
   ColorsShowcase,
-  ExploreFlowsBadge,
+  CountriesMapPreview,
+  CountriesSheetCountryList,
+  CountriesSheetKpiRow,
+  CountriesSheetTemplateDemo,
+  CountriesSheetVisitedProgress,
+  DS_MOCK_COUNTRY_ITEMS,
+  ExploreCountriesFlowsPill,
+  ExploreMapStatusRow,
   ExploreSearchActionRow,
-  FlowyaFeedbackTrigger,
-  IconButton,
-  ImageFullscreenModal,
-  ImagePlaceholder,
-  MapControls,
+  IconButtonShowcase,
+  ClearIconCircleShowcase,
+  ImagesShowcase,
   MapLocationPicker,
   MapPinFilter,
   MapPinFilterInline,
-  MapPinFilterMenuOption,
   MapPinsShowcase,
-  SearchPill,
-  SearchLauncherField,
+  type MapPinFilterValue,
   SearchListCard,
-  SearchResultCard,
-  SearchResultsShowcase,
+  SearchSurfaceShowcase,
+  ShareCountriesCardShowcase,
   SheetHandle,
-  SpotCardMapSelection,
   SpotDetailShowcase,
-  SpotImage,
+  TravelerLevelsList,
+  TravelerLevelsModal,
   TagChip,
   TypographyShowcase,
 } from '@/components/design-system';
@@ -47,638 +58,1190 @@ import {
   WEB_SHEET_MAX_WIDTH,
   WEB_VIEWPORT_REF,
 } from '@/lib/web-layout';
+import { computeTravelerPoints, resolveTravelerLevelByPoints } from '@/lib/traveler-levels';
 import { SearchInputV2 } from '@/components/search/SearchInputV2';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Check, MapPin, MapPinPlus, Search } from 'lucide-react-native';
+import { Search } from 'lucide-react-native';
+
+/** A partir de tablet el índice va en columna lateral; debajo, modal con la misma lista. */
+const DS_TOC_SIDEBAR_MIN_WIDTH = WEB_VIEWPORT_REF.tabletMin;
+const DS_SIDEBAR_W = 232;
+
+/** Nombres para compartir ajustes de diseño (vitrina filtros mapa). */
+const DS_MAP_FILTER_VERSION = {
+  chip: 'Map-filter · chip',
+  inlineCompact: 'Map-filter · inline compacto',
+  inlineWide: 'Map-filter · inline amplio',
+} as const;
+
+const DS_F1_TAG_CHIPS: { id: string; label: string }[] = [
+  { id: '1', label: 'ruta' },
+  { id: '2', label: '2026' },
+];
+
+const DS_F1_QUICK_ETIQUETAR = [
+  {
+    id: 'tag',
+    label: 'Etiquetar',
+    kind: 'add_tag' as const,
+    onPress: () => {},
+    accessibilityLabel: 'Etiquetar este lugar',
+  },
+];
 
 export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const { width: windowWidth } = useWindowDimensions();
+  const sidebarLayout = windowWidth >= DS_TOC_SIDEBAR_MIN_WIDTH;
   const { openAuthModal } = useAuthModal();
   const toast = useSystemStatus();
+  const scrollRef = useRef<ScrollView>(null);
+  const yById = useRef<Record<string, number>>({});
 
+  const [tocModalVisible, setTocModalVisible] = useState(false);
+  const [tocExpanded, setTocExpanded] = useState(() => buildInitialTocExpanded(DS_TOC_GROUPS));
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteSpotConfirm, setShowDeleteSpotConfirm] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [showTravelerLevelsModal, setShowTravelerLevelsModal] = useState(false);
   const [dsSearchQuery, setDsSearchQuery] = useState('Ejemplo de búsqueda');
   const [dsSearchFocused, setDsSearchFocused] = useState(false);
-  const [dsImageFullscreenVisible, setDsImageFullscreenVisible] = useState(false);
+  const [dsMapFilterChip, setDsMapFilterChip] = useState<MapPinFilterValue>('all');
+  const [dsMapFilterInlineCompact, setDsMapFilterInlineCompact] = useState<MapPinFilterValue>('all');
+  const [dsMapFilterInlineWide, setDsMapFilterInlineWide] = useState<MapPinFilterValue>('all');
+  /** Vitrina ds-pat-explore: cerrar sesión solo tras tap en perfil (paridad UX MapScreen). */
+  const [dsPatExploreLogoutOpen, setDsPatExploreLogoutOpen] = useState(false);
+  const sectionCard = {
+    backgroundColor: colors.backgroundElevated,
+    borderColor: colors.borderSubtle,
+    ...Shadow.subtle,
+  };
+
+  const registerY = useCallback((id: string, y: number) => {
+    yById.current[id] = y;
+  }, []);
+
+  const scrollToId = useCallback((id: string) => {
+    const y = yById.current[id];
+    if (y == null) return;
+    scrollRef.current?.scrollTo({ y, animated: true });
+  }, []);
+
+  const scrollToIdFromMenu = useCallback(
+    (id: string) => {
+      scrollToId(id);
+      setTocModalVisible(false);
+    },
+    [scrollToId],
+  );
+
+  const toggleTocGroup = useCallback((key: string) => {
+    setTocExpanded((prev) => {
+      const open = prev[key] ?? false;
+      return { ...prev, [key]: !open };
+    });
+  }, []);
+
+  const titleMuted = colors.textSecondary;
+
+  const dsCountriesDemoTravelerPoints = computeTravelerPoints(12, 48);
+  const dsCountriesDemoLevel = resolveTravelerLevelByPoints(dsCountriesDemoTravelerPoints);
+  const dsCountriesDemoPointsLabel = new Intl.NumberFormat('es-MX').format(dsCountriesDemoTravelerPoints);
+
+  const sidebarSticky =
+    Platform.OS === 'web'
+      ? ({ position: 'sticky' as const, top: 0, alignSelf: 'flex-start' } as const)
+      : null;
 
   return (
     <>
       <Stack.Screen options={{ title: 'Design System' }} />
-      <ScrollView
-        style={{ ...styles.scroll, backgroundColor: colors.background }}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator
-      >
-        <View style={styles.header}>
-          <Text style={{ ...styles.pageTitle, color: colors.text }}>Design System</Text>
-          <Text style={{ ...styles.pageSubtitle, color: colors.textSecondary }}>
-            Canon operativo (Explore + Editar lugar). Sin elementos legacy ni showcases duplicados.
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Estado del catálogo (2026-03-22)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Alcance activo: Explorar (map/filter/controls/search/sheet) y Editar lugar.
-            </Text>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: 0 }}>
-              Este catálogo incluye únicamente componentes activos del runtime. Contratos:{' '}
-              <Text style={{ fontWeight: '600', color: colors.text }}>USER_TAGS_EXPLORE</Text>,{' '}
-              <Text style={{ fontWeight: '600', color: colors.text }}>SYSTEM_STATUS_TOAST</Text>.
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Etiquetas — TagChip (OL-EXPLORE-TAGS-001)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Uso en modal de asignación, sugerencias y chips en cards. La fila de filtro del buscador (Cualquiera + #
-              nombre) vive en SearchSurface con estilos propios — no duplicar como TagChip.
-            </Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' }}>
-              <TagChip label="playa" onPress={() => {}} accessibilityLabel="Demo añadir playa" />
-              <TagChip label="sugerida" visualVariant="suggested" onPress={() => {}} />
-              <TagChip label="favoritos" onRemove={() => {}} />
+      <View style={[styles.shell, { backgroundColor: colors.background }]}>
+        <View style={[styles.shellRow, !sidebarLayout && styles.shellRowNarrow]}>
+          {sidebarLayout ? (
+            <View
+              style={[
+                styles.sidebar,
+                { borderRightColor: colors.borderSubtle, backgroundColor: colors.backgroundElevated },
+                sidebarSticky,
+              ]}
+            >
+              <ScrollView
+                showsVerticalScrollIndicator
+                style={styles.sidebarScroll}
+                contentContainerStyle={styles.sidebarScrollContent}
+              >
+                <Text style={[styles.sidebarHeading, { color: colors.text }]}>Contenidos</Text>
+                <Text style={[styles.sidebarHint, { color: colors.textSecondary }]}>
+                  Intro primero; Primitivos son tokens y layout. Categorías plegadas por defecto — expande para ver anclas.
+                </Text>
+                <DsTocNav
+                  groups={DS_TOC_GROUPS}
+                  expanded={tocExpanded}
+                  onToggleGroup={toggleTocGroup}
+                  onNavigate={scrollToId}
+                  variant="sidebar"
+                  colorScheme={colorScheme}
+                />
+              </ScrollView>
             </View>
-          </View>
-        </View>
+          ) : null}
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Matriz de estados (F1-002)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              Verifica aquí los estados canónicos: default, hover/pressed, focus-visible (web), selected, disabled y loading.
-            </Text>
-
-            <View style={{ gap: Spacing.base }}>
-              <View style={{ flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' }}>
-                <IconButton accessibilityLabel="Icon default">
-                  <MapPinPlus size={20} color={colors.text} />
-                </IconButton>
-                <IconButton accessibilityLabel="Icon selected" selected>
-                  <Check size={20} color="#fff" />
-                </IconButton>
-                <IconButton accessibilityLabel="Icon loading" loading>
-                  <MapPinPlus size={20} color={colors.text} />
-                </IconButton>
-                <IconButton accessibilityLabel="Icon disabled" disabled>
-                  <MapPinPlus size={20} color={colors.text} />
-                </IconButton>
-              </View>
-
-              <View style={{ flexDirection: 'row', gap: Spacing.sm, flexWrap: 'wrap' }}>
-                <ButtonPrimary accessibilityLabel="Primary default">Primary</ButtonPrimary>
-                <ButtonPrimary accessibilityLabel="Primary loading" loading>Loading</ButtonPrimary>
-                <ButtonSecondary accessibilityLabel="Secondary default">Secondary</ButtonSecondary>
-                <ButtonSecondary accessibilityLabel="Secondary disabled" disabled>Disabled</ButtonSecondary>
-              </View>
-
-              <View style={{ maxWidth: 560, gap: Spacing.sm }}>
-                <SearchListCard
-                  title="Search row con imagen"
-                  subtitle="Variante con thumbnail para validar layout, recorte y alineación."
-                  onPress={() => {}}
-                  imageUri="https://images.unsplash.com/photo-1470770903676-69b98201ea1c?w=400"
-                  accessibilityLabel="Search row con imagen"
-                />
-                <SearchListCard
-                  title="Search row default"
-                  subtitle="Estado base de fila de resultados."
-                  onPress={() => {}}
-                  accessibilityLabel="Search row default"
-                />
-                <SearchListCard
-                  title="Search row selected"
-                  subtitle="Selected persistente para validar jerarquía."
-                  onPress={() => {}}
-                  selected
-                  pinStatus="to_visit"
-                  accessibilityLabel="Search row selected"
-                />
-                <SearchListCard
-                  title="Search row disabled"
-                  subtitle="Deshabilitado para validar contraste y legibilidad."
-                  onPress={() => {}}
-                  disabled
-                  pinStatus="visited"
-                  accessibilityLabel="Search row disabled"
-                />
-                <SearchListCard
-                  title="Con etiquetas y Etiquetar"
-                  subtitle="Chips #tag en fila de señales + CTA coherente con listados."
-                  onPress={() => {}}
-                  pinStatus="to_visit"
-                  tagChips={[
-                    { id: '1', label: 'ruta' },
-                    { id: '2', label: '2026' },
-                  ]}
-                  quickActions={[
+          <ScrollView
+            ref={scrollRef}
+            style={styles.scrollMain}
+            contentContainerStyle={styles.content}
+            showsVerticalScrollIndicator
+          >
+            {!sidebarLayout ? (
+              <>
+                <Pressable
+                  onPress={() => setTocModalVisible(true)}
+                  style={({ pressed }) => [
+                    styles.tocMobileTrigger,
                     {
-                      id: 'tag',
-                      label: 'Etiquetar',
-                      kind: 'add_tag',
-                      onPress: () => {},
-                      accessibilityLabel: 'Etiquetar este lugar',
+                      borderColor: colors.borderSubtle,
+                      backgroundColor: pressed ? colors.stateSurfacePressed : colors.backgroundElevated,
                     },
                   ]}
-                  accessibilityLabel="Search row con etiquetas"
-                />
+                  accessibilityRole="button"
+                  accessibilityLabel="Abrir tabla de contenidos"
+                >
+                  <View style={styles.tocMobileTriggerText}>
+                    <Text style={[styles.tocMobileTriggerTitle, { color: colors.text }]}>Tabla de contenidos</Text>
+                    <Text style={[styles.tocMobileTriggerSub, { color: colors.textSecondary }]}>
+                      Ver todas las secciones
+                    </Text>
+                  </View>
+                  <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 13 }}>Abrir</Text>
+                </Pressable>
+                <Modal
+                  visible={tocModalVisible}
+                  animationType="slide"
+                  transparent
+                  onRequestClose={() => setTocModalVisible(false)}
+                >
+                  <View style={styles.modalOuter}>
+                    <Pressable
+                      style={[StyleSheet.absoluteFillObject, styles.modalScrim]}
+                      onPress={() => setTocModalVisible(false)}
+                      accessibilityLabel="Cerrar tabla de contenidos"
+                    />
+                    <View
+                      style={[
+                        styles.modalPanel,
+                        { backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle },
+                      ]}
+                    >
+                      <View style={styles.modalPanelHeader}>
+                        <Text style={[styles.modalPanelTitle, { color: colors.text }]}>Contenidos</Text>
+                        <Pressable onPress={() => setTocModalVisible(false)} accessibilityRole="button">
+                          <Text style={{ color: colors.primary, fontWeight: '600', fontSize: 16 }}>Cerrar</Text>
+                        </Pressable>
+                      </View>
+                      <ScrollView style={styles.modalPanelScroll} showsVerticalScrollIndicator>
+                        <DsTocNav
+                          groups={DS_TOC_GROUPS}
+                          expanded={tocExpanded}
+                          onToggleGroup={toggleTocGroup}
+                          onNavigate={scrollToIdFromMenu}
+                          variant="modal"
+                          colorScheme={colorScheme}
+                        />
+                      </ScrollView>
+                    </View>
+                  </View>
+                </Modal>
+              </>
+            ) : null}
+
+            <View nativeID="ds-top" onLayout={(e) => registerY('ds-top', e.nativeEvent.layout.y)}>
+              <View style={styles.header}>
+                <Text style={{ ...styles.pageTitle, color: colors.text }}>Design System</Text>
+                <Text style={{ ...styles.pageSubtitle, color: colors.textSecondary }}>
+                  Referencia visual y contratos para cambios canónicos. Capas: primitivos (tokens y layout), componentes
+                  reutilizables y templates (composiciones de pantalla, mapa embebido, Explore, modales y runtime).
+                </Text>
               </View>
             </View>
-          </View>
-        </View>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            System status — toast (useSystemStatus)
+        <DesignSystemSection
+          id="ds-intro"
+          title="Alcance y contratos"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description={
+            <>
+              Alcance activo: Explorar (mapa, filtros, búsqueda, sheets) y Editar lugar. Inventario:{' '}
+              <Text style={{ fontWeight: '600', color: colors.text }}>docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md</Text>
+              . Contratos: <Text style={{ fontWeight: '600', color: colors.text }}>USER_TAGS_EXPLORE</Text>,{' '}
+              <Text style={{ fontWeight: '600', color: colors.text }}>SYSTEM_STATUS_TOAST</Text>.
+            </>
+          }
+        >
+          <Text style={{ color: colors.textSecondary, fontSize: 15, lineHeight: 22 }}>
+            Esta página es principalmente <Text style={{ fontWeight: '600', color: colors.text }}>referencia</Text> (qué
+            es y cómo se ve). Las notas breves indican cuándo usar o excepciones (p. ej. chips de filtro en SearchSurface
+            vs TagChip).
           </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary }}>
-              En Explore el anclaje inferior lo fija MapScreen (setAnchor); con buscador abierto no se suma la
-              altura del sheet. Ver contrato SYSTEM_STATUS_TOAST. Aquí solo demo de tipos.
-            </Text>
-            <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.text,
-                  opacity: pressed ? 0.88 : 1,
-                })}
-                onPress={() => toast.show('Mensaje por defecto', { type: 'default' })}
-              >
-                <Text style={{ color: colors.background, fontWeight: '600' }}>Default</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.text,
-                  opacity: pressed ? 0.88 : 1,
-                })}
-                onPress={() => toast.show('Acción correcta', { type: 'success', replaceVisible: true })}
-              >
-                <Text style={{ color: colors.background, fontWeight: '600' }}>Success + replace</Text>
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.stateError,
-                  opacity: pressed ? 0.92 : 1,
-                })}
-                onPress={() => toast.show('Algo salió mal', { type: 'error' })}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Error</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
+        </DesignSystemSection>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Paleta global</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <ColorsShowcase />
-          </View>
-        </View>
+        <DesignSystemGroupHeading
+          id="ds-group-primitivos"
+          title="Primitivos"
+          textColor={colors.text}
+          onLayoutY={registerY}
+        />
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Typography</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <TypographyShowcase />
-          </View>
-        </View>
+        <DesignSystemSection
+          id="ds-fund-colors"
+          title="Paleta global"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+        >
+          <ColorsShowcase />
+        </DesignSystemSection>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Layout web — WR-01 (lib/web-layout)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
-              Referencias de viewport: mobile {WEB_VIEWPORT_REF.mobileNarrow}–{WEB_VIEWPORT_REF.mobileWide}px, tablet{' '}
+        <DesignSystemSection
+          id="ds-fund-typography"
+          title="Typography"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Escala y muestras de texto. Para estilos reutilizables en código, exportamos TypographyStyles en typography.tsx (uso programático, no sustituye a esta referencia visual)."
+        >
+          <TypographyShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-fund-spacing"
+          title="Espaciado (Spacing)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Ritmo en px desde constants/theme.ts — claves xs … xxxl."
+        >
+          <DsSpacingSwatches />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-fund-radius"
+          title="Radio (Radius)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Border radius en px; pill usa Radius.pill (9999)."
+        >
+          <DsRadiusSwatches />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-fund-elevation"
+          title="Elevación (Elevation)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Sombras de superficie: subtle, card y raised (más marcada). Shadow es alias del mismo objeto."
+        >
+          <DsElevationSwatches />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-fund-layout"
+          title="Layout web — WR-01 (lib/web-layout)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description={
+            <>
+              Viewports: mobile {WEB_VIEWPORT_REF.mobileNarrow}–{WEB_VIEWPORT_REF.mobileWide}px, tablet{' '}
               {WEB_VIEWPORT_REF.tabletMin}–{WEB_VIEWPORT_REF.tabletMax}px, desktop {WEB_VIEWPORT_REF.desktopMin}px+.
+              Anchos: panel {WEB_PANEL_PADDING_H}px · overlay búsqueda / sheet {WEB_SEARCH_OVERLAY_MAX_WIDTH}px
+              (WEB_SHEET_MAX_WIDTH) · modal tarjeta {WEB_MODAL_CARD_MAX_WIDTH}px.
+            </>
+          }
+        />
+
+        <DesignSystemGroupHeading
+          id="ds-group-componentes"
+          title="Componentes"
+          textColor={colors.text}
+          onLayoutY={registerY}
+        />
+
+        <DesignSystemSection
+          id="ds-act-buttons-showcase"
+          title="Botones — ButtonPrimary / ButtonSecondary"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Matriz canónica por variante: estados interactivos, seleccionado, instantáneas de presionado/hover (web) y foco teclado. Import: @/components/design-system/buttons."
+        >
+          <ButtonsShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-icon-button"
+          title="IconButton"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Matriz de estados: predeterminado, seleccionado, cargando, deshabilitado, variantes primary y savePin, foco teclado (web). Los controles del mapa (MapControls) reutilizan solo IconButton — sin sección aparte. Import: @/components/design-system/icon-button."
+        >
+          <IconButtonShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-clear-icon-circle"
+          title="ClearIconCircle"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Botón circular compacto de limpiar (X); un solo tamaño en producto. No sustituye a IconButton. Import: @/components/design-system/clear-icon-circle."
+        >
+          <ClearIconCircleShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-list-tag"
+          title="Etiquetas — TagChip (OL-EXPLORE-TAGS-001)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Modal de asignación y chips en cards. La fila de filtro del buscador (Cualquiera + #) es SearchSurface — no duplicar como TagChip."
+        >
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' }}>
+            <TagChip label="playa" onPress={() => {}} accessibilityLabel="Demo añadir playa" />
+            <TagChip label="sugerida" visualVariant="suggested" onPress={() => {}} />
+            <TagChip label="favoritos" onRemove={() => {}} />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-list-rows"
+          title="SearchListCard — filas de resultado"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Matriz visual única: distancia inline + #tags + Etiquetar en una franja; variaciones imagen, default, selected, disabled. SearchResultCard (search-result-card.tsx) solo mapea spot → estas props para el listado de búsqueda en mapa; no duplicar sección en DS."
+        >
+          <View style={{ maxWidth: 560, gap: Spacing.sm, alignSelf: 'stretch' }}>
+            <SearchListCard
+              title="Search row con imagen"
+              subtitle="Thumbnail + señales completas."
+              onPress={() => {}}
+              imageUri="https://images.unsplash.com/photo-1470770903676-69b98201ea1c?w=400"
+              accessibilityLabel="Search row con imagen"
+              distanceText="1,2 km"
+              pinStatus="to_visit"
+              tagChips={DS_F1_TAG_CHIPS}
+              quickActions={DS_F1_QUICK_ETIQUETAR}
+            />
+            <SearchListCard
+              title="Search row default"
+              subtitle="Sin imagen; icono categoría + señales completas."
+              onPress={() => {}}
+              accessibilityLabel="Search row default"
+              distanceText="1,2 km"
+              pinStatus="to_visit"
+              tagChips={DS_F1_TAG_CHIPS}
+              quickActions={DS_F1_QUICK_ETIQUETAR}
+            />
+            <SearchListCard
+              title="Search row selected"
+              subtitle="Selected persistente."
+              onPress={() => {}}
+              selected
+              pinStatus="to_visit"
+              accessibilityLabel="Search row selected"
+              distanceText="1,2 km"
+              tagChips={DS_F1_TAG_CHIPS}
+              quickActions={DS_F1_QUICK_ETIQUETAR}
+            />
+            <SearchListCard
+              title="Search row disabled"
+              subtitle="Deshabilitado; pin visitado."
+              onPress={() => {}}
+              disabled
+              pinStatus="visited"
+              accessibilityLabel="Search row disabled"
+              distanceText="1,2 km"
+              tagChips={DS_F1_TAG_CHIPS}
+              quickActions={DS_F1_QUICK_ETIQUETAR}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-medios"
+          title="ImagePlaceholder · SpotImage · ImageFullscreenModal"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Placeholder canónico; SpotImage (carga + error → placeholder); lightbox a pantalla completa. Vitrina: ImagesShowcase."
+        >
+          <ImagesShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-mapa-filters"
+          title="MapPinFilter · MapPinFilterInline"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Las filas del menú desplegable son MapPinFilterMenuOption (hijo interno de MapPinFilter). Tres bloques interactivos (chip, inline compacto, inline amplio); el estado `MapPinFilterValue` se muestra bajo cada uno al pulsar."
+        >
+          <View style={{ gap: Spacing.sm }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.3 }}>
+              {DS_MAP_FILTER_VERSION.chip}
             </Text>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: 0 }}>
-              Anchos canónicos: panel horizontal {WEB_PANEL_PADDING_H}px · overlay búsqueda / sheet{' '}
-              {WEB_SEARCH_OVERLAY_MAX_WIDTH}px (WEB_SHEET_MAX_WIDTH) · modal tarjeta secundaria {WEB_MODAL_CARD_MAX_WIDTH}
-              px.
+            <MapPinFilter
+              value={dsMapFilterChip}
+              onChange={setDsMapFilterChip}
+              counts={{ saved: 3, visited: 7 }}
+            />
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: Spacing.xs }}>
+              Estado:{' '}
+              <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, color: colors.text }}>
+                {dsMapFilterChip}
+              </Text>
             </Text>
           </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Barrido DS — listados y resumen (SearchResultCard, ActivitySummary)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.base }}>
-              SearchResultCard envuelve SearchListCard con shape de spot; ActivitySummary en buscador.
+          <View style={{ marginTop: Spacing.lg, width: '100%', maxWidth: 360, gap: Spacing.sm }}>
+            <Text style={{ fontSize: 12, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.3 }}>
+              {DS_MAP_FILTER_VERSION.inlineCompact}
             </Text>
-            <View style={{ gap: Spacing.md, marginBottom: Spacing.lg, maxWidth: 560 }}>
-              <SearchResultCard
-                spot={{
-                  id: 'ds-1',
-                  title: 'Lugar demo SearchResultCard',
-                  address: 'Dirección de ejemplo',
-                  cover_image_url: null,
-                  pinStatus: 'to_visit',
-                }}
-                onPress={() => {}}
-              />
-              <SearchResultsShowcase />
-            </View>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
-              ActivitySummary
+            <MapPinFilterInline
+              value={dsMapFilterInlineCompact}
+              onChange={setDsMapFilterInlineCompact}
+              counts={{ saved: 3, visited: 7 }}
+              layout="compact"
+            />
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: Spacing.xs }}>
+              Estado:{' '}
+              <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, color: colors.text }}>
+                {dsMapFilterInlineCompact}
+              </Text>
             </Text>
-            <View style={{ gap: Spacing.md, maxWidth: 400 }}>
-              <ActivitySummary
-                visitedPlacesCount={12}
-                pendingPlacesCount={4}
-                visitedCountriesCount={3}
-              />
-              <ActivitySummary
-                visitedPlacesCount={0}
-                pendingPlacesCount={0}
-                visitedCountriesCount={2}
-                mode="countries-only"
-              />
-              <ActivitySummary
-                visitedPlacesCount={0}
-                pendingPlacesCount={0}
-                visitedCountriesCount={null}
-                isLoading
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Sheet — handle, SpotCard, cards contenedor, MapPinFilterMenuOption
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ alignItems: 'center', marginBottom: Spacing.md }}>
-              <SheetHandle onPress={() => {}} />
-            </View>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginBottom: Spacing.sm }}>
-              SpotCardMapSelection (mapa / búsqueda)
-            </Text>
-            <View style={{ maxWidth: WEB_SHEET_MAX_WIDTH, alignSelf: 'stretch' }}>
-              <SpotCardMapSelection
-                spot={{
-                  id: 'ds-card',
-                  title: 'Card de selección en mapa',
-                  description_short: 'Subtítulo o descripción corta.',
-                  cover_image_url: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
-                }}
-                onCardPress={() => {}}
-                hideActions
-              />
-            </View>
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
-              CardsShowcase (patrón contenedor)
-            </Text>
-            <CardsShowcase />
-            <Text style={{ ...styles.sectionDescription, color: colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
-              MapPinFilterMenuOption (fila menú desplegable)
-            </Text>
-            <View style={{ gap: Spacing.sm, maxWidth: 320 }}>
-              <MapPinFilterMenuOption
-                label="Todos los lugares"
-                labelColor={colors.text}
-                leadingIcon={<MapPin size={18} color={colors.textSecondary} />}
-                countBadge={
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: colors.textSecondary }}>42</Text>
-                }
-              />
-              <MapPinFilterMenuOption
-                label="Por visitar"
-                labelColor={colors.stateToVisit}
-                leadingIcon={<MapPin size={18} color={colors.stateToVisit} />}
-              />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Search entry pill</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ flexDirection: 'row', gap: Spacing.base, alignItems: 'center', flexWrap: 'wrap', marginBottom: Spacing.base }}>
-              <SearchPill onPress={() => {}} variant="default" />
-              <View
-                style={{
-                  padding: Spacing.base,
-                  borderRadius: Radius.pill,
-                  backgroundColor: colorScheme === 'dark' ? 'rgba(40,40,42,0.94)' : 'rgba(28,28,30,0.92)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.12)',
-                }}
-              >
-                <SearchPill onPress={() => {}} variant="onDark" />
-              </View>
-            </View>
-            <View style={{ width: '100%', maxWidth: 420, marginBottom: Spacing.base }}>
-              <SearchLauncherField onPress={() => {}} />
-            </View>
-            <View
+            <Text
               style={{
-                width: '100%',
-                maxWidth: 520,
-                padding: Spacing.base,
-                borderRadius: Radius.xl,
-                backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(0,0,0,0.32)',
-                gap: Spacing.sm,
+                fontSize: 12,
+                fontWeight: '700',
+                color: colors.textSecondary,
+                letterSpacing: 0.3,
+                marginTop: Spacing.sm,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <FlowyaFeedbackTrigger onPress={() => {}} />
-                <ExploreFlowsBadge label="31 flows" />
-              </View>
-              <ExploreSearchActionRow
-                onSearchPress={() => {}}
-                onProfilePress={() => {}}
-                onLogoutPress={() => {}}
-                isAuthUser
-                showLogoutAction
-              />
-            </View>
+              {DS_MAP_FILTER_VERSION.inlineWide}
+            </Text>
+            <MapPinFilterInline
+              value={dsMapFilterInlineWide}
+              onChange={setDsMapFilterInlineWide}
+              counts={{ saved: 3, visited: 7 }}
+              layout="wide"
+            />
+            <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: Spacing.xs }}>
+              Estado:{' '}
+              <Text style={{ fontFamily: Platform.OS === 'web' ? 'monospace' : undefined, color: colors.text }}>
+                {dsMapFilterInlineWide}
+              </Text>
+            </Text>
           </View>
-        </View>
+        </DesignSystemSection>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Imágenes</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginBottom: Spacing.base }}>
-              <ImagePlaceholder width={120} height={120} colorScheme="light" />
-              <ImagePlaceholder width={120} height={120} colorScheme="dark" />
-            </View>
-            <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-              <SpotImage uri={null} width={120} height={120} colorScheme="light" />
-              <SpotImage
-                uri="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400"
-                width={120}
-                height={120}
-                colorScheme="light"
-              />
-            </View>
+        <DesignSystemSection
+          id="ds-mapa-search"
+          title="Búsqueda en mapa — SearchInputV2 (embebido)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Runtime en SearchSurface; aquí solo forma pill + foco + clear. Máximo ancho alineado a WR-01."
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 420,
+              flexDirection: 'row',
+              alignItems: 'center',
+              height: 44,
+              paddingLeft: Spacing.base,
+              paddingRight: Spacing.sm,
+              gap: Spacing.sm,
+              borderRadius: 22,
+              borderWidth: dsSearchFocused ? 2 : 1,
+              borderColor: dsSearchFocused ? colors.tint : colors.borderSubtle,
+              backgroundColor: colors.background,
+            }}
+          >
+            <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+            <SearchInputV2
+              value={dsSearchQuery}
+              onChangeText={setDsSearchQuery}
+              onClear={() => setDsSearchQuery('')}
+              embedded
+              placeholder="Busca en el mapa"
+              onFocus={() => setDsSearchFocused(true)}
+              onBlur={() => setDsSearchFocused(false)}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-mapa-pins"
+          title="Map pins"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Mapa claro (Explore). Ubicación; default plain vs flowya_unlinked (sin POI); matriz reposo/seleccionado × estados; Create (creando / existente). Tokens theme.mapPinSpot y capas Mapbox."
+        >
+          <MapPinsShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-toast"
+          title="System status — toast (useSystemStatus)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Anclaje inferior lo fija MapScreen; ver SYSTEM_STATUS_TOAST."
+        >
+          <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
             <Pressable
               style={({ pressed }) => ({
-                marginTop: Spacing.base,
-                paddingVertical: 12,
-                paddingHorizontal: 20,
+                paddingVertical: Spacing.md,
+                paddingHorizontal: Spacing.lg,
+                borderRadius: Radius.md,
+                backgroundColor: colors.text,
+                opacity: pressed ? 0.88 : 1,
+              })}
+              onPress={() => toast.show('Mensaje por defecto', { type: 'default' })}
+            >
+              <Text style={{ color: colors.background, fontWeight: '600' }}>Default</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: Spacing.md,
+                paddingHorizontal: Spacing.lg,
+                borderRadius: Radius.md,
+                backgroundColor: colors.text,
+                opacity: pressed ? 0.88 : 1,
+              })}
+              onPress={() => toast.show('Acción correcta', { type: 'success', replaceVisible: true })}
+            >
+              <Text style={{ color: colors.background, fontWeight: '600' }}>Success + replace</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: Spacing.md,
+                paddingHorizontal: Spacing.lg,
+                borderRadius: Radius.md,
+                backgroundColor: colors.stateError,
+                opacity: pressed ? 0.92 : 1,
+              })}
+              onPress={() => toast.show('Algo salió mal', { type: 'error' })}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Error</Text>
+            </Pressable>
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-explore-countries-flows-pill"
+          title="Explore — ExploreCountriesFlowsPill (países | flows)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Pastilla «N países | M flows» con un solo chevron al extremo derecho (primario si activo). 0 países visitados = deshabilitado. Abre el sheet de visitados. Import: @/components/design-system/explore-countries-flows-pill."
+        >
+          <Text style={{ color: colors.textSecondary, marginBottom: Spacing.sm }}>Activo (sheet visitados)</Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              width: '100%',
+              maxWidth: 520,
+              padding: Spacing.base,
+              borderRadius: Radius.lg,
+              backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(135, 206, 235, 0.35)',
+            }}
+          >
+            <ExploreCountriesFlowsPill
+              countriesCount={14}
+              flowsPoints={2560}
+              onPress={() => {}}
+              accessibilityLabel="Abrir países visitados"
+            />
+          </View>
+          <Text style={{ color: colors.textSecondary, marginTop: Spacing.md, marginBottom: Spacing.sm }}>
+            Deshabilitado (0 países visitados)
+          </Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'flex-end',
+              width: '100%',
+              maxWidth: 520,
+              padding: Spacing.base,
+              borderRadius: Radius.lg,
+              backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(135, 206, 235, 0.35)',
+            }}
+          >
+            <ExploreCountriesFlowsPill countriesCount={0} flowsPoints={0} />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-countries-kpi"
+          title="Países — CountriesSheetKpiRow"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Tres chips (países · lugares · flows) del sheet de países. Usado en CountriesSheet. Import: @/components/design-system/countries-sheet-kpi-row."
+        >
+          <View
+            style={{
+              paddingVertical: Spacing.sm,
+              paddingHorizontal: Spacing.xs,
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              borderColor: colors.countriesPanelToVisitBorderSubtle,
+              backgroundColor: colors.countriesPanelToVisitBackgroundElevated,
+              maxWidth: 520,
+              alignSelf: 'stretch',
+            }}
+          >
+            <CountriesSheetKpiRow
+              filterMode="saved"
+              summaryCountriesCount={12}
+              summaryPlacesCount={48}
+              pointsLabel={dsCountriesDemoPointsLabel}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                primary: colors.primary,
+              }}
+              sheetState="peek"
+              onCountriesKpiPress={() => {}}
+              onSpotsKpiPress={() => {}}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-countries-map-preview"
+          title="Países — CountriesMapPreview"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Mini mapa de países (vector world + resaltado ISO). Web: implementación en countries-map-preview.web. Import: @/components/design-system/countries-map-preview."
+        >
+          <View style={{ maxWidth: WEB_SHEET_MAX_WIDTH, alignSelf: 'stretch', borderRadius: Radius.lg, overflow: 'hidden' }}>
+            <CountriesMapPreview
+              countryCodes={['MX', 'ES', 'FR']}
+              height={172}
+              highlightColor={colors.stateToVisit}
+              forceColorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
+              baseCountryColor={colors.countriesMapCountryBaseToVisit}
+              lineCountryColor={colors.countriesMapCountryLineToVisit}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-countries-visited-progress"
+          title="Países — CountriesSheetVisitedProgress"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Progreso % mundo y nivel (solo filtro visitados). Import: @/components/design-system/countries-sheet-visited-progress."
+        >
+          <View
+            style={{
+              paddingTop: Spacing.sm,
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              borderColor: colors.countriesPanelVisitedBorderSubtle,
+              backgroundColor: colors.countriesPanelVisitedBackgroundElevated,
+              maxWidth: 520,
+              alignSelf: 'stretch',
+            }}
+          >
+            <CountriesSheetVisitedProgress
+              worldPercentage={18}
+              levelLabel={dsCountriesDemoLevel.label}
+              levelIndex={dsCountriesDemoLevel.level}
+              currentTravelerPoints={dsCountriesDemoTravelerPoints}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                primary: colors.primary,
+                borderSubtle: colors.countriesPanelVisitedBorderSubtle,
+                stateSuccess: colors.stateSuccess,
+              }}
+              onPressLevels={() => {}}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-countries-list"
+          title="Países — CountriesSheetCountryList"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Filas del listado expandido (tap → búsqueda por país). Import: @/components/design-system/countries-sheet-country-list."
+        >
+          <View
+            style={{
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              borderColor: colors.countriesPanelVisitedBorderSubtle,
+              backgroundColor: colors.countriesPanelVisitedBackgroundElevated,
+              maxWidth: 520,
+              alignSelf: 'stretch',
+            }}
+          >
+            <CountriesSheetCountryList
+              items={DS_MOCK_COUNTRY_ITEMS.slice(0, 4)}
+              onItemPress={() => {}}
+              maxHeight={200}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                primary: colors.primary,
+              }}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-traveler-levels-list"
+          title="Exploración — TravelerLevelsList"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Listado canónico de niveles (rango de pts por fila). Datos: TRAVELER_LEVELS en lib/traveler-levels. Import: @/components/design-system/traveler-levels-list."
+        >
+          <View
+            style={{
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              borderColor: colors.borderSubtle,
+              backgroundColor: colors.backgroundElevated,
+              maxWidth: WEB_MODAL_CARD_MAX_WIDTH,
+              alignSelf: 'stretch',
+              maxHeight: 320,
+              overflow: 'hidden',
+            }}
+          >
+            <TravelerLevelsList
+              currentLevel={dsCountriesDemoLevel}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                rowCurrentBackground: colors.background,
+              }}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-sheet-handle"
+          title="SheetHandle"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Agarre para sheets (mapa / listados). Componente atómico; no incluye contenido de tarjeta ni detalle de spot. Import: @/components/design-system/sheet-handle."
+        >
+          <View style={{ alignItems: 'center', maxWidth: WEB_SHEET_MAX_WIDTH, alignSelf: 'stretch' }}>
+            <SheetHandle onPress={() => {}} />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemGroupHeading
+          id="ds-group-templates"
+          title="Templates"
+          textColor={colors.text}
+          onLayoutY={registerY}
+        />
+
+        <DesignSystemSection
+          id="ds-mapa-picker"
+          title="MapLocationPicker"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+        >
+          <View style={{ height: 320, borderRadius: Radius.md, overflow: 'hidden' }}>
+            <MapLocationPicker onConfirm={() => {}} onCancel={() => {}} />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-tpl-spot-detail"
+          title="Spot Detail — pantalla completa"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Plantilla de detalle de lugar (hero, acciones, mapa, contenido). En app ocupa la vista; aquí embebida con altura fija para la vitrina."
+        >
+          <SpotDetailShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-explore-countries-template"
+          title="Países — plantilla completa (KPI + mapa + lista)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Composición de runtime vía CountriesSheetTemplateDemo: SpotSheetHeader, CountriesSheetKpiRow, CountriesMapPreview, CountriesSheetVisitedProgress (visitados), CountriesSheetCountryList. Piezas sueltas en Componentes. En Explore el snapshot del mapa alimenta compartir."
+        >
+          <Text style={{ color: colors.textSecondary, marginBottom: Spacing.sm }}>Por visitar</Text>
+          <CountriesSheetTemplateDemo filterMode="saved" />
+          <Text style={{ color: colors.textSecondary, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>Visitados</Text>
+          <CountriesSheetTemplateDemo filterMode="visited" />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-explore-countries-share"
+          title="Países — imagen para compartir"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="PNG generado por shareCountriesCard (lib/share-countries-card): título, KPI, mapa si hay snapshot, top países y marca. Sin snapshot el mapa se muestra como bloque vacío."
+        >
+          <ShareCountriesCardShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-pat-explore"
+          title="Explore — banda inferior (productivo)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Chrome alineado a MapScreen: fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
+        >
+          <View
+            style={{
+              width: '100%',
+              maxWidth: 520,
+              padding: Spacing.base,
+              borderRadius: Radius.xl,
+              backgroundColor: colorScheme === 'dark' ? 'rgba(28,28,30,0.82)' : 'rgba(0,0,0,0.32)',
+              gap: Spacing.sm,
+            }}
+          >
+            <ExploreMapStatusRow
+              onFlowyaPress={() => setShowBetaModal(true)}
+              flowsBadge={{
+                countriesCount: 14,
+                flowsPoints: 2560,
+                onPress: () => {},
+                accessibilityLabel: 'Abrir países visitados',
+              }}
+            />
+            <ExploreSearchActionRow
+              onSearchPress={() => {}}
+              onProfilePress={() => setDsPatExploreLogoutOpen((v) => !v)}
+              onLogoutPress={() => setDsPatExploreLogoutOpen(false)}
+              isAuthUser
+              showLogoutAction={dsPatExploreLogoutOpen}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-pat-modales"
+          title="Modales — auth · confirm · beta"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="ConfirmModal y FlowyaBetaModal viven en components/ui; reexport en barrel. El modal de niveles de exploración está en la ancla siguiente (ds-modal-explorer-levels)."
+        >
+          <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
                 borderRadius: Radius.md,
                 backgroundColor: colors.primary,
                 opacity: pressed ? 0.9 : 1,
-                alignSelf: 'flex-start',
               })}
-              onPress={() => setDsImageFullscreenVisible(true)}
+              onPress={() => openAuthModal({ message: AUTH_MODAL_MESSAGES.savePin })}
             >
-              <Text style={{ color: '#fff', fontWeight: '600' }}>ImageFullscreenModal (demo)</Text>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Auth savePin</Text>
             </Pressable>
-            <ImageFullscreenModal
-              visible={dsImageFullscreenVisible}
-              uri="https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200"
-              onClose={() => setDsImageFullscreenVisible(false)}
-            />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Modales</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 28,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.primary,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-                onPress={() => openAuthModal({ message: AUTH_MODAL_MESSAGES.savePin })}
-              >
-                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Auth savePin</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 28,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.primary,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-                onPress={() => openAuthModal({ message: AUTH_MODAL_MESSAGES.profile })}
-              >
-                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Auth profile</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 28,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.stateError,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-                onPress={() => setShowLogoutConfirm(true)}
-              >
-                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Logout confirm</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 28,
-                  borderRadius: Radius.md,
-                  backgroundColor: colors.stateError,
-                  opacity: pressed ? 0.9 : 1,
-                })}
-                onPress={() => setShowDeleteSpotConfirm(true)}
-              >
-                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Delete confirm</Text>
-              </Pressable>
-
-              <Pressable
-                style={({ pressed }) => ({
-                  paddingVertical: 14,
-                  paddingHorizontal: 28,
-                  borderRadius: Radius.md,
-                  backgroundColor: pressed ? colors.text : colors.primary,
-                })}
-                onPress={() => setShowBetaModal(true)}
-              >
-                <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>FLOWYA Beta</Text>
-              </Pressable>
-            </View>
-
-            <ConfirmModal
-              visible={showLogoutConfirm}
-              title="¿Cerrar sesión?"
-              confirmLabel="Cerrar sesión"
-              cancelLabel="Cancelar"
-              variant="destructive"
-              onConfirm={() => setShowLogoutConfirm(false)}
-              onCancel={() => setShowLogoutConfirm(false)}
-            />
-            <ConfirmModal
-              visible={showDeleteSpotConfirm}
-              title="¿Eliminar este lugar?"
-              message="Esta acción no se puede deshacer."
-              confirmLabel="Eliminar"
-              cancelLabel="Cancelar"
-              variant="destructive"
-              onConfirm={() => setShowDeleteSpotConfirm(false)}
-              onCancel={() => setShowDeleteSpotConfirm(false)}
-            />
-            <FlowyaBetaModal visible={showBetaModal} onClose={() => setShowBetaModal(false)} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Detalle de lugar</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <SpotDetailShowcase />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>
-            Filtro de pins (menú 3 opciones + clear circular)
-          </Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <Text style={{ color: colors.textSecondary, fontSize: 13, marginBottom: Spacing.sm }}>
-              ClearIconCircle: filter (sólido) · search (compacto)
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: Spacing.lg, marginBottom: Spacing.md }}>
-              <ClearIconCircle
-                variant="filter"
-                onPress={() => {}}
-                accessibilityLabel="Demo limpiar filtro"
-                iconColor={colors.pin.outline}
-                backgroundColor={colors.stateToVisit}
-              />
-              <ClearIconCircle
-                variant="search"
-                onPress={() => {}}
-                accessibilityLabel="Demo limpiar búsqueda"
-                iconColor={colors.textSecondary}
-                backgroundColor={colors.text}
-              />
-            </View>
-            <View style={{ flexDirection: 'row', gap: Spacing.lg, flexWrap: 'wrap', marginTop: Spacing.base, alignItems: 'center' }}>
-              <MapPinFilter value="all" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
-              <MapPinFilter value="saved" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
-              <MapPinFilter value="visited" onChange={() => {}} counts={{ saved: 3, visited: 7 }} />
-            </View>
-            <View style={{ marginTop: Spacing.sm, width: '100%', maxWidth: 360, gap: Spacing.sm }}>
-              <MapPinFilterInline
-                value="all"
-                onChange={() => {}}
-                counts={{ saved: 3, visited: 7 }}
-                layout="compact"
-              />
-              <MapPinFilterInline
-                value="all"
-                onChange={() => {}}
-                counts={{ saved: 3, visited: 7 }}
-                layout="wide"
-              />
-            </View>
-            <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: Spacing.lg, marginBottom: Spacing.sm }}>
-              Search input — pill (foco / texto / clear circular)
-            </Text>
-            <View
-              style={{
-                width: '100%',
-                maxWidth: 420,
-                flexDirection: 'row',
-                alignItems: 'center',
-                height: 44,
-                paddingLeft: Spacing.base,
-                paddingRight: Spacing.sm,
-                gap: Spacing.sm,
-                borderRadius: 22,
-                borderWidth: dsSearchFocused ? 2 : 1,
-                borderColor: dsSearchFocused ? colors.tint : colors.borderSubtle,
-                backgroundColor: colors.background,
-              }}
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                borderRadius: Radius.md,
+                backgroundColor: colors.primary,
+                opacity: pressed ? 0.9 : 1,
+              })}
+              onPress={() => openAuthModal({ message: AUTH_MODAL_MESSAGES.profile })}
             >
-              <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-              <SearchInputV2
-                value={dsSearchQuery}
-                onChangeText={setDsSearchQuery}
-                onClear={() => setDsSearchQuery('')}
-                embedded
-                placeholder="Busca en el mapa"
-                onFocus={() => setDsSearchFocused(true)}
-                onBlur={() => setDsSearchFocused(false)}
-              />
-            </View>
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Auth profile</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                borderRadius: Radius.md,
+                backgroundColor: colors.stateError,
+                opacity: pressed ? 0.9 : 1,
+              })}
+              onPress={() => setShowLogoutConfirm(true)}
+            >
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Logout confirm</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                borderRadius: Radius.md,
+                backgroundColor: colors.stateError,
+                opacity: pressed ? 0.9 : 1,
+              })}
+              onPress={() => setShowDeleteSpotConfirm(true)}
+            >
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Delete confirm</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                borderRadius: Radius.md,
+                backgroundColor: pressed ? colors.text : colors.primary,
+              })}
+              onPress={() => setShowBetaModal(true)}
+            >
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>FLOWYA Beta</Text>
+            </Pressable>
           </View>
-        </View>
+          <ConfirmModal
+            visible={showLogoutConfirm}
+            title="¿Cerrar sesión?"
+            confirmLabel="Cerrar sesión"
+            cancelLabel="Cancelar"
+            variant="destructive"
+            onConfirm={() => setShowLogoutConfirm(false)}
+            onCancel={() => setShowLogoutConfirm(false)}
+          />
+          <ConfirmModal
+            visible={showDeleteSpotConfirm}
+            title="¿Eliminar este lugar?"
+            message="Esta acción no se puede deshacer."
+            confirmLabel="Eliminar"
+            cancelLabel="Cancelar"
+            variant="destructive"
+            onConfirm={() => setShowDeleteSpotConfirm(false)}
+            onCancel={() => setShowDeleteSpotConfirm(false)}
+          />
+          <FlowyaBetaModal visible={showBetaModal} onClose={() => setShowBetaModal(false)} />
+        </DesignSystemSection>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Map pins</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <MapPinsShowcase />
-          </View>
-        </View>
+        <DesignSystemSection
+          id="ds-modal-explorer-levels"
+          title="Modales — Niveles de exploración"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Mismo modal que CountriesSheet al abrir niveles. Import: @/components/design-system/traveler-levels-modal (usa TravelerLevelsList)."
+        >
+          <Pressable
+            style={({ pressed }) => ({
+              paddingVertical: 14,
+              paddingHorizontal: 28,
+              borderRadius: Radius.md,
+              backgroundColor: colors.primary,
+              opacity: pressed ? 0.9 : 1,
+              alignSelf: 'flex-start',
+            })}
+            onPress={() => setShowTravelerLevelsModal(true)}
+          >
+            <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>Abrir Niveles de exploración</Text>
+          </Pressable>
+          <TravelerLevelsModal
+            visible={showTravelerLevelsModal}
+            onClose={() => setShowTravelerLevelsModal(false)}
+            currentLevel={dsCountriesDemoLevel}
+            colors={{
+              text: colors.text,
+              textSecondary: colors.textSecondary,
+              background: colors.background,
+              backgroundElevated: colors.backgroundElevated,
+              borderSubtle: colors.borderSubtle,
+            }}
+          />
+        </DesignSystemSection>
 
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>MapLocationPicker</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <View style={{ height: 320, borderRadius: Radius.md, overflow: 'hidden' }}>
-              <MapLocationPicker onConfirm={() => {}} onCancel={() => {}} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={{ ...styles.sectionTitle, color: colors.textSecondary }}>Map controls</Text>
-          <View style={{ ...styles.sectionContent, backgroundColor: colors.backgroundElevated, borderColor: colors.borderSubtle, ...Shadow.subtle }}>
-            <MapControls map={null} />
-          </View>
-        </View>
+        <DesignSystemSection
+          id="ds-run-surface"
+          title="Superficie de búsqueda (SearchSurface)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Orquesta buscador, MapPinFilterInline, fila de chips #etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Import vitrina: @/components/design-system/search-surface-showcase."
+        >
+          <SearchSurfaceShowcase />
+        </DesignSystemSection>
 
         <View style={styles.footer}>
-          <Link href="/(tabs)/explore" asChild>
-            <Text style={{ ...styles.backLink, color: colors.tint }}>← Back to Explore</Text>
+          <Link href="/" asChild>
+            <Text style={{ ...styles.backLink, color: colors.tint }}>← Volver al mapa</Text>
           </Link>
         </View>
-      </ScrollView>
+          </ScrollView>
+        </View>
+      </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scroll: {
+  shell: {
     flex: 1,
+  },
+  shellRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    minHeight: 0,
+    minWidth: 0,
+  },
+  shellRowNarrow: {
+    flexDirection: 'column',
+  },
+  sidebar: {
+    width: DS_SIDEBAR_W,
+    borderRightWidth: 1,
+    flexShrink: 0,
+  },
+  sidebarScroll: {
+    flexGrow: 0,
+  },
+  sidebarScrollContent: {
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.xxl,
+  },
+  sidebarHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: Spacing.xs,
+  },
+  sidebarHint: {
+    fontSize: 11,
+    lineHeight: 15,
+    marginBottom: Spacing.md,
+  },
+  scrollMain: {
+    flex: 1,
+    minWidth: 0,
   },
   content: {
     padding: Spacing.xl,
     paddingBottom: Spacing.xxl,
+    maxWidth: 960,
+    alignSelf: 'center',
+    width: '100%',
+  },
+  tocMobileTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.base,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+  },
+  tocMobileTriggerText: {
+    flex: 1,
+    marginRight: Spacing.md,
+  },
+  tocMobileTriggerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  tocMobileTriggerSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
+  modalOuter: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalScrim: {
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  modalPanel: {
+    maxHeight: '82%',
+    borderTopLeftRadius: Radius.lg,
+    borderTopRightRadius: Radius.lg,
+    borderWidth: 1,
+    borderBottomWidth: 0,
+    paddingBottom: Spacing.lg,
+  },
+  modalPanelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    paddingBottom: Spacing.sm,
+  },
+  modalPanelTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalPanelScroll: {
+    maxHeight: 480,
+    paddingHorizontal: Spacing.sm,
   },
   header: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.lg,
   },
   pageTitle: {
     fontSize: 40,
@@ -691,28 +1254,8 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 26,
   },
-  section: {
-    marginBottom: Spacing.xl,
-  },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
-    marginBottom: Spacing.md,
-  },
-  sectionContent: {
-    padding: Spacing.lg,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-  },
-  sectionDescription: {
-    fontSize: 15,
-    lineHeight: 22,
-    marginBottom: Spacing.base,
-  },
   footer: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xl,
   },
   backLink: {
     fontSize: 17,

@@ -340,12 +340,6 @@ export const Spacing = {
   xxxl: 64,
 } as const;
 
-/** Sombras: deshabilitadas (shadow* deprecado; no usar boxShadow por ahora). Mantener export para no romper spreads existentes. */
-export const Shadow = {
-  subtle: {} as const,
-  card: {} as const,
-} as const;
-
 /**
  * Web: evita zoom por doble tap en botones interactivos.
  * Usar en Pressable de acciones.
@@ -362,6 +356,52 @@ export const Radius = {
   /** Pill / totalmente redondeado (chips, botones de acción). */
   pill: 9999,
 } as const;
+
+/**
+ * Elevación (sombra de superficie). Nombre alineado a guías tipo Material; en iOS/Android equivale a sombra nativa.
+ * Web: `boxShadow`; iOS: `shadow*`; Android: `elevation`.
+ * `raised`: capa más marcada (modales, sheets destacados).
+ *
+ * `Shadow` es alias del mismo objeto (retrocompatibilidad con spreads `...Shadow.subtle` en el repo).
+ */
+export const Elevation = {
+  subtle: Platform.select<ViewStyle>({
+    web: { boxShadow: '0 1px 2px rgba(0, 0, 0, 0.06)' },
+    ios: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.08,
+      shadowRadius: 2,
+    },
+    android: { elevation: 2 },
+    default: {},
+  }) ?? {},
+  card: Platform.select<ViewStyle>({
+    web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04)' },
+    ios: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.12,
+      shadowRadius: 6,
+    },
+    android: { elevation: 4 },
+    default: {},
+  }) ?? {},
+  raised: Platform.select<ViewStyle>({
+    web: { boxShadow: '0 12px 40px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.1)' },
+    ios: {
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.22,
+      shadowRadius: 16,
+    },
+    android: { elevation: 12 },
+    default: {},
+  }) ?? {},
+} as const;
+
+/** @deprecated Preferir `Elevation`; mismo objeto y claves (`subtle`, `card`, `raised`). */
+export const Shadow = Elevation;
 
 export const Fonts = Platform.select({
   ios: {

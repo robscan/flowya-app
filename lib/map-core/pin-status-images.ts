@@ -1,30 +1,41 @@
 /**
  * Imágenes compuestas (círculo + icono) para pins Por visitar y Visitados.
  * Por visitar: Lucide Pin (mismo que filtro). Visitados: solo palomita. Resuelve traslape.
+ * Geometría y colores desde `map-pin-metrics` + `mapPinSpot` del theme (mismo criterio que `spots-layer`).
  */
 
 import type { Map as MapboxMap } from 'mapbox-gl';
 
+import { Colors } from '@/constants/theme';
+
+import {
+  getCompositeAssetFillRadiusPx,
+  MAP_PIN_COMPOSITE_HALO_STROKE_PX,
+  MAP_PIN_COMPOSITE_IMAGE_PX,
+  MAP_PIN_COMPOSITE_PIXEL_RATIO,
+  type MapPinSpotPalette,
+} from '@/lib/map-core/map-pin-metrics';
+
 export const FLOWYA_PIN_TO_VISIT = 'flowya-pin-to-visit';
 export const FLOWYA_PIN_VISITED = 'flowya-pin-visited';
 
-/** Colores alineados con theme. */
-const TO_VISIT_FILL = '#e6862b';
-const VISITED_FILL = '#34c759';
-const STROKE = 'rgba(255,255,255,0.95)';
 const ICON_WHITE = '#ffffff';
 
-function createComposedSvg(circleFill: string, iconType: 'pin' | 'check'): string {
-  const size = 32;
+function createComposedSvg(
+  circleFill: string,
+  haloStroke: string,
+  iconType: 'pin' | 'check'
+): string {
+  const size = MAP_PIN_COMPOSITE_IMAGE_PX;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = 12;
+  const radius = getCompositeAssetFillRadiusPx();
   if (iconType === 'pin') {
     const scale = 0.65;
     const tx = cx - 12 * scale;
     const ty = cy - 12 * scale;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${circleFill}" stroke="${STROKE}" stroke-width="1.5"/>
+  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${circleFill}" stroke="${haloStroke}" stroke-width="${MAP_PIN_COMPOSITE_HALO_STROKE_PX}"/>
   <g transform="translate(${tx}, ${ty}) scale(${scale})" stroke="${ICON_WHITE}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <path d="M12 17v5"/>
     <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>
@@ -34,7 +45,7 @@ function createComposedSvg(circleFill: string, iconType: 'pin' | 'check'): strin
 
   const checkPath = 'M-6 0 L-2 5 L8 -6';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${circleFill}" stroke="${STROKE}" stroke-width="1.5"/>
+  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${circleFill}" stroke="${haloStroke}" stroke-width="${MAP_PIN_COMPOSITE_HALO_STROKE_PX}"/>
   <path d="${checkPath}" stroke="${ICON_WHITE}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(${cx}, ${cy}) scale(0.7)"/>
 </svg>`;
 }
@@ -42,10 +53,11 @@ function createComposedSvg(circleFill: string, iconType: 'pin' | 'check'): strin
 /** Crea ImageData con círculo + icono (fallback cuando SVG falla). */
 function createComposedPinImageDataFallback(
   circleFill: string,
+  haloStroke: string,
   iconType: 'pin' | 'check'
 ): ImageData | null {
   if (typeof document === 'undefined') return null;
-  const size = 32;
+  const size = MAP_PIN_COMPOSITE_IMAGE_PX;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -53,14 +65,14 @@ function createComposedPinImageDataFallback(
   if (!ctx) return null;
   const cx = size / 2;
   const cy = size / 2;
-  const radius = 12;
+  const radius = getCompositeAssetFillRadiusPx();
   ctx.clearRect(0, 0, size, size);
   ctx.beginPath();
   ctx.arc(cx, cy, radius, 0, Math.PI * 2);
   ctx.fillStyle = circleFill;
   ctx.fill();
-  ctx.strokeStyle = STROKE;
-  ctx.lineWidth = 1.5;
+  ctx.strokeStyle = haloStroke;
+  ctx.lineWidth = MAP_PIN_COMPOSITE_HALO_STROKE_PX;
   ctx.stroke();
   ctx.save();
   ctx.translate(cx, cy);
@@ -88,17 +100,22 @@ function createComposedPinImageDataFallback(
   return ctx.getImageData(0, 0, size, size);
 }
 
-/** Añade imagen compuesta al mapa. Usa Lucide Pin para por visitar. */
-export function addPinStatusImage(map: MapboxMap, id: string): void {
-  if (map.hasImage(id)) return;
+/** Añade imagen compuesta al mapa. Colores desde `palette` (light/dark). */
+export function addPinStatusImage(map: MapboxMap, id: string, palette: MapPinSpotPalette): void {
+  try {
+    if (map.hasImage(id)) map.removeImage(id);
+  } catch {
+    /* ignore */
+  }
   const iconType = id === FLOWYA_PIN_TO_VISIT ? 'pin' : 'check';
-  const fill = id === FLOWYA_PIN_TO_VISIT ? TO_VISIT_FILL : VISITED_FILL;
+  const fill = id === FLOWYA_PIN_TO_VISIT ? palette.toVisit.fill : palette.visited.fill;
+  const haloStroke = id === FLOWYA_PIN_TO_VISIT ? palette.toVisit.stroke : palette.visited.stroke;
 
   if (iconType === 'check') {
-    const imageData = createComposedPinImageDataFallback(fill, 'check');
+    const imageData = createComposedPinImageDataFallback(fill, haloStroke, 'check');
     if (imageData) {
       try {
-        map.addImage(id, imageData, { pixelRatio: 2 });
+        map.addImage(id, imageData, { pixelRatio: MAP_PIN_COMPOSITE_PIXEL_RATIO });
       } catch {
         /* ignore */
       }
@@ -106,22 +123,22 @@ export function addPinStatusImage(map: MapboxMap, id: string): void {
     return;
   }
 
-  const svg = createComposedSvg(fill, 'pin');
+  const svg = createComposedSvg(fill, haloStroke, 'pin');
   const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
   const img = typeof document !== 'undefined' ? document.createElement('img') : null;
   if (!img) return;
   img.onload = () => {
     try {
-      if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: 2 });
+      if (!map.hasImage(id)) map.addImage(id, img, { pixelRatio: MAP_PIN_COMPOSITE_PIXEL_RATIO });
     } catch {
       /* ignore */
     }
   };
   img.onerror = () => {
-    const imageData = createComposedPinImageDataFallback(fill, 'pin');
+    const imageData = createComposedPinImageDataFallback(fill, haloStroke, 'pin');
     if (imageData) {
       try {
-        if (!map.hasImage(id)) map.addImage(id, imageData, { pixelRatio: 2 });
+        if (!map.hasImage(id)) map.addImage(id, imageData, { pixelRatio: MAP_PIN_COMPOSITE_PIXEL_RATIO });
       } catch {
         /* ignore */
       }
@@ -131,8 +148,8 @@ export function addPinStatusImage(map: MapboxMap, id: string): void {
 }
 
 /** Preload de imágenes compuestas. Llamar al cargar estilo. */
-export function preloadPinStatusImages(map: MapboxMap): void {
+export function preloadPinStatusImages(map: MapboxMap, palette: MapPinSpotPalette = Colors.light.mapPinSpot): void {
   if (typeof document === 'undefined') return;
-  addPinStatusImage(map, FLOWYA_PIN_TO_VISIT);
-  addPinStatusImage(map, FLOWYA_PIN_VISITED);
+  addPinStatusImage(map, FLOWYA_PIN_TO_VISIT, palette);
+  addPinStatusImage(map, FLOWYA_PIN_VISITED, palette);
 }

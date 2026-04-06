@@ -136,8 +136,8 @@ Regla: recomputar incrementalmente cuando sea posible; fallback a recompute comp
 - `visitedCountriesCount` en `null` (no visible o `—`).
 
 Estado 2026-02-27:
-- Implementado en runtime Search web/native mediante `ActivitySummary`.
-- Render condicionado a usuario autenticado.
+- El componente de UI `ActivitySummary` en búsqueda fue retirado (2026-04); métricas siguen disponibles en KPI de países / cabecera Explore según producto.
+- Render condicionado a usuario autenticado (donde aplique).
 - `visitedPlacesCount` y `pendingPlacesCount` derivados de estado de pins en memoria (sin polling).
 - `visitedCountriesCount` con heurística inicial desde `spot.address` (último token) + guardrail de cobertura mínima.
 - Si la cobertura de país en spots visitados es baja, se mantiene `—` (`null`).

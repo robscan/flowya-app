@@ -53,17 +53,20 @@ export function MapPinFilterMenuOption({
 }
 
 const styles = StyleSheet.create({
+  /** Ancho completo del Pressable padre para que el tap cubra toda la fila (p. ej. web). */
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: Spacing.sm,
+    width: '100%',
   },
   left: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    flexShrink: 0,
+    minWidth: 0,
   },
   label: {
     flexShrink: 0,

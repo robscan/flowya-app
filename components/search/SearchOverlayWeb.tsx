@@ -56,7 +56,6 @@ export function SearchOverlayWeb<T>({
   onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
-  activitySummary,
 }: SearchFloatingProps<T>) {
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
@@ -226,7 +225,6 @@ export function SearchOverlayWeb<T>({
           onRequestDeleteUserTag={onRequestDeleteUserTag}
           placeSuggestions={placeSuggestions}
           onCreateFromPlace={onCreateFromPlace}
-          activitySummary={activitySummary}
           onClosePress={onClosePress}
           onScrollDismissKeyboard={handleScrollDismissKeyboard}
           scrollViewKeyboardDismissMode="none"
