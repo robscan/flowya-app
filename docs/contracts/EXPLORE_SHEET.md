@@ -1,6 +1,6 @@
 # EXPLORE_SHEET — Contract (Single Sheet, Multi-Mode)
 
-**Última actualización:** 2026-02-09
+**Última actualización:** 2026-04-06
 **Owner:** Explore vNext (`/`)
 **Status:** ACTIVE (source of truth)
 
@@ -25,6 +25,13 @@
 - **SearchSheet (SearchFloating)** = 2 estados: **closed** (pill en dock) y **open_full** (sheet fullscreen). Entrada/salida programática (translateY) + **drag-to-dismiss** desde handle/header.
 - **Drag solo en handle/header:** nunca en el body/lista. El body tiene scroll propio; el gesto de arrastre del sheet se limita al área de handle + header para evitar conflicto con scroll.
 - **Cuando Search está abierto:** SpotSheet no se renderiza (condición `selectedSpot != null && !searchV2.isOpen` en MapScreenVNext). No se usa pointer-events en un sheet oculto; se evita montar SpotSheet para que no intercepte taps.
+
+### 1.2) Convivencia de superficies (runtime 2026-04)
+
+- **No apilar sheets de contexto:** `CountriesSheet` reemplaza la ficha activa (spot/POI) al abrirse desde burbuja/KPI. Regla explícita en `openCountriesSheetForFilter` de `MapScreenVNext`.
+- **Search preserva contexto previo:** al abrir búsqueda (`openSearchPreservingCountriesSheet`), el runtime guarda snapshot de `countriesSheetOpen/state` y selección previa (`selectedSpot/sheetState`), cierra `CountriesSheet` si estaba abierto y abre `SearchFloating`.
+- **Restore al cerrar Search:** si había `CountriesSheet` abierto y el contexto sigue compatible (`pinFilter` en `saved/visited`, sin overlay de create-spot, `sheetState` en `peek`), se restaura su estado previo.
+- **Router de plataforma de Search:** `SearchFloating` delega en `SearchOverlayWeb` (web) y `SearchFloatingNative` (iOS/Android), manteniendo el mismo contrato funcional (`SearchSurface` compartido).
 
 ---
 
@@ -198,6 +205,17 @@ Permite marcar Visitado directamente desde filtro Todos o Visitados sin pasar po
 - `expandedHeight`: rango (min–max) controlado. Implementación: ~90% del viewport (anchor snap).
 - Anchors para drag/snap: ver MOTION_SHEET.md; SpotSheet usa translateY + 3 anchors (collapsed px, medium/expanded %).
 
+### 7.1) Web responsive width contract (WR-01 / WR-03)
+
+- Constantes compartidas: `lib/web-layout.ts`
+  - `WEB_PANEL_PADDING_H = 16`
+  - `WEB_SEARCH_OVERLAY_MAX_WIDTH = 720`
+  - `WEB_SHEET_MAX_WIDTH = 720`
+  - `webSearchUsesConstrainedPanelWidth(windowWidth)` activo desde `tabletMin (768)`.
+- `SearchOverlayWeb`: en tablet/desktop centra panel y limita ancho con `WEB_SEARCH_OVERLAY_MAX_WIDTH`.
+- `SpotSheet` y `CountriesSheet`: en web tablet+ se renderizan dentro de host centrado con `maxWidth = WEB_SHEET_MAX_WIDTH`.
+- Guardrail de paridad visual: no introducir anchos ad-hoc por componente; cualquier cambio de banda/ancho debe salir de `lib/web-layout.ts`.
+
 **Reglas de scroll**
 
 - No usar scroll global “porque sí”.
@@ -242,6 +260,8 @@ Orden recomendado (top → bottom):
 5. Pan/zoom mapa con spot seleccionado → sheet colapsa a header.
 6. Segundo tap pin/hit-area → navegación a `/spot/[id]` (no se rompe).
 7. Ruta legacy removida: `/` es el único entrypoint de Explore en runtime activo.
+8. Web tablet+ (`>= 768`): Search/Spot/Countries usan ancho máximo 720 y host centrado.
+9. Abrir Search con CountriesSheet visible: se oculta al entrar y se restaura al cerrar Search si no cambió el contexto.
 
 ---
 
