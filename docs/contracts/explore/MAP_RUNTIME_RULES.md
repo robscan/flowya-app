@@ -48,6 +48,7 @@ Reglas runtime del mapa en Explorar.
 - Cualquier navegación programática relevante (`flyTo`, `fitBounds`, `onLoad`) debe activar estado de espera de cámara para overlays de alta prominencia (ej. dropdown de filtros).
 - La espera se libera al recibir señal de viewport asentado (nonce/evento equivalente).
 - Debe existir fallback timeout de seguridad para evitar deadlock visual.
+- Valores en `MapScreenVNext`: fallback `FILTER_WAIT_FOR_CAMERA_FALLBACK_MS = 1600`, liberación corta tras settle `FILTER_WAIT_RELEASE_DELAY_MS = 70`.
 - Objetivo UX: evitar que controles reaparezcan durante movimiento de cámara y produzcan ruido/lectura ambigua.
 
 7. **Deep-link / post-create sin reset de filtro**
@@ -57,9 +58,26 @@ Reglas runtime del mapa en Explorar.
 
 8. **Estrategia de refresco de datos en foco (performance)**
 - Al recuperar foco de Explore, evitar refetch masivo si acaba de ocurrir uno recientemente.
-- Ventana canónica mínima entre refetches completos: `8s`.
+- Ventana canónica mínima entre refetches completos: `8s` (`MIN_FOCUS_FULL_REFETCH_MS = 8000` en `MapScreenVNext`).
 - Si se omite refetch completo y hay spot seleccionado persistido, actualizar solo ese spot (`mergeSpotFromDbById`), incluyendo estado de pins.
 - Si ese merge rápido no encuentra el spot (por ejemplo tras edición/delete rápidos), forzar refetch completo para reconciliar estado local y evitar fantasmas.
+- Si no hay spot seleccionado persistido (o no aplica merge), usar `refetchSpots()` completo según la guardia de foco.
+
+## Flujos operativos (referencia)
+
+1. **Deep link / share / post-create**
+- Entrada: `spotId` + `sheet=extended|medium`, o `created=<id>`.
+- Pasos típicos: fetch por id en DB cuando hace falta, normalización de pins (`getPinsForSpots`), `ensureSpotVisibleWithActiveFilter` si el filtro activo no incluiría el spot, apertura de sheet según origen, cleanup de URL (`router.replace("/(tabs)")`). Detalle: [`DEEP_LINK_SPOT.md`](../DEEP_LINK_SPOT.md).
+
+2. **Regreso a Explore con foco reciente (dentro de ventana 8s)**
+- `useFocusEffect`: intentar `mergeSpotFromDbById(selectedSpot.id)`; si devuelve `missing`, `refetchSpots()` completo; mantener selección solo si el spot sigue siendo coherente con el estado local.
+
+## Interfaces y codepaths (`MapScreenVNext`)
+
+- `useFocusEffect` + `MIN_FOCUS_FULL_REFETCH_MS`.
+- `mergeSpotFromDbById(spotId)` → `"merged" | "missing" | "skipped" | "error"`.
+- `refetchSpots()` e invalidación de ids desaparecidos.
+- `ensureSpotVisibleWithActiveFilter(spot)` para continuidad entre filtros.
 
 ## Troubleshooting
 
@@ -89,6 +107,7 @@ Reglas runtime del mapa en Explorar.
 
 ## Referencias
 
+- `docs/contracts/DEEP_LINK_SPOT.md` — query `spotId` / `sheet` / `created` y cleanup.
 - `docs/contracts/SYSTEM_STATUS_TOAST.md` — feedback sistema (toasts) en Explore: anclaje con sheet expandido; paridad nativa.
 - `docs/contracts/MAP_PINS_CONTRACT.md` — paridad visual pins Mapbox ↔ DS (`mapPinSpot`, `spots-layer`); bitácora `321`.
 - `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`

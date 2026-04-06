@@ -1,23 +1,24 @@
 # DEEP_LINK_SPOT — Contrato de URL (Explore + sheet)
 
-**Última actualización:** 2026-03-29
+**Última actualización:** 2026-04-06
 **Status:** ACTIVE
 
-> Explore (mapa) es el entrypoint; el detalle del spot vive como sheet. El estado del sheet depende del origen: post-edit → expanded; compartir → medium.
+> Explore (mapa) es el entrypoint; el detalle del spot vive como sheet. El estado del sheet depende del origen: post-edit → expanded; compartir → medium; post-create → expanded vía `created`.
 
 ---
 
 ## Formato
 
 - **Base:** ruta del mapa = `/(tabs)` (pestaña index donde se renderiza MapScreenVNext).
-- **Query:** `spotId=<uuid>` y `sheet=<medium|extended>`.
+- **Query principal:** `spotId=<uuid>` y `sheet=<medium|extended>`.
+- **Query post-create:** `created=<uuid>` (retorno tras crear spot; abre sheet en **expanded** sin usar `sheet`).
 
 | Valor    | Origen    | Estado del sheet en UI |
 |----------|-----------|-------------------------|
 | `extended` | Post-edit (guardar) | Expanded (más expandido) |
 | `medium`   | Compartir (link)    | Medium (estado medio)    |
 
-**URLs:** `/(tabs)?spotId=<id>&sheet=extended` (post-edit) · `/(tabs)?spotId=<id>&sheet=medium` (share)
+**URLs:** `/(tabs)?spotId=<id>&sheet=extended` (post-edit) · `/(tabs)?spotId=<id>&sheet=medium` (share) · `/(tabs)?created=<id>` (post-create; ver flujo crear en `app/create-spot/index.web.tsx`)
 
 ---
 
@@ -27,32 +28,39 @@
 |------|--------|
 | **Post-edit** | Tras guardar → `router.replace(getMapSpotDeepLink(spot.id))` (default `sheet=extended`). Usuario ve mapa y sheet del spot en **expanded**. El **filtro de pins** (Todos / Por visitar / Visitados) **no** se resetea; si el spot no encaja en el filtro activo, la selección se preserva vía `preserveOutOfFilterSelection` / mutación reciente (mismo criterio que el sheet). |
 | **Compartir** | `getMapSpotShareUrl(spotId)` genera URL con `sheet=medium`. Al abrir el link, mapa + sheet en **medium**. |
-| **Apertura en frío** | Según `sheet` en la URL: `extended` → expanded, `medium` → medium. |
+| **Post-create** | Tras crear spot, el flujo web navega con `/(tabs)?created=<id>`. MapScreenVNext selecciona el spot, abre sheet **expanded**, aplica `ensureSpotVisibleWithActiveFilter`, limpia la URL con `router.replace("/(tabs)")`. No depende de `sheet`. |
+| **Apertura en frío** | Con `spotId` + `sheet`: `extended` → expanded, `medium` → medium. |
 
 ## Restricciones verificadas
 
-- El intake de deep link rehace fetch del spot por id en DB; no depende de caché en memoria para coordenadas tras edición.
+- El intake de deep link rehace fetch del spot por id en DB cuando hace falta; no depende solo de caché en memoria para coordenadas tras edición.
+- En `created=<id>`, si el spot ya está en la lista en memoria se aplica en caliente; si no, se fetchea por id (`is_hidden=false`) y luego se aplica.
 - Si el spot no coincide con el `pinFilter` activo, se mantiene visible temporalmente por excepción runtime de mutación reciente; no hay auto-switch a `all`.
-- El consumo del param es de una sola aplicación por `spotId`; tras aplicar estado, la URL se limpia para evitar re-aplicación y parpadeo del sheet.
+- Guardias separadas para `spotId` y `created` (refs distintos); una sola aplicación por id para evitar parpadeos; tras aplicar estado, `router.replace("/(tabs)")` limpia query.
+- Si el spot no existe o no es visible (`is_hidden`, borrado), se limpia la URL y no se reintenta en bucle.
 
 ---
 
 ## Implementación
 
-- **URLs:** `lib/explore-deeplink.ts`
+- **URLs helpers:** `lib/explore-deeplink.ts`
   - `getMapSpotDeepLink(spotId, sheet?)` — default `extended` (post-edit).
   - `getMapSpotShareUrl(spotId)` — usa `sheet=medium`.
-- **Consumo:** MapScreenVNext lee `spotId` y `sheet`; mapea `extended` → `setSheetState('expanded')`, `medium` → `setSheetState('medium')`; luego limpia params.
-- **Intake spotId:** MapScreenVNext siempre hace fetch del spot por id en DB (no usa caché local) para tener coordenadas actuales. Garantiza encuadre correcto tras post-edit con cambio de ubicación. No fuerza `pinFilter` a «Todos».
+  - El param `created` no pasa por estos helpers; lo construye el flujo de creación (`/(tabs)?created=…`).
+- **Consumo:** `components/explorar/MapScreenVNext.tsx` lee `spotId`, `sheet` y `created` (`useLocalSearchParams`).
+  - `spotId` + `sheet`: `extended` → `setSheetState('expanded')`, `medium` → `setSheetState('medium')`.
+  - `created`: `setSheetState('expanded')` (post-create canónico).
+  - Cleanup: `router.replace("/(tabs)")` en `setTimeout(..., 0)` tras commit de estado (evita flash del sheet).
+- **Intake `spotId`:** fetch desde DB para coords actuales. No fuerza `pinFilter` a «Todos».
 
 ## Troubleshooting
 
 1. **El link abre mapa pero no abre sheet**
-- Validar que `sheet` sea exactamente `extended` o `medium`.
-- Valores distintos se ignoran por diseño.
+- Con `spotId`: validar que `sheet` sea exactamente `extended` o `medium`.
+- Con `created`: no hace falta `sheet`; revisar que el id exista y no esté oculto.
 
 2. **El link “desaparece” al abrir**
-- Esperado: el param se consume y luego se limpia.
+- Esperado: el param se consume y luego se limpia con `replace("/(tabs)")`.
 - Para depurar, revisar logs previos al cleanup, no la URL final.
 
 3. **El spot no queda visible en el filtro activo tras post-edit**
@@ -62,6 +70,10 @@
 4. **Se abre spot con coordenadas viejas**
 - Es regresión. El intake debe fetchar por id en DB y no reutilizar objeto cacheado.
 
+5. **Retorno post-create no abre en expanded**
+- Confirmar navegación con `created=<id>` y que el id sea resoluble en DB.
+- Revisar que no se pisen `appliedCreatedIdRef` / efectos duplicados.
+
 ---
 
 ## QA
@@ -70,3 +82,4 @@
 2. **Share link:** Abrir link en fresh load → mapa, sheet del spot en **medium**.
 3. **Filtro sticky:** Estando en `saved`/`visited`, editar y guardar un spot que ya no cumple filtro → no saltar a `all`; mantener continuidad visual del spot.
 4. **Param cleanup:** Tras aplicar deep link, confirmar que la URL se limpia sin reabrir sheet en renders siguientes.
+5. **Post-create:** Volver desde crear con `created=<id>` → mapa + sheet en **expanded**, URL limpia.
