@@ -122,6 +122,7 @@ export async function fetchSpotsByIdsForExploreWelcome(
       .select(
         'id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki',
       )
+      .eq('is_hidden', false)
       .in('id', ids);
     if (error || !Array.isArray(data) || data.length === 0) {
       return [];
