@@ -291,6 +291,14 @@ type CountryBucket = {
 const SPOT_SELECT_FOR_MAP =
   "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type";
 
+function isNoRowsPostgrestError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybeError = error as { code?: string; details?: string; message?: string };
+  if (maybeError.code === "PGRST116") return true;
+  const text = `${maybeError.details ?? ""} ${maybeError.message ?? ""}`.toLowerCase();
+  return text.includes("0 rows") || text.includes("no rows");
+}
+
 const COUNTRY_ALIAS_OVERRIDES: Record<string, string> = {
   "united states of america": "US",
   "ee uu": "US",
@@ -1061,7 +1069,7 @@ export function MapScreenVNext() {
       .eq("id", spotId)
       .eq("is_hidden", false)
       .single();
-    if (error) return "error";
+    if (error) return isNoRowsPostgrestError(error) ? "missing" : "error";
     if (!data) return "missing";
     const pinMap = await getPinsForSpots([spotId]);
     const state = pinMap.get(spotId);
