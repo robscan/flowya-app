@@ -40,9 +40,10 @@ export const WEB_EXPLORE_SIDEBAR_MIN_WIDTH = 1080;
 
 /**
  * Ancho del panel lateral Explore (≥ `WEB_EXPLORE_SIDEBAR_MIN_WIDTH`).
- * Más estrecho que `WEB_SHEET_MAX_WIDTH` para dar más superficie al mapa en desktop.
+ * Más estrecho que `WEB_SHEET_MAX_WIDTH` para dar más superficie al mapa en desktop;
+ * ancho suficiente para filas de lugares (título, meta, chips) sin apretar demasiado.
  */
-export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = 400;
+export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = 480;
 
 export function webExploreUsesDesktopSidebar(windowWidth: number): boolean {
   return windowWidth >= WEB_EXPLORE_SIDEBAR_MIN_WIDTH;
