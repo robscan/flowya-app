@@ -110,6 +110,7 @@ import {
 } from "@/lib/places/searchPlacesPOI";
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH,
   WEB_SHEET_MAX_WIDTH,
   webExploreUsesDesktopSidebar,
 } from "@/lib/web-layout";
@@ -3625,11 +3626,19 @@ export function MapScreenVNext() {
     });
   }, [countriesSheetListView, countriesSheetOverlaySpotsPool]);
 
-  const countriesSheetDetailSpots = useMemo(
-    () =>
-      filterExploreSearchItemsByTag(countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex),
-    [countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex],
-  );
+  const countriesSheetDetailSpots = useMemo(() => {
+    const filtered = filterExploreSearchItemsByTag(
+      countriesSheetDetailBaseSpots,
+      selectedTagFilterId,
+      pinTagIndex,
+    );
+    if (userCoords == null) return filtered;
+    return [...filtered].sort((a, b) => {
+      const da = distanceKm(userCoords.latitude, userCoords.longitude, a.latitude, a.longitude);
+      const db = distanceKm(userCoords.latitude, userCoords.longitude, b.latitude, b.longitude);
+      return da - db;
+    });
+  }, [countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex, userCoords]);
 
   const countriesSheetDetailTagSpotIds = useMemo(() => {
     if (!countriesSheetListView) return new Set<string>();
@@ -3656,6 +3665,15 @@ export function MapScreenVNext() {
     countriesSheetDetailTagFilterOptions,
     selectedTagFilterId,
   ]);
+
+  /** Desktop ≥1080: ancho de columna países; más ancho solo en listado de lugares (no en KPI de países). */
+  const countriesDesktopSidebarPanelWidth = useMemo(
+    () =>
+      countriesSheetListView != null
+        ? WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH
+        : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+    [countriesSheetListView],
+  );
 
   useEffect(() => {
     let isCancelled = false;
@@ -3762,12 +3780,15 @@ export function MapScreenVNext() {
       countriesSheetPinAnchorRef.current = pinFilter;
     }
   }, [pinFilter, countriesSheetOpen]);
+  /** Alinea overlay (KPI/contador) con `countriesFilterForActiveCounter` o filtro forzado. */
   useEffect(() => {
     if (!countriesSheetOpen) return;
     const targetFilter = countriesSheetForcedFilterRef.current ?? countriesFilterForActiveCounter;
     if (countriesOverlayFilter === targetFilter) return;
     setCountriesOverlayFilter(targetFilter);
-    setCountriesSheetListView(null);
+    /** No resetear `countriesSheetListView`: al cambiar Por visitar ↔ Visitados hay un render donde
+     * overlay aún no coincide con el pin y esto borraba el listado; `useLayoutEffect` (pinFilter) ya
+     * sincroniza overlay y dataset. */
   }, [countriesSheetOpen, countriesOverlayFilter, countriesFilterForActiveCounter]);
   useEffect(() => {
     if (!countriesSheetOpen) return;
@@ -3840,9 +3861,7 @@ export function MapScreenVNext() {
           ? (exploreLowerSheetSnapRef.current as CountriesSheetState)
           : snap.state;
       setCountriesSheetState(coerceCountriesSheetInitialState(nextStateRaw));
-      if (switchingSavedVisitedWithSheetOpen) {
-        setCountriesSheetListView(null);
-      }
+      /** Con sheet abierto, Por visitar ↔ Visitados: mantener listado (todos / país); el dataset viene de `countriesOverlayFilter`. */
       if (!shouldShowCountriesSheet) {
         setCountriesSheetListView(null);
         setCountriesSheetHeight(0);
@@ -3970,7 +3989,8 @@ export function MapScreenVNext() {
     (spot: Spot) => {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
-      countriesSheetBeforeSpotSheetRef.current = null;
+      /** Igual que al pulsar un pin: guardar sheet países + listView para restaurar al cerrar SpotSheet. */
+      captureCountriesBeforeSpotFnRef.current();
       countriesSheetPrevSelectionRef.current = null;
       countriesSheetForcedFilterRef.current = null;
       setCountriesSheetListView(null);
@@ -4728,6 +4748,7 @@ export function MapScreenVNext() {
     welcomeSheetHeight,
     welcomeSheetState,
     welcomeSidebarDismissed,
+    countriesSheetListViewPresent: countriesSheetListView != null,
   });
   const {
     webConstrainedFlowyaLayout,
@@ -4749,6 +4770,7 @@ export function MapScreenVNext() {
     shouldCenterCountriesWithPeekSheet,
     filterMinimumTop,
     exploreDesktopSidebarActive,
+    desktopSidebarPixelWidth,
     mapStageWidth,
     flowyaRowFullMapStageWidth,
     isFlowyaSidebarHeaderVisible,
@@ -4796,7 +4818,13 @@ export function MapScreenVNext() {
       cancelAnimationFrame(id1);
       if (innerRaf != null) cancelAnimationFrame(innerRaf);
     };
-  }, [mapInstance, exploreDesktopSidebarActive, mapStageWidth, windowWidth]);
+  }, [
+    mapInstance,
+    exploreDesktopSidebarActive,
+    mapStageWidth,
+    desktopSidebarPixelWidth,
+    windowWidth,
+  ]);
 
   useEffect(() => {
     if (pinFilter === "all" && showExploreWelcomeSheet) {
@@ -5108,10 +5136,7 @@ export function MapScreenVNext() {
                       : 0);
     toast.setAnchor({
       placement: "bottom-left",
-      left:
-        TOP_OVERLAY_INSET_X +
-        insets.left +
-        (exploreDesktopSidebarActive ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH : 0),
+      left: TOP_OVERLAY_INSET_X + insets.left + desktopSidebarPixelWidth,
       bottom,
       right: areMapControlsVisible
         ? CONTROLS_OVERLAY_RIGHT + insets.right + STATUS_AVOID_CONTROLS_RIGHT
@@ -5139,7 +5164,7 @@ export function MapScreenVNext() {
     countriesSheetState,
     showExploreWelcomeSheet,
     welcomeSheetState,
-    exploreDesktopSidebarActive,
+    desktopSidebarPixelWidth,
   ]);
 
   const desktopSidebarHadPanelRef = useRef(false);
@@ -5376,11 +5401,15 @@ export function MapScreenVNext() {
       {countriesInSidebarDesktop ? (
         <ExploreDesktopSidebarAnimatedColumn
           animationKey={`countries-${countriesOverlayFilter}`}
+          panelWidth={countriesDesktopSidebarPanelWidth}
           skipEntranceAnimation={skipDesktopSidebarEntrance}
           onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
-            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
+            {
+              borderRightColor: Colors[colorScheme ?? "light"].borderSubtle,
+              width: countriesDesktopSidebarPanelWidth,
+            },
           ]}
         >
           {exploreSidebarFlowyaHeaderEl}
@@ -5418,8 +5447,27 @@ export function MapScreenVNext() {
               onCountryDetailTagFilterChange={
                 isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
               }
+              countryDetailTagFilterEditMode={
+                isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
+              }
+              onCountryDetailTagFilterEnterEditMode={
+                isAuthUser && countriesSheetListView != null
+                  ? () => setTagFilterEditMode(true)
+                  : undefined
+              }
+              onCountryDetailTagFilterExitEditMode={
+                isAuthUser && countriesSheetListView != null
+                  ? () => setTagFilterEditMode(false)
+                  : undefined
+              }
+              onCountryDetailRequestDeleteUserTag={
+                isAuthUser && countriesSheetListView != null
+                  ? handleRequestDeleteUserTag
+                  : undefined
+              }
               onPlacesListScopeChange={setCountriesSheetListView}
               webDesktopSidebar
+              webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
             />
           </View>
         </ExploreDesktopSidebarAnimatedColumn>
@@ -5674,6 +5722,22 @@ export function MapScreenVNext() {
           }
           onCountryDetailTagFilterChange={
             isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+          }
+          countryDetailTagFilterEditMode={
+            isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
+          }
+          onCountryDetailTagFilterEnterEditMode={
+            isAuthUser && countriesSheetListView != null
+              ? () => setTagFilterEditMode(true)
+              : undefined
+          }
+          onCountryDetailTagFilterExitEditMode={
+            isAuthUser && countriesSheetListView != null
+              ? () => setTagFilterEditMode(false)
+              : undefined
+          }
+          onCountryDetailRequestDeleteUserTag={
+            isAuthUser && countriesSheetListView != null ? handleRequestDeleteUserTag : undefined
           }
           onPlacesListScopeChange={setCountriesSheetListView}
           webDesktopSidebar={false}

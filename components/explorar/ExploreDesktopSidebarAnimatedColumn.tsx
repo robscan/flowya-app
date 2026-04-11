@@ -41,7 +41,19 @@ export function ExploreDesktopSidebarAnimatedColumn({
   useEffect(() => {
     if (skipEntranceAnimation) {
       widthAnim.setValue(w);
-      return;
+      /** Sin animación de entrada pero sí cambio de `w` (p. ej. KPI países ↔ listado lugares): el map stage
+       * cambia de ancho; Mapbox debe `resize()` tras layout (doble rAF alineado a MapScreenVNext). */
+      let id2: number | null = null;
+      const id1 = requestAnimationFrame(() => {
+        id2 = requestAnimationFrame(() => {
+          id2 = null;
+          onFrameRef.current?.();
+        });
+      });
+      return () => {
+        cancelAnimationFrame(id1);
+        if (id2 != null) cancelAnimationFrame(id2);
+      };
     }
     widthAnim.setValue(0);
     const listenerId = widthAnim.addListener(() => {
