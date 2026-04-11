@@ -94,6 +94,7 @@ export function MapCoreView({
 
   return (
     <Map
+        /** Solo cambio de estilo remonta el mapa; filtros de pines / layout no deben añadir key aquí (coste Mapbox). */
         key={mapStyle}
         mapboxAccessToken={mapboxAccessToken}
         mapStyle={mapStyle}
