@@ -46,9 +46,10 @@ export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = 400;
 
 /**
  * Panel países en desktop cuando se muestra el listado de lugares (detalle país / todos).
- * Solo aplica a esa vista; KPI de países y resto de paneles siguen en `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH`.
+ * Mismo ancho que el overlay de búsqueda (`WEB_SEARCH_OVERLAY_MAX_WIDTH`).
+ * KPI de países y resto de paneles siguen en `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH`.
  */
-export const WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH = 480;
+export const WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH = WEB_SEARCH_OVERLAY_MAX_WIDTH;
 
 export function webExploreUsesDesktopSidebar(windowWidth: number): boolean {
   return windowWidth >= WEB_EXPLORE_SIDEBAR_MIN_WIDTH;

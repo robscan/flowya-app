@@ -3988,7 +3988,8 @@ export function MapScreenVNext() {
     (spot: Spot) => {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
-      countriesSheetBeforeSpotSheetRef.current = null;
+      /** Igual que al pulsar un pin: guardar sheet países + listView para restaurar al cerrar SpotSheet. */
+      captureCountriesBeforeSpotFnRef.current();
       countriesSheetPrevSelectionRef.current = null;
       countriesSheetForcedFilterRef.current = null;
       setCountriesSheetListView(null);
