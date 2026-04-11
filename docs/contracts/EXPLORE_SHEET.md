@@ -1,8 +1,10 @@
 # EXPLORE_SHEET — Contract (Single Sheet, Multi-Mode)
 
-**Última actualización:** 2026-04-06
+**Última actualización:** 2026-04-11
 **Owner:** Explore vNext (`/`)
 **Status:** ACTIVE (source of truth)
+
+> **Chrome inferior Explorar (búsqueda + bienvenida + KPI):** ver [EXPLORE_CHROME_SHELL.md](EXPLORE_CHROME_SHELL.md) (`ExploreChromeShell`, `EXPO_PUBLIC_FF_EXPLORE_CHROME_UNIFIED`, layout en `lib/explore-map-chrome-layout.ts`).
 
 > Objetivo: Unificar Search y Spot en **un solo Sheet** (3 estados) para evitar overlays frágiles, glitches de scroll/drag y problemas con teclado.
 > Este contrato define: estados, modos, layout, eventos, z-index y comportamiento esperado (web + mobile).

@@ -2,6 +2,8 @@
 
 Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
+**Chrome / banda inferior:** al cambiar entre `all` y `saved`/`visited`, el host del chrome de Explorar sigue [EXPLORE_CHROME_SHELL.md](../EXPLORE_CHROME_SHELL.md) (sheet bienvenida vs banda KPI; offsets centralizados en `computeExploreMapChromeLayout`).
+
 ## Scope
 
 - Selección de filtro.

@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-04-06
+**Fecha:** 2026-04-11
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -34,7 +34,7 @@
 ## Estado general (contexto)
 
 - Gates Fase 1 / Fase 2 / Fase 3 base y `OL-P2-006` / `OL-P1-003`: **cerrados** (histórico; bitácora `213` y anteriores).
-- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`.
+- Trazabilidad reciente: bitácoras `307`, `308`, `309`, `310`, `311`, `315`, `316`, `317`, `318`, `319`, `320`, `321`, `322`, `323`, `324`, `325`, `326`, `327`, `328`, `329`, `330`, `331` (Explore Chrome shell DS + `lib/explore-map-chrome-layout.ts`, contrato `EXPLORE_CHROME_SHELL.md`).
 
 ---
 

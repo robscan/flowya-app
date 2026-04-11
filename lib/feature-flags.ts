@@ -20,4 +20,9 @@ export const featureFlags = {
   searchExternalDedupe: envEnabled('EXPO_PUBLIC_FF_SEARCH_EXTERNAL_DEDUPE'),
   /** OFF por defecto: fallback en cadena para empty reco (landmarks visibles -> category local -> category amplia). */
   searchEmptyRecoPanamaFixV1: envEnabled('EXPO_PUBLIC_FF_EMPTY_RECO_PANAMA_FIX_V1'),
+  /**
+   * Host único ExploreChromeShell (banda KPI + sheet bienvenida). OFF = banda y welcome como antes (dos bloques).
+   * Ver docs/contracts/EXPLORE_CHROME_SHELL.md
+   */
+  exploreChromeUnified: envEnabled('EXPO_PUBLIC_FF_EXPLORE_CHROME_UNIFIED', true),
 } as const;

@@ -980,7 +980,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Chrome alineado a MapScreen: fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
+          description="Chrome alineado a MapScreen (`ExploreChromeShell` en runtime con flag unificado; ver EXPLORE_CHROME_SHELL.md): fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
         >
           <View
             style={{

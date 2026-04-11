@@ -1,6 +1,6 @@
 # DESIGN_SYSTEM_USAGE — Canon operativo (Explore + Edit Spot)
 
-**Fecha:** 2026-04-06 (actualización: `MapPinFilterInline` con conteos 0, `ExploreSearchActionRow.fullWidth` en banda inferior alineada a WR-01; inventario DS y bitácora `330`)
+**Fecha:** 2026-04-11 (actualización: `ExploreWelcomeSheet` y `ExploreChromeShell` canónicos en `components/design-system/`; layout Explore en `lib/explore-map-chrome-layout.ts`; bitácora `331`)
 
 **Fuentes de verdad:**
 - Runtime Explore: `components/explorar/MapScreenVNext.tsx`
@@ -23,6 +23,7 @@ Cualquier UI fuera de ese alcance se considera candidata a deprecación hasta nu
 ## 2) Inventario canónico mínimo (obligatorio)
 
 ### Explore
+- `ExploreChromeShell` / `ExploreWelcomeSheet` (chrome inferior unificado; ver `EXPLORE_CHROME_SHELL.md`)
 - `IconButton`
 - `MapControls`
 - `MapPinFilter`
@@ -34,7 +35,7 @@ Cualquier UI fuera de ese alcance se considera candidata a deprecación hasta nu
 - `SheetHandle`
 - `SpotSheet`
 
-**Shells de pantalla (no barrel DS):** `ExploreWelcomeSheet` y `CountriesSheet` viven en `components/explorar/` y componen primitivas del barrel (`ExploreSearchActionRow`, `SheetHandle`, `SearchResultCard` → `SearchListCard`, KPI/lista países). No duplicar patrones de lista: reutilizar `SearchListCard` y tokens de `theme.ts`. Inventario: `docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md` (sección runtime Explore).
+**Shells de pantalla:** `ExploreChromeShell` y `ExploreWelcomeSheet` están en `components/design-system/` (export barrel). `CountriesSheet` permanece en `components/explorar/` y compone primitivas del barrel. No duplicar patrones de lista: reutilizar `SearchListCard` y tokens de `theme.ts`. Inventario: `docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md` (sección runtime Explore).
 
 ### Edit Spot
 - `IconButton`

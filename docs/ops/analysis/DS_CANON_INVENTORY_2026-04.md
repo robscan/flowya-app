@@ -70,7 +70,7 @@ Fuente barrel: [`components/design-system/index.ts`](../../components/design-sys
 
 | Componente / ruta | Barrel DS | Vitrina | Nota |
 |---------------------|-----------|---------|------|
-| `components/explorar/ExploreWelcomeSheet.tsx` | No (shell producto) | No (usa demos `SearchListCard` / patrones en vitrina) | Compone `ExploreSearchActionRow`, `SheetHandle`, `SearchResultCard`, `SearchListCard`; prop `browseSectionTitle` opcional. Bitácora `329`. |
+| `components/design-system/explore-welcome-sheet.tsx` + `explore-chrome-shell.tsx` | Shell producto | Vitrina vía `ds-pat-explore` | `ExploreChromeShell` unifica banda KPI + sheet bienvenida; `ExploreWelcomeSheet` lista cold-start. Re-export deprecado en `components/explorar/ExploreWelcomeSheet.tsx`. Bitácora `331`. |
 | `components/explorar/CountriesSheet.tsx` | Tipos en `countries-sheet-types.ts` (barrel) | Parcial (KPI, lista, mapa, plantilla) | Persistencia estado/tamaño por filtro; detalle país: bitácora `328`. Lista países en medium+expanded, toasts si sheet expandido: bitácora `330`. |
 
 ## Criterio

@@ -16,6 +16,20 @@ export type {
 } from './explore-map-status-row';
 export { ExploreSearchActionRow } from './explore-search-action-row';
 export type { ExploreSearchActionRowProps } from './explore-search-action-row';
+export { ExploreChromeShell } from './explore-chrome-shell';
+export type {
+  ExploreChromeShellMode,
+  ExploreChromeShellProps,
+} from './explore-chrome-shell';
+export {
+  ExploreWelcomeSheet,
+} from './explore-welcome-sheet';
+export type {
+  ExploreWelcomeSheetProps,
+  ExploreWelcomeSheetState,
+  WelcomeBrowseItem,
+  WelcomeSpotListRow,
+} from './explore-welcome-sheet';
 export { FlowyaBetaModal } from '../ui/flowya-beta-modal';
 export type { FlowyaBetaModalProps } from '../ui/flowya-beta-modal';
 export { FlowyaFeedbackTrigger } from './flowya-feedback-trigger';
