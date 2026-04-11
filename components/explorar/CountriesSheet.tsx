@@ -84,6 +84,8 @@ type CountriesSheetProps = {
   onCountryDetailTagFilterChange?: (tagId: string | null) => void;
   /** Listado de lugares: desde el menú del título, volver a `all_places` o cambiar de país. */
   onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
+  /** Web ≥1080: panel en columna izquierda; el host lo coloca MapScreen. */
+  webDesktopSidebar?: boolean;
 };
 
 const SHEET_PEEK_HEIGHT = 96;
@@ -142,6 +144,7 @@ export function CountriesSheet({
   selectedCountryDetailTagFilterId = null,
   onCountryDetailTagFilterChange,
   onPlacesListScopeChange,
+  webDesktopSidebar = false,
 }: CountriesSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceColorScheme = useColorScheme();
@@ -192,7 +195,9 @@ export function CountriesSheet({
   const viewportHeight = Dimensions.get("window").height;
   const { width: windowWidth } = useWindowDimensions();
   const useWebConstrainedSheet =
-    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
+    Platform.OS === "web" &&
+    webSearchUsesConstrainedPanelWidth(windowWidth) &&
+    !webDesktopSidebar;
 
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -309,6 +314,22 @@ export function CountriesSheet({
       onSheetHeightChange?.(0);
       return;
     }
+    if (webDesktopSidebar) {
+      const target = translateYToAnchor(state);
+      mountedRef.current = true;
+      translateYShared.value = withTiming(target, {
+        duration: DURATION_PROGRAMMATIC,
+        easing: EASING_SHEET,
+      });
+      opacityShared.value = withTiming(1, {
+        duration: DURATION_PROGRAMMATIC,
+        easing: EASING_SHEET,
+      });
+      onSheetHeightChange?.(
+        getSheetHeightForState(state, collapsedAnchor, mediumVisible, expandedVisible),
+      );
+      return;
+    }
     if (!isMeasured) return;
     const target = translateYToAnchor(state);
     if (!mountedRef.current) {
@@ -328,6 +349,10 @@ export function CountriesSheet({
     opacityShared,
     viewportHeight,
     onSheetHeightChange,
+    webDesktopSidebar,
+    collapsedAnchor,
+    mediumVisible,
+    expandedVisible,
   ]);
 
   useEffect(() => {
@@ -509,11 +534,12 @@ export function CountriesSheet({
     <Animated.View
       style={[
         styles.container,
+        webDesktopSidebar && styles.containerDesktopSidebar,
         {
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
-          height: expandedAnchor,
-          bottom: useWebConstrainedSheet ? 0 : bottomOffset,
+          height: webDesktopSidebar ? ("100%" as const) : expandedAnchor,
+          bottom: webDesktopSidebar ? 0 : useWebConstrainedSheet ? 0 : bottomOffset,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
           pointerEvents: "box-none",
         },
@@ -857,6 +883,14 @@ export function CountriesSheet({
     </Animated.View>
   );
 
+  if (webDesktopSidebar) {
+    return (
+      <View style={styles.webSidebarColumnHost} pointerEvents="box-none">
+        <View style={styles.webSidebarColumnInner}>{sheetAnimated}</View>
+      </View>
+    );
+  }
+
   if (useWebConstrainedSheet) {
     return (
       <View
@@ -875,6 +909,23 @@ export function CountriesSheet({
 }
 
 const styles = StyleSheet.create({
+  webSidebarColumnHost: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
+  },
+  webSidebarColumnInner: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    maxWidth: WEB_SHEET_MAX_WIDTH,
+  },
+  containerDesktopSidebar: {
+    top: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+  },
   webSheetWidthHost: {
     position: "absolute",
     left: 0,

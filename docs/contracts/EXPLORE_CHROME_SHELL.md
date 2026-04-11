@@ -1,6 +1,6 @@
 # EXPLORE_CHROME_SHELL — Chrome inferior unificado (Explorar)
 
-**Última actualización:** 2026-04-11  
+**Última actualización:** 2026-04-11 (sidebar desktop ≥1080)  
 **Estado:** ACTIVE  
 **Owner:** Explore vNext (`MapScreenVNext`), Design System  
 **Relacionado:** [EXPLORE_SHEET.md](EXPLORE_SHEET.md), [CANONICAL_BOTTOM_SHEET.md](CANONICAL_BOTTOM_SHEET.md), [DESIGN_SYSTEM_USAGE.md](DESIGN_SYSTEM_USAGE.md), [explore/FLOWYA_STATUS_ROW_VISIBILITY.md](explore/FLOWYA_STATUS_ROW_VISIBILITY.md), [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md)
@@ -58,6 +58,14 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 ## 8. Paridad web (WR-01)
 
 - Viewport ≥ `tabletMin` (768px): host con ancho máximo `WEB_SHEET_MAX_WIDTH` (`lib/web-layout.ts`), centrado; `webSearchUsesConstrainedPanelWidth`.
+
+## 8b. Desktop ancho (sidebar, producto)
+
+- Viewport ≥ **`WEB_EXPLORE_SIDEBAR_MIN_WIDTH` (1080px)** (`lib/web-layout.ts`): **`webExploreUsesDesktopSidebar`**. Si aplica **welcome** (Todos) o **CountriesSheet** abierto en KPI, el panel deja de ser sheet inferior centrado y pasa a **columna izquierda** de ancho `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH` (720px, misma referencia que el sheet). El **mapa y overlays** viven en `mapStage` (columna derecha, `flex: 1`): el viewport de Mapbox coincide con esa región; `mapInstance.resize()` al cambiar el layout.
+- **`ExploreWelcomeSheet`**: prop `webExploreLayout="desktopSidebar"` (lista + barra en columna).
+- **`CountriesSheet`**: prop `webDesktopSidebar` (panel anclado a la columna).
+- **Toast** (`SystemStatusBar`): ancla inferior izquierda compensada con el ancho del panel lateral cuando el sidebar está activo.
+- Por debajo de 1080px se mantiene el comportamiento de sheet inferior (§8).
 
 ## 9. Feature flag (transición)
 

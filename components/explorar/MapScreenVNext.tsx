@@ -101,7 +101,10 @@ import {
   searchPlacesPOI,
   type PlaceResultV2,
 } from "@/lib/places/searchPlacesPOI";
-import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
+import {
+  WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  WEB_SHEET_MAX_WIDTH,
+} from "@/lib/web-layout";
 import {
     FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
@@ -4695,7 +4698,22 @@ export function MapScreenVNext() {
     shouldUseCenteredOverlayColumn,
     shouldCenterCountriesWithPeekSheet,
     filterMinimumTop,
+    exploreDesktopSidebarActive,
+    mapStageWidth,
+    flowyaRowFullMapStageWidth,
   } = chromeLayout;
+
+  useEffect(() => {
+    if (!mapInstance) return;
+    const id = requestAnimationFrame(() => {
+      try {
+        mapInstance.resize();
+      } catch {
+        // ignore
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [mapInstance, exploreDesktopSidebarActive, mapStageWidth, windowWidth]);
 
   useEffect(() => {
     if (pinFilter === "all" && showExploreWelcomeSheet) {
@@ -4964,7 +4982,10 @@ export function MapScreenVNext() {
                       : 0);
     toast.setAnchor({
       placement: "bottom-left",
-      left: TOP_OVERLAY_INSET_X + insets.left,
+      left:
+        TOP_OVERLAY_INSET_X +
+        insets.left +
+        (exploreDesktopSidebarActive ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH : 0),
       bottom,
       right: areMapControlsVisible
         ? CONTROLS_OVERLAY_RIGHT + insets.right + STATUS_AVOID_CONTROLS_RIGHT
@@ -4992,6 +5013,7 @@ export function MapScreenVNext() {
     countriesSheetState,
     showExploreWelcomeSheet,
     welcomeSheetState,
+    exploreDesktopSidebarActive,
   ]);
 
   if (!MAPBOX_TOKEN) {
@@ -5027,12 +5049,94 @@ export function MapScreenVNext() {
         ? "to_visit"
         : "default";
 
+  const countriesInSidebarDesktop =
+    exploreDesktopSidebarActive &&
+    countriesSheetOpen &&
+    !showExploreWelcomeSheet;
+
   return (
     <View
       ref={mapRootRef as React.RefObject<View>}
-      style={styles.mapScreenRoot}
+      style={[
+        styles.mapScreenRoot,
+        exploreDesktopSidebarActive && Platform.OS === "web" && styles.mapScreenRootSplit,
+      ]}
       {...(Platform.OS === "web" && { className: "map-screen-root-dvh" })}
     >
+      {exploreDesktopSidebarActive && showExploreWelcomeSheet ? (
+        <View
+          style={[
+            styles.exploreSidebarColumn,
+            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
+          ]}
+        >
+          <ExploreWelcomeSheet
+            webExploreLayout="desktopSidebar"
+            visible
+            state={welcomeSheetState}
+            onStateChange={setWelcomeSheetState}
+            onSheetHeightChange={setWelcomeSheetHeight}
+            onSearchPress={openSearchPreservingCountriesSheet}
+            onProfilePress={handleProfilePress}
+            onLogoutPress={handleLogoutPress}
+            showLogoutAction={showLogoutOption && isAuthUser}
+            isAuthUser={isAuthUser}
+            logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+            browseSectionTitle={welcomeSheetBrowseSectionTitle}
+            browseItems={welcomeExploreListItems}
+            onBrowseItemPress={handleWelcomeBrowseItemPress}
+            userCoords={userCoords}
+            bottomOffset={dockBottomOffset + insets.bottom}
+            forceColorScheme={countriesOverlayScheme}
+          />
+        </View>
+      ) : null}
+      {countriesInSidebarDesktop ? (
+        <View
+          style={[
+            styles.exploreSidebarColumn,
+            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
+          ]}
+        >
+          <CountriesSheet
+            visible={countriesSheetOpen}
+            title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+            filterMode={countriesOverlayFilter}
+            state={countriesSheetState}
+            forceColorScheme={countriesOverlayScheme}
+            items={countriesBucketsForOverlay}
+            worldPercentage={countriesWorldPercentageForOverlay}
+            summaryCountriesCount={countriesCountForOverlay}
+            summaryPlacesCount={countriesPlacesCountForOverlay}
+            onCountriesKpiPress={handleCountriesKpiPress}
+            onSpotsKpiPress={handleCountriesSpotsKpiPress}
+            onStateChange={setCountriesSheetState}
+            onClose={handleCountriesSheetClose}
+            onShare={handleCountriesSheetShare}
+            shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
+            onItemPress={handleCountryBucketPress}
+            onSheetHeightChange={setCountriesSheetHeight}
+            onMapSnapshotChange={setCountriesMapSnapshot}
+            onMapCountryPress={handleCountriesMapCountryPress}
+            countryDetail={countriesSheetListView}
+            onCountryDetailBack={handleCountryDetailBack}
+            countryDetailSpots={countriesSheetDetailSpots}
+            renderCountryDetailItem={renderCountryDetailItem}
+            countryDetailTagFilterOptions={
+              isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+            }
+            selectedCountryDetailTagFilterId={
+              isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
+            }
+            onCountryDetailTagFilterChange={
+              isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+            }
+            onPlacesListScopeChange={setCountriesSheetListView}
+            webDesktopSidebar
+          />
+        </View>
+      ) : null}
+      <View style={styles.mapStage}>
       <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
@@ -5137,7 +5241,8 @@ export function MapScreenVNext() {
         </Animated.View>
       ) : null}
       {featureFlags.exploreChromeUnified ? (
-        showExploreWelcomeSheet || isBottomActionRowVisible ? (
+        ((showExploreWelcomeSheet && !exploreDesktopSidebarActive) ||
+          isBottomActionRowVisible) ? (
           <ExploreChromeShell
             mode={showExploreWelcomeSheet ? "welcome" : "kpi"}
             welcomeProps={{
@@ -5212,7 +5317,7 @@ export function MapScreenVNext() {
               </View>
             </View>
           ) : null}
-          {showExploreWelcomeSheet ? (
+          {showExploreWelcomeSheet && !exploreDesktopSidebarActive ? (
             <ExploreWelcomeSheet
               visible
               state={welcomeSheetState}
@@ -5234,41 +5339,44 @@ export function MapScreenVNext() {
           ) : null}
         </Fragment>
       )}
-      <CountriesSheet
-        visible={countriesSheetOpen}
-        title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
-        filterMode={countriesOverlayFilter}
-        state={countriesSheetState}
-        forceColorScheme={countriesOverlayScheme}
-        items={countriesBucketsForOverlay}
-        worldPercentage={countriesWorldPercentageForOverlay}
-        summaryCountriesCount={countriesCountForOverlay}
-        summaryPlacesCount={countriesPlacesCountForOverlay}
-        onCountriesKpiPress={handleCountriesKpiPress}
-        onSpotsKpiPress={handleCountriesSpotsKpiPress}
-        onStateChange={setCountriesSheetState}
-        onClose={handleCountriesSheetClose}
-        onShare={handleCountriesSheetShare}
-        shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
-        onItemPress={handleCountryBucketPress}
-        onSheetHeightChange={setCountriesSheetHeight}
-        onMapSnapshotChange={setCountriesMapSnapshot}
-        onMapCountryPress={handleCountriesMapCountryPress}
-        countryDetail={countriesSheetListView}
-        onCountryDetailBack={handleCountryDetailBack}
-        countryDetailSpots={countriesSheetDetailSpots}
-        renderCountryDetailItem={renderCountryDetailItem}
-        countryDetailTagFilterOptions={
-          isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
-        }
-        selectedCountryDetailTagFilterId={
-          isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
-        }
-        onCountryDetailTagFilterChange={
-          isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
-        }
-        onPlacesListScopeChange={setCountriesSheetListView}
-      />
+      {!countriesInSidebarDesktop ? (
+        <CountriesSheet
+          visible={countriesSheetOpen}
+          title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+          filterMode={countriesOverlayFilter}
+          state={countriesSheetState}
+          forceColorScheme={countriesOverlayScheme}
+          items={countriesBucketsForOverlay}
+          worldPercentage={countriesWorldPercentageForOverlay}
+          summaryCountriesCount={countriesCountForOverlay}
+          summaryPlacesCount={countriesPlacesCountForOverlay}
+          onCountriesKpiPress={handleCountriesKpiPress}
+          onSpotsKpiPress={handleCountriesSpotsKpiPress}
+          onStateChange={setCountriesSheetState}
+          onClose={handleCountriesSheetClose}
+          onShare={handleCountriesSheetShare}
+          shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
+          onItemPress={handleCountryBucketPress}
+          onSheetHeightChange={setCountriesSheetHeight}
+          onMapSnapshotChange={setCountriesMapSnapshot}
+          onMapCountryPress={handleCountriesMapCountryPress}
+          countryDetail={countriesSheetListView}
+          onCountryDetailBack={handleCountryDetailBack}
+          countryDetailSpots={countriesSheetDetailSpots}
+          renderCountryDetailItem={renderCountryDetailItem}
+          countryDetailTagFilterOptions={
+            isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+          }
+          selectedCountryDetailTagFilterId={
+            isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
+          }
+          onCountryDetailTagFilterChange={
+            isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+          }
+          onPlacesListScopeChange={setCountriesSheetListView}
+          webDesktopSidebar={false}
+        />
+      ) : null}
       {countriesOverlayMounted ? (
         <Animated.View
           style={[
@@ -5405,9 +5513,11 @@ export function MapScreenVNext() {
         >
           <View
             style={
-              webConstrainedFlowyaLayout || kpiFilterBottomLayout
-                ? styles.flowyaStatusRowWebInner
-                : styles.flowyaStatusRowInnerStretch
+              flowyaRowFullMapStageWidth
+                ? styles.flowyaStatusRowMapStageInner
+                : webConstrainedFlowyaLayout || kpiFilterBottomLayout
+                  ? styles.flowyaStatusRowWebInner
+                  : styles.flowyaStatusRowInnerStretch
             }
           >
             <ExploreMapStatusRow
@@ -5445,6 +5555,7 @@ export function MapScreenVNext() {
         onDismiss={handleCloseCreateSpotNameOverlay}
         onValueChange={setCreateSpotNameValue}
       />
+      </View>
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot | PlaceResult>
         controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult>}
@@ -5992,6 +6103,28 @@ const styles = StyleSheet.create({
       default: {},
     }),
   },
+  /** Web: fila con panel lateral + mapa (≥1080px en runtime). */
+  mapScreenRootSplit: {
+    position: "relative",
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "stretch",
+    minHeight: 0,
+  },
+  /** Columna derecha: mapa + overlays relativos a este ancho. */
+  mapStage: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    position: "relative",
+  },
+  exploreSidebarColumn: {
+    width: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+    flexShrink: 0,
+    minHeight: 0,
+    alignSelf: "stretch",
+    borderRightWidth: StyleSheet.hairlineWidth,
+  },
   map: {
     flex: 1,
     width: "100%",
@@ -6058,6 +6191,10 @@ const styles = StyleSheet.create({
   flowyaStatusRowWebInner: {
     width: "100%",
     maxWidth: WEB_SHEET_MAX_WIDTH,
+  },
+  flowyaStatusRowMapStageInner: {
+    width: "100%",
+    maxWidth: "100%",
   },
   flowyaStatusRowInnerStretch: {
     width: "100%",

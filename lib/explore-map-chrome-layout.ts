@@ -5,7 +5,11 @@
 
 import type { ExploreWelcomeSheetState } from "@/components/design-system/explore-welcome-sheet";
 import { Platform } from "react-native";
-import { webSearchUsesConstrainedPanelWidth } from "@/lib/web-layout";
+import {
+  WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  webExploreUsesDesktopSidebar,
+  webSearchUsesConstrainedPanelWidth,
+} from "@/lib/web-layout";
 
 /** Constantes compartidas con MapScreenVNext (evitar drift). */
 export const EXPLORE_MAP_LAYOUT = {
@@ -72,6 +76,12 @@ export type ExploreMapChromeLayoutResult = {
   controlsBottomOffset: number;
   shouldUseCenteredOverlayColumn: boolean;
   shouldCenterCountriesWithPeekSheet: boolean;
+  /** Web ≥1080: welcome o países en columna izquierda; mapa solo en el resto. */
+  exploreDesktopSidebarActive: boolean;
+  /** Ancho útil del escenario mapa (overlays, filtros). */
+  mapStageWidth: number;
+  /** Fila FLOWYA: ancho completo del map stage (sin tope 720 centrado). */
+  flowyaRowFullMapStageWidth: boolean;
 };
 
 export function computeExploreMapChromeLayout(
@@ -101,8 +111,6 @@ export function computeExploreMapChromeLayout(
   const webConstrainedFlowyaLayout =
     Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
   const kpiFilterBottomLayout = pinFilter === "saved" || pinFilter === "visited";
-  const topFiltersAvailableWidth =
-    windowWidth - insets.left - insets.right - L.TOP_OVERLAY_INSET_X * 2;
 
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
@@ -114,6 +122,21 @@ export function computeExploreMapChromeLayout(
     poiTapped == null &&
     pinFilter === "all" &&
     isGlobeEntryMotionSettled;
+
+  const exploreDesktopSidebarActive =
+    Platform.OS === "web" &&
+    webExploreUsesDesktopSidebar(windowWidth) &&
+    (showExploreWelcomeSheet ||
+      (isCountriesSheetVisible && (pinFilter === "saved" || pinFilter === "visited")));
+
+  const mapStageWidth = exploreDesktopSidebarActive
+    ? Math.max(0, windowWidth - WEB_EXPLORE_SIDEBAR_PANEL_WIDTH)
+    : windowWidth;
+
+  const topFiltersAvailableWidth =
+    mapStageWidth - insets.left - insets.right - L.TOP_OVERLAY_INSET_X * 2;
+
+  const flowyaRowFullMapStageWidth = exploreDesktopSidebarActive;
 
   const isShellBlockedByOverlay = createSpotNameOverlayOpen || searchV2Open;
 
@@ -145,11 +168,13 @@ export function computeExploreMapChromeLayout(
 
   const filterAnchorSheetHeight = isSpotSheetVisible
     ? sheetHeight
-    : showExploreWelcomeSheet
-      ? welcomeSheetHeight
-      : isCountriesSheetVisible
-        ? countriesSheetHeight
-        : 0;
+    : exploreDesktopSidebarActive && (showExploreWelcomeSheet || isCountriesSheetVisible)
+      ? 0
+      : showExploreWelcomeSheet
+        ? welcomeSheetHeight
+        : isCountriesSheetVisible
+          ? countriesSheetHeight
+          : 0;
   const filterAnchorSheetTop = windowHeight - filterAnchorSheetHeight;
   const filterTop =
     filterAnchorSheetHeight > 0
@@ -175,21 +200,29 @@ export function computeExploreMapChromeLayout(
 
   const flowyaBottomOffset = isSpotSheetVisible
     ? sheetHeight + L.FLOWYA_ABOVE_PEEK_SHEET_GAP
-    : showExploreWelcomeSheet
-      ? welcomeSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
-      : isCountriesSheetVisible
-        ? countriesSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
-        : bottomActionRowBottomOffset +
-          L.BOTTOM_ACTION_ROW_CLEARANCE +
-          L.FLOWYA_ABOVE_ROW_GAP;
+    : exploreDesktopSidebarActive && (showExploreWelcomeSheet || isCountriesSheetVisible)
+      ? bottomActionRowBottomOffset +
+        L.BOTTOM_ACTION_ROW_CLEARANCE +
+        L.FLOWYA_ABOVE_ROW_GAP
+      : showExploreWelcomeSheet
+        ? welcomeSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+        : isCountriesSheetVisible
+          ? countriesSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+          : bottomActionRowBottomOffset +
+            L.BOTTOM_ACTION_ROW_CLEARANCE +
+            L.FLOWYA_ABOVE_ROW_GAP;
 
   const controlsBottomOffsetBase = isSpotSheetVisible
     ? L.CONTROLS_OVERLAY_BOTTOM + sheetHeight
-    : isCountriesSheetVisible
-      ? L.CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
-      : showExploreWelcomeSheet
-        ? L.CONTROLS_OVERLAY_BOTTOM + welcomeSheetHeight
-        : dockBottomOffset + insets.bottom;
+    : exploreDesktopSidebarActive && isCountriesSheetVisible
+      ? dockBottomOffset + insets.bottom
+      : exploreDesktopSidebarActive && showExploreWelcomeSheet
+        ? dockBottomOffset + insets.bottom
+        : isCountriesSheetVisible
+          ? L.CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
+          : showExploreWelcomeSheet
+            ? L.CONTROLS_OVERLAY_BOTTOM + welcomeSheetHeight
+            : dockBottomOffset + insets.bottom;
 
   const mapControlsLiftAboveFlowyaStatusRow =
     isFlowyaFeedbackVisible &&
@@ -236,5 +269,8 @@ export function computeExploreMapChromeLayout(
     controlsBottomOffset,
     shouldUseCenteredOverlayColumn,
     shouldCenterCountriesWithPeekSheet,
+    exploreDesktopSidebarActive,
+    mapStageWidth,
+    flowyaRowFullMapStageWidth,
   };
 }

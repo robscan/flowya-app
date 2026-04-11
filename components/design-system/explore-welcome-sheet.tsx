@@ -96,6 +96,8 @@ export type ExploreWelcomeSheetProps = {
   userCoords?: { latitude: number; longitude: number } | null;
   bottomOffset: number;
   forceColorScheme?: "light" | "dark";
+  /** Web ≥1080: panel fijo en columna izquierda (MapScreen); sin sheet inferior. */
+  webExploreLayout?: "default" | "desktopSidebar";
 };
 
 export function ExploreWelcomeSheet({
@@ -115,14 +117,19 @@ export function ExploreWelcomeSheet({
   userCoords,
   bottomOffset,
   forceColorScheme,
+  webExploreLayout = "default",
 }: ExploreWelcomeSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceScheme = useColorScheme();
   const activeScheme = forceColorScheme ?? (deviceScheme === "dark" ? "dark" : "light");
   const colors = Colors[activeScheme];
   const { width: windowWidth } = useWindowDimensions();
+  const isDesktopSidebar =
+    Platform.OS === "web" && webExploreLayout === "desktopSidebar";
   const useWebConstrainedSheet =
-    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
+    Platform.OS === "web" &&
+    webSearchUsesConstrainedPanelWidth(windowWidth) &&
+    !isDesktopSidebar;
 
   const [headerBlockHeight, setHeaderBlockHeight] = useState(0);
   const viewportHeight = Dimensions.get("window").height;
@@ -449,6 +456,59 @@ export function ExploreWelcomeSheet({
 
   if (!visible) return null;
 
+  if (isDesktopSidebar) {
+    return (
+      <View
+        style={[
+          styles.desktopSidebarRoot,
+          {
+            backgroundColor: colors.backgroundElevated,
+            borderColor: colors.borderSubtle,
+            paddingTop: insets.top + 8,
+          },
+        ]}
+      >
+        <View style={styles.handleRow}>
+          <SheetHandle onPress={handleHeaderTap} />
+        </View>
+        <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
+          <ExploreSearchActionRow
+            fullWidth
+            onSearchPress={onSearchPress}
+            onProfilePress={onProfilePress}
+            onLogoutPress={onLogoutPress}
+            showLogoutAction={showLogoutAction}
+            isAuthUser={isAuthUser}
+            logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+            searchPlaceholder="Busca países o lugares"
+            accessibilityLabel="Buscar países o lugares"
+            profileAccessibilityLabel="Cuenta"
+          />
+        </View>
+        <View style={[styles.mediumBlock, styles.desktopSidebarMedium]}>
+          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
+            {browseSectionTitle}
+          </Text>
+          {browseItems.length > 0 ? (
+            <ScrollView
+              style={styles.desktopSidebarListScroll}
+              contentContainerStyle={styles.listScrollContent}
+              keyboardShouldPersistTaps="handled"
+              nestedScrollEnabled
+              showsVerticalScrollIndicator
+            >
+              {browseItems.map((item, index) => renderBrowseRow(item, index))}
+            </ScrollView>
+          ) : (
+            <Text style={[styles.emptyListHint, { color: colors.textSecondary }]}>
+              No hay sugerencias ahora. Abre el buscador para explorar el mapa.
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  }
+
   if (useWebConstrainedSheet) {
     return (
       <View
@@ -467,6 +527,25 @@ export function ExploreWelcomeSheet({
 }
 
 const styles = StyleSheet.create({
+  desktopSidebarRoot: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    overflow: "hidden",
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 12,
+    zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
+  },
+  desktopSidebarMedium: {
+    flex: 1,
+    minHeight: 120,
+  },
+  desktopSidebarListScroll: {
+    flex: 1,
+    minHeight: 160,
+    width: "100%",
+  },
   webHost: {
     position: "absolute",
     left: 0,

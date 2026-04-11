@@ -31,3 +31,16 @@ export const WEB_MODAL_CARD_MAX_WIDTH = 460;
 export function webSearchUsesConstrainedPanelWidth(windowWidth: number): boolean {
   return windowWidth >= WEB_VIEWPORT_REF.tabletMin;
 }
+
+/**
+ * Explore web: columna lateral (welcome / países) en lugar de sheet inferior centrado.
+ * Umbral de producto (no coincide con desktopMin): ver EXPLORE_CHROME_SHELL.md.
+ */
+export const WEB_EXPLORE_SIDEBAR_MIN_WIDTH = 1080;
+
+/** Ancho del panel lateral; misma referencia que sheets centrados (720). */
+export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = WEB_SHEET_MAX_WIDTH;
+
+export function webExploreUsesDesktopSidebar(windowWidth: number): boolean {
+  return windowWidth >= WEB_EXPLORE_SIDEBAR_MIN_WIDTH;
+}
