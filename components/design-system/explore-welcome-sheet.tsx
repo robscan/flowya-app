@@ -16,6 +16,7 @@ import {
 } from "@/components/explorar/spot-sheet/sheet-logic";
 import { SHEET_MEDIUM_MAX_BODY } from "@/components/explorar/SpotSheet";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
+import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { distanceKm, formatDistanceKm } from "@/lib/geo-utils";
@@ -100,6 +101,11 @@ export type ExploreWelcomeSheetProps = {
   webExploreLayout?: "default" | "desktopSidebar";
   /** Sidebar desktop: el padre ya renderiza FLOWYA encima; no duplicar padding superior de safe area. */
   desktopSidebarFlowyaHeaderStacked?: boolean;
+  /** Sidebar web: cabecera con compartir + cerrar (oculta el panel en MapScreen). */
+  onSidebarClose?: () => void;
+  onSidebarShare?: () => void;
+  /** Título en la cabecera del sidebar (junto a compartir/cerrar). */
+  sidebarHeaderTitle?: string;
 };
 
 export function ExploreWelcomeSheet({
@@ -121,6 +127,9 @@ export function ExploreWelcomeSheet({
   forceColorScheme,
   webExploreLayout = "default",
   desktopSidebarFlowyaHeaderStacked = false,
+  onSidebarClose,
+  onSidebarShare,
+  sidebarHeaderTitle = "Explorar",
 }: ExploreWelcomeSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceScheme = useColorScheme();
@@ -336,6 +345,12 @@ export function ExploreWelcomeSheet({
     if (h > 0) setHeaderBlockHeight(h);
   }, []);
 
+  const noopSidebarHeaderLayout = useCallback((_e: LayoutChangeEvent) => {}, []);
+
+  const onSidebarHeaderTap = useCallback(() => {
+    // Sidebar fijo: el título no cambia snap (peek/medium/expanded solo aplica al sheet móvil).
+  }, []);
+
   const renderBrowseRow = useCallback(
     (item: WelcomeBrowseItem, index: number) => {
       const distanceText: string | null =
@@ -460,6 +475,8 @@ export function ExploreWelcomeSheet({
   if (!visible) return null;
 
   if (isDesktopSidebar) {
+    const showSidebarChrome =
+      onSidebarClose != null && onSidebarShare != null;
     return (
       <View
         style={[
@@ -471,6 +488,29 @@ export function ExploreWelcomeSheet({
           },
         ]}
       >
+        {showSidebarChrome ? (
+          <View style={styles.desktopSidebarHeaderWrap}>
+            <SpotSheetHeader
+              isDraft={false}
+              isPlacingDraftSpot={false}
+              isPoiMode={false}
+              poiLoading={false}
+              displayTitle={sidebarHeaderTitle}
+              state={state}
+              colors={{
+                text: colors.text,
+                textSecondary: colors.textSecondary,
+                borderSubtle: colors.borderSubtle,
+              }}
+              onHeaderTap={onSidebarHeaderTap}
+              onShare={onSidebarShare}
+              onClose={onSidebarClose}
+              onDragAreaLayout={noopSidebarHeaderLayout}
+              onHeaderLayout={noopSidebarHeaderLayout}
+              hideSheetHandle
+            />
+          </View>
+        ) : null}
         <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
           <ExploreSearchActionRow
             fullWidth
@@ -527,6 +567,10 @@ export function ExploreWelcomeSheet({
 }
 
 const styles = StyleSheet.create({
+  desktopSidebarHeaderWrap: {
+    width: "100%",
+    marginBottom: Spacing.sm,
+  },
   desktopSidebarRoot: {
     flex: 1,
     minHeight: 0,

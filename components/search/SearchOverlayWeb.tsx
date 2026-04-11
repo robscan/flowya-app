@@ -1,15 +1,19 @@
 /**
- * SearchOverlayWeb — Overlay modal full-screen de búsqueda (solo WEB).
- * CONTRATO: Search Fullscreen Overlay — cubre viewport; body scroll-lock; panel a toda pantalla (searchPanelAllBackground en Todos; countriesPanel* en Por visitar/Visitados); zIndex alto.
- * SpotSheet no se renderiza cuando isOpen (MapScreenVNext).
- * CONTRATO: Keyboard-safe — NO 100vh; usar 100dvh o fallback visualViewport.height; --app-height en :root.
+ * SearchOverlayWeb — Overlay de búsqueda (solo WEB).
+ * - Viewport &lt;1080 (tablet): panel centrado con tope WR-01 (comportamiento previo).
+ * - Viewport ≥1080 (Explore desktop): misma columna lateral que welcome/países/ficha — ancho panel,
+ *   revelado por ancho, mapa visible a la derecha con velo táctil.
+ * CONTRATO: Keyboard-safe — NO 100vh; usar 100dvh / --app-height.
  * OL-WOW-F2-001: contenido unificado en SearchSurface.
  */
 
+import { ExploreDesktopSidebarAnimatedColumn } from '@/components/explorar/ExploreDesktopSidebarAnimatedColumn';
+import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   WEB_PANEL_PADDING_H,
   WEB_SEARCH_OVERLAY_MAX_WIDTH,
+  webExploreUsesDesktopSidebar,
   webSearchUsesConstrainedPanelWidth,
 } from '@/lib/web-layout';
 import { getSearchPanelSurfaceColors } from '@/lib/search/searchPanelSurface';
@@ -60,6 +64,8 @@ export function SearchOverlayWeb<T>({
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
     Platform.OS === 'web' && webSearchUsesConstrainedPanelWidth(windowWidth);
+  const useDesktopExploreSidebarLayout =
+    Platform.OS === 'web' && webExploreUsesDesktopSidebar(windowWidth);
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -160,6 +166,91 @@ export function SearchOverlayWeb<T>({
 
   if (!controller.isOpen) return null;
 
+  const searchSurfaceEl = (
+    <SearchSurface
+      controller={controller}
+      defaultItems={defaultItems}
+      defaultItemSections={defaultItemSections}
+      recentQueries={recentQueries}
+      recentViewedItems={recentViewedItems}
+      renderItem={renderItem}
+      stageLabel=""
+      resultsOverride={resultsOverride}
+      resultSections={resultSections}
+      resultsSummaryLabel={resultsSummaryLabel}
+      showResultsOnEmpty={showResultsOnEmpty}
+      getItemKey={getItemKey}
+      pinFilter={pinFilter}
+      pinCounts={pinCounts}
+      onPinFilterChange={onPinFilterChange}
+      tagFilterOptions={tagFilterOptions}
+      selectedTagFilterId={selectedTagFilterId}
+      onTagFilterChange={onTagFilterChange}
+      tagFilterEditMode={tagFilterEditMode}
+      onTagFilterEnterEditMode={onTagFilterEnterEditMode}
+      onTagFilterExitEditMode={onTagFilterExitEditMode}
+      onRequestDeleteUserTag={onRequestDeleteUserTag}
+      placeSuggestions={placeSuggestions}
+      onCreateFromPlace={onCreateFromPlace}
+      onClosePress={onClosePress}
+      onScrollDismissKeyboard={handleScrollDismissKeyboard}
+      scrollViewKeyboardDismissMode="none"
+      onInputFocus={() => setIsInputFocused(true)}
+      onInputBlur={() => setIsInputFocused(false)}
+    />
+  );
+
+  const panelPaddingStyle = {
+    paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
+    paddingBottom: PANEL_PADDING_BOTTOM,
+    paddingLeft: PANEL_PADDING_H,
+    paddingRight: PANEL_PADDING_H,
+  } as const;
+
+  if (useDesktopExploreSidebarLayout) {
+    const borderColor = Colors[scheme].borderSubtle;
+    return (
+      <View
+        style={[
+          styles.overlayBase,
+          Platform.OS === 'web' && styles.overlayWebFixed,
+          styles.overlayDesktopSplit,
+          { pointerEvents: 'auto' },
+        ]}
+      >
+        <ExploreDesktopSidebarAnimatedColumn
+          animationKey="search"
+          panelWidth={WEB_SEARCH_OVERLAY_MAX_WIDTH}
+          style={[
+            styles.desktopSearchSidebar,
+            {
+              borderRightColor: borderColor,
+              backgroundColor: panelSurface.backgroundColor,
+            },
+          ]}
+        >
+          <View
+            style={[
+              styles.desktopSearchPanelInner,
+              panelPaddingStyle,
+              styles.panel,
+              Platform.OS === 'web' && styles.panelWebScroll,
+              { pointerEvents: 'box-none' },
+            ]}
+          >
+            {searchSurfaceEl}
+          </View>
+        </ExploreDesktopSidebarAnimatedColumn>
+        <Pressable
+          style={styles.desktopSearchMapScrim}
+          onPress={onClosePress}
+          accessibilityLabel="Cerrar búsqueda"
+          accessibilityRole="button"
+        />
+      </View>
+    );
+  }
+
   return (
     <View
       style={[
@@ -192,45 +283,12 @@ export function SearchOverlayWeb<T>({
             },
             {
               backgroundColor: panelSurface.backgroundColor,
-              paddingTop: Math.max(insets.top, PANEL_PADDING_TOP),
-              paddingBottom: PANEL_PADDING_BOTTOM,
-              paddingLeft: PANEL_PADDING_H,
-              paddingRight: PANEL_PADDING_H,
+              ...panelPaddingStyle,
             },
             { pointerEvents: 'box-none' },
           ]}
         >
-        <SearchSurface
-          controller={controller}
-          defaultItems={defaultItems}
-          defaultItemSections={defaultItemSections}
-          recentQueries={recentQueries}
-          recentViewedItems={recentViewedItems}
-          renderItem={renderItem}
-          stageLabel=""
-          resultsOverride={resultsOverride}
-          resultSections={resultSections}
-          resultsSummaryLabel={resultsSummaryLabel}
-          showResultsOnEmpty={showResultsOnEmpty}
-          getItemKey={getItemKey}
-          pinFilter={pinFilter}
-          pinCounts={pinCounts}
-          onPinFilterChange={onPinFilterChange}
-          tagFilterOptions={tagFilterOptions}
-          selectedTagFilterId={selectedTagFilterId}
-          onTagFilterChange={onTagFilterChange}
-          tagFilterEditMode={tagFilterEditMode}
-          onTagFilterEnterEditMode={onTagFilterEnterEditMode}
-          onTagFilterExitEditMode={onTagFilterExitEditMode}
-          onRequestDeleteUserTag={onRequestDeleteUserTag}
-          placeSuggestions={placeSuggestions}
-          onCreateFromPlace={onCreateFromPlace}
-          onClosePress={onClosePress}
-          onScrollDismissKeyboard={handleScrollDismissKeyboard}
-          scrollViewKeyboardDismissMode="none"
-          onInputFocus={() => setIsInputFocused(true)}
-          onInputBlur={() => setIsInputFocused(false)}
-        />
+          {searchSurfaceEl}
         </View>
       </View>
     </View>
@@ -289,4 +347,30 @@ const styles = StyleSheet.create({
     Platform.OS === 'web'
       ? { touchAction: 'pan-y' as const }
       : ({} satisfies ViewStyle),
+  overlayDesktopSplit:
+    Platform.OS === 'web'
+      ? {
+          flexDirection: 'row' as const,
+          alignItems: 'stretch' as const,
+          width: '100%' as DimensionValue,
+          height: 'var(--app-height, 100dvh)' as DimensionValue,
+        }
+      : ({} satisfies ViewStyle),
+  desktopSearchSidebar: {
+    flexShrink: 0,
+    minHeight: 0,
+    alignSelf: 'stretch',
+    borderRightWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'column',
+  } satisfies ViewStyle,
+  desktopSearchPanelInner: {
+    flex: 1,
+    minHeight: 0,
+    alignSelf: 'stretch',
+  } satisfies ViewStyle,
+  desktopSearchMapScrim: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+  } satisfies ViewStyle,
 });

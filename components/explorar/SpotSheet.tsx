@@ -100,6 +100,8 @@ export const EXPANDED_HEIGHT_VISIBLE = SHEET_EXPANDED_HEIGHT;
 export const MAX_SHEET_HEIGHT = SHEET_EXPANDED_HEIGHT;
 
 const COVER_HEIGHT = 100;
+/** Panel lateral web (≥1080): más altura útil para la portada en columna estrecha. */
+const COVER_HEIGHT_WEB_SIDEBAR = 200;
 const HEADER_BUTTON_SIZE = 40;
 const ACTION_PILL_HEIGHT = 46;
 const ACTION_PILL_GAP = 12;
@@ -300,6 +302,7 @@ function MediumBodyContent({
   onSheetTagChipPress,
   onSheetEtiquetarPress,
   isAuthUser,
+  coverHeight = COVER_HEIGHT,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -318,6 +321,8 @@ function MediumBodyContent({
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
   isAuthUser?: boolean;
+  /** Por defecto `COVER_HEIGHT`; en sidebar web suele ser `COVER_HEIGHT_WEB_SIDEBAR`. */
+  coverHeight?: number;
 }) {
 
   return (
@@ -343,7 +348,7 @@ function MediumBodyContent({
               >
                 <SpotImage
                   uri={spot.cover_image_url}
-                  height={COVER_HEIGHT}
+                  height={coverHeight}
                   borderRadius={Radius.md}
                   colorScheme={colorScheme ?? undefined}
                 />
@@ -351,7 +356,7 @@ function MediumBodyContent({
             ) : (
               <SpotImage
                 uri={spot.cover_image_url}
-                height={COVER_HEIGHT}
+                height={coverHeight}
                 borderRadius={Radius.md}
                 colorScheme={colorScheme ?? undefined}
               />
@@ -817,6 +822,7 @@ type SpotSheetBodyProps = {
   sheetTagChips?: { id: string; label: string }[];
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
+  coverImageHeight?: number;
 };
 
 function SpotSheetBody({
@@ -857,6 +863,7 @@ function SpotSheetBody({
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
+  coverImageHeight = COVER_HEIGHT,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -897,6 +904,7 @@ function SpotSheetBody({
           onSheetTagChipPress={onSheetTagChipPress}
           onSheetEtiquetarPress={onSheetEtiquetarPress}
           isAuthUser={isAuthUser}
+          coverHeight={coverImageHeight}
         />
         {isDraft ? (
           <DraftInlineEditor
@@ -1457,6 +1465,9 @@ export function SpotSheet({
         sheetTagChips={sheetTagChips}
         onSheetTagChipPress={onSheetTagChipPress}
         onSheetEtiquetarPress={onSheetEtiquetarPress}
+        coverImageHeight={
+          webDesktopSidebar ? COVER_HEIGHT_WEB_SIDEBAR : COVER_HEIGHT
+        }
       />
 
       <ConfirmModal

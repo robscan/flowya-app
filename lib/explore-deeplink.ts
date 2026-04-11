@@ -35,3 +35,14 @@ export function getMapSpotShareUrl(spotId: string): string {
   }
   return pathQuery;
 }
+
+/**
+ * URL para compartir la vista Explorar (mapa) sin spot concreto.
+ */
+export function getMapExploreShareUrl(): string {
+  if (typeof window !== "undefined" && window.location?.origin) {
+    const origin = window.location.origin.replace(/\/$/, "");
+    return `${origin}/`;
+  }
+  return MAP_ROUTE;
+}

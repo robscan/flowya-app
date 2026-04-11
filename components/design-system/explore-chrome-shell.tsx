@@ -57,9 +57,7 @@ export function ExploreChromeShell({
         },
       ]}
     >
-      <View
-        style={kpiFullWidth ? styles.bottomActionRowKpiInner : styles.bottomActionRowFullBleed}
-      >
+      <View style={styles.bottomActionRowKpiInner}>
         <ExploreSearchActionRow {...kpiRowProps} fullWidth={kpiFullWidth} />
       </View>
     </View>
@@ -79,8 +77,5 @@ const styles = StyleSheet.create({
     width: "100%",
     maxWidth: WEB_SHEET_MAX_WIDTH,
     alignSelf: "center",
-  },
-  bottomActionRowFullBleed: {
-    width: "100%",
   },
 });

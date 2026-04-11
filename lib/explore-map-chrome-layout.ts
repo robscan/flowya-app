@@ -50,6 +50,8 @@ export type ExploreMapChromeLayoutInput = {
   countriesSheetHeight: number;
   welcomeSheetHeight: number;
   welcomeSheetState: ExploreWelcomeSheetState;
+  /** Web sidebar: el usuario ocultó el panel de bienvenida (mapa a ancho completo hasta que se resetea). */
+  welcomeSidebarDismissed?: boolean;
 };
 
 export type ExploreMapChromeLayoutResult = {
@@ -86,6 +88,8 @@ export type ExploreMapChromeLayoutResult = {
   isFlowyaSidebarHeaderVisible: boolean;
   /** Fila FLOWYA anclada al mapa (inferior); falsa cuando va al header del sidebar. */
   isFlowyaStatusRowOnMap: boolean;
+  /** Condiciones para mostrar bienvenida sin tener en cuenta cierre persistente (sidebar web). */
+  showExploreWelcomeSheetEligible: boolean;
 };
 
 export function computeExploreMapChromeLayout(
@@ -110,6 +114,7 @@ export function computeExploreMapChromeLayout(
     countriesSheetHeight,
     welcomeSheetHeight,
     welcomeSheetState,
+    welcomeSidebarDismissed = false,
   } = input;
 
   const webConstrainedFlowyaLayout =
@@ -118,7 +123,8 @@ export function computeExploreMapChromeLayout(
 
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
-  const showExploreWelcomeSheet =
+  /** Solo filtro Todos; la preferencia `welcomeSidebarDismissed` no depende del pin (persistencia global). */
+  const showExploreWelcomeSheetBase =
     !createSpotNameOverlayOpen &&
     !searchV2Open &&
     !countriesSheetOpen &&
@@ -126,6 +132,13 @@ export function computeExploreMapChromeLayout(
     poiTapped == null &&
     pinFilter === "all" &&
     isGlobeEntryMotionSettled;
+  const showExploreWelcomeSheet =
+    showExploreWelcomeSheetBase &&
+    !(
+      welcomeSidebarDismissed &&
+      Platform.OS === "web" &&
+      webExploreUsesDesktopSidebar(windowWidth)
+    );
 
   /** Spot/POI en columna lateral (no sheet inferior centrado) cuando no bloquean búsqueda ni overlay crear. */
   const spotSheetAnchoredInSidebar =
@@ -302,5 +315,6 @@ export function computeExploreMapChromeLayout(
     flowyaRowFullMapStageWidth,
     isFlowyaSidebarHeaderVisible,
     isFlowyaStatusRowOnMap,
+    showExploreWelcomeSheetEligible: showExploreWelcomeSheetBase,
   };
 }

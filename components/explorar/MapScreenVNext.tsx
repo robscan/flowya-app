@@ -58,6 +58,7 @@ import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
 import { TypographyStyles } from "@/components/design-system/typography";
+import { ExploreDesktopSidebarAnimatedColumn } from "@/components/explorar/ExploreDesktopSidebarAnimatedColumn";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
 import {
   CountriesSheet,
@@ -85,6 +86,12 @@ import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
 import { computeExploreMapChromeLayout } from "@/lib/explore-map-chrome-layout";
 import {
+  getWelcomeSidebarDismissedSync,
+  loadWelcomeSidebarDismissedAsync,
+  setWelcomeSidebarDismissedPreference,
+} from "@/lib/storage/exploreWelcomeSidebarDismissed";
+import { shareExploreMap } from "@/lib/share-explore-map";
+import {
     blurActiveElement,
     saveFocusBeforeNavigate,
 } from "@/lib/focus-management";
@@ -104,6 +111,7 @@ import {
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   WEB_SHEET_MAX_WIDTH,
+  webExploreUsesDesktopSidebar,
 } from "@/lib/web-layout";
 import {
     FIT_BOUNDS_PADDING,
@@ -1345,6 +1353,21 @@ export function MapScreenVNext() {
     handleMapPointerMove,
     handleMapPointerUp,
   } = mapCore;
+
+  /** Mapbox: el canvas debe seguir el map stage cuando el sidebar anima ancho (web ≥1080). */
+  const mapResizeRafRef = useRef<number | null>(null);
+  const scheduleMapResizeForSidebar = useCallback(() => {
+    if (!mapInstance) return;
+    if (mapResizeRafRef.current != null) cancelAnimationFrame(mapResizeRafRef.current);
+    mapResizeRafRef.current = requestAnimationFrame(() => {
+      mapResizeRafRef.current = null;
+      try {
+        mapInstance.resize();
+      } catch {
+        // ignore
+      }
+    });
+  }, [mapInstance]);
 
   useEffect(() => {
     if (!filterWaitActiveRef.current) return;
@@ -3530,6 +3553,16 @@ export function MapScreenVNext() {
   };
   const [welcomeSheetState, setWelcomeSheetState] = useState<ExploreWelcomeSheetState>("medium");
   const [welcomeSheetHeight, setWelcomeSheetHeight] = useState(0);
+  /**
+   * Web desktop: panel de bienvenida Explorar cerrado (KV). No resetear al cambiar `pinFilter`;
+   * ver `exploreWelcomeSidebarDismissed` y `computeExploreMapChromeLayout`.
+   */
+  const [welcomeSidebarDismissed, setWelcomeSidebarDismissed] = useState(() =>
+    Platform.OS === "web" ? getWelcomeSidebarDismissedSync() : false,
+  );
+  const [welcomeSidebarDismissStorageReady, setWelcomeSidebarDismissStorageReady] = useState(
+    () => Platform.OS === "web",
+  );
   /** Al ocultar el sheet inicial (búsqueda, países, etc.) guardamos peek/medium para restaurar al volver. */
   const prevWelcomeSheetStateRef = useRef<ExploreWelcomeSheetState>("medium");
   const prevExploreWelcomeVisibleRef = useRef(false);
@@ -4474,6 +4507,23 @@ export function MapScreenVNext() {
     [toast],
   );
 
+  const handleWelcomeSidebarDismiss = useCallback(() => {
+    setWelcomeSidebarDismissed(true);
+    if (Platform.OS === "web") setWelcomeSidebarDismissedPreference(true);
+  }, []);
+
+  const handleWelcomeSidebarReopen = useCallback(() => {
+    setWelcomeSidebarDismissed(false);
+    if (Platform.OS === "web") setWelcomeSidebarDismissedPreference(false);
+  }, []);
+
+  const handleWelcomeSidebarShare = useCallback(async () => {
+    const result = await shareExploreMap();
+    if (result.copied && !suppressToastRef.current) {
+      toast.show("Link copiado", { type: "success" });
+    }
+  }, [toast]);
+
   const updateSpotPinState = useCallback(
     (spotId: string, next: { saved: boolean; visited: boolean }) => {
       const pinStatus: SpotPinStatus = next.visited
@@ -4677,6 +4727,7 @@ export function MapScreenVNext() {
     countriesSheetHeight,
     welcomeSheetHeight,
     welcomeSheetState,
+    welcomeSidebarDismissed,
   });
   const {
     webConstrainedFlowyaLayout,
@@ -4702,18 +4753,49 @@ export function MapScreenVNext() {
     flowyaRowFullMapStageWidth,
     isFlowyaSidebarHeaderVisible,
     isFlowyaStatusRowOnMap,
+    showExploreWelcomeSheetEligible,
   } = chromeLayout;
 
   useEffect(() => {
+    if (!welcomeSidebarDismissStorageReady) return;
+    setWelcomeSidebarDismissedPreference(welcomeSidebarDismissed);
+  }, [welcomeSidebarDismissed, welcomeSidebarDismissStorageReady]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    let cancelled = false;
+    void loadWelcomeSidebarDismissedAsync()
+      .then((dismissed) => {
+        if (!cancelled) setWelcomeSidebarDismissed(dismissed);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setWelcomeSidebarDismissStorageReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (!mapInstance) return;
-    const id = requestAnimationFrame(() => {
-      try {
-        mapInstance.resize();
-      } catch {
-        // ignore
-      }
+    let cancelled = false;
+    let innerRaf: number | null = null;
+    const id1 = requestAnimationFrame(() => {
+      innerRaf = requestAnimationFrame(() => {
+        if (cancelled) return;
+        try {
+          mapInstance.resize();
+        } catch {
+          // ignore
+        }
+      });
     });
-    return () => cancelAnimationFrame(id);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id1);
+      if (innerRaf != null) cancelAnimationFrame(innerRaf);
+    };
   }, [mapInstance, exploreDesktopSidebarActive, mapStageWidth, windowWidth]);
 
   useEffect(() => {
@@ -4831,6 +4913,15 @@ export function MapScreenVNext() {
   );
   const countriesResolvedBottom =
     countriesOverlayAnchorMode === "bottom" ? countriesBottomOffset : countriesCenteredBottom;
+
+  const showExploreWelcomeReopenFab =
+    Platform.OS === "web" &&
+    webExploreUsesDesktopSidebar(windowWidth) &&
+    welcomeSidebarDismissed &&
+    showExploreWelcomeSheetEligible &&
+    welcomeSidebarDismissStorageReady;
+  const exploreWelcomeReopenPalette = Colors[colorScheme ?? "light"];
+
   useEffect(() => {
     if (!showCountriesCounterBubble) return;
     const nextMode: "center-group" | "center-mid" | "bottom" = shouldCenterCountriesAndControls
@@ -5051,6 +5142,33 @@ export function MapScreenVNext() {
     exploreDesktopSidebarActive,
   ]);
 
+  const desktopSidebarHadPanelRef = useRef(false);
+
+  const countriesInSidebarDesktop =
+    exploreDesktopSidebarActive &&
+    countriesSheetOpen &&
+    !showExploreWelcomeSheet;
+
+  const spotSheetChromeVisible =
+    (selectedSpot != null || poiTapped != null) &&
+    !searchV2.isOpen &&
+    !createSpotNameOverlayOpen;
+
+  const spotInSidebarDesktop =
+    Platform.OS === "web" && exploreDesktopSidebarActive && spotSheetChromeVisible;
+
+  const hasDesktopSidebarPanel =
+    (exploreDesktopSidebarActive && showExploreWelcomeSheet) ||
+    countriesInSidebarDesktop ||
+    spotInSidebarDesktop;
+
+  const skipDesktopSidebarEntrance =
+    Platform.OS === "web" && desktopSidebarHadPanelRef.current && hasDesktopSidebarPanel;
+
+  useLayoutEffect(() => {
+    desktopSidebarHadPanelRef.current = hasDesktopSidebarPanel;
+  }, [hasDesktopSidebarPanel]);
+
   if (!MAPBOX_TOKEN) {
     return (
       <View style={[styles.mapScreenRoot, styles.placeholder]}>
@@ -5083,19 +5201,6 @@ export function MapScreenVNext() {
       : resolveEffectivePinStatus(selectedSpot?.pinStatus) === "to_visit"
         ? "to_visit"
         : "default";
-
-  const countriesInSidebarDesktop =
-    exploreDesktopSidebarActive &&
-    countriesSheetOpen &&
-    !showExploreWelcomeSheet;
-
-  const spotSheetChromeVisible =
-    (selectedSpot != null || poiTapped != null) &&
-    !searchV2.isOpen &&
-    !createSpotNameOverlayOpen;
-
-  const spotInSidebarDesktop =
-    Platform.OS === "web" && exploreDesktopSidebarActive && spotSheetChromeVisible;
 
   const exploreSidebarPalette = Colors[colorScheme ?? "light"];
   const exploreSidebarFlowyaHeaderEl =
@@ -5232,7 +5337,10 @@ export function MapScreenVNext() {
       {...(Platform.OS === "web" && { className: "map-screen-root-dvh" })}
     >
       {exploreDesktopSidebarActive && showExploreWelcomeSheet ? (
-        <View
+        <ExploreDesktopSidebarAnimatedColumn
+          animationKey="welcome"
+          skipEntranceAnimation={skipDesktopSidebarEntrance}
+          onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
             { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
@@ -5259,12 +5367,17 @@ export function MapScreenVNext() {
               userCoords={userCoords}
               bottomOffset={dockBottomOffset + insets.bottom}
               forceColorScheme={countriesOverlayScheme}
+              onSidebarClose={handleWelcomeSidebarDismiss}
+              onSidebarShare={handleWelcomeSidebarShare}
             />
           </View>
-        </View>
+        </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
       {countriesInSidebarDesktop ? (
-        <View
+        <ExploreDesktopSidebarAnimatedColumn
+          animationKey={`countries-${countriesOverlayFilter}`}
+          skipEntranceAnimation={skipDesktopSidebarEntrance}
+          onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
             { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
@@ -5309,10 +5422,19 @@ export function MapScreenVNext() {
               webDesktopSidebar
             />
           </View>
-        </View>
+        </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
       {spotInSidebarDesktop ? (
-        <View
+        <ExploreDesktopSidebarAnimatedColumn
+          animationKey={
+            selectedSpot != null
+              ? `spot-${selectedSpot.id}`
+              : poiTapped != null
+                ? "poi-sidebar"
+                : "spot-sidebar"
+          }
+          skipEntranceAnimation={skipDesktopSidebarEntrance}
+          onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
             { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
@@ -5320,7 +5442,7 @@ export function MapScreenVNext() {
         >
           {exploreSidebarFlowyaHeaderEl}
           <View style={styles.exploreSidebarSheetBody}>{renderExploreSpotSheet(true)}</View>
-        </View>
+        </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
       <View style={styles.mapStage}>
       <MapCoreView
@@ -5460,7 +5582,7 @@ export function MapScreenVNext() {
               accessibilityLabel: "Buscar países o lugares",
               profileAccessibilityLabel: "Cuenta",
             }}
-            kpiFullWidth={kpiFilterBottomLayout}
+            kpiFullWidth
             overlayLeft={TOP_OVERLAY_INSET_X + insets.left}
             overlayRight={TOP_OVERLAY_INSET_X + insets.right}
             overlayBottom={bottomActionRowBottomOffset}
@@ -5472,7 +5594,7 @@ export function MapScreenVNext() {
             <View
               style={[
                 styles.bottomActionRowOverlay,
-                kpiFilterBottomLayout && styles.bottomActionRowKpiHost,
+                styles.bottomActionRowKpiHost,
                 {
                   left: TOP_OVERLAY_INSET_X + insets.left,
                   right: TOP_OVERLAY_INSET_X + insets.right,
@@ -5481,15 +5603,9 @@ export function MapScreenVNext() {
                 },
               ]}
             >
-              <View
-                style={
-                  kpiFilterBottomLayout
-                    ? styles.bottomActionRowKpiInner
-                    : styles.bottomActionRowFullBleed
-                }
-              >
+              <View style={styles.bottomActionRowKpiInner}>
                 <ExploreSearchActionRow
-                  fullWidth={kpiFilterBottomLayout}
+                  fullWidth
                   onSearchPress={openSearchPreservingCountriesSheet}
                   onProfilePress={handleProfilePress}
                   onLogoutPress={handleLogoutPress}
@@ -5654,6 +5770,37 @@ export function MapScreenVNext() {
             </Pressable>
           </View>
         </Animated.View>
+      ) : null}
+      {showExploreWelcomeReopenFab ? (
+        <View
+          style={[
+            styles.countriesOverlay,
+            { right: CONTROLS_OVERLAY_RIGHT + insets.right },
+            { bottom: countriesResolvedBottom },
+            { pointerEvents: "box-none" as const },
+          ]}
+        >
+          <Pressable
+            onPress={handleWelcomeSidebarReopen}
+            style={({ pressed }) => [
+              styles.countriesCircle,
+              {
+                backgroundColor: exploreWelcomeReopenPalette.backgroundElevated,
+                borderColor: exploreWelcomeReopenPalette.borderSubtle,
+              },
+              pressed && styles.countriesCirclePressed,
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir panel Explorar"
+          >
+            <Text
+              style={[styles.exploreWelcomeReopenTitle, { color: exploreWelcomeReopenPalette.text }]}
+              numberOfLines={2}
+            >
+              Explorar
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
       {mapControlsOverlayMounted ? (
         <Animated.View
@@ -6253,9 +6400,6 @@ const styles = StyleSheet.create({
     maxWidth: WEB_SHEET_MAX_WIDTH,
     alignSelf: "center",
   },
-  bottomActionRowFullBleed: {
-    width: "100%",
-  },
   countriesOverlay: {
     position: "absolute",
     zIndex: 8,
@@ -6280,6 +6424,7 @@ const styles = StyleSheet.create({
   flowyaStatusRowWebInner: {
     width: "100%",
     maxWidth: WEB_SHEET_MAX_WIDTH,
+    alignSelf: "center",
   },
   flowyaStatusRowMapStageInner: {
     width: "100%",
@@ -6343,6 +6488,13 @@ const styles = StyleSheet.create({
   countriesSpotsCircle: {
     width: 64,
     height: 64,
+  },
+  exploreWelcomeReopenTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 14,
+    textAlign: "center",
+    paddingHorizontal: 4,
   },
   quickEditDescOverlay: {
     ...StyleSheet.absoluteFillObject,

@@ -45,6 +45,7 @@ export function ExploreSearchActionRow({
       style={[
         styles.row,
         !fullWidth && styles.rowCappedWidth,
+        !fullWidth && styles.rowCappedAlign,
         {
           backgroundColor: containerBackground,
           borderColor: containerBorder,
@@ -99,6 +100,10 @@ const styles = StyleSheet.create({
   },
   rowCappedWidth: {
     maxWidth: 520,
+  },
+  /** Con ancho capado (Todos / mapa): centrar como la banda KPI (WR-01). */
+  rowCappedAlign: {
+    alignSelf: 'center',
   },
   profileWrap: {
     position: 'relative',
