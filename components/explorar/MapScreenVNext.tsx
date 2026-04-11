@@ -4817,7 +4817,13 @@ export function MapScreenVNext() {
       cancelAnimationFrame(id1);
       if (innerRaf != null) cancelAnimationFrame(innerRaf);
     };
-  }, [mapInstance, exploreDesktopSidebarActive, mapStageWidth, windowWidth]);
+  }, [
+    mapInstance,
+    exploreDesktopSidebarActive,
+    mapStageWidth,
+    desktopSidebarPixelWidth,
+    windowWidth,
+  ]);
 
   useEffect(() => {
     if (pinFilter === "all" && showExploreWelcomeSheet) {
