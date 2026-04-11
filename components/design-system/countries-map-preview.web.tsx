@@ -212,31 +212,7 @@ export function CountriesMapPreview({
     normalizedCodesRef.current = normalizedCodes;
   }, [normalizedCodes]);
 
-  useEffect(() => {
-    const host = hostRef.current;
-    if (!host) return;
-
-    const preventWheelZoom = (event: WheelEvent) => {
-      // Guardrail web: nunca delegar zoom/pinch del navegador dentro del mini-mapa.
-      event.preventDefault();
-    };
-    const preventGesture = (event: Event) => {
-      // Safari pinch-gesture events.
-      event.preventDefault();
-    };
-
-    host.addEventListener("wheel", preventWheelZoom, { passive: false });
-    host.addEventListener("gesturestart", preventGesture);
-    host.addEventListener("gesturechange", preventGesture);
-    host.addEventListener("gestureend", preventGesture);
-
-    return () => {
-      host.removeEventListener("wheel", preventWheelZoom);
-      host.removeEventListener("gesturestart", preventGesture);
-      host.removeEventListener("gesturechange", preventGesture);
-      host.removeEventListener("gestureend", preventGesture);
-    };
-  }, []);
+  /** Mapbox gestiona wheel/touch en el canvas; interceptar wheel en el host impedía pan/zoom del mini-mapa. */
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
@@ -254,8 +230,8 @@ export function CountriesMapPreview({
         center: [0, 16],
         zoom: 0,
         minZoom: -1,
-        maxZoom: 1,
-        interactive: false,
+        maxZoom: 4,
+        interactive: true,
         attributionControl: false,
         preserveDrawingBuffer: true,
         renderWorldCopies: false,
@@ -265,19 +241,18 @@ export function CountriesMapPreview({
       map.on("load", async () => {
         if (isCancelled) return;
         try {
-          // Interacción por tap únicamente; sin gestos de navegación en mini mapa.
-          map.dragPan.disable();
-          map.scrollZoom.disable();
-          map.doubleClickZoom.disable();
-          map.touchZoomRotate.disable();
+          map.setProjection("naturalEarth");
+          map.dragPan.enable();
+          map.scrollZoom.enable();
+          map.doubleClickZoom.enable();
+          map.touchZoomRotate.enable();
           map.boxZoom.disable();
           map.keyboard.disable();
-          map.setProjection("naturalEarth");
           map.resize();
           map.fitBounds(WORLD_BOUNDS, {
             padding: { top: 0, bottom: 0, left: 0, right: 0 },
             duration: 0,
-            maxZoom: 0.15,
+            maxZoom: 1.2,
           });
           if (!hasMapSource(map, WORLD_SOURCE_ID)) {
             map.addSource(WORLD_SOURCE_ID, {
@@ -376,7 +351,7 @@ export function CountriesMapPreview({
             map.fitBounds(WORLD_BOUNDS, {
               padding: { top: 0, bottom: 0, left: 0, right: 0 },
               duration: 0,
-              maxZoom: 0.15,
+              maxZoom: 1.2,
             });
             map.once("idle", emitSnapshot);
           });
@@ -388,19 +363,17 @@ export function CountriesMapPreview({
             });
             const feature = features.find((f) => {
               const props = (f.properties ?? {}) as Record<string, unknown>;
-              const code =
-                String(props.iso_3166_1_alpha_2 ?? props.iso_3166_1 ?? "")
-                  .trim()
-                  .toUpperCase();
-              return normalizedCodesRef.current.includes(code);
+              const code = String(props.iso_3166_1_alpha_2 ?? props.iso_3166_1 ?? "")
+                .trim()
+                .toUpperCase();
+              return /^[A-Z]{2}$/.test(code);
             });
             if (!feature) return;
             const props = (feature.properties ?? {}) as Record<string, unknown>;
-            const code =
-              String(props.iso_3166_1_alpha_2 ?? props.iso_3166_1 ?? "")
-                .trim()
-                .toUpperCase();
-            if (!code || !normalizedCodesRef.current.includes(code)) return;
+            const code = String(props.iso_3166_1_alpha_2 ?? props.iso_3166_1 ?? "")
+              .trim()
+              .toUpperCase();
+            if (!code) return;
 
             const selectedBounds = resolveCountryBoundsNearTap(
               feature.geometry as { type?: string; coordinates?: unknown } | undefined,
@@ -480,7 +453,7 @@ export function CountriesMapPreview({
         borderRadius: 16,
         background: "transparent",
         position: "relative",
-        touchAction: "none",
+        touchAction: "manipulation",
         userSelect: "none",
       }}
     >
