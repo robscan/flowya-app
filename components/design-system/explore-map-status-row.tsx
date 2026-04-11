@@ -22,8 +22,8 @@ export type ExploreMapStatusRowProps = {
 };
 
 /**
- * Fila inferior del mapa Explore: FLOWYA (izquierda) y ExploreCountriesFlowsPill (derecha).
- * El posicionamiento absoluto e insets los aplica la pantalla; este componente solo compone la fila.
+ * Fila de estado Explore: FLOWYA (izquierda) y ExploreCountriesFlowsPill (derecha).
+ * En layout default el host la ancla al mapa; en sidebar desktop web puede vivir como cabecera del panel.
  */
 export function ExploreMapStatusRow({
   onFlowyaPress,

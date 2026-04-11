@@ -1,6 +1,6 @@
 /**
  * Sheet inicial de Explorar (sin spot/POI): handle + launcher de búsqueda; en medium lista de recomendados.
- * La fila FLOWYA + pastilla va en MapScreen (mismo patrón que con SpotSheet en peek).
+ * En web default la fila FLOWYA + pastilla va en MapScreen; en sidebar desktop (≥1080) el padre puede colocarla como cabecera del panel.
  */
 
 import {
@@ -98,6 +98,8 @@ export type ExploreWelcomeSheetProps = {
   forceColorScheme?: "light" | "dark";
   /** Web ≥1080: panel fijo en columna izquierda (MapScreen); sin sheet inferior. */
   webExploreLayout?: "default" | "desktopSidebar";
+  /** Sidebar desktop: el padre ya renderiza FLOWYA encima; no duplicar padding superior de safe area. */
+  desktopSidebarFlowyaHeaderStacked?: boolean;
 };
 
 export function ExploreWelcomeSheet({
@@ -118,6 +120,7 @@ export function ExploreWelcomeSheet({
   bottomOffset,
   forceColorScheme,
   webExploreLayout = "default",
+  desktopSidebarFlowyaHeaderStacked = false,
 }: ExploreWelcomeSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceScheme = useColorScheme();
@@ -464,7 +467,7 @@ export function ExploreWelcomeSheet({
           {
             backgroundColor: colors.backgroundElevated,
             borderColor: colors.borderSubtle,
-            paddingTop: insets.top + 8,
+            paddingTop: desktopSidebarFlowyaHeaderStacked ? Spacing.sm : insets.top + 8,
           },
         ]}
       >

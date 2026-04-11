@@ -82,6 +82,10 @@ export type ExploreMapChromeLayoutResult = {
   mapStageWidth: number;
   /** Fila FLOWYA: ancho completo del map stage (sin tope 720 centrado). */
   flowyaRowFullMapStageWidth: boolean;
+  /** Web sidebar desktop: FLOWYA + pastilla en cabecera del panel, no sobre el mapa. */
+  isFlowyaSidebarHeaderVisible: boolean;
+  /** Fila FLOWYA anclada al mapa (inferior); falsa cuando va al header del sidebar. */
+  isFlowyaStatusRowOnMap: boolean;
 };
 
 export function computeExploreMapChromeLayout(
@@ -136,9 +140,16 @@ export function computeExploreMapChromeLayout(
   const topFiltersAvailableWidth =
     mapStageWidth - insets.left - insets.right - L.TOP_OVERLAY_INSET_X * 2;
 
-  const flowyaRowFullMapStageWidth = exploreDesktopSidebarActive;
-
   const isShellBlockedByOverlay = createSpotNameOverlayOpen || searchV2Open;
+
+  const isFlowyaSidebarHeaderVisible =
+    exploreDesktopSidebarActive &&
+    isGlobeEntryMotionSettled &&
+    !isShellBlockedByOverlay;
+
+  /** En desktop sidebar la fila no compite con controles del mapa: vive en la columna izquierda. */
+  const flowyaRowFullMapStageWidth =
+    exploreDesktopSidebarActive && !isFlowyaSidebarHeaderVisible;
 
   const areMapControlsVisible =
     !isShellBlockedByOverlay &&
@@ -160,6 +171,9 @@ export function computeExploreMapChromeLayout(
     (!isCountriesSheetVisible || countriesSheetState === "peek") &&
     (!isSpotSheetVisible || sheetState === "peek") &&
     (!showExploreWelcomeSheet || welcomeSheetState === "peek");
+
+  const isFlowyaStatusRowOnMap =
+    isFlowyaFeedbackVisible && !isFlowyaSidebarHeaderVisible;
 
   const logoutPopoverBottomOffset = L.BOTTOM_ACTION_ROW_CLEARANCE + 4;
 
@@ -225,7 +239,7 @@ export function computeExploreMapChromeLayout(
             : dockBottomOffset + insets.bottom;
 
   const mapControlsLiftAboveFlowyaStatusRow =
-    isFlowyaFeedbackVisible &&
+    isFlowyaStatusRowOnMap &&
     ((isSpotSheetVisible && sheetState === "peek") ||
       (showExploreWelcomeSheet && welcomeSheetState === "peek") ||
       (isCountriesSheetVisible && countriesSheetState === "peek"))
@@ -272,5 +286,7 @@ export function computeExploreMapChromeLayout(
     exploreDesktopSidebarActive,
     mapStageWidth,
     flowyaRowFullMapStageWidth,
+    isFlowyaSidebarHeaderVisible,
+    isFlowyaStatusRowOnMap,
   };
 }

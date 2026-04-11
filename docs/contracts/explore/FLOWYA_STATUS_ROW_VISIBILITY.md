@@ -2,8 +2,8 @@
 
 **Última actualización:** 2026-04-11  
 **Estado:** ACTIVE  
-**Fuente de verdad del layout:** `lib/explore-map-chrome-layout.ts` → `computeExploreMapChromeLayout` → `isFlowyaFeedbackVisible`  
-**Consumidor UI:** `components/design-system/explore-map-status-row.tsx` (offset inferior vía `flowyaBottomOffset`)
+**Fuente de verdad del layout:** `lib/explore-map-chrome-layout.ts` → `computeExploreMapChromeLayout` → `isFlowyaFeedbackVisible`, `isFlowyaSidebarHeaderVisible`, `isFlowyaStatusRowOnMap`  
+**Consumidor UI:** `components/design-system/explore-map-status-row.tsx` (offset inferior vía `flowyaBottomOffset` cuando `isFlowyaStatusRowOnMap`; en web **sidebar desktop** (≥1080) la fila va como **cabecera del panel** en `MapScreenVNext`, no sobre el mapa).
 
 ## Reglas vigentes
 
@@ -14,17 +14,19 @@
 3. **Spot / POI:** si hay SpotSheet visible, solo FLOWYA en **`sheetState === "peek"`** (en medium/expanded la fila se oculta).
 4. **Welcome (Todos):** si el sheet de bienvenida está visible, solo FLOWYA en **`welcomeSheetState === "peek"`** (en medium/expanded no se muestra).
 
+En **web sidebar desktop** (`isFlowyaSidebarHeaderVisible`), la fila se pinta en la **cabecera del panel**; **`isFlowyaStatusRowOnMap`** queda en falso y no aplica la regla peek/medium del mapa para esa ubicación.
+
 **Offset vertical** respecto al borde superior del sheet inferior: **`FLOWYA_ABOVE_WELCOME_SHEET_GAP`** (22) tanto para **ExploreWelcomeSheet** como para **CountriesSheet** en peek (paridad KPI Por visitar / Visitados).
 
 ## Efecto en producto
 
 | Filtro / contexto | Sheet inferior | Nivel | FLOWYA + pastilla |
 |-------------------|----------------|-------|-------------------|
-| Todos | Welcome | peek | Visible |
-| Todos | Welcome | medium / expanded | Oculta |
-| Por visitar / Visitados | Countries | peek | Visible |
-| Por visitar / Visitados | Countries | medium / expanded | Oculta |
-| Spot / POI | SpotSheet | peek | Visible |
+| Todos | Welcome | peek | Mapa (sheet default) o cabecera sidebar (web ≥1080) |
+| Todos | Welcome | medium / expanded | Oculta en mapa; **sidebar desktop:** sigue en cabecera |
+| Por visitar / Visitados | Countries | peek | Mapa o cabecera sidebar |
+| Por visitar / Visitados | Countries | medium / expanded | Oculta en mapa; **sidebar desktop:** sigue en cabecera |
+| Spot / POI | SpotSheet | peek | Visible en mapa |
 | Spot / POI | SpotSheet | medium / expanded | Oculta |
 
 ## Cambios futuros

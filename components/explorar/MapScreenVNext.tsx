@@ -4688,7 +4688,6 @@ export function MapScreenVNext() {
     isShellBlockedByOverlay,
     isBottomActionRowVisible,
     areMapControlsVisible,
-    isFlowyaFeedbackVisible,
     logoutPopoverBottomOffset,
     filterTop,
     sloganTop,
@@ -4701,6 +4700,8 @@ export function MapScreenVNext() {
     exploreDesktopSidebarActive,
     mapStageWidth,
     flowyaRowFullMapStageWidth,
+    isFlowyaSidebarHeaderVisible,
+    isFlowyaStatusRowOnMap,
   } = chromeLayout;
 
   useEffect(() => {
@@ -4748,8 +4749,18 @@ export function MapScreenVNext() {
   }, [showExploreWelcomeSheet]);
 
   const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
-  const shouldShowFlowsBadge =
-    isFlowyaFeedbackVisible && !toast.hasVisibleMessages && !showLogoutOption;
+  const flowsBadgeChromeEligible =
+    !toast.hasVisibleMessages && !showLogoutOption;
+  const flowsBadgePayload =
+    flowsBadgeChromeEligible &&
+    (isFlowyaStatusRowOnMap || isFlowyaSidebarHeaderVisible)
+      ? {
+          countriesCount: countriesBucketsByFilter.visited.length,
+          flowsPoints: travelerPoints,
+          onPress: handleVisitedCountriesPress,
+          accessibilityLabel: "Abrir países visitados",
+        }
+      : null;
   const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(false);
   const mapControlsOverlayEntry = useRef(
     new Animated.Value(0),
@@ -4973,11 +4984,11 @@ export function MapScreenVNext() {
             : isCountriesSheetVisible
               ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight + STATUS_OVER_SHEET_CLEARANCE
               : bottomActionRowBottomOffset +
-                (isBottomActionRowVisible && isFlowyaFeedbackVisible
+                (isBottomActionRowVisible && isFlowyaStatusRowOnMap
                   ? BOTTOM_ACTION_ROW_CLEARANCE + FLOWYA_ABOVE_ROW_GAP
                   : isBottomActionRowVisible
                     ? BOTTOM_ACTION_ROW_CLEARANCE
-                    : isFlowyaFeedbackVisible
+                    : isFlowyaStatusRowOnMap
                       ? FLOWYA_STACK_CLEARANCE
                       : 0);
     toast.setAnchor({
@@ -5008,7 +5019,7 @@ export function MapScreenVNext() {
     bottomActionRowBottomOffset,
     searchV2.isOpen,
     isBottomActionRowVisible,
-    isFlowyaFeedbackVisible,
+    isFlowyaStatusRowOnMap,
     sheetState,
     countriesSheetState,
     showExploreWelcomeSheet,
@@ -5054,6 +5065,26 @@ export function MapScreenVNext() {
     countriesSheetOpen &&
     !showExploreWelcomeSheet;
 
+  const exploreSidebarPalette = Colors[colorScheme ?? "light"];
+  const exploreSidebarFlowyaHeaderEl =
+    isFlowyaSidebarHeaderVisible ? (
+      <View
+        style={[
+          styles.exploreSidebarHeader,
+          {
+            paddingTop: insets.top + Spacing.sm,
+            borderBottomColor: exploreSidebarPalette.borderSubtle,
+            backgroundColor: exploreSidebarPalette.backgroundElevated,
+          },
+        ]}
+      >
+        <ExploreMapStatusRow
+          onFlowyaPress={() => setShowBetaModal(true)}
+          flowsBadge={flowsBadgePayload}
+        />
+      </View>
+    ) : null;
+
   return (
     <View
       ref={mapRootRef as React.RefObject<View>}
@@ -5070,25 +5101,29 @@ export function MapScreenVNext() {
             { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
           ]}
         >
-          <ExploreWelcomeSheet
-            webExploreLayout="desktopSidebar"
-            visible
-            state={welcomeSheetState}
-            onStateChange={setWelcomeSheetState}
-            onSheetHeightChange={setWelcomeSheetHeight}
-            onSearchPress={openSearchPreservingCountriesSheet}
-            onProfilePress={handleProfilePress}
-            onLogoutPress={handleLogoutPress}
-            showLogoutAction={showLogoutOption && isAuthUser}
-            isAuthUser={isAuthUser}
-            logoutPopoverBottomOffset={logoutPopoverBottomOffset}
-            browseSectionTitle={welcomeSheetBrowseSectionTitle}
-            browseItems={welcomeExploreListItems}
-            onBrowseItemPress={handleWelcomeBrowseItemPress}
-            userCoords={userCoords}
-            bottomOffset={dockBottomOffset + insets.bottom}
-            forceColorScheme={countriesOverlayScheme}
-          />
+          {exploreSidebarFlowyaHeaderEl}
+          <View style={styles.exploreSidebarSheetBody}>
+            <ExploreWelcomeSheet
+              webExploreLayout="desktopSidebar"
+              desktopSidebarFlowyaHeaderStacked={isFlowyaSidebarHeaderVisible}
+              visible
+              state={welcomeSheetState}
+              onStateChange={setWelcomeSheetState}
+              onSheetHeightChange={setWelcomeSheetHeight}
+              onSearchPress={openSearchPreservingCountriesSheet}
+              onProfilePress={handleProfilePress}
+              onLogoutPress={handleLogoutPress}
+              showLogoutAction={showLogoutOption && isAuthUser}
+              isAuthUser={isAuthUser}
+              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+              browseSectionTitle={welcomeSheetBrowseSectionTitle}
+              browseItems={welcomeExploreListItems}
+              onBrowseItemPress={handleWelcomeBrowseItemPress}
+              userCoords={userCoords}
+              bottomOffset={dockBottomOffset + insets.bottom}
+              forceColorScheme={countriesOverlayScheme}
+            />
+          </View>
         </View>
       ) : null}
       {countriesInSidebarDesktop ? (
@@ -5098,42 +5133,45 @@ export function MapScreenVNext() {
             { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
           ]}
         >
-          <CountriesSheet
-            visible={countriesSheetOpen}
-            title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
-            filterMode={countriesOverlayFilter}
-            state={countriesSheetState}
-            forceColorScheme={countriesOverlayScheme}
-            items={countriesBucketsForOverlay}
-            worldPercentage={countriesWorldPercentageForOverlay}
-            summaryCountriesCount={countriesCountForOverlay}
-            summaryPlacesCount={countriesPlacesCountForOverlay}
-            onCountriesKpiPress={handleCountriesKpiPress}
-            onSpotsKpiPress={handleCountriesSpotsKpiPress}
-            onStateChange={setCountriesSheetState}
-            onClose={handleCountriesSheetClose}
-            onShare={handleCountriesSheetShare}
-            shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
-            onItemPress={handleCountryBucketPress}
-            onSheetHeightChange={setCountriesSheetHeight}
-            onMapSnapshotChange={setCountriesMapSnapshot}
-            onMapCountryPress={handleCountriesMapCountryPress}
-            countryDetail={countriesSheetListView}
-            onCountryDetailBack={handleCountryDetailBack}
-            countryDetailSpots={countriesSheetDetailSpots}
-            renderCountryDetailItem={renderCountryDetailItem}
-            countryDetailTagFilterOptions={
-              isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
-            }
-            selectedCountryDetailTagFilterId={
-              isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
-            }
-            onCountryDetailTagFilterChange={
-              isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
-            }
-            onPlacesListScopeChange={setCountriesSheetListView}
-            webDesktopSidebar
-          />
+          {exploreSidebarFlowyaHeaderEl}
+          <View style={styles.exploreSidebarSheetBody}>
+            <CountriesSheet
+              visible={countriesSheetOpen}
+              title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+              filterMode={countriesOverlayFilter}
+              state={countriesSheetState}
+              forceColorScheme={countriesOverlayScheme}
+              items={countriesBucketsForOverlay}
+              worldPercentage={countriesWorldPercentageForOverlay}
+              summaryCountriesCount={countriesCountForOverlay}
+              summaryPlacesCount={countriesPlacesCountForOverlay}
+              onCountriesKpiPress={handleCountriesKpiPress}
+              onSpotsKpiPress={handleCountriesSpotsKpiPress}
+              onStateChange={setCountriesSheetState}
+              onClose={handleCountriesSheetClose}
+              onShare={handleCountriesSheetShare}
+              shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
+              onItemPress={handleCountryBucketPress}
+              onSheetHeightChange={setCountriesSheetHeight}
+              onMapSnapshotChange={setCountriesMapSnapshot}
+              onMapCountryPress={handleCountriesMapCountryPress}
+              countryDetail={countriesSheetListView}
+              onCountryDetailBack={handleCountryDetailBack}
+              countryDetailSpots={countriesSheetDetailSpots}
+              renderCountryDetailItem={renderCountryDetailItem}
+              countryDetailTagFilterOptions={
+                isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+              }
+              selectedCountryDetailTagFilterId={
+                isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
+              }
+              onCountryDetailTagFilterChange={
+                isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+              }
+              onPlacesListScopeChange={setCountriesSheetListView}
+              webDesktopSidebar
+            />
+          </View>
         </View>
       ) : null}
       <View style={styles.mapStage}>
@@ -5494,7 +5532,7 @@ export function MapScreenVNext() {
           />
         </Animated.View>
       ) : null}
-      {isFlowyaFeedbackVisible ? (
+      {isFlowyaStatusRowOnMap ? (
         <View
           style={[
             styles.flowyaStatusRow,
@@ -5528,16 +5566,7 @@ export function MapScreenVNext() {
           >
             <ExploreMapStatusRow
               onFlowyaPress={() => setShowBetaModal(true)}
-              flowsBadge={
-                shouldShowFlowsBadge
-                  ? {
-                      countriesCount: countriesBucketsByFilter.visited.length,
-                      flowsPoints: travelerPoints,
-                      onPress: handleVisitedCountriesPress,
-                      accessibilityLabel: "Abrir países visitados",
-                    }
-                  : null
-              }
+              flowsBadge={flowsBadgePayload}
             />
           </View>
         </View>
@@ -6130,6 +6159,16 @@ const styles = StyleSheet.create({
     minHeight: 0,
     alignSelf: "stretch",
     borderRightWidth: StyleSheet.hairlineWidth,
+    flexDirection: "column",
+  },
+  exploreSidebarHeader: {
+    paddingHorizontal: 14,
+    paddingBottom: Spacing.md,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  exploreSidebarSheetBody: {
+    flex: 1,
+    minHeight: 0,
   },
   map: {
     flex: 1,
