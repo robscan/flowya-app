@@ -3858,9 +3858,7 @@ export function MapScreenVNext() {
           ? (exploreLowerSheetSnapRef.current as CountriesSheetState)
           : snap.state;
       setCountriesSheetState(coerceCountriesSheetInitialState(nextStateRaw));
-      if (switchingSavedVisitedWithSheetOpen) {
-        setCountriesSheetListView(null);
-      }
+      /** Con sheet abierto, Por visitar ↔ Visitados: mantener listado (todos / país); el dataset viene de `countriesOverlayFilter`. */
       if (!shouldShowCountriesSheet) {
         setCountriesSheetListView(null);
         setCountriesSheetHeight(0);
