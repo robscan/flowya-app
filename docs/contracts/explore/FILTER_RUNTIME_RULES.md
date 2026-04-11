@@ -2,6 +2,8 @@
 
 Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
+**Chrome / banda inferior:** al cambiar entre `all` y `saved`/`visited`, el host del chrome de Explorar sigue [EXPLORE_CHROME_SHELL.md](../EXPLORE_CHROME_SHELL.md) (sheet bienvenida vs banda KPI; offsets centralizados en `computeExploreMapChromeLayout`). **Snap inferior compartido** (`peek` / `medium` / `expanded`) y **entrada KPI → CountriesSheet:** ver EXPLORE_CHROME_SHELL §5–7. **Fila FLOWYA / `ExploreMapStatusRow`:** [FLOWYA_STATUS_ROW_VISIBILITY.md](FLOWYA_STATUS_ROW_VISIBILITY.md).
+
 ## Scope
 
 - Selección de filtro.
@@ -26,6 +28,14 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 1. **Filtros disponibles**
 - `all`, `saved`, `visited`.
 - Si `saved`/`visited` tienen `count=0`, opción deshabilitada y sin número.
+
+1b. **Entrada a KPI desde Todos y sheet de países (2026-04)**
+- Al pasar de **`all` → `saved`/`visited`** con **count > 0** en el filtro destino, el runtime **abre** `CountriesSheet` y aplica el **snap compartido** con el welcome (no solo la banda KPI).
+- Con **count = 0** en el filtro destino, **no** se fuerza abrir el sheet de países (evita sheet vacío confuso); el usuario puede abrirlo vía pastilla/KPI.
+- Entre **`saved` ↔ `visited`**, la visibilidad y el estado del sheet siguen `countriesSheetPersistRef` y la regla de “sheet abierto en el filtro anterior” (ver comentario `useLayoutEffect` en `MapScreenVNext`).
+
+1c. **KPI + CountriesSheet abierto + SpotSheet desde mapa (2026-04)**
+- Con **`saved`/`visited`**, si el usuario tenía el **CountriesSheet** abierto (incl. drilldown de país / lista) y abre un **spot o POI** encima (mapa, pin, búsqueda, etc.), al **cerrar** el SpotSheet el runtime **restaura** el CountriesSheet con el mismo snap y vista de lista que tenía antes. No aplica si el spot se abrió **desde dentro** del CountriesSheet (lista): ahí el cierre del spot no debe volver a mostrar el sheet de países por error (`countriesSheetBeforeSpotSheetRef` se anula en ese flujo).
 
 2. **Pending-first navigation (OL-WOW-F2-003)**
 - Si hay badge pendiente en `saved` o `visited`, al entrar a ese filtro: seleccionar ese spot, abrir sheet `medium`, centrar mapa.

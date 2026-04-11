@@ -10,7 +10,16 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { X } from "lucide-react-native";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import {
     ActivityIndicator,
     Animated,
@@ -30,8 +39,14 @@ import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
+import { ExploreChromeShell } from "@/components/design-system/explore-chrome-shell";
 import { ExploreMapStatusRow } from "@/components/design-system/explore-map-status-row";
 import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import {
+  ExploreWelcomeSheet,
+  type ExploreWelcomeSheetState,
+  type WelcomeBrowseItem,
+} from "@/components/design-system/explore-welcome-sheet";
 import { IconButton } from "@/components/design-system/icon-button";
 import { MapPinFilterInline } from "@/components/design-system/map-pin-filter-inline";
 import { TagChip } from "@/components/design-system/tag-chip";
@@ -51,11 +66,6 @@ import {
 } from "@/components/explorar/CountriesSheet";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
-import {
-  ExploreWelcomeSheet,
-  type ExploreWelcomeSheetState,
-  type WelcomeBrowseItem,
-} from "@/components/explorar/ExploreWelcomeSheet";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
 import type { SearchSection } from "@/components/search";
@@ -73,6 +83,7 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
+import { computeExploreMapChromeLayout } from "@/lib/explore-map-chrome-layout";
 import {
     blurActiveElement,
     saveFocusBeforeNavigate,
@@ -90,10 +101,7 @@ import {
   searchPlacesPOI,
   type PlaceResultV2,
 } from "@/lib/places/searchPlacesPOI";
-import {
-  WEB_SHEET_MAX_WIDTH,
-  webSearchUsesConstrainedPanelWidth,
-} from "@/lib/web-layout";
+import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
 import {
     FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
@@ -504,20 +512,13 @@ const MAP_CONTROLS_FALLBACK_HEIGHT = 100;
 const FILTER_OVERLAY_TOP = 28;
 const TOP_OVERLAY_INSET_X = 16;
 const TOP_OVERLAY_INSET_Y = 28;
-const BOTTOM_ACTION_ROW_BOTTOM_GUTTER = 16;
 const BOTTOM_ACTION_ROW_CLEARANCE = 56;
 const FLOWYA_STACK_CLEARANCE = 108;
 const FLOWYA_ABOVE_ROW_GAP = 12;
-const FLOWYA_ABOVE_PEEK_SHEET_GAP = 12;
-/** Alto aproximado de la fila FLOWYA + ExploreCountriesFlowsPill (evitar solape con MapControls en peek). */
-const FLOWYA_STATUS_ROW_HEIGHT_ESTIMATE = 48;
-/** Separación entre la parte superior de esa fila y el borde inferior de la columna de controles. */
-const MAP_CONTROLS_CLEARANCE_ABOVE_FLOWYA_ROW = 10;
 /** Ergonomía pulgar: desplaza overlays centrados ligeramente hacia abajo. */
 const THUMB_FRIENDLY_CENTER_BIAS = 56;
 /** Mantiene separación legible entre subtítulos de estado y el borde del sheet. */
 const STATUS_OVER_SHEET_CLEARANCE = 18;
-const FILTER_TRIGGER_ESTIMATED_HEIGHT = 56;
 const FILTER_OVERLAY_ENTRY_DELAY_MS = 180;
 const FILTER_OVERLAY_ENTRY_DURATION_MS = 320;
 const FILTER_WAIT_FOR_CAMERA_FALLBACK_MS = 1600;
@@ -805,6 +806,14 @@ export function MapScreenVNext() {
     wasOpen: boolean;
     state: CountriesSheetState;
   } | null>(null);
+  /** KPI: Countries abierto antes de cubrir con Spot/POI; restaurar al cerrar SpotSheet. */
+  const countriesSheetBeforeSpotSheetRef = useRef<{
+    wasOpen: boolean;
+    state: CountriesSheetState;
+    listView: CountriesSheetListDetail | null;
+  } | null>(null);
+  /** Asignado cada render tras `countriesSheet*Ref`; handlers tempranos (p. ej. `handleMapClick`) llaman vía ref. */
+  const captureCountriesBeforeSpotFnRef = useRef<() => void>(() => {});
   const countriesSheetPrevSelectionRef = useRef<{
     spot: Spot | null;
     poi: TappedMapFeature | null;
@@ -1598,6 +1607,7 @@ export function MapScreenVNext() {
           ? target.find((s) => s.id === pendingSpotId) ?? null
           : null;
       if (pendingSpot) {
+        captureCountriesBeforeSpotFnRef.current();
         setSelectedSpot(pendingSpot);
         setSheetState("medium");
         if (mapInstance) {
@@ -2317,6 +2327,7 @@ export function MapScreenVNext() {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
+      captureCountriesBeforeSpotFnRef.current();
       setPoiTapped(null);
       setSelectedSpot(spot);
       recordExploreSelectionChanged({
@@ -2549,6 +2560,7 @@ export function MapScreenVNext() {
         pinStatus: "default",
       };
       searchV2.setOpen(false);
+      captureCountriesBeforeSpotFnRef.current();
       setSelectedSpot(draft);
       setSheetState("medium");
       setIsPlacingDraftSpot(true);
@@ -2582,6 +2594,7 @@ export function MapScreenVNext() {
         placeId: stablePlaceId,
       });
       if (existingSpot) {
+        captureCountriesBeforeSpotFnRef.current();
         recordExploreDecisionStarted({
           source: "search",
           pinFilter,
@@ -2613,6 +2626,7 @@ export function MapScreenVNext() {
         );
         return;
       }
+      captureCountriesBeforeSpotFnRef.current();
       setSelectedSpot(null);
       recordSearchExternalClick();
       const displayName = getDisplayNameForPlace(targetPlace) || targetPlace.name;
@@ -2722,6 +2736,7 @@ export function MapScreenVNext() {
             pinFilter === "all" ||
             (pinFilter === "saved" ? Boolean(match?.saved) : Boolean(match?.visited));
           if (match && matchBelongsToActiveFilter) {
+            captureCountriesBeforeSpotFnRef.current();
             recordExploreDecisionStarted({
               source: "map",
               pinFilter,
@@ -2737,6 +2752,7 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
+            captureCountriesBeforeSpotFnRef.current();
             setSelectedSpot(null);
             setPoiTapped({
               name,
@@ -3115,6 +3131,7 @@ export function MapScreenVNext() {
       setPoiTapped(null);
       const fromList = spots.find((s) => s.id === spotId);
       if (fromList) {
+        captureCountriesBeforeSpotFnRef.current();
         ensureSpotVisibleWithActiveFilter(fromList);
         setSelectedSpot(fromList);
         setSheetState("medium");
@@ -3140,6 +3157,7 @@ export function MapScreenVNext() {
         };
         setSpots((prev) => (prev.some((s) => s.id === spot.id) ? prev : [...prev, spot]));
         ensureSpotVisibleWithActiveFilter(spot);
+        captureCountriesBeforeSpotFnRef.current();
         setSelectedSpot(spot);
         setSheetState("medium");
         pushRecentViewedSpotId(spot.id);
@@ -3444,6 +3462,7 @@ export function MapScreenVNext() {
   }, [searchQuery, countriesDrilldown]);
 
   const showCountriesCounter =
+    isGlobeEntryMotionSettled &&
     !createSpotNameOverlayOpen &&
     !searchIsOpen &&
     isAuthUser &&
@@ -3475,25 +3494,44 @@ export function MapScreenVNext() {
     countriesSheetOpen ||
     ((selectedSpot != null || poiTapped != null) &&
       (sheetState === "medium" || sheetState === "expanded"));
-  const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
+  const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("medium");
   /** Por filtro de pin Por visitar / Visitados: abierto + peek|medium|expanded al volver de Todos o al cambiar de filtro. */
   const countriesSheetPersistRef = useRef<{
     saved: { open: boolean; state: CountriesSheetState };
     visited: { open: boolean; state: CountriesSheetState };
   }>({
-    saved: { open: false, state: "expanded" },
-    visited: { open: false, state: "expanded" },
+    saved: { open: false, state: "medium" },
+    visited: { open: false, state: "medium" },
   });
   const countriesSheetOpenRef = useRef(countriesSheetOpen);
   const countriesSheetStateRef = useRef(countriesSheetState);
   const prevPinFilterForCountriesRef = useRef(pinFilter);
   countriesSheetOpenRef.current = countriesSheetOpen;
   countriesSheetStateRef.current = countriesSheetState;
+  const countriesSheetListViewRef = useRef(countriesSheetListView);
+  countriesSheetListViewRef.current = countriesSheetListView;
+  captureCountriesBeforeSpotFnRef.current = () => {
+    if (pinFilter !== "saved" && pinFilter !== "visited") {
+      countriesSheetBeforeSpotSheetRef.current = null;
+      return;
+    }
+    if (!countriesSheetOpenRef.current) {
+      countriesSheetBeforeSpotSheetRef.current = null;
+      return;
+    }
+    countriesSheetBeforeSpotSheetRef.current = {
+      wasOpen: true,
+      state: countriesSheetStateRef.current,
+      listView: countriesSheetListViewRef.current,
+    };
+  };
   const [welcomeSheetState, setWelcomeSheetState] = useState<ExploreWelcomeSheetState>("medium");
   const [welcomeSheetHeight, setWelcomeSheetHeight] = useState(0);
   /** Al ocultar el sheet inicial (búsqueda, países, etc.) guardamos peek/medium para restaurar al volver. */
   const prevWelcomeSheetStateRef = useRef<ExploreWelcomeSheetState>("medium");
   const prevExploreWelcomeVisibleRef = useRef(false);
+  /** Snap compartido (peek | medium | expanded) entre welcome y CountriesSheet; memoria de sesión. */
+  const exploreLowerSheetSnapRef = useRef<ExploreWelcomeSheetState>("medium");
   suppressToastRef.current = false;
 
   useEffect(() => {
@@ -3744,12 +3782,27 @@ export function MapScreenVNext() {
         (prev === "saved" || prev === "visited") &&
         prev !== pinFilter &&
         countriesSheetOpenRef.current;
+      const fromAllToKpi = prev === "all";
+      const emptyKpi =
+        pinFilter === "saved"
+          ? pinCounts.saved === 0
+          : pinFilter === "visited"
+            ? pinCounts.visited === 0
+            : false;
+      /** Desde Todos: abrir Countries cuando hay datos KPI (evitar sheet vacío). */
+      const openCountriesFromAll = fromAllToKpi && !emptyKpi;
       /** Si el sheet estaba abierto en el filtro anterior, seguir abierto aunque el snapshot del destino diga cerrado (primera visita a ese filtro). */
-      const shouldShowCountriesSheet = switchingSavedVisitedWithSheetOpen ? true : snap.open;
+      const shouldShowCountriesSheet = switchingSavedVisitedWithSheetOpen
+        ? true
+        : openCountriesFromAll
+          ? true
+          : snap.open;
       setCountriesSheetOpen(shouldShowCountriesSheet);
       const nextStateRaw = switchingSavedVisitedWithSheetOpen
         ? countriesSheetStateRef.current
-        : snap.state;
+        : openCountriesFromAll && shouldShowCountriesSheet
+          ? (exploreLowerSheetSnapRef.current as CountriesSheetState)
+          : snap.state;
       setCountriesSheetState(coerceCountriesSheetInitialState(nextStateRaw));
       if (switchingSavedVisitedWithSheetOpen) {
         setCountriesSheetListView(null);
@@ -3763,7 +3816,7 @@ export function MapScreenVNext() {
       setCountriesSheetListView(null);
       setCountriesSheetHeight(0);
     }
-  }, [pinFilter]);
+  }, [pinFilter, pinCounts.saved, pinCounts.visited]);
 
   const openCountriesSheetForFilter = useCallback((
     targetFilter: "saved" | "visited",
@@ -3814,6 +3867,7 @@ export function MapScreenVNext() {
 
   const handleCountriesSheetClose = useCallback(() => {
     countriesSheetForcedFilterRef.current = null;
+    countriesSheetBeforeSpotSheetRef.current = null;
     setCountriesSheetListView(null);
     setCountriesSheetOpen(false);
     const snapshot = countriesSheetPrevSelectionRef.current;
@@ -3840,6 +3894,7 @@ export function MapScreenVNext() {
       wasOpen: countriesSheetOpen,
       state: countriesSheetState,
     };
+    countriesSheetBeforeSpotSheetRef.current = null;
     countriesSheetPrevSelectionRef.current = null;
     if (countriesSheetOpen) setCountriesSheetOpen(false);
     prevSelectedSpotRef.current = selectedSpot;
@@ -3879,6 +3934,7 @@ export function MapScreenVNext() {
     (spot: Spot) => {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
+      countriesSheetBeforeSpotSheetRef.current = null;
       countriesSheetPrevSelectionRef.current = null;
       countriesSheetForcedFilterRef.current = null;
       setCountriesSheetListView(null);
@@ -4344,6 +4400,7 @@ export function MapScreenVNext() {
       if (selectedSpot?.id === spot.id) {
         setSheetState("expanded");
       } else {
+        captureCountriesBeforeSpotFnRef.current();
         recordExploreDecisionStarted({
           source: "map",
           pinFilter,
@@ -4598,24 +4655,59 @@ export function MapScreenVNext() {
   );
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  /** Paridad con ExploreWelcomeSheet / sheets inferiores en web (tablet+): ancho máximo centrado. */
-  const webConstrainedFlowyaLayout =
-    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
-  /** Por visitar / Visitados: banda inferior + fila FLOWYA con ancho máximo centrado (WR-01). */
-  const kpiFilterBottomLayout = pinFilter === "saved" || pinFilter === "visited";
-  const topFiltersAvailableWidth =
-    windowWidth - insets.left - insets.right - TOP_OVERLAY_INSET_X * 2;
   const dockBottomOffset = 12;
-  const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
-  const isCountriesSheetVisible = countriesSheetOpen;
-  const showExploreWelcomeSheet =
-    !createSpotNameOverlayOpen &&
-    !searchV2.isOpen &&
-    !countriesSheetOpen &&
-    selectedSpot == null &&
-    poiTapped == null &&
-    pinFilter === "all" &&
-    isGlobeEntryMotionSettled;
+  const chromeLayout = computeExploreMapChromeLayout({
+    windowWidth,
+    windowHeight,
+    insets,
+    dockBottomOffset,
+    pinFilter,
+    createSpotNameOverlayOpen,
+    searchV2Open: searchV2.isOpen,
+    countriesSheetOpen,
+    selectedSpot,
+    poiTapped,
+    isGlobeEntryMotionSettled,
+    sheetState,
+    countriesSheetState,
+    sheetHeight,
+    countriesSheetHeight,
+    welcomeSheetHeight,
+    welcomeSheetState,
+  });
+  const {
+    webConstrainedFlowyaLayout,
+    kpiFilterBottomLayout,
+    topFiltersAvailableWidth,
+    isSpotSheetVisible,
+    isCountriesSheetVisible,
+    showExploreWelcomeSheet,
+    isShellBlockedByOverlay,
+    isBottomActionRowVisible,
+    areMapControlsVisible,
+    isFlowyaFeedbackVisible,
+    logoutPopoverBottomOffset,
+    filterTop,
+    sloganTop,
+    bottomActionRowBottomOffset,
+    flowyaBottomOffset,
+    controlsBottomOffset,
+    shouldUseCenteredOverlayColumn,
+    shouldCenterCountriesWithPeekSheet,
+    filterMinimumTop,
+  } = chromeLayout;
+
+  useEffect(() => {
+    if (pinFilter === "all" && showExploreWelcomeSheet) {
+      exploreLowerSheetSnapRef.current = welcomeSheetState;
+    }
+  }, [pinFilter, showExploreWelcomeSheet, welcomeSheetState]);
+
+  useEffect(() => {
+    if ((pinFilter === "saved" || pinFilter === "visited") && countriesSheetOpen) {
+      exploreLowerSheetSnapRef.current = countriesSheetState as ExploreWelcomeSheetState;
+    }
+  }, [pinFilter, countriesSheetOpen, countriesSheetState]);
 
   useEffect(() => {
     collapseExploreWelcomeOnMapGestureRef.current = () => {
@@ -4637,24 +4729,7 @@ export function MapScreenVNext() {
     prevExploreWelcomeVisibleRef.current = showExploreWelcomeSheet;
   }, [showExploreWelcomeSheet]);
 
-  const isShellBlockedByOverlay = createSpotNameOverlayOpen || searchV2.isOpen;
   const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
-  const areMapControlsVisible =
-    !isShellBlockedByOverlay &&
-    sheetState !== "expanded" &&
-    (!isCountriesSheetVisible || countriesSheetState !== "expanded") &&
-    (!showExploreWelcomeSheet || welcomeSheetState !== "expanded");
-  const isBottomActionRowVisible =
-    !isShellBlockedByOverlay &&
-    !isSpotSheetVisible &&
-    !isCountriesSheetVisible &&
-    !showExploreWelcomeSheet;
-  const isFlowyaFeedbackVisible =
-    !isShellBlockedByOverlay &&
-    !isCountriesSheetVisible &&
-    (!isSpotSheetVisible || sheetState === "peek") &&
-    (!showExploreWelcomeSheet || welcomeSheetState === "peek");
-  const logoutPopoverBottomOffset = BOTTOM_ACTION_ROW_CLEARANCE + 4;
   const shouldShowFlowsBadge =
     isFlowyaFeedbackVisible && !toast.hasVisibleMessages && !showLogoutOption;
   const [mapControlsOverlayMounted, setMapControlsOverlayMounted] = useState(false);
@@ -4662,35 +4737,11 @@ export function MapScreenVNext() {
     new Animated.Value(0),
   ).current;
   const mapControlsOverlayDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const filterDefaultTop = FILTER_OVERLAY_TOP + insets.top;
-  const filterEstimatedHeight = 56;
-  const filterMinimumTop = insets.top + 4;
-  // Canonical parity: la fila inline de filtros conserva este anclaje respecto a SpotSheet.
-  // CountriesSheet no modifica este anclaje para evitar divergencias UX.
-  const filterAnchorSheetHeight = isSpotSheetVisible
-    ? sheetHeight
-    : showExploreWelcomeSheet
-      ? welcomeSheetHeight
-      : 0;
-  const filterAnchorSheetTop = windowHeight - filterAnchorSheetHeight;
-  const filterTop = filterAnchorSheetHeight > 0
-    ? Math.min(filterDefaultTop, filterAnchorSheetTop - filterEstimatedHeight - 8)
-    : filterDefaultTop;
-  const sloganTop = Math.max(
-    insets.top + TOP_OVERLAY_INSET_Y + 40,
-    Math.max(filterMinimumTop, filterTop) + FILTER_TRIGGER_ESTIMATED_HEIGHT + 48,
-  );
   const shouldShowInlineTopFilters =
     !isShellBlockedByOverlay &&
     isGlobeEntryMotionSettled &&
     !isFilterWaitingForCamera &&
     filterTop >= filterMinimumTop;
-  const bottomActionRowBottomOffset = BOTTOM_ACTION_ROW_BOTTOM_GUTTER + insets.bottom;
-  const flowyaBottomOffset = isSpotSheetVisible
-    ? sheetHeight + FLOWYA_ABOVE_PEEK_SHEET_GAP
-    : showExploreWelcomeSheet
-      ? welcomeSheetHeight + FLOWYA_ABOVE_PEEK_SHEET_GAP
-      : bottomActionRowBottomOffset + BOTTOM_ACTION_ROW_CLEARANCE + FLOWYA_ABOVE_ROW_GAP;
   const filterOverlayAnimatedStyle = useMemo(
     () => ({
       opacity: filterOverlayEntry,
@@ -4722,32 +4773,7 @@ export function MapScreenVNext() {
     }),
     [mapControlsOverlayEntry],
   );
-  const controlsBottomOffsetBase =
-    isSpotSheetVisible
-      ? CONTROLS_OVERLAY_BOTTOM + sheetHeight
-      : isCountriesSheetVisible
-        ? CONTROLS_OVERLAY_BOTTOM + countriesSheetHeight
-        : showExploreWelcomeSheet
-          ? CONTROLS_OVERLAY_BOTTOM + welcomeSheetHeight
-          : dockBottomOffset + insets.bottom;
-  /** En peek, subir la columna de controles para que no se superponga a la pastilla países|flows. */
-  const mapControlsLiftAboveFlowyaStatusRow =
-    isFlowyaFeedbackVisible &&
-    ((isSpotSheetVisible && sheetState === "peek") ||
-      (showExploreWelcomeSheet && welcomeSheetState === "peek"))
-      ? FLOWYA_ABOVE_PEEK_SHEET_GAP +
-        FLOWYA_STATUS_ROW_HEIGHT_ESTIMATE +
-        MAP_CONTROLS_CLEARANCE_ABOVE_FLOWYA_ROW -
-        CONTROLS_OVERLAY_BOTTOM
-      : 0;
-  const controlsBottomOffset = controlsBottomOffsetBase + mapControlsLiftAboveFlowyaStatusRow;
-  const shouldUseCenteredOverlayColumn =
-    !isSpotSheetVisible && !isCountriesSheetVisible && !showExploreWelcomeSheet;
   const shouldCenterCountriesAndControls = shouldUseCenteredOverlayColumn;
-  const shouldCenterCountriesWithPeekSheet =
-    !isCountriesSheetVisible &&
-    ((isSpotSheetVisible && sheetState === "peek") ||
-      (showExploreWelcomeSheet && welcomeSheetState === "peek"));
   const centeredGroupHeight =
     COUNTRIES_COUNTER_SIZE + COUNTRIES_AND_CONTROLS_GAP + mapControlsHeight;
   const centeredGroupTop = Math.max(
@@ -4913,13 +4939,6 @@ export function MapScreenVNext() {
   ]);
 
   useEffect(() => {
-    const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
-    const isCountriesSheetVisible = countriesSheetOpen;
-    const areMapControlsVisible =
-      !isShellBlockedByOverlay &&
-      sheetState !== "expanded" &&
-      (!isCountriesSheetVisible || countriesSheetState !== "expanded") &&
-      (!showExploreWelcomeSheet || welcomeSheetState !== "expanded");
     /** Con buscador abierto el sheet sigue en estado pero no es visible: no sumar su alto al toast. */
     const anyExploreSheetExpanded =
       (isSpotSheetVisible && sheetState === "expanded") ||
@@ -4956,19 +4975,17 @@ export function MapScreenVNext() {
     };
   }, [
     toast,
-    selectedSpot,
-    poiTapped,
+    isSpotSheetVisible,
+    isCountriesSheetVisible,
+    areMapControlsVisible,
     sheetHeight,
     countriesSheetHeight,
-    countriesSheetOpen,
     insets.left,
     insets.right,
     insets.bottom,
     dockBottomOffset,
     bottomActionRowBottomOffset,
-    createSpotNameOverlayOpen,
     searchV2.isOpen,
-    isShellBlockedByOverlay,
     isBottomActionRowVisible,
     isFlowyaFeedbackVisible,
     sheetState,
@@ -5119,57 +5136,104 @@ export function MapScreenVNext() {
           </Text>
         </Animated.View>
       ) : null}
-      {isBottomActionRowVisible ? (
-        <View
-          style={[
-            styles.bottomActionRowOverlay,
-            kpiFilterBottomLayout && styles.bottomActionRowKpiHost,
-            {
-              left: TOP_OVERLAY_INSET_X + insets.left,
-              right: TOP_OVERLAY_INSET_X + insets.right,
-              bottom: bottomActionRowBottomOffset,
-              pointerEvents: "box-none",
-            },
-          ]}
-        >
-          <View
-            style={kpiFilterBottomLayout ? styles.bottomActionRowKpiInner : styles.bottomActionRowFullBleed}
-          >
-            <ExploreSearchActionRow
-              fullWidth={kpiFilterBottomLayout}
+      {featureFlags.exploreChromeUnified ? (
+        showExploreWelcomeSheet || isBottomActionRowVisible ? (
+          <ExploreChromeShell
+            mode={showExploreWelcomeSheet ? "welcome" : "kpi"}
+            welcomeProps={{
+              visible: true,
+              state: welcomeSheetState,
+              onStateChange: setWelcomeSheetState,
+              onSheetHeightChange: setWelcomeSheetHeight,
+              onSearchPress: openSearchPreservingCountriesSheet,
+              onProfilePress: handleProfilePress,
+              onLogoutPress: handleLogoutPress,
+              showLogoutAction: showLogoutOption && isAuthUser,
+              isAuthUser,
+              logoutPopoverBottomOffset,
+              browseSectionTitle: welcomeSheetBrowseSectionTitle,
+              browseItems: welcomeExploreListItems,
+              onBrowseItemPress: handleWelcomeBrowseItemPress,
+              userCoords,
+              bottomOffset: dockBottomOffset + insets.bottom,
+              forceColorScheme: countriesOverlayScheme,
+            }}
+            kpiRowProps={{
+              onSearchPress: openSearchPreservingCountriesSheet,
+              onProfilePress: handleProfilePress,
+              onLogoutPress: handleLogoutPress,
+              showLogoutAction: showLogoutOption && isAuthUser,
+              logoutPopoverBottomOffset,
+              isAuthUser,
+              searchPlaceholder: "Busca países o lugares",
+              accessibilityLabel: "Buscar países o lugares",
+              profileAccessibilityLabel: "Cuenta",
+            }}
+            kpiFullWidth={kpiFilterBottomLayout}
+            overlayLeft={TOP_OVERLAY_INSET_X + insets.left}
+            overlayRight={TOP_OVERLAY_INSET_X + insets.right}
+            overlayBottom={bottomActionRowBottomOffset}
+          />
+        ) : null
+      ) : (
+        <Fragment>
+          {isBottomActionRowVisible ? (
+            <View
+              style={[
+                styles.bottomActionRowOverlay,
+                kpiFilterBottomLayout && styles.bottomActionRowKpiHost,
+                {
+                  left: TOP_OVERLAY_INSET_X + insets.left,
+                  right: TOP_OVERLAY_INSET_X + insets.right,
+                  bottom: bottomActionRowBottomOffset,
+                  pointerEvents: "box-none",
+                },
+              ]}
+            >
+              <View
+                style={
+                  kpiFilterBottomLayout
+                    ? styles.bottomActionRowKpiInner
+                    : styles.bottomActionRowFullBleed
+                }
+              >
+                <ExploreSearchActionRow
+                  fullWidth={kpiFilterBottomLayout}
+                  onSearchPress={openSearchPreservingCountriesSheet}
+                  onProfilePress={handleProfilePress}
+                  onLogoutPress={handleLogoutPress}
+                  showLogoutAction={showLogoutOption && isAuthUser}
+                  logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+                  isAuthUser={isAuthUser}
+                  searchPlaceholder="Busca países o lugares"
+                  accessibilityLabel="Buscar países o lugares"
+                  profileAccessibilityLabel="Cuenta"
+                />
+              </View>
+            </View>
+          ) : null}
+          {showExploreWelcomeSheet ? (
+            <ExploreWelcomeSheet
+              visible
+              state={welcomeSheetState}
+              onStateChange={setWelcomeSheetState}
+              onSheetHeightChange={setWelcomeSheetHeight}
               onSearchPress={openSearchPreservingCountriesSheet}
               onProfilePress={handleProfilePress}
               onLogoutPress={handleLogoutPress}
               showLogoutAction={showLogoutOption && isAuthUser}
-              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
               isAuthUser={isAuthUser}
-              searchPlaceholder="Busca países o lugares"
-              accessibilityLabel="Buscar países o lugares"
-              profileAccessibilityLabel="Cuenta"
+              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+              browseSectionTitle={welcomeSheetBrowseSectionTitle}
+              browseItems={welcomeExploreListItems}
+              onBrowseItemPress={handleWelcomeBrowseItemPress}
+              userCoords={userCoords}
+              bottomOffset={dockBottomOffset + insets.bottom}
+              forceColorScheme={countriesOverlayScheme}
             />
-          </View>
-        </View>
-      ) : null}
-      {showExploreWelcomeSheet ? (
-        <ExploreWelcomeSheet
-          visible
-          state={welcomeSheetState}
-          onStateChange={setWelcomeSheetState}
-          onSheetHeightChange={setWelcomeSheetHeight}
-          onSearchPress={openSearchPreservingCountriesSheet}
-          onProfilePress={handleProfilePress}
-          onLogoutPress={handleLogoutPress}
-          showLogoutAction={showLogoutOption && isAuthUser}
-          isAuthUser={isAuthUser}
-          logoutPopoverBottomOffset={logoutPopoverBottomOffset}
-          browseSectionTitle={welcomeSheetBrowseSectionTitle}
-          browseItems={welcomeExploreListItems}
-          onBrowseItemPress={handleWelcomeBrowseItemPress}
-          userCoords={userCoords}
-          bottomOffset={dockBottomOffset + insets.bottom}
-          forceColorScheme={countriesOverlayScheme}
-        />
-      ) : null}
+          ) : null}
+        </Fragment>
+      )}
       <CountriesSheet
         visible={countriesSheetOpen}
         title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
@@ -5775,12 +5839,22 @@ export function MapScreenVNext() {
               fromFilter: pinFilter,
               toFilter: pinFilter,
             });
+            const countriesSnap = countriesSheetBeforeSpotSheetRef.current;
+            countriesSheetBeforeSpotSheetRef.current = null;
             setSelectedSpot(null);
             setPoiTapped(null);
             setSheetState("peek");
             setSheetHeight(SHEET_PEEK_HEIGHT);
             setIsPlacingDraftSpot(false);
             setDraftCoverUri(null);
+            if (
+              countriesSnap?.wasOpen &&
+              (pinFilter === "saved" || pinFilter === "visited")
+            ) {
+              setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
+              setCountriesSheetListView(countriesSnap.listView);
+              setCountriesSheetOpen(true);
+            }
           }}
           onOpenDetail={handleSheetOpenDetail}
           state={sheetState}

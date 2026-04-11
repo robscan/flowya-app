@@ -30,6 +30,7 @@ import {
   CountriesSheetTemplateDemo,
   CountriesSheetVisitedProgress,
   DS_MOCK_COUNTRY_ITEMS,
+  ExploreWelcomeSheet,
   ExploreCountriesFlowsPill,
   ExploreMapStatusRow,
   ExploreSearchActionRow,
@@ -50,6 +51,8 @@ import {
   TravelerLevelsModal,
   TagChip,
   TypographyShowcase,
+  type ExploreWelcomeSheetState,
+  type WelcomeBrowseItem,
 } from '@/components/design-system';
 import {
   WEB_MODAL_CARD_MAX_WIDTH,
@@ -94,10 +97,29 @@ const DS_F1_QUICK_ETIQUETAR = [
   },
 ];
 
+const DS_EXPLORE_WELCOME_MOCK_ITEMS: WelcomeBrowseItem[] = [
+  {
+    id: 'ds_welcome_spot_1',
+    title: 'Basílica de la Sagrada Família',
+    address: 'Barcelona',
+    latitude: 41.4036,
+    longitude: 2.1744,
+    pinStatus: 'to_visit',
+  },
+  {
+    id: 'ds_welcome_spot_2',
+    title: 'Park Güell',
+    address: 'Barcelona',
+    latitude: 41.4145,
+    longitude: 2.1527,
+    pinStatus: 'visited',
+  },
+];
+
 export default function DesignSystemScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { width: windowWidth } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const sidebarLayout = windowWidth >= DS_TOC_SIDEBAR_MIN_WIDTH;
   const { openAuthModal } = useAuthModal();
   const toast = useSystemStatus();
@@ -118,6 +140,8 @@ export default function DesignSystemScreen() {
   const [dsMapFilterInlineDisabled, setDsMapFilterInlineDisabled] = useState<MapPinFilterValue>('all');
   /** Vitrina ds-pat-explore: cerrar sesión solo tras tap en perfil (paridad UX MapScreen). */
   const [dsPatExploreLogoutOpen, setDsPatExploreLogoutOpen] = useState(false);
+  const [dsTplWelcomeState, setDsTplWelcomeState] = useState<ExploreWelcomeSheetState>('medium');
+  const [dsTplWelcomeEmptyList, setDsTplWelcomeEmptyList] = useState(false);
   const sectionCard = {
     backgroundColor: colors.backgroundElevated,
     borderColor: colors.borderSubtle,
@@ -150,6 +174,8 @@ export default function DesignSystemScreen() {
   }, []);
 
   const titleMuted = colors.textSecondary;
+  /** Alto del “escenario” mapa + sheet: suficiente para gestionar peek / medium / expanded en una sola vitrina. */
+  const dsWelcomeStageHeight = Math.min(880, Math.max(560, Math.round(windowHeight * 0.82)));
 
   const dsCountriesDemoTravelerPoints = computeTravelerPoints(12, 48);
   const dsCountriesDemoLevel = resolveTravelerLevelByPoints(dsCountriesDemoTravelerPoints);
@@ -947,6 +973,72 @@ export default function DesignSystemScreen() {
         </DesignSystemSection>
 
         <DesignSystemSection
+          id="ds-tpl-explore-welcome"
+          title="Explore — sheet de bienvenida (peek / medium / expanded)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Una sola ExploreWelcomeSheet (runtime ExploreChromeShell). El recuadro alto simula mapa + sheet: arrastra el handle para recorrer peek, medium y expanded. Snap compartido con CountriesSheet: EXPLORE_CHROME_SHELL.md §5."
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: Spacing.md,
+              marginBottom: Spacing.sm,
+            }}
+          >
+            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+              Lista: {dsTplWelcomeEmptyList ? 'vacía (cold-start)' : 'con ítems de ejemplo'}
+            </Text>
+            <Pressable
+              onPress={() => setDsTplWelcomeEmptyList((v) => !v)}
+              style={({ pressed }) => ({
+                paddingVertical: 6,
+                paddingHorizontal: Spacing.sm,
+                borderRadius: Radius.sm,
+                backgroundColor: pressed ? colors.stateSurfacePressed : colors.borderSubtle,
+              })}
+              accessibilityRole="button"
+              accessibilityLabel={
+                dsTplWelcomeEmptyList ? 'Mostrar lista con ítems de ejemplo' : 'Mostrar lista vacía'
+              }
+            >
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: '600' }}>
+                {dsTplWelcomeEmptyList ? 'Ver con ítems' : 'Ver vacía'}
+              </Text>
+            </Pressable>
+          </View>
+          <View
+            style={{
+              position: 'relative',
+              height: dsWelcomeStageHeight,
+              width: '100%',
+              maxWidth: WEB_SHEET_MAX_WIDTH,
+              alignSelf: 'center',
+              borderRadius: Radius.lg,
+              overflow: 'hidden',
+              backgroundColor: colorScheme === 'dark' ? 'rgba(36, 58, 72, 0.55)' : 'rgba(100, 149, 180, 0.35)',
+            }}
+          >
+            <ExploreWelcomeSheet
+              visible
+              state={dsTplWelcomeState}
+              onStateChange={setDsTplWelcomeState}
+              onSearchPress={() => {}}
+              onProfilePress={() => {}}
+              isAuthUser
+              browseItems={dsTplWelcomeEmptyList ? [] : DS_EXPLORE_WELCOME_MOCK_ITEMS}
+              onBrowseItemPress={() => {}}
+              bottomOffset={0}
+              userCoords={{ latitude: 41.4, longitude: 2.17 }}
+            />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
           id="ds-explore-countries-template"
           title="Países — plantilla completa (KPI + mapa + lista)"
           titleColor={titleMuted}
@@ -980,7 +1072,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Chrome alineado a MapScreen: fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
+          description="Chrome alineado a MapScreen (`ExploreChromeShell` en runtime con flag unificado; ver EXPLORE_CHROME_SHELL.md): fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
         >
           <View
             style={{

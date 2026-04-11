@@ -24,7 +24,7 @@ export const WEB_SEARCH_OVERLAY_MAX_WIDTH = 720;
 /** Misma referencia para sheets inferiores (SpotSheet, CountriesSheet) en desktop web. */
 export const WEB_SHEET_MAX_WIDTH = WEB_SEARCH_OVERLAY_MAX_WIDTH;
 
-/** Modal secundario embebido (ej. niveles viajero en CountriesSheet). Más estrecho que el sheet. */
+/** Modal secundario embebido (ej. niveles viajero en CountriesSheet) y panel del auth modal web. Más estrecho que el sheet. */
 export const WEB_MODAL_CARD_MAX_WIDTH = 460;
 
 /** A partir de este ancho de ventana se centra el panel con ancho máximo. */

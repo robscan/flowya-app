@@ -22,6 +22,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
 import { uploadSpotCover } from '@/lib/spot-image-upload';
 import { supabase } from '@/lib/supabase';
+import { WEB_SHEET_MAX_WIDTH } from '@/lib/web-layout';
 
 import { ConfirmModal } from '../ui/confirm-modal';
 import { ButtonPrimary } from './buttons';
@@ -215,7 +216,11 @@ export function SpotDetail({
     >
       <ScrollView
         style={[styles.scrollView, { backgroundColor: colors.background }]}
-        contentContainerStyle={[styles.scrollContent, styles.scrollContentGrow]}
+        contentContainerStyle={[
+          styles.scrollContent,
+          styles.scrollContentGrow,
+          Platform.OS === 'web' && styles.scrollContentWebColumn,
+        ]}
         showsVerticalScrollIndicator
       >
         {/* Hero (oculto en Edit Spot cuando hideHero) */}
@@ -509,6 +514,12 @@ const styles = StyleSheet.create({
   /** Permite que el contenido crezca más que el viewport para habilitar scroll. */
   scrollContentGrow: {
     flexGrow: 1,
+  },
+  /** WR-04: columna legible en desktop web, alineada con sheets/overlays. */
+  scrollContentWebColumn: {
+    maxWidth: WEB_SHEET_MAX_WIDTH,
+    width: '100%',
+    alignSelf: 'center',
   },
   hero: {
     height: HERO_HEIGHT,

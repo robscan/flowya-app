@@ -13,6 +13,7 @@ import { Colors, Radius, Spacing, WebTouchManipulation } from '@/constants/theme
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useSearchControllerV2 } from '@/hooks/search/useSearchControllerV2';
 import { blurActiveElement } from '@/lib/focus-management';
+import { WEB_SHEET_MAX_WIDTH } from '@/lib/web-layout';
 import { createPlacesStrategy } from '@/lib/places/placesStrategy';
 import type { PlaceResult } from '@/lib/places/searchPlaces';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
@@ -448,7 +449,12 @@ export default function CreateSpotScreen() {
           style={styles.flex}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-          <View style={styles.flex}>
+          <View
+            style={[
+              styles.flex,
+              Platform.OS === 'web' && styles.webMainColumn,
+            ]}
+          >
             {duplicateAlert ? (
               <View
                 style={[
@@ -849,6 +855,12 @@ const styles = StyleSheet.create({
   flex: {
     flex: 1,
     minHeight: 0,
+  },
+  /** WR-04: misma referencia que sheets/overlays en tablet/desktop. */
+  webMainColumn: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: WEB_SHEET_MAX_WIDTH,
   },
   headerCloseTouchable: {
     padding: Spacing.sm,
