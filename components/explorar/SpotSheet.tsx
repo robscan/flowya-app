@@ -1286,7 +1286,8 @@ export function SpotSheet({
     transform: [{ translateY: translateYShared.value }],
   }));
 
-  const isMedium = webDesktopSidebar || state === "medium";
+  /** Sidebar web: un solo panel expandido; si medium y expanded son ambos true, SpotSheetBody duplica todo el cuerpo. */
+  const isMedium = webDesktopSidebar ? false : state === "medium";
   const isExpanded = webDesktopSidebar || state === "expanded";
   const bodyContentHeight = isMedium
     ? mediumBodyContentHeight
