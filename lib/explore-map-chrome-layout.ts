@@ -7,6 +7,7 @@ import type { ExploreWelcomeSheetState } from "@/components/design-system/explor
 import { Platform } from "react-native";
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH,
   webExploreUsesDesktopSidebar,
   webSearchUsesConstrainedPanelWidth,
 } from "@/lib/web-layout";
@@ -52,6 +53,11 @@ export type ExploreMapChromeLayoutInput = {
   welcomeSheetState: ExploreWelcomeSheetState;
   /** Web sidebar: el usuario ocultó el panel de bienvenida (mapa a ancho completo hasta que se resetea). */
   welcomeSidebarDismissed?: boolean;
+  /**
+   * CountriesSheet en vista listado de lugares (`all_places` o país): sidebar más ancho que el KPI de países.
+   * Debe coincidir con `countriesSheetListView != null` en MapScreen.
+   */
+  countriesSheetListViewPresent?: boolean;
 };
 
 export type ExploreMapChromeLayoutResult = {
@@ -80,6 +86,8 @@ export type ExploreMapChromeLayoutResult = {
   shouldCenterCountriesWithPeekSheet: boolean;
   /** Web ≥1080: welcome o países en columna izquierda; mapa solo en el resto. */
   exploreDesktopSidebarActive: boolean;
+  /** Ancho en px de la columna lateral (0 si no aplica). Toast / offsets deben alinear con esto. */
+  desktopSidebarPixelWidth: number;
   /** Ancho útil del escenario mapa (overlays, filtros). */
   mapStageWidth: number;
   /** Fila FLOWYA: ancho completo del map stage (sin tope 720 centrado). */
@@ -115,6 +123,7 @@ export function computeExploreMapChromeLayout(
     welcomeSheetHeight,
     welcomeSheetState,
     welcomeSidebarDismissed = false,
+    countriesSheetListViewPresent = false,
   } = input;
 
   const webConstrainedFlowyaLayout =
@@ -151,9 +160,18 @@ export function computeExploreMapChromeLayout(
       (isCountriesSheetVisible && (pinFilter === "saved" || pinFilter === "visited")) ||
       spotSheetAnchoredInSidebar);
 
-  const mapStageWidth = exploreDesktopSidebarActive
-    ? Math.max(0, windowWidth - WEB_EXPLORE_SIDEBAR_PANEL_WIDTH)
-    : windowWidth;
+  const desktopSidebarPixelWidth = exploreDesktopSidebarActive
+    ? showExploreWelcomeSheet
+      ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH
+      : isCountriesSheetVisible && countriesSheetListViewPresent
+        ? WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH
+        : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH
+    : 0;
+
+  const mapStageWidth =
+    exploreDesktopSidebarActive
+      ? Math.max(0, windowWidth - desktopSidebarPixelWidth)
+      : windowWidth;
 
   const topFiltersAvailableWidth =
     mapStageWidth - insets.left - insets.right - L.TOP_OVERLAY_INSET_X * 2;
@@ -311,6 +329,7 @@ export function computeExploreMapChromeLayout(
     shouldUseCenteredOverlayColumn,
     shouldCenterCountriesWithPeekSheet,
     exploreDesktopSidebarActive,
+    desktopSidebarPixelWidth,
     mapStageWidth,
     flowyaRowFullMapStageWidth,
     isFlowyaSidebarHeaderVisible,

@@ -95,6 +95,8 @@ type CountriesSheetProps = {
   onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
   /** Web ≥1080: panel en columna izquierda; el host lo coloca MapScreen. */
   webDesktopSidebar?: boolean;
+  /** Ancho máx. del panel en sidebar desktop (p. ej. más ancho solo en listado de lugares). */
+  webDesktopSidebarPanelWidth?: number;
 };
 
 const SHEET_PEEK_HEIGHT = 96;
@@ -158,6 +160,7 @@ export function CountriesSheet({
   onCountryDetailRequestDeleteUserTag,
   onPlacesListScopeChange,
   webDesktopSidebar = false,
+  webDesktopSidebarPanelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
 }: CountriesSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceColorScheme = useColorScheme();
@@ -1011,7 +1014,9 @@ export function CountriesSheet({
   if (webDesktopSidebar) {
     return (
       <View style={styles.webSidebarColumnHost} pointerEvents="box-none">
-        <View style={styles.webSidebarColumnInner}>{sheetAnimated}</View>
+        <View style={[styles.webSidebarColumnInner, { maxWidth: webDesktopSidebarPanelWidth }]}>
+          {sheetAnimated}
+        </View>
       </View>
     );
   }
@@ -1044,7 +1049,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     width: "100%",
-    maxWidth: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   },
   containerDesktopSidebar: {
     top: 0,
