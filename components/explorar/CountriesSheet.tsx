@@ -11,7 +11,7 @@ import type {
 import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
-import { ChevronDown } from "lucide-react-native";
+import { ChevronDown, Trash2 } from "lucide-react-native";
 import { Colors, Elevation, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
@@ -86,6 +86,11 @@ type CountriesSheetProps = {
   countryDetailTagFilterOptions?: { id: string; name: string; count: number }[];
   selectedCountryDetailTagFilterId?: string | null;
   onCountryDetailTagFilterChange?: (tagId: string | null) => void;
+  /** Mismo contrato que SearchSurface: long press en un chip # entra en modo edición (renombrar/eliminar vía flujo del host). */
+  countryDetailTagFilterEditMode?: boolean;
+  onCountryDetailTagFilterEnterEditMode?: () => void;
+  onCountryDetailTagFilterExitEditMode?: () => void;
+  onCountryDetailRequestDeleteUserTag?: (tagId: string, tagName: string) => void;
   /** Listado de lugares: desde el menú del título, volver a `all_places` o cambiar de país. */
   onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
   /** Web ≥1080: panel en columna izquierda; el host lo coloca MapScreen. */
@@ -147,6 +152,10 @@ export function CountriesSheet({
   countryDetailTagFilterOptions = [],
   selectedCountryDetailTagFilterId = null,
   onCountryDetailTagFilterChange,
+  countryDetailTagFilterEditMode = false,
+  onCountryDetailTagFilterEnterEditMode,
+  onCountryDetailTagFilterExitEditMode,
+  onCountryDetailRequestDeleteUserTag,
   onPlacesListScopeChange,
   webDesktopSidebar = false,
 }: CountriesSheetProps) {
@@ -748,6 +757,7 @@ export function CountriesSheet({
             <View style={styles.tagFilterRow}>
               <View style={styles.tagFilterScrollWrap}>
                 <ScrollView
+                  key={countryDetailTagFilterEditMode ? "tag-filter-edit" : "tag-filter-browse"}
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
@@ -759,7 +769,10 @@ export function CountriesSheet({
                   contentContainerStyle={styles.tagFilterScrollContent}
                 >
                   <Pressable
-                    onPress={() => onCountryDetailTagFilterChange?.(null)}
+                    onPress={() => {
+                      if (countryDetailTagFilterEditMode) return;
+                      onCountryDetailTagFilterChange?.(null);
+                    }}
                     style={[
                       styles.tagFilterChip,
                       webTagChipNoSelect,
@@ -767,6 +780,7 @@ export function CountriesSheet({
                         backgroundColor:
                           selectedCountryDetailTagFilterId == null ? colors.tint : colors.background,
                         borderColor: colors.borderSubtle,
+                        opacity: countryDetailTagFilterEditMode ? 0.75 : 1,
                       },
                     ]}
                     accessibilityLabel="Sin filtrar por etiqueta"
@@ -789,38 +803,89 @@ export function CountriesSheet({
                   </Pressable>
                   {countryDetailTagFilterOptions.map((opt) => {
                     const selected = selectedCountryDetailTagFilterId === opt.id;
+                    const chipEditSelected = countryDetailTagFilterEditMode && selected;
+                    const chipColors: ViewStyle = {
+                      backgroundColor: chipEditSelected
+                        ? colors.stateError
+                        : selected
+                          ? colors.tint
+                          : colors.background,
+                      borderColor: chipEditSelected ? colors.stateError : colors.borderSubtle,
+                    };
+                    const chipLabelColor = chipEditSelected
+                      ? colors.surfaceOnMap
+                      : selected
+                        ? colors.background
+                        : colors.text;
+                    const trashIconColor = chipEditSelected
+                      ? colors.surfaceOnMap
+                      : countryDetailTagFilterEditMode
+                        ? colors.stateError
+                        : colors.textSecondary;
                     return (
-                      <Pressable
+                      <View
                         key={opt.id}
-                        onPress={() => onCountryDetailTagFilterChange?.(selected ? null : opt.id)}
-                        style={[
-                          styles.tagFilterChip,
-                          webTagChipNoSelect,
-                          {
-                            backgroundColor: selected ? colors.tint : colors.background,
-                            borderColor: colors.borderSubtle,
-                          },
-                        ]}
-                        accessibilityLabel={`Filtrar por ${opt.name}`}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected }}
+                        style={[styles.tagFilterChip, styles.tagFilterChipInner, chipColors, webTagChipNoSelect]}
                       >
-                        <Text
-                          style={[
-                            styles.tagFilterChipLabel,
-                            webTagChipNoSelect,
-                            { color: selected ? colors.background : colors.text },
-                          ]}
-                          numberOfLines={1}
+                        <Pressable
+                          onPress={() => {
+                            if (countryDetailTagFilterEditMode) return;
+                            onCountryDetailTagFilterChange?.(selected ? null : opt.id);
+                          }}
+                          onLongPress={
+                            onCountryDetailTagFilterEnterEditMode != null
+                              ? () => {
+                                  onCountryDetailTagFilterEnterEditMode();
+                                }
+                              : undefined
+                          }
+                          delayLongPress={450}
+                          style={styles.tagFilterChipMainPress}
+                          accessibilityLabel={`Filtrar por ${opt.name}`}
+                          accessibilityRole="button"
+                          accessibilityState={{ selected }}
                         >
-                          #{opt.name}
-                          {opt.count > 0 ? ` (${opt.count})` : ""}
-                        </Text>
-                      </Pressable>
+                          <Text
+                            style={[styles.tagFilterChipLabel, webTagChipNoSelect, { color: chipLabelColor }]}
+                            numberOfLines={1}
+                          >
+                            #{opt.name}
+                            {opt.count > 0 ? ` (${opt.count})` : ""}
+                          </Text>
+                        </Pressable>
+                        {countryDetailTagFilterEditMode && onCountryDetailRequestDeleteUserTag != null ? (
+                          <Pressable
+                            onPress={() => onCountryDetailRequestDeleteUserTag(opt.id, opt.name)}
+                            hitSlop={10}
+                            style={styles.tagFilterChipRemove}
+                            accessibilityLabel={`Eliminar etiqueta ${opt.name}`}
+                            accessibilityRole="button"
+                          >
+                            <Trash2 size={14} color={trashIconColor} strokeWidth={2.5} />
+                          </Pressable>
+                        ) : null}
+                      </View>
                     );
                   })}
                 </ScrollView>
               </View>
+              {countryDetailTagFilterEditMode && onCountryDetailTagFilterExitEditMode != null ? (
+                <Pressable
+                  onPress={onCountryDetailTagFilterExitEditMode}
+                  style={({ pressed }) => [
+                    styles.tagFilterDoneBtn,
+                    {
+                      backgroundColor: colors.tint,
+                      borderColor: colors.tint,
+                      opacity: pressed ? 0.9 : 1,
+                    },
+                  ]}
+                  accessibilityLabel="Salir del modo edición de etiquetas"
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.tagFilterDoneBtnLabel, { color: colors.surfaceOnMap }]}>Listo</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           {!showPlacesList ? null : (
@@ -1115,6 +1180,7 @@ const styles = StyleSheet.create({
   tagFilterRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: Spacing.sm,
     marginBottom: Spacing.md,
     maxHeight: DETAIL_TAG_ROW_HEIGHT,
     minHeight: 40,
@@ -1143,6 +1209,47 @@ const styles = StyleSheet.create({
     borderRadius: Radius.pill,
     borderWidth: 1,
     maxWidth: 220,
+  },
+  tagFilterChipInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    maxWidth: 260,
+  },
+  tagFilterChipMainPress: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+    flexShrink: 1,
+  },
+  tagFilterChipRemove: {
+    padding: 2,
+    marginLeft: 2,
+    flexShrink: 0,
+  },
+  tagFilterDoneBtn: {
+    paddingHorizontal: Spacing.base,
+    paddingVertical: 10,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    flexShrink: 0,
+    minWidth: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    ...Platform.select({
+      web: {
+        boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+        cursor: "pointer" as const,
+      },
+      default: {
+        elevation: 2,
+      },
+    }),
+  },
+  tagFilterDoneBtnLabel: {
+    fontSize: 14,
+    fontWeight: "700",
   },
   tagFilterChipLabel: {
     fontSize: 13,

@@ -5418,6 +5418,24 @@ export function MapScreenVNext() {
               onCountryDetailTagFilterChange={
                 isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
               }
+              countryDetailTagFilterEditMode={
+                isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
+              }
+              onCountryDetailTagFilterEnterEditMode={
+                isAuthUser && countriesSheetListView != null
+                  ? () => setTagFilterEditMode(true)
+                  : undefined
+              }
+              onCountryDetailTagFilterExitEditMode={
+                isAuthUser && countriesSheetListView != null
+                  ? () => setTagFilterEditMode(false)
+                  : undefined
+              }
+              onCountryDetailRequestDeleteUserTag={
+                isAuthUser && countriesSheetListView != null
+                  ? handleRequestDeleteUserTag
+                  : undefined
+              }
               onPlacesListScopeChange={setCountriesSheetListView}
               webDesktopSidebar
             />
@@ -5674,6 +5692,22 @@ export function MapScreenVNext() {
           }
           onCountryDetailTagFilterChange={
             isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+          }
+          countryDetailTagFilterEditMode={
+            isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
+          }
+          onCountryDetailTagFilterEnterEditMode={
+            isAuthUser && countriesSheetListView != null
+              ? () => setTagFilterEditMode(true)
+              : undefined
+          }
+          onCountryDetailTagFilterExitEditMode={
+            isAuthUser && countriesSheetListView != null
+              ? () => setTagFilterEditMode(false)
+              : undefined
+          }
+          onCountryDetailRequestDeleteUserTag={
+            isAuthUser && countriesSheetListView != null ? handleRequestDeleteUserTag : undefined
           }
           onPlacesListScopeChange={setCountriesSheetListView}
           webDesktopSidebar={false}
