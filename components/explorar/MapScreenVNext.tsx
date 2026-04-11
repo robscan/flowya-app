@@ -5146,8 +5146,6 @@ export function MapScreenVNext() {
     desktopSidebarPixelWidth,
   ]);
 
-  const desktopSidebarHadPanelRef = useRef(false);
-
   const countriesInSidebarDesktop =
     exploreDesktopSidebarActive &&
     countriesSheetOpen &&
@@ -5173,13 +5171,6 @@ export function MapScreenVNext() {
       : countriesInSidebarDesktop
         ? countriesDesktopSidebarPanelWidth
         : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH;
-
-  const skipDesktopSidebarEntrance =
-    Platform.OS === "web" && desktopSidebarHadPanelRef.current && hasDesktopSidebarPanel;
-
-  useLayoutEffect(() => {
-    desktopSidebarHadPanelRef.current = hasDesktopSidebarPanel;
-  }, [hasDesktopSidebarPanel]);
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -5352,7 +5343,8 @@ export function MapScreenVNext() {
         <ExploreDesktopSidebarAnimatedColumn
           animationKey="explore-desktop-sidebar"
           panelWidth={exploreDesktopSidebarPanelWidthResolved}
-          skipEntranceAnimation={skipDesktopSidebarEntrance}
+          /** Desktop ≥1080: nunca animar 0→w (overflow hidden recortaba el panel y el mapa parpadeaba al cambiar filtro). */
+          skipEntranceAnimation
           onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
@@ -6374,6 +6366,7 @@ const styles = StyleSheet.create({
     width: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
     flexShrink: 0,
     minHeight: 0,
+    minWidth: 0,
     alignSelf: "stretch",
     borderRightWidth: StyleSheet.hairlineWidth,
     flexDirection: "column",
@@ -6386,6 +6379,8 @@ const styles = StyleSheet.create({
   exploreSidebarSheetBody: {
     flex: 1,
     minHeight: 0,
+    /** Web flex: evita clip horizontal raro al cambiar ancho sidebar (400↔720). */
+    minWidth: 0,
   },
   map: {
     flex: 1,
