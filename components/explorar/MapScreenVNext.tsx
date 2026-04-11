@@ -3780,12 +3780,15 @@ export function MapScreenVNext() {
       countriesSheetPinAnchorRef.current = pinFilter;
     }
   }, [pinFilter, countriesSheetOpen]);
+  /** Alinea overlay (KPI/contador) con `countriesFilterForActiveCounter` o filtro forzado. */
   useEffect(() => {
     if (!countriesSheetOpen) return;
     const targetFilter = countriesSheetForcedFilterRef.current ?? countriesFilterForActiveCounter;
     if (countriesOverlayFilter === targetFilter) return;
     setCountriesOverlayFilter(targetFilter);
-    setCountriesSheetListView(null);
+    /** No resetear `countriesSheetListView`: al cambiar Por visitar ↔ Visitados hay un render donde
+     * overlay aún no coincide con el pin y esto borraba el listado; `useLayoutEffect` (pinFilter) ya
+     * sincroniza overlay y dataset. */
   }, [countriesSheetOpen, countriesOverlayFilter, countriesFilterForActiveCounter]);
   useEffect(() => {
     if (!countriesSheetOpen) return;
