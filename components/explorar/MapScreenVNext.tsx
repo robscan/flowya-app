@@ -5064,6 +5064,14 @@ export function MapScreenVNext() {
     countriesSheetOpen &&
     !showExploreWelcomeSheet;
 
+  const spotSheetChromeVisible =
+    (selectedSpot != null || poiTapped != null) &&
+    !searchV2.isOpen &&
+    !createSpotNameOverlayOpen;
+
+  const spotInSidebarDesktop =
+    Platform.OS === "web" && exploreDesktopSidebarActive && spotSheetChromeVisible;
+
   const exploreSidebarPalette = Colors[colorScheme ?? "light"];
   const exploreSidebarFlowyaHeaderEl =
     isFlowyaSidebarHeaderVisible ? (
@@ -5083,6 +5091,111 @@ export function MapScreenVNext() {
         />
       </View>
     ) : null;
+
+  const renderExploreSpotSheet = (webDesktopSidebar: boolean) => (
+    <SpotSheet
+      webDesktopSidebar={webDesktopSidebar}
+      spot={selectedSpot}
+      poi={poiTapped}
+      displayTitleOverride={null}
+      onClose={() => {
+        recordExploreDecisionCompleted({
+          outcome: "dismissed",
+          pinFilter,
+        });
+        recordExploreSelectionChanged({
+          entityType: poiTapped != null && selectedSpot == null ? "poi" : "spot",
+          selectionState: "cleared",
+          fromFilter: pinFilter,
+          toFilter: pinFilter,
+        });
+        const countriesSnap = countriesSheetBeforeSpotSheetRef.current;
+        countriesSheetBeforeSpotSheetRef.current = null;
+        setSelectedSpot(null);
+        setPoiTapped(null);
+        setSheetState("peek");
+        setSheetHeight(SHEET_PEEK_HEIGHT);
+        setIsPlacingDraftSpot(false);
+        setDraftCoverUri(null);
+        if (
+          countriesSnap?.wasOpen &&
+          (pinFilter === "saved" || pinFilter === "visited")
+        ) {
+          setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
+          setCountriesSheetListView(countriesSnap.listView);
+          setCountriesSheetOpen(true);
+        }
+      }}
+      onOpenDetail={handleSheetOpenDetail}
+      state={sheetState}
+      onSheetHeightChange={setSheetHeight}
+      onShare={selectedSpot ? () => handleShare(selectedSpot) : undefined}
+      onSavePin={
+        selectedSpot
+          ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
+          : undefined
+      }
+      pinFilter={pinFilter}
+      userCoords={userCoords ?? undefined}
+      isAuthUser={isAuthUser}
+      onDirections={
+        selectedSpot
+          ? (s) => Linking.openURL(getMapsDirectionsUrl(s.latitude, s.longitude))
+          : undefined
+      }
+      onEdit={
+        selectedSpot
+          ? (spotId) => {
+              blurActiveElement();
+              (router.push as (href: string) => void)(
+                `/spot/edit/${spotId}`,
+              );
+            }
+          : undefined
+      }
+      isPlacingDraftSpot={isPlacingDraftSpot}
+      onConfirmPlacement={() => setIsPlacingDraftSpot(false)}
+      onDraftBackToPlacing={() => setIsPlacingDraftSpot(true)}
+      draftCoverUri={draftCoverUri}
+      onDraftCoverChange={setDraftCoverUri}
+      onCreateSpot={handleCreateSpotFromDraft}
+      onPoiPorVisitar={() => handleCreateSpotFromPoi("to_visit")}
+      onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
+      onPoiShare={handleCreateSpotFromPoiAndShare}
+      poiLoading={poiSheetLoading}
+      onImagePress={
+        selectedSpot?.cover_image_url
+          ? (uri) => setFullscreenImageUri(uri)
+          : undefined
+      }
+      sheetTagChips={sheetSpotTagChips}
+      onSheetTagChipPress={isAuthUser ? handleSheetTagChipPress : undefined}
+      onSheetEtiquetarPress={
+        isAuthUser && selectedSpot != null && !selectedSpot.id.startsWith("draft_")
+          ? handleSheetEtiquetarFromSheet
+          : undefined
+      }
+      onStateChange={(newState) => {
+        if (
+          newState === "expanded" &&
+          poiTapped != null &&
+          selectedSpot == null &&
+          !poiSheetLoading
+        ) {
+          setSheetState("expanded");
+          const autoStatusForFilter =
+            pinFilter === "saved"
+              ? "to_visit"
+              : pinFilter === "visited"
+                ? "visited"
+                : undefined;
+          void handleCreateSpotFromPoi(autoStatusForFilter, "expanded");
+        } else {
+          setSheetState(newState);
+        }
+      }}
+    />
+  );
 
   return (
     <View
@@ -5171,6 +5284,17 @@ export function MapScreenVNext() {
               webDesktopSidebar
             />
           </View>
+        </View>
+      ) : null}
+      {spotInSidebarDesktop ? (
+        <View
+          style={[
+            styles.exploreSidebarColumn,
+            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
+          ]}
+        >
+          {exploreSidebarFlowyaHeaderEl}
+          <View style={styles.exploreSidebarSheetBody}>{renderExploreSpotSheet(true)}</View>
         </View>
       ) : null}
       <View style={styles.mapStage}>
@@ -5965,112 +6089,8 @@ export function MapScreenVNext() {
           </View>
         </View>
       ) : null}
-      {/* CONTRATO: Sheet disabled while search open; ocultar cuando flujo de creación (CreateSpotNameOverlay) activo */}
-      {(selectedSpot != null || poiTapped != null) &&
-      !searchV2.isOpen &&
-      !createSpotNameOverlayOpen ? (
-        <SpotSheet
-          spot={selectedSpot}
-          poi={poiTapped}
-          displayTitleOverride={null}
-          onClose={() => {
-            recordExploreDecisionCompleted({
-              outcome: "dismissed",
-              pinFilter,
-            });
-            recordExploreSelectionChanged({
-              entityType: poiTapped != null && selectedSpot == null ? "poi" : "spot",
-              selectionState: "cleared",
-              fromFilter: pinFilter,
-              toFilter: pinFilter,
-            });
-            const countriesSnap = countriesSheetBeforeSpotSheetRef.current;
-            countriesSheetBeforeSpotSheetRef.current = null;
-            setSelectedSpot(null);
-            setPoiTapped(null);
-            setSheetState("peek");
-            setSheetHeight(SHEET_PEEK_HEIGHT);
-            setIsPlacingDraftSpot(false);
-            setDraftCoverUri(null);
-            if (
-              countriesSnap?.wasOpen &&
-              (pinFilter === "saved" || pinFilter === "visited")
-            ) {
-              setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
-              setCountriesSheetListView(countriesSnap.listView);
-              setCountriesSheetOpen(true);
-            }
-          }}
-          onOpenDetail={handleSheetOpenDetail}
-          state={sheetState}
-          onSheetHeightChange={setSheetHeight}
-          onShare={selectedSpot ? () => handleShare(selectedSpot) : undefined}
-          onSavePin={
-            selectedSpot
-              ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
-              : undefined
-          }
-          pinFilter={pinFilter}
-          userCoords={userCoords ?? undefined}
-          isAuthUser={isAuthUser}
-          onDirections={
-            selectedSpot
-              ? (s) => Linking.openURL(getMapsDirectionsUrl(s.latitude, s.longitude))
-              : undefined
-          }
-          onEdit={
-            selectedSpot
-              ? (spotId) => {
-                  blurActiveElement();
-                  (router.push as (href: string) => void)(
-                    `/spot/edit/${spotId}`,
-                  );
-                }
-              : undefined
-          }
-          isPlacingDraftSpot={isPlacingDraftSpot}
-          onConfirmPlacement={() => setIsPlacingDraftSpot(false)}
-          onDraftBackToPlacing={() => setIsPlacingDraftSpot(true)}
-          draftCoverUri={draftCoverUri}
-          onDraftCoverChange={setDraftCoverUri}
-          onCreateSpot={handleCreateSpotFromDraft}
-          onPoiPorVisitar={() => handleCreateSpotFromPoi("to_visit")}
-          onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
-          onPoiShare={handleCreateSpotFromPoiAndShare}
-          poiLoading={poiSheetLoading}
-          onImagePress={
-            selectedSpot?.cover_image_url
-              ? (uri) => setFullscreenImageUri(uri)
-              : undefined
-          }
-          sheetTagChips={sheetSpotTagChips}
-          onSheetTagChipPress={isAuthUser ? handleSheetTagChipPress : undefined}
-          onSheetEtiquetarPress={
-            isAuthUser && selectedSpot != null && !selectedSpot.id.startsWith("draft_")
-              ? handleSheetEtiquetarFromSheet
-              : undefined
-          }
-          onStateChange={(newState) => {
-            if (
-              newState === "expanded" &&
-              poiTapped != null &&
-              selectedSpot == null &&
-              !poiSheetLoading
-            ) {
-              setSheetState("expanded");
-              const autoStatusForFilter =
-                pinFilter === "saved"
-                  ? "to_visit"
-                  : pinFilter === "visited"
-                    ? "visited"
-                    : undefined;
-              void handleCreateSpotFromPoi(autoStatusForFilter, "expanded");
-            } else {
-              setSheetState(newState);
-            }
-          }}
-        />
-      ) : null}
+      {/* CONTRATO: Sheet disabled while search open; ocultar cuando flujo de creación (CreateSpotNameOverlay) activo; web ≥1080 → columna lateral */}
+      {spotSheetChromeVisible && !spotInSidebarDesktop ? renderExploreSpotSheet(false) : null}
       <ImageFullscreenModal
         visible={fullscreenImageUri != null}
         uri={fullscreenImageUri}

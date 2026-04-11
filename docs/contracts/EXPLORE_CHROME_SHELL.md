@@ -64,6 +64,7 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 - Viewport ≥ **`WEB_EXPLORE_SIDEBAR_MIN_WIDTH` (1080px)** (`lib/web-layout.ts`): **`webExploreUsesDesktopSidebar`**. Si aplica **welcome** (Todos) o **CountriesSheet** abierto en KPI, el panel deja de ser sheet inferior centrado y pasa a **columna izquierda** de ancho `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH` (400px, panel lateral dedicado; más estrecho que el sheet centrado 720). El **mapa y overlays** viven en `mapStage` (columna derecha, `flex: 1`): el viewport de Mapbox coincide con esa región; `mapInstance.resize()` al cambiar el layout.
 - **`ExploreWelcomeSheet`**: prop `webExploreLayout="desktopSidebar"` (lista + barra en columna).
 - **`CountriesSheet`**: prop `webDesktopSidebar` (panel anclado a la columna).
+- **`SpotSheet`** (spot o POI): prop `webDesktopSidebar` — misma columna y ancho que welcome/países; sin sheet inferior centrado a 720px.
 - **Toast** (`SystemStatusBar`): ancla inferior izquierda compensada con el ancho del panel lateral cuando el sidebar está activo.
 - Por debajo de 1080px se mantiene el comportamiento de sheet inferior (§8).
 

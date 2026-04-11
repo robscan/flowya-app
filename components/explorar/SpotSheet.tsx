@@ -46,7 +46,11 @@ import {
     useWindowDimensions,
     View,
 } from "react-native";
-import { WEB_SHEET_MAX_WIDTH, webSearchUsesConstrainedPanelWidth } from "@/lib/web-layout";
+import {
+  WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  WEB_SHEET_MAX_WIDTH,
+  webSearchUsesConstrainedPanelWidth,
+} from "@/lib/web-layout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
     Easing,
@@ -189,6 +193,8 @@ export type SpotSheetProps = {
   onSheetTagChipPress?: (tagId: string) => void;
   /** Abrir modal de etiquetar (mismo flujo que en listados). */
   onSheetEtiquetarPress?: () => void;
+  /** Web ≥1080: panel en columna izquierda (paridad CountriesSheet / EXPLORE_CHROME_SHELL §8b). */
+  webDesktopSidebar?: boolean;
 };
 
 type BodyContentProps = {
@@ -972,6 +978,7 @@ export function SpotSheet({
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
+  webDesktopSidebar = false,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -980,7 +987,9 @@ export function SpotSheet({
   const [showDiscardDraftConfirm, setShowDiscardDraftConfirm] = useState(false);
   const { width: windowWidth } = useWindowDimensions();
   const useWebConstrainedSheet =
-    Platform.OS === "web" && webSearchUsesConstrainedPanelWidth(windowWidth);
+    Platform.OS === "web" &&
+    webSearchUsesConstrainedPanelWidth(windowWidth) &&
+    !webDesktopSidebar;
 
   const onHeaderLayout = useCallback((e: LayoutChangeEvent) => {
     setHeaderHeight(e.nativeEvent.layout.height);
@@ -1342,11 +1351,12 @@ export function SpotSheet({
     <Animated.View
       style={[
         styles.container,
+        webDesktopSidebar && styles.containerDesktopSidebar,
         {
           backgroundColor: colors.backgroundElevated,
           borderColor: colors.borderSubtle,
-          height: expandedAnchor,
-          bottom: useWebConstrainedSheet ? 0 : sheetBottom,
+          height: webDesktopSidebar ? ("100%" as const) : expandedAnchor,
+          bottom: webDesktopSidebar ? 0 : useWebConstrainedSheet ? 0 : sheetBottom,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
         animatedContainerStyle,
@@ -1427,6 +1437,14 @@ export function SpotSheet({
     </Animated.View>
   );
 
+  if (webDesktopSidebar) {
+    return (
+      <View style={styles.webSidebarColumnHost} pointerEvents="box-none">
+        <View style={styles.webSidebarColumnInner}>{sheetAnimated}</View>
+      </View>
+    );
+  }
+
   if (useWebConstrainedSheet) {
     return (
       <View
@@ -1455,6 +1473,23 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: "center",
+  },
+  webSidebarColumnHost: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
+  },
+  webSidebarColumnInner: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+    maxWidth: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  },
+  containerDesktopSidebar: {
+    top: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
   },
   container: {
     position: "absolute",

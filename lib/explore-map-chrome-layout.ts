@@ -127,11 +127,16 @@ export function computeExploreMapChromeLayout(
     pinFilter === "all" &&
     isGlobeEntryMotionSettled;
 
+  /** Spot/POI en columna lateral (no sheet inferior centrado) cuando no bloquean búsqueda ni overlay crear. */
+  const spotSheetAnchoredInSidebar =
+    isSpotSheetVisible && !searchV2Open && !createSpotNameOverlayOpen;
+
   const exploreDesktopSidebarActive =
     Platform.OS === "web" &&
     webExploreUsesDesktopSidebar(windowWidth) &&
     (showExploreWelcomeSheet ||
-      (isCountriesSheetVisible && (pinFilter === "saved" || pinFilter === "visited")));
+      (isCountriesSheetVisible && (pinFilter === "saved" || pinFilter === "visited")) ||
+      spotSheetAnchoredInSidebar);
 
   const mapStageWidth = exploreDesktopSidebarActive
     ? Math.max(0, windowWidth - WEB_EXPLORE_SIDEBAR_PANEL_WIDTH)
@@ -181,7 +186,9 @@ export function computeExploreMapChromeLayout(
   const filterMinimumTop = insets.top + 4;
 
   const filterAnchorSheetHeight = isSpotSheetVisible
-    ? sheetHeight
+    ? exploreDesktopSidebarActive
+      ? 0
+      : sheetHeight
     : exploreDesktopSidebarActive && (showExploreWelcomeSheet || isCountriesSheetVisible)
       ? 0
       : showExploreWelcomeSheet
@@ -213,7 +220,11 @@ export function computeExploreMapChromeLayout(
         : L.FLOWYA_ABOVE_PEEK_SHEET_GAP;
 
   const flowyaBottomOffset = isSpotSheetVisible
-    ? sheetHeight + L.FLOWYA_ABOVE_PEEK_SHEET_GAP
+    ? exploreDesktopSidebarActive
+      ? bottomActionRowBottomOffset +
+        L.BOTTOM_ACTION_ROW_CLEARANCE +
+        L.FLOWYA_ABOVE_ROW_GAP
+      : sheetHeight + L.FLOWYA_ABOVE_PEEK_SHEET_GAP
     : exploreDesktopSidebarActive && (showExploreWelcomeSheet || isCountriesSheetVisible)
       ? bottomActionRowBottomOffset +
         L.BOTTOM_ACTION_ROW_CLEARANCE +
@@ -227,7 +238,9 @@ export function computeExploreMapChromeLayout(
             L.FLOWYA_ABOVE_ROW_GAP;
 
   const controlsBottomOffsetBase = isSpotSheetVisible
-    ? L.CONTROLS_OVERLAY_BOTTOM + sheetHeight
+    ? exploreDesktopSidebarActive
+      ? dockBottomOffset + insets.bottom
+      : L.CONTROLS_OVERLAY_BOTTOM + sheetHeight
     : exploreDesktopSidebarActive && isCountriesSheetVisible
       ? dockBottomOffset + insets.bottom
       : exploreDesktopSidebarActive && showExploreWelcomeSheet
