@@ -895,6 +895,7 @@ export function CountriesSheet({
             <Animated.View
               style={[
                 styles.listEntranceWrap,
+                webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
                 { maxHeight: expandedListMaxHeight },
                 listEntranceAnimatedStyle,
               ]}
@@ -971,6 +972,7 @@ export function CountriesSheet({
             <Animated.View
               style={[
                 styles.listEntranceWrap,
+                webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
                 { maxHeight: expandedListMaxHeight },
                 listEntranceAnimatedStyle,
               ]}
@@ -1042,18 +1044,22 @@ const styles = StyleSheet.create({
   webSidebarColumnHost: {
     flex: 1,
     minHeight: 0,
+    minWidth: 0,
     width: "100%",
     zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
   },
   webSidebarColumnInner: {
     flex: 1,
     minHeight: 0,
+    minWidth: 0,
     width: "100%",
   },
   containerDesktopSidebar: {
     top: 0,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
+    /** `container` usa overflow hidden (sheet móvil); en columna desktop el ancho salta 400↔720 y el hidden recortaba el listado un frame. */
+    overflow: "visible",
   },
   webSheetWidthHost: {
     position: "absolute",
@@ -1173,6 +1179,10 @@ const styles = StyleSheet.create({
   listEntranceWrap: {
     width: "100%",
     overflow: "hidden",
+  },
+  /** Desktop sidebar: mismo motivo que `containerDesktopSidebar.overflow` — evitar clip al cambiar ancho/panel. */
+  listEntranceWrapDesktopSidebar: {
+    overflow: "visible",
   },
   detailPlacesFlatList: {
     flexGrow: 0,

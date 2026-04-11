@@ -181,3 +181,7 @@ Secuencia recomendada:
 4. contenido + `Recordar-lite`
 5. métricas
 6. monetización
+
+## Evidencia reciente (OL-WEB-RESPONSIVE-001)
+
+- **2026-04-11:** Bitácora [`337`](../bitacora/2026/04/337-explore-desktop-sidebar-clip-kpi-lugares-overflow.md) — clip en sidebar desktop al cambiar ancho KPI (400px) ↔ listado lugares (720px): columna estática, overflow y `minWidth` en cadena flex; contrato `EXPLORE_CHROME_SHELL.md` §8b.

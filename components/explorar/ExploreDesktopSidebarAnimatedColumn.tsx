@@ -16,6 +16,10 @@ type ExploreDesktopSidebarAnimatedColumnProps = {
   /**
    * Sin animación de entrada (ancho ya visible): p. ej. al cambiar de filtro/sheet dentro del mismo
    * layout de sidebar desktop. La entrada solo debe verse cuando la columna lateral pasó de no existir a existir.
+   *
+   * Usa `View` con ancho fijo (no `Animated.Value`) para que al cambiar `panelWidth` (p. ej. KPI 400px ↔
+   * listado lugares 720px) no haya un frame con contenedor estrecho y contenido ancho — `overflow: hidden`
+   * recortaba la sheet.
    */
   skipEntranceAnimation?: boolean;
   /**
@@ -25,36 +29,79 @@ type ExploreDesktopSidebarAnimatedColumnProps = {
   onStageWidthAnimationFrame?: () => void;
 };
 
-export function ExploreDesktopSidebarAnimatedColumn({
+/** Sidebar desktop sin animación de entrada: ancho siempre igual a `panelWidth` (sin bridge Animated). */
+function ExploreDesktopSidebarStaticColumn({
+  children,
+  style,
+  panelWidth,
+  onStageWidthAnimationFrame,
+}: {
+  children: ReactNode;
+  style?: ViewStyle | ViewStyle[] | undefined;
+  panelWidth: number;
+  onStageWidthAnimationFrame?: () => void;
+}) {
+  const w = panelWidth;
+  const onFrameRef = useRef(onStageWidthAnimationFrame);
+  onFrameRef.current = onStageWidthAnimationFrame;
+
+  useEffect(() => {
+    /** Cambio de ancho (KPI ↔ listado lugares): map stage y Mapbox tras layout. */
+    let id2: number | null = null;
+    const id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        id2 = null;
+        onFrameRef.current?.();
+      });
+    });
+    return () => {
+      cancelAnimationFrame(id1);
+      if (id2 != null) cancelAnimationFrame(id2);
+    };
+  }, [w]);
+
+  return (
+    <View
+      style={[
+        style,
+        {
+          width: w,
+          maxWidth: w,
+          /** Sin animación de ancho: `hidden` recortaba un frame al saltar 400↔720 (KPI ↔ lugares). El sheet ya recorta bordes. */
+          overflow: "visible",
+        },
+      ]}
+    >
+      <View
+        style={{
+          width: w,
+          flex: 1,
+          minHeight: 0,
+          minWidth: 0,
+          alignSelf: "stretch",
+        }}
+      >
+        {children}
+      </View>
+    </View>
+  );
+}
+
+function ExploreDesktopSidebarEntranceAnimatedColumn({
   children,
   style,
   animationKey,
   panelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
-  skipEntranceAnimation = false,
   onStageWidthAnimationFrame,
-}: ExploreDesktopSidebarAnimatedColumnProps) {
+}: Omit<ExploreDesktopSidebarAnimatedColumnProps, "skipEntranceAnimation"> & {
+  panelWidth?: number;
+}) {
   const w = panelWidth;
   const widthAnim = useRef(new Animated.Value(0)).current;
   const onFrameRef = useRef(onStageWidthAnimationFrame);
   onFrameRef.current = onStageWidthAnimationFrame;
 
   useEffect(() => {
-    if (skipEntranceAnimation) {
-      widthAnim.setValue(w);
-      /** Sin animación de entrada pero sí cambio de `w` (p. ej. KPI países ↔ listado lugares): el map stage
-       * cambia de ancho; Mapbox debe `resize()` tras layout (doble rAF alineado a MapScreenVNext). */
-      let id2: number | null = null;
-      const id1 = requestAnimationFrame(() => {
-        id2 = requestAnimationFrame(() => {
-          id2 = null;
-          onFrameRef.current?.();
-        });
-      });
-      return () => {
-        cancelAnimationFrame(id1);
-        if (id2 != null) cancelAnimationFrame(id2);
-      };
-    }
     widthAnim.setValue(0);
     const listenerId = widthAnim.addListener(() => {
       onFrameRef.current?.();
@@ -70,7 +117,7 @@ export function ExploreDesktopSidebarAnimatedColumn({
     return () => {
       widthAnim.removeListener(listenerId);
     };
-  }, [animationKey, w, widthAnim, skipEntranceAnimation]);
+  }, [animationKey, w, widthAnim]);
 
   return (
     <Animated.View
@@ -94,5 +141,37 @@ export function ExploreDesktopSidebarAnimatedColumn({
         {children}
       </View>
     </Animated.View>
+  );
+}
+
+export function ExploreDesktopSidebarAnimatedColumn({
+  children,
+  style,
+  animationKey,
+  panelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  skipEntranceAnimation = false,
+  onStageWidthAnimationFrame,
+}: ExploreDesktopSidebarAnimatedColumnProps) {
+  if (skipEntranceAnimation) {
+    return (
+      <ExploreDesktopSidebarStaticColumn
+        style={style}
+        panelWidth={panelWidth}
+        onStageWidthAnimationFrame={onStageWidthAnimationFrame}
+      >
+        {children}
+      </ExploreDesktopSidebarStaticColumn>
+    );
+  }
+
+  return (
+    <ExploreDesktopSidebarEntranceAnimatedColumn
+      style={style}
+      animationKey={animationKey}
+      panelWidth={panelWidth}
+      onStageWidthAnimationFrame={onStageWidthAnimationFrame}
+    >
+      {children}
+    </ExploreDesktopSidebarEntranceAnimatedColumn>
   );
 }

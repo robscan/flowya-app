@@ -4714,20 +4714,14 @@ export function MapScreenVNext() {
   useFocusEffect(
     useCallback(() => {
       if (!mapInstance) return;
-      const id = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          try {
-            mapInstance.resize();
-          } catch {
-            // ignore
-          }
-        });
-      });
-      return () => cancelAnimationFrame(id);
-    }, [mapInstance]),
+      scheduleMapResizeForSidebar();
+    }, [mapInstance, scheduleMapResizeForSidebar]),
   );
 
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  /** Web ancho ≥1080: layout fila estable siempre; evita alternar absolute vs relative al montar sidebar (glitch Todos↔filtros). */
+  const webDesktopExploreSplitLayout =
+    Platform.OS === "web" && webExploreUsesDesktopSidebar(windowWidth);
   const dockBottomOffset = 12;
   const chromeLayout = computeExploreMapChromeLayout({
     windowWidth,
@@ -4801,25 +4795,10 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     if (!mapInstance) return;
-    let cancelled = false;
-    let innerRaf: number | null = null;
-    const id1 = requestAnimationFrame(() => {
-      innerRaf = requestAnimationFrame(() => {
-        if (cancelled) return;
-        try {
-          mapInstance.resize();
-        } catch {
-          // ignore
-        }
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(id1);
-      if (innerRaf != null) cancelAnimationFrame(innerRaf);
-    };
+    scheduleMapResizeForSidebar();
   }, [
     mapInstance,
+    scheduleMapResizeForSidebar,
     exploreDesktopSidebarActive,
     mapStageWidth,
     desktopSidebarPixelWidth,
@@ -5167,8 +5146,6 @@ export function MapScreenVNext() {
     desktopSidebarPixelWidth,
   ]);
 
-  const desktopSidebarHadPanelRef = useRef(false);
-
   const countriesInSidebarDesktop =
     exploreDesktopSidebarActive &&
     countriesSheetOpen &&
@@ -5187,12 +5164,13 @@ export function MapScreenVNext() {
     countriesInSidebarDesktop ||
     spotInSidebarDesktop;
 
-  const skipDesktopSidebarEntrance =
-    Platform.OS === "web" && desktopSidebarHadPanelRef.current && hasDesktopSidebarPanel;
-
-  useLayoutEffect(() => {
-    desktopSidebarHadPanelRef.current = hasDesktopSidebarPanel;
-  }, [hasDesktopSidebarPanel]);
+  /** Una sola columna lateral: ancho según spot / países (KPI o listado) / welcome. */
+  const exploreDesktopSidebarPanelWidthResolved =
+    spotInSidebarDesktop
+      ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH
+      : countriesInSidebarDesktop
+        ? countriesDesktopSidebarPanelWidth
+        : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH;
 
   if (!MAPBOX_TOKEN) {
     return (
@@ -5357,142 +5335,118 @@ export function MapScreenVNext() {
       ref={mapRootRef as React.RefObject<View>}
       style={[
         styles.mapScreenRoot,
-        exploreDesktopSidebarActive && Platform.OS === "web" && styles.mapScreenRootSplit,
+        webDesktopExploreSplitLayout && styles.mapScreenRootSplit,
       ]}
       {...(Platform.OS === "web" && { className: "map-screen-root-dvh" })}
     >
-      {exploreDesktopSidebarActive && showExploreWelcomeSheet ? (
+      {webDesktopExploreSplitLayout && hasDesktopSidebarPanel ? (
         <ExploreDesktopSidebarAnimatedColumn
-          animationKey="welcome"
-          skipEntranceAnimation={skipDesktopSidebarEntrance}
-          onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
-          style={[
-            styles.exploreSidebarColumn,
-            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
-          ]}
-        >
-          {exploreSidebarFlowyaHeaderEl}
-          <View style={styles.exploreSidebarSheetBody}>
-            <ExploreWelcomeSheet
-              webExploreLayout="desktopSidebar"
-              desktopSidebarFlowyaHeaderStacked={isFlowyaSidebarHeaderVisible}
-              visible
-              state={welcomeSheetState}
-              onStateChange={setWelcomeSheetState}
-              onSheetHeightChange={setWelcomeSheetHeight}
-              onSearchPress={openSearchPreservingCountriesSheet}
-              onProfilePress={handleProfilePress}
-              onLogoutPress={handleLogoutPress}
-              showLogoutAction={showLogoutOption && isAuthUser}
-              isAuthUser={isAuthUser}
-              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
-              browseSectionTitle={welcomeSheetBrowseSectionTitle}
-              browseItems={welcomeExploreListItems}
-              onBrowseItemPress={handleWelcomeBrowseItemPress}
-              userCoords={userCoords}
-              bottomOffset={dockBottomOffset + insets.bottom}
-              forceColorScheme={countriesOverlayScheme}
-              onSidebarClose={handleWelcomeSidebarDismiss}
-              onSidebarShare={handleWelcomeSidebarShare}
-            />
-          </View>
-        </ExploreDesktopSidebarAnimatedColumn>
-      ) : null}
-      {countriesInSidebarDesktop ? (
-        <ExploreDesktopSidebarAnimatedColumn
-          animationKey={`countries-${countriesOverlayFilter}`}
-          panelWidth={countriesDesktopSidebarPanelWidth}
-          skipEntranceAnimation={skipDesktopSidebarEntrance}
+          animationKey="explore-desktop-sidebar"
+          panelWidth={exploreDesktopSidebarPanelWidthResolved}
+          /** Desktop ≥1080: nunca animar 0→w (overflow hidden recortaba el panel y el mapa parpadeaba al cambiar filtro). */
+          skipEntranceAnimation
           onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
           style={[
             styles.exploreSidebarColumn,
             {
-              borderRightColor: Colors[colorScheme ?? "light"].borderSubtle,
-              width: countriesDesktopSidebarPanelWidth,
+              borderRightColor: exploreSidebarPalette.borderSubtle,
+              width: exploreDesktopSidebarPanelWidthResolved,
             },
           ]}
         >
           {exploreSidebarFlowyaHeaderEl}
           <View style={styles.exploreSidebarSheetBody}>
-            <CountriesSheet
-              visible={countriesSheetOpen}
-              title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
-              filterMode={countriesOverlayFilter}
-              state={countriesSheetState}
-              forceColorScheme={countriesOverlayScheme}
-              items={countriesBucketsForOverlay}
-              worldPercentage={countriesWorldPercentageForOverlay}
-              summaryCountriesCount={countriesCountForOverlay}
-              summaryPlacesCount={countriesPlacesCountForOverlay}
-              onCountriesKpiPress={handleCountriesKpiPress}
-              onSpotsKpiPress={handleCountriesSpotsKpiPress}
-              onStateChange={setCountriesSheetState}
-              onClose={handleCountriesSheetClose}
-              onShare={handleCountriesSheetShare}
-              shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
-              onItemPress={handleCountryBucketPress}
-              onSheetHeightChange={setCountriesSheetHeight}
-              onMapSnapshotChange={setCountriesMapSnapshot}
-              onMapCountryPress={handleCountriesMapCountryPress}
-              countryDetail={countriesSheetListView}
-              onCountryDetailBack={handleCountryDetailBack}
-              countryDetailSpots={countriesSheetDetailSpots}
-              renderCountryDetailItem={renderCountryDetailItem}
-              countryDetailTagFilterOptions={
-                isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
-              }
-              selectedCountryDetailTagFilterId={
-                isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
-              }
-              onCountryDetailTagFilterChange={
-                isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
-              }
-              countryDetailTagFilterEditMode={
-                isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
-              }
-              onCountryDetailTagFilterEnterEditMode={
-                isAuthUser && countriesSheetListView != null
-                  ? () => setTagFilterEditMode(true)
-                  : undefined
-              }
-              onCountryDetailTagFilterExitEditMode={
-                isAuthUser && countriesSheetListView != null
-                  ? () => setTagFilterEditMode(false)
-                  : undefined
-              }
-              onCountryDetailRequestDeleteUserTag={
-                isAuthUser && countriesSheetListView != null
-                  ? handleRequestDeleteUserTag
-                  : undefined
-              }
-              onPlacesListScopeChange={setCountriesSheetListView}
-              webDesktopSidebar
-              webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
-            />
+            {spotInSidebarDesktop ? (
+              renderExploreSpotSheet(true)
+            ) : countriesInSidebarDesktop ? (
+              <CountriesSheet
+                visible={countriesSheetOpen}
+                title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+                filterMode={countriesOverlayFilter}
+                state={countriesSheetState}
+                forceColorScheme={countriesOverlayScheme}
+                items={countriesBucketsForOverlay}
+                worldPercentage={countriesWorldPercentageForOverlay}
+                summaryCountriesCount={countriesCountForOverlay}
+                summaryPlacesCount={countriesPlacesCountForOverlay}
+                onCountriesKpiPress={handleCountriesKpiPress}
+                onSpotsKpiPress={handleCountriesSpotsKpiPress}
+                onStateChange={setCountriesSheetState}
+                onClose={handleCountriesSheetClose}
+                onShare={handleCountriesSheetShare}
+                shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
+                onItemPress={handleCountryBucketPress}
+                onSheetHeightChange={setCountriesSheetHeight}
+                onMapSnapshotChange={setCountriesMapSnapshot}
+                onMapCountryPress={handleCountriesMapCountryPress}
+                countryDetail={countriesSheetListView}
+                onCountryDetailBack={handleCountryDetailBack}
+                countryDetailSpots={countriesSheetDetailSpots}
+                renderCountryDetailItem={renderCountryDetailItem}
+                countryDetailTagFilterOptions={
+                  isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+                }
+                selectedCountryDetailTagFilterId={
+                  isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
+                }
+                onCountryDetailTagFilterChange={
+                  isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
+                }
+                countryDetailTagFilterEditMode={
+                  isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
+                }
+                onCountryDetailTagFilterEnterEditMode={
+                  isAuthUser && countriesSheetListView != null
+                    ? () => setTagFilterEditMode(true)
+                    : undefined
+                }
+                onCountryDetailTagFilterExitEditMode={
+                  isAuthUser && countriesSheetListView != null
+                    ? () => setTagFilterEditMode(false)
+                    : undefined
+                }
+                onCountryDetailRequestDeleteUserTag={
+                  isAuthUser && countriesSheetListView != null
+                    ? handleRequestDeleteUserTag
+                    : undefined
+                }
+                onPlacesListScopeChange={setCountriesSheetListView}
+                webDesktopSidebar
+                webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
+              />
+            ) : (
+              <ExploreWelcomeSheet
+                webExploreLayout="desktopSidebar"
+                desktopSidebarFlowyaHeaderStacked={isFlowyaSidebarHeaderVisible}
+                visible
+                state={welcomeSheetState}
+                onStateChange={setWelcomeSheetState}
+                onSheetHeightChange={setWelcomeSheetHeight}
+                onSearchPress={openSearchPreservingCountriesSheet}
+                onProfilePress={handleProfilePress}
+                onLogoutPress={handleLogoutPress}
+                showLogoutAction={showLogoutOption && isAuthUser}
+                isAuthUser={isAuthUser}
+                logoutPopoverBottomOffset={logoutPopoverBottomOffset}
+                browseSectionTitle={welcomeSheetBrowseSectionTitle}
+                browseItems={welcomeExploreListItems}
+                onBrowseItemPress={handleWelcomeBrowseItemPress}
+                userCoords={userCoords}
+                bottomOffset={dockBottomOffset + insets.bottom}
+                forceColorScheme={countriesOverlayScheme}
+                onSidebarClose={handleWelcomeSidebarDismiss}
+                onSidebarShare={handleWelcomeSidebarShare}
+              />
+            )}
           </View>
         </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
-      {spotInSidebarDesktop ? (
-        <ExploreDesktopSidebarAnimatedColumn
-          animationKey={
-            selectedSpot != null
-              ? `spot-${selectedSpot.id}`
-              : poiTapped != null
-                ? "poi-sidebar"
-                : "spot-sidebar"
-          }
-          skipEntranceAnimation={skipDesktopSidebarEntrance}
-          onStageWidthAnimationFrame={scheduleMapResizeForSidebar}
-          style={[
-            styles.exploreSidebarColumn,
-            { borderRightColor: Colors[colorScheme ?? "light"].borderSubtle },
-          ]}
-        >
-          {exploreSidebarFlowyaHeaderEl}
-          <View style={styles.exploreSidebarSheetBody}>{renderExploreSpotSheet(true)}</View>
-        </ExploreDesktopSidebarAnimatedColumn>
-      ) : null}
-      <View style={styles.mapStage}>
+      <View
+        style={[
+          styles.mapStage,
+          { backgroundColor: exploreSidebarPalette.background },
+        ]}
+      >
       <MapCoreView
         mapboxAccessToken={MAPBOX_TOKEN}
         mapStyle={mapStyle}
@@ -6412,6 +6366,7 @@ const styles = StyleSheet.create({
     width: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
     flexShrink: 0,
     minHeight: 0,
+    minWidth: 0,
     alignSelf: "stretch",
     borderRightWidth: StyleSheet.hairlineWidth,
     flexDirection: "column",
@@ -6424,6 +6379,8 @@ const styles = StyleSheet.create({
   exploreSidebarSheetBody: {
     flex: 1,
     minHeight: 0,
+    /** Web flex: evita clip horizontal raro al cambiar ancho sidebar (400↔720). */
+    minWidth: 0,
   },
   map: {
     flex: 1,
