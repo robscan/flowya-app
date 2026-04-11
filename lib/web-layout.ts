@@ -38,8 +38,11 @@ export function webSearchUsesConstrainedPanelWidth(windowWidth: number): boolean
  */
 export const WEB_EXPLORE_SIDEBAR_MIN_WIDTH = 1080;
 
-/** Ancho del panel lateral; misma referencia que sheets centrados (720). */
-export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = WEB_SHEET_MAX_WIDTH;
+/**
+ * Ancho del panel lateral Explore (≥ `WEB_EXPLORE_SIDEBAR_MIN_WIDTH`).
+ * Más estrecho que `WEB_SHEET_MAX_WIDTH` para dar más superficie al mapa en desktop.
+ */
+export const WEB_EXPLORE_SIDEBAR_PANEL_WIDTH = 400;
 
 export function webExploreUsesDesktopSidebar(windowWidth: number): boolean {
   return windowWidth >= WEB_EXPLORE_SIDEBAR_MIN_WIDTH;

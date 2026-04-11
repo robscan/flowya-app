@@ -61,7 +61,7 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 
 ## 8b. Desktop ancho (sidebar, producto)
 
-- Viewport ≥ **`WEB_EXPLORE_SIDEBAR_MIN_WIDTH` (1080px)** (`lib/web-layout.ts`): **`webExploreUsesDesktopSidebar`**. Si aplica **welcome** (Todos) o **CountriesSheet** abierto en KPI, el panel deja de ser sheet inferior centrado y pasa a **columna izquierda** de ancho `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH` (720px, misma referencia que el sheet). El **mapa y overlays** viven en `mapStage` (columna derecha, `flex: 1`): el viewport de Mapbox coincide con esa región; `mapInstance.resize()` al cambiar el layout.
+- Viewport ≥ **`WEB_EXPLORE_SIDEBAR_MIN_WIDTH` (1080px)** (`lib/web-layout.ts`): **`webExploreUsesDesktopSidebar`**. Si aplica **welcome** (Todos) o **CountriesSheet** abierto en KPI, el panel deja de ser sheet inferior centrado y pasa a **columna izquierda** de ancho `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH` (400px, panel lateral dedicado; más estrecho que el sheet centrado 720). El **mapa y overlays** viven en `mapStage` (columna derecha, `flex: 1`): el viewport de Mapbox coincide con esa región; `mapInstance.resize()` al cambiar el layout.
 - **`ExploreWelcomeSheet`**: prop `webExploreLayout="desktopSidebar"` (lista + barra en columna).
 - **`CountriesSheet`**: prop `webDesktopSidebar` (panel anclado a la columna).
 - **Toast** (`SystemStatusBar`): ancla inferior izquierda compensada con el ancho del panel lateral cuando el sidebar está activo.

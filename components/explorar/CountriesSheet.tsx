@@ -29,7 +29,11 @@ import {
   type LayoutChangeEvent,
   type ViewStyle,
 } from "react-native";
-import { WEB_SHEET_MAX_WIDTH, webSearchUsesConstrainedPanelWidth } from "@/lib/web-layout";
+import {
+  WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
+  WEB_SHEET_MAX_WIDTH,
+  webSearchUsesConstrainedPanelWidth,
+} from "@/lib/web-layout";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -919,7 +923,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
     width: "100%",
-    maxWidth: WEB_SHEET_MAX_WIDTH,
+    maxWidth: WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   },
   containerDesktopSidebar: {
     top: 0,

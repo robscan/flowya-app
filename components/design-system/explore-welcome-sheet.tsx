@@ -468,9 +468,6 @@ export function ExploreWelcomeSheet({
           },
         ]}
       >
-        <View style={styles.handleRow}>
-          <SheetHandle onPress={handleHeaderTap} />
-        </View>
         <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
           <ExploreSearchActionRow
             fullWidth

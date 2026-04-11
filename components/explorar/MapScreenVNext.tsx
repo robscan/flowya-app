@@ -5503,7 +5503,13 @@ export function MapScreenVNext() {
               bottom: flowyaBottomOffset,
               pointerEvents: "box-none",
               ...(webConstrainedFlowyaLayout
-                ? { left: 0, right: 0 }
+                ? {
+                    left: 0,
+                    right:
+                      flowyaRowFullMapStageWidth && areMapControlsVisible
+                        ? CONTROLS_OVERLAY_RIGHT + insets.right + STATUS_AVOID_CONTROLS_RIGHT
+                        : 0,
+                  }
                 : {
                     left: TOP_OVERLAY_INSET_X + insets.left,
                     right: TOP_OVERLAY_INSET_X + insets.right,
