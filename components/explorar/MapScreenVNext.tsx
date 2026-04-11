@@ -3625,11 +3625,19 @@ export function MapScreenVNext() {
     });
   }, [countriesSheetListView, countriesSheetOverlaySpotsPool]);
 
-  const countriesSheetDetailSpots = useMemo(
-    () =>
-      filterExploreSearchItemsByTag(countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex),
-    [countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex],
-  );
+  const countriesSheetDetailSpots = useMemo(() => {
+    const filtered = filterExploreSearchItemsByTag(
+      countriesSheetDetailBaseSpots,
+      selectedTagFilterId,
+      pinTagIndex,
+    );
+    if (userCoords == null) return filtered;
+    return [...filtered].sort((a, b) => {
+      const da = distanceKm(userCoords.latitude, userCoords.longitude, a.latitude, a.longitude);
+      const db = distanceKm(userCoords.latitude, userCoords.longitude, b.latitude, b.longitude);
+      return da - db;
+    });
+  }, [countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex, userCoords]);
 
   const countriesSheetDetailTagSpotIds = useMemo(() => {
     if (!countriesSheetListView) return new Set<string>();
