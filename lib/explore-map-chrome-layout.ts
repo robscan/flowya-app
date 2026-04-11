@@ -18,7 +18,10 @@ export const EXPLORE_MAP_LAYOUT = {
   BOTTOM_ACTION_ROW_BOTTOM_GUTTER: 16,
   BOTTOM_ACTION_ROW_CLEARANCE: 56,
   FLOWYA_ABOVE_ROW_GAP: 12,
+  /** SpotSheet / Countries en peek: aire bajo la fila FLOWYA. */
   FLOWYA_ABOVE_PEEK_SHEET_GAP: 12,
+  /** Welcome o CountriesSheet en peek: separación vertical entre el panel y la fila FLOWYA + pastilla. */
+  FLOWYA_ABOVE_WELCOME_SHEET_GAP: 22,
   FLOWYA_STATUS_ROW_HEIGHT_ESTIMATE: 48,
   MAP_CONTROLS_CLEARANCE_ABOVE_FLOWYA_ROW: 10,
   THUMB_FRIENDLY_CENTER_BIAS: 56,
@@ -121,14 +124,17 @@ export function computeExploreMapChromeLayout(
     (!showExploreWelcomeSheet || welcomeSheetState !== "expanded");
 
   const isBottomActionRowVisible =
+    isGlobeEntryMotionSettled &&
     !isShellBlockedByOverlay &&
     !isSpotSheetVisible &&
     !isCountriesSheetVisible &&
     !showExploreWelcomeSheet;
 
+  /** Contrato documentado: docs/contracts/explore/FLOWYA_STATUS_ROW_VISIBILITY.md */
   const isFlowyaFeedbackVisible =
+    isGlobeEntryMotionSettled &&
     !isShellBlockedByOverlay &&
-    !isCountriesSheetVisible &&
+    (!isCountriesSheetVisible || countriesSheetState === "peek") &&
     (!isSpotSheetVisible || sheetState === "peek") &&
     (!showExploreWelcomeSheet || welcomeSheetState === "peek");
 
@@ -141,7 +147,9 @@ export function computeExploreMapChromeLayout(
     ? sheetHeight
     : showExploreWelcomeSheet
       ? welcomeSheetHeight
-      : 0;
+      : isCountriesSheetVisible
+        ? countriesSheetHeight
+        : 0;
   const filterAnchorSheetTop = windowHeight - filterAnchorSheetHeight;
   const filterTop =
     filterAnchorSheetHeight > 0
@@ -158,13 +166,22 @@ export function computeExploreMapChromeLayout(
 
   const bottomActionRowBottomOffset = L.BOTTOM_ACTION_ROW_BOTTOM_GUTTER + insets.bottom;
 
+  const flowyaPeekStackGap =
+    showExploreWelcomeSheet && welcomeSheetState === "peek"
+      ? L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+      : isCountriesSheetVisible && countriesSheetState === "peek"
+        ? L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+        : L.FLOWYA_ABOVE_PEEK_SHEET_GAP;
+
   const flowyaBottomOffset = isSpotSheetVisible
     ? sheetHeight + L.FLOWYA_ABOVE_PEEK_SHEET_GAP
     : showExploreWelcomeSheet
-      ? welcomeSheetHeight + L.FLOWYA_ABOVE_PEEK_SHEET_GAP
-      : bottomActionRowBottomOffset +
-        L.BOTTOM_ACTION_ROW_CLEARANCE +
-        L.FLOWYA_ABOVE_ROW_GAP;
+      ? welcomeSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+      : isCountriesSheetVisible
+        ? countriesSheetHeight + L.FLOWYA_ABOVE_WELCOME_SHEET_GAP
+        : bottomActionRowBottomOffset +
+          L.BOTTOM_ACTION_ROW_CLEARANCE +
+          L.FLOWYA_ABOVE_ROW_GAP;
 
   const controlsBottomOffsetBase = isSpotSheetVisible
     ? L.CONTROLS_OVERLAY_BOTTOM + sheetHeight
@@ -177,8 +194,9 @@ export function computeExploreMapChromeLayout(
   const mapControlsLiftAboveFlowyaStatusRow =
     isFlowyaFeedbackVisible &&
     ((isSpotSheetVisible && sheetState === "peek") ||
-      (showExploreWelcomeSheet && welcomeSheetState === "peek"))
-      ? L.FLOWYA_ABOVE_PEEK_SHEET_GAP +
+      (showExploreWelcomeSheet && welcomeSheetState === "peek") ||
+      (isCountriesSheetVisible && countriesSheetState === "peek"))
+      ? flowyaPeekStackGap +
         L.FLOWYA_STATUS_ROW_HEIGHT_ESTIMATE +
         L.MAP_CONTROLS_CLEARANCE_ABOVE_FLOWYA_ROW -
         L.CONTROLS_OVERLAY_BOTTOM

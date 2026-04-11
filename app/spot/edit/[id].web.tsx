@@ -47,6 +47,7 @@ import {
 } from "@/lib/explore/map-screen-orchestration";
 import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
 import { blurActiveElement } from "@/lib/focus-management";
+import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
 import { featureFlags } from "@/lib/feature-flags";
 import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
@@ -602,7 +603,10 @@ export default function EditSpotScreenWeb() {
         ) : null}
 
         <KeyboardAvoidingView
-          style={styles.keyboardView}
+          style={[
+            styles.keyboardView,
+            Platform.OS === "web" && styles.webMainColumn,
+          ]}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={0}
         >
@@ -979,6 +983,11 @@ const styles = StyleSheet.create({
   keyboardView: {
     flex: 1,
     minHeight: 0,
+  },
+  webMainColumn: {
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: WEB_SHEET_MAX_WIDTH,
   },
   scroll: {
     flex: 1,

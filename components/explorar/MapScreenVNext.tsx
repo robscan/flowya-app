@@ -806,6 +806,14 @@ export function MapScreenVNext() {
     wasOpen: boolean;
     state: CountriesSheetState;
   } | null>(null);
+  /** KPI: Countries abierto antes de cubrir con Spot/POI; restaurar al cerrar SpotSheet. */
+  const countriesSheetBeforeSpotSheetRef = useRef<{
+    wasOpen: boolean;
+    state: CountriesSheetState;
+    listView: CountriesSheetListDetail | null;
+  } | null>(null);
+  /** Asignado cada render tras `countriesSheet*Ref`; handlers tempranos (p. ej. `handleMapClick`) llaman vía ref. */
+  const captureCountriesBeforeSpotFnRef = useRef<() => void>(() => {});
   const countriesSheetPrevSelectionRef = useRef<{
     spot: Spot | null;
     poi: TappedMapFeature | null;
@@ -1599,6 +1607,7 @@ export function MapScreenVNext() {
           ? target.find((s) => s.id === pendingSpotId) ?? null
           : null;
       if (pendingSpot) {
+        captureCountriesBeforeSpotFnRef.current();
         setSelectedSpot(pendingSpot);
         setSheetState("medium");
         if (mapInstance) {
@@ -2318,6 +2327,7 @@ export function MapScreenVNext() {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
       searchV2.setOpen(false);
+      captureCountriesBeforeSpotFnRef.current();
       setPoiTapped(null);
       setSelectedSpot(spot);
       recordExploreSelectionChanged({
@@ -2550,6 +2560,7 @@ export function MapScreenVNext() {
         pinStatus: "default",
       };
       searchV2.setOpen(false);
+      captureCountriesBeforeSpotFnRef.current();
       setSelectedSpot(draft);
       setSheetState("medium");
       setIsPlacingDraftSpot(true);
@@ -2583,6 +2594,7 @@ export function MapScreenVNext() {
         placeId: stablePlaceId,
       });
       if (existingSpot) {
+        captureCountriesBeforeSpotFnRef.current();
         recordExploreDecisionStarted({
           source: "search",
           pinFilter,
@@ -2614,6 +2626,7 @@ export function MapScreenVNext() {
         );
         return;
       }
+      captureCountriesBeforeSpotFnRef.current();
       setSelectedSpot(null);
       recordSearchExternalClick();
       const displayName = getDisplayNameForPlace(targetPlace) || targetPlace.name;
@@ -2723,6 +2736,7 @@ export function MapScreenVNext() {
             pinFilter === "all" ||
             (pinFilter === "saved" ? Boolean(match?.saved) : Boolean(match?.visited));
           if (match && matchBelongsToActiveFilter) {
+            captureCountriesBeforeSpotFnRef.current();
             recordExploreDecisionStarted({
               source: "map",
               pinFilter,
@@ -2738,6 +2752,7 @@ export function MapScreenVNext() {
             setSheetState("medium");
             setPoiTapped(null);
           } else {
+            captureCountriesBeforeSpotFnRef.current();
             setSelectedSpot(null);
             setPoiTapped({
               name,
@@ -3116,6 +3131,7 @@ export function MapScreenVNext() {
       setPoiTapped(null);
       const fromList = spots.find((s) => s.id === spotId);
       if (fromList) {
+        captureCountriesBeforeSpotFnRef.current();
         ensureSpotVisibleWithActiveFilter(fromList);
         setSelectedSpot(fromList);
         setSheetState("medium");
@@ -3141,6 +3157,7 @@ export function MapScreenVNext() {
         };
         setSpots((prev) => (prev.some((s) => s.id === spot.id) ? prev : [...prev, spot]));
         ensureSpotVisibleWithActiveFilter(spot);
+        captureCountriesBeforeSpotFnRef.current();
         setSelectedSpot(spot);
         setSheetState("medium");
         pushRecentViewedSpotId(spot.id);
@@ -3445,6 +3462,7 @@ export function MapScreenVNext() {
   }, [searchQuery, countriesDrilldown]);
 
   const showCountriesCounter =
+    isGlobeEntryMotionSettled &&
     !createSpotNameOverlayOpen &&
     !searchIsOpen &&
     isAuthUser &&
@@ -3476,25 +3494,44 @@ export function MapScreenVNext() {
     countriesSheetOpen ||
     ((selectedSpot != null || poiTapped != null) &&
       (sheetState === "medium" || sheetState === "expanded"));
-  const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("expanded");
+  const [countriesSheetState, setCountriesSheetState] = useState<CountriesSheetState>("medium");
   /** Por filtro de pin Por visitar / Visitados: abierto + peek|medium|expanded al volver de Todos o al cambiar de filtro. */
   const countriesSheetPersistRef = useRef<{
     saved: { open: boolean; state: CountriesSheetState };
     visited: { open: boolean; state: CountriesSheetState };
   }>({
-    saved: { open: false, state: "expanded" },
-    visited: { open: false, state: "expanded" },
+    saved: { open: false, state: "medium" },
+    visited: { open: false, state: "medium" },
   });
   const countriesSheetOpenRef = useRef(countriesSheetOpen);
   const countriesSheetStateRef = useRef(countriesSheetState);
   const prevPinFilterForCountriesRef = useRef(pinFilter);
   countriesSheetOpenRef.current = countriesSheetOpen;
   countriesSheetStateRef.current = countriesSheetState;
+  const countriesSheetListViewRef = useRef(countriesSheetListView);
+  countriesSheetListViewRef.current = countriesSheetListView;
+  captureCountriesBeforeSpotFnRef.current = () => {
+    if (pinFilter !== "saved" && pinFilter !== "visited") {
+      countriesSheetBeforeSpotSheetRef.current = null;
+      return;
+    }
+    if (!countriesSheetOpenRef.current) {
+      countriesSheetBeforeSpotSheetRef.current = null;
+      return;
+    }
+    countriesSheetBeforeSpotSheetRef.current = {
+      wasOpen: true,
+      state: countriesSheetStateRef.current,
+      listView: countriesSheetListViewRef.current,
+    };
+  };
   const [welcomeSheetState, setWelcomeSheetState] = useState<ExploreWelcomeSheetState>("medium");
   const [welcomeSheetHeight, setWelcomeSheetHeight] = useState(0);
   /** Al ocultar el sheet inicial (búsqueda, países, etc.) guardamos peek/medium para restaurar al volver. */
   const prevWelcomeSheetStateRef = useRef<ExploreWelcomeSheetState>("medium");
   const prevExploreWelcomeVisibleRef = useRef(false);
+  /** Snap compartido (peek | medium | expanded) entre welcome y CountriesSheet; memoria de sesión. */
+  const exploreLowerSheetSnapRef = useRef<ExploreWelcomeSheetState>("medium");
   suppressToastRef.current = false;
 
   useEffect(() => {
@@ -3745,12 +3782,27 @@ export function MapScreenVNext() {
         (prev === "saved" || prev === "visited") &&
         prev !== pinFilter &&
         countriesSheetOpenRef.current;
+      const fromAllToKpi = prev === "all";
+      const emptyKpi =
+        pinFilter === "saved"
+          ? pinCounts.saved === 0
+          : pinFilter === "visited"
+            ? pinCounts.visited === 0
+            : false;
+      /** Desde Todos: abrir Countries cuando hay datos KPI (evitar sheet vacío). */
+      const openCountriesFromAll = fromAllToKpi && !emptyKpi;
       /** Si el sheet estaba abierto en el filtro anterior, seguir abierto aunque el snapshot del destino diga cerrado (primera visita a ese filtro). */
-      const shouldShowCountriesSheet = switchingSavedVisitedWithSheetOpen ? true : snap.open;
+      const shouldShowCountriesSheet = switchingSavedVisitedWithSheetOpen
+        ? true
+        : openCountriesFromAll
+          ? true
+          : snap.open;
       setCountriesSheetOpen(shouldShowCountriesSheet);
       const nextStateRaw = switchingSavedVisitedWithSheetOpen
         ? countriesSheetStateRef.current
-        : snap.state;
+        : openCountriesFromAll && shouldShowCountriesSheet
+          ? (exploreLowerSheetSnapRef.current as CountriesSheetState)
+          : snap.state;
       setCountriesSheetState(coerceCountriesSheetInitialState(nextStateRaw));
       if (switchingSavedVisitedWithSheetOpen) {
         setCountriesSheetListView(null);
@@ -3764,7 +3816,7 @@ export function MapScreenVNext() {
       setCountriesSheetListView(null);
       setCountriesSheetHeight(0);
     }
-  }, [pinFilter]);
+  }, [pinFilter, pinCounts.saved, pinCounts.visited]);
 
   const openCountriesSheetForFilter = useCallback((
     targetFilter: "saved" | "visited",
@@ -3815,6 +3867,7 @@ export function MapScreenVNext() {
 
   const handleCountriesSheetClose = useCallback(() => {
     countriesSheetForcedFilterRef.current = null;
+    countriesSheetBeforeSpotSheetRef.current = null;
     setCountriesSheetListView(null);
     setCountriesSheetOpen(false);
     const snapshot = countriesSheetPrevSelectionRef.current;
@@ -3841,6 +3894,7 @@ export function MapScreenVNext() {
       wasOpen: countriesSheetOpen,
       state: countriesSheetState,
     };
+    countriesSheetBeforeSpotSheetRef.current = null;
     countriesSheetPrevSelectionRef.current = null;
     if (countriesSheetOpen) setCountriesSheetOpen(false);
     prevSelectedSpotRef.current = selectedSpot;
@@ -3880,6 +3934,7 @@ export function MapScreenVNext() {
     (spot: Spot) => {
       deactivateSearchColdStartBootstrap();
       openFromSearchRef.current = true;
+      countriesSheetBeforeSpotSheetRef.current = null;
       countriesSheetPrevSelectionRef.current = null;
       countriesSheetForcedFilterRef.current = null;
       setCountriesSheetListView(null);
@@ -4345,6 +4400,7 @@ export function MapScreenVNext() {
       if (selectedSpot?.id === spot.id) {
         setSheetState("expanded");
       } else {
+        captureCountriesBeforeSpotFnRef.current();
         recordExploreDecisionStarted({
           source: "map",
           pinFilter,
@@ -4640,6 +4696,18 @@ export function MapScreenVNext() {
     shouldCenterCountriesWithPeekSheet,
     filterMinimumTop,
   } = chromeLayout;
+
+  useEffect(() => {
+    if (pinFilter === "all" && showExploreWelcomeSheet) {
+      exploreLowerSheetSnapRef.current = welcomeSheetState;
+    }
+  }, [pinFilter, showExploreWelcomeSheet, welcomeSheetState]);
+
+  useEffect(() => {
+    if ((pinFilter === "saved" || pinFilter === "visited") && countriesSheetOpen) {
+      exploreLowerSheetSnapRef.current = countriesSheetState as ExploreWelcomeSheetState;
+    }
+  }, [pinFilter, countriesSheetOpen, countriesSheetState]);
 
   useEffect(() => {
     collapseExploreWelcomeOnMapGestureRef.current = () => {
@@ -5771,12 +5839,22 @@ export function MapScreenVNext() {
               fromFilter: pinFilter,
               toFilter: pinFilter,
             });
+            const countriesSnap = countriesSheetBeforeSpotSheetRef.current;
+            countriesSheetBeforeSpotSheetRef.current = null;
             setSelectedSpot(null);
             setPoiTapped(null);
             setSheetState("peek");
             setSheetHeight(SHEET_PEEK_HEIGHT);
             setIsPlacingDraftSpot(false);
             setDraftCoverUri(null);
+            if (
+              countriesSnap?.wasOpen &&
+              (pinFilter === "saved" || pinFilter === "visited")
+            ) {
+              setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
+              setCountriesSheetListView(countriesSnap.listView);
+              setCountriesSheetOpen(true);
+            }
           }}
           onOpenDetail={handleSheetOpenDetail}
           state={sheetState}

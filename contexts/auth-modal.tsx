@@ -25,6 +25,7 @@ import {
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { WEB_MODAL_CARD_MAX_WIDTH } from '@/lib/web-layout';
 import { supabase } from '@/lib/supabase';
 
 type AuthModalState = 'idle' | 'loading' | 'success' | 'error';
@@ -334,7 +335,7 @@ const styles = StyleSheet.create({
   },
   sheet: {
     width: '100%',
-    maxWidth: 400,
+    maxWidth: WEB_MODAL_CARD_MAX_WIDTH,
     borderRadius: Radius.xl,
     padding: Spacing.lg,
   },

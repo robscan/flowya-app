@@ -1,6 +1,6 @@
 # DESIGN_SYSTEM_USAGE — Canon operativo (Explore + Edit Spot)
 
-**Fecha:** 2026-04-11 (actualización: `ExploreWelcomeSheet` y `ExploreChromeShell` canónicos en `components/design-system/`; layout Explore en `lib/explore-map-chrome-layout.ts`; bitácora `331`)
+**Fecha:** 2026-04-11 (actualización: `ExploreWelcomeSheet` y `ExploreChromeShell` canónicos en `components/design-system/`; layout Explore en `lib/explore-map-chrome-layout.ts`; vitrina **ds-tpl-explore-welcome** peek/medium/expanded; bitácoras `331`, `332`)
 
 **Fuentes de verdad:**
 - Runtime Explore: `components/explorar/MapScreenVNext.tsx`

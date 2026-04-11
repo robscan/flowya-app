@@ -63,6 +63,7 @@ export const DS_TOC_GROUPS: DsTocGroup[] = [
     items: [
       { id: 'ds-mapa-picker', label: 'MapLocationPicker' },
       { id: 'ds-tpl-spot-detail', label: 'Spot Detail (pantalla completa)' },
+      { id: 'ds-tpl-explore-welcome', label: 'Explore — sheet bienvenida' },
       { id: 'ds-explore-countries-template', label: 'Países — sheet + mapa' },
       { id: 'ds-explore-countries-share', label: 'Países — compartir' },
       { id: 'ds-pat-explore', label: 'Explore: banda inferior' },
