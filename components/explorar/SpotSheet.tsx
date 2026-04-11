@@ -32,7 +32,7 @@ import {
     Pencil,
     Pin,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -1058,11 +1058,12 @@ export function SpotSheet({
 
   /** No mostrar ni animar hasta tener anchors estables (evita "shrink" al montar). */
   const isMeasured =
-    dragAreaHeight > 0 &&
-    (state === "peek" ||
-      (state === "medium" && mediumBodyContentHeight > 0) ||
-      (state === "expanded" &&
-        (fullBodyContentHeight > 0 || mediumBodyContentHeight > 0)));
+    webDesktopSidebar ||
+    (dragAreaHeight > 0 &&
+      (state === "peek" ||
+        (state === "medium" && mediumBodyContentHeight > 0) ||
+        (state === "expanded" &&
+          (fullBodyContentHeight > 0 || mediumBodyContentHeight > 0))));
 
   const translateYShared = useSharedValue(vh);
   const opacityShared = useSharedValue(0);
@@ -1090,6 +1091,13 @@ export function SpotSheet({
     }
   }, [effectiveId, translateYShared, opacityShared, vh]);
 
+  useLayoutEffect(() => {
+    if (!webDesktopSidebar) return;
+    translateYShared.value = 0;
+    opacityShared.value = 1;
+    hasAnimatedEntranceRef.current = true;
+  }, [webDesktopSidebar, translateYShared, opacityShared]);
+
   useEffect(() => {
     reducedMotionShared.value = prefersReducedMotion ? 1 : 0;
   }, [prefersReducedMotion, reducedMotionShared]);
@@ -1111,7 +1119,7 @@ export function SpotSheet({
 
   /** Entrada: solo cuando hay medida; animar desde abajo (offscreen) al anchor del estado. */
   useEffect(() => {
-    if (!isMeasured || hasAnimatedEntranceRef.current) return;
+    if (webDesktopSidebar || !isMeasured || hasAnimatedEntranceRef.current) return;
     hasAnimatedEntranceRef.current = true;
     const targetTy = translateYToAnchor(state);
     const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
@@ -1127,11 +1135,17 @@ export function SpotSheet({
     translateYShared,
     opacityShared,
     prefersReducedMotion,
+    webDesktopSidebar,
   ]);
 
   /** Sincronizar estado → translateY solo después de la primera entrada. */
   useEffect(() => {
-    if (!isMeasured || !hasAnimatedEntranceRef.current || isDraggingRef.current)
+    if (
+      webDesktopSidebar ||
+      !isMeasured ||
+      !hasAnimatedEntranceRef.current ||
+      isDraggingRef.current
+    )
       return;
     const targetTy = translateYToAnchor(state);
     const duration = prefersReducedMotion ? 0 : DURATION_PROGRAMMATIC;
@@ -1145,6 +1159,7 @@ export function SpotSheet({
     translateYToAnchor,
     translateYShared,
     prefersReducedMotion,
+    webDesktopSidebar,
   ]);
 
   useEffect(() => {
@@ -1271,8 +1286,8 @@ export function SpotSheet({
     transform: [{ translateY: translateYShared.value }],
   }));
 
-  const isMedium = state === "medium";
-  const isExpanded = state === "expanded";
+  const isMedium = webDesktopSidebar || state === "medium";
+  const isExpanded = webDesktopSidebar || state === "expanded";
   const bodyContentHeight = isMedium
     ? mediumBodyContentHeight
     : isExpanded
@@ -1359,27 +1374,48 @@ export function SpotSheet({
           bottom: webDesktopSidebar ? 0 : useWebConstrainedSheet ? 0 : sheetBottom,
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
         },
-        animatedContainerStyle,
+        webDesktopSidebar ? null : animatedContainerStyle,
       ]}
     >
-      {/* CONTRATO drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded */}
-      <GestureDetector gesture={panGesture}>
-        <SpotSheetHeader
-          isDraft={isDraft}
-          isPlacingDraftSpot={isPlacingDraftSpot}
-          isPoiMode={isPoiMode}
-          poiLoading={poiLoading}
-          displayTitle={displayTitle}
-          state={state}
-          colors={colors}
-          onHeaderTap={handleHeaderTap}
-          onShare={handleShare}
-          onDraftBackToPlacing={onDraftBackToPlacing}
-          onClose={isDraft ? () => setShowDiscardDraftConfirm(true) : onClose}
-          onDragAreaLayout={onDragAreaLayout}
-          onHeaderLayout={onHeaderLayout}
-        />
-      </GestureDetector>
+      {/* CONTRATO drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded; sidebar web: estático */}
+      {webDesktopSidebar ? (
+        <View>
+          <SpotSheetHeader
+            isDraft={isDraft}
+            isPlacingDraftSpot={isPlacingDraftSpot}
+            isPoiMode={isPoiMode}
+            poiLoading={poiLoading}
+            displayTitle={displayTitle}
+            state="expanded"
+            colors={colors}
+            onHeaderTap={handleHeaderTap}
+            onShare={handleShare}
+            onDraftBackToPlacing={onDraftBackToPlacing}
+            onClose={isDraft ? () => setShowDiscardDraftConfirm(true) : onClose}
+            onDragAreaLayout={onDragAreaLayout}
+            onHeaderLayout={onHeaderLayout}
+            hideSheetHandle
+          />
+        </View>
+      ) : (
+        <GestureDetector gesture={panGesture}>
+          <SpotSheetHeader
+            isDraft={isDraft}
+            isPlacingDraftSpot={isPlacingDraftSpot}
+            isPoiMode={isPoiMode}
+            poiLoading={poiLoading}
+            displayTitle={displayTitle}
+            state={state}
+            colors={colors}
+            onHeaderTap={handleHeaderTap}
+            onShare={handleShare}
+            onDraftBackToPlacing={onDraftBackToPlacing}
+            onClose={isDraft ? () => setShowDiscardDraftConfirm(true) : onClose}
+            onDragAreaLayout={onDragAreaLayout}
+            onHeaderLayout={onHeaderLayout}
+          />
+        </GestureDetector>
+      )}
 
       {/* CONTRATO scroll único: un solo ScrollView en body; header fijo; scroll solo si overflow */}
       <SpotSheetBody

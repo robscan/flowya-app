@@ -30,6 +30,8 @@ export type SpotSheetHeaderProps = {
   onClose: () => void;
   onDragAreaLayout: (e: LayoutChangeEvent) => void;
   onHeaderLayout: (e: LayoutChangeEvent) => void;
+  /** Panel lateral web: sin arrastre; oculta el handle. */
+  hideSheetHandle?: boolean;
 };
 
 const HEADER_BUTTON_SIZE = 40;
@@ -51,12 +53,15 @@ export function SpotSheetHeader({
   onClose,
   onDragAreaLayout,
   onHeaderLayout,
+  hideSheetHandle = false,
 }: SpotSheetHeaderProps) {
   return (
     <View style={styles.dragArea} onLayout={onDragAreaLayout}>
-      <View style={styles.handleRow}>
-        <SheetHandle onPress={onHeaderTap} />
-      </View>
+      {hideSheetHandle ? null : (
+        <View style={styles.handleRow}>
+          <SheetHandle onPress={onHeaderTap} />
+        </View>
+      )}
       <View style={styles.headerRow} onLayout={onHeaderLayout}>
         {!isDraft && backAction ? (
           <Pressable

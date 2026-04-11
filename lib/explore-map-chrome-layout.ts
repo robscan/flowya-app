@@ -158,9 +158,10 @@ export function computeExploreMapChromeLayout(
 
   const areMapControlsVisible =
     !isShellBlockedByOverlay &&
-    sheetState !== "expanded" &&
-    (!isCountriesSheetVisible || countriesSheetState !== "expanded") &&
-    (!showExploreWelcomeSheet || welcomeSheetState !== "expanded");
+    (exploreDesktopSidebarActive ||
+      (sheetState !== "expanded" &&
+        (!isCountriesSheetVisible || countriesSheetState !== "expanded") &&
+        (!showExploreWelcomeSheet || welcomeSheetState !== "expanded")));
 
   const isBottomActionRowVisible =
     isGlobeEntryMotionSettled &&

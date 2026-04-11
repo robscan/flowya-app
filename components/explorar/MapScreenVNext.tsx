@@ -4768,7 +4768,7 @@ export function MapScreenVNext() {
   const shouldShowInlineTopFilters =
     !isShellBlockedByOverlay &&
     isGlobeEntryMotionSettled &&
-    !isFilterWaitingForCamera &&
+    (!isFilterWaitingForCamera || exploreDesktopSidebarActive) &&
     filterTop >= filterMinimumTop;
   const filterOverlayAnimatedStyle = useMemo(
     () => ({
@@ -4874,6 +4874,12 @@ export function MapScreenVNext() {
       filterOverlayEntry.setValue(0);
       return;
     }
+    if (Platform.OS === "web" && exploreDesktopSidebarActive) {
+      filterOverlayEntry.stopAnimation();
+      filterOverlayEntry.setValue(1);
+      filterOverlayHasAnimatedInRef.current = true;
+      return;
+    }
     filterOverlayEntry.stopAnimation();
     filterOverlayEntry.setValue(0);
     const delay = filterOverlayHasAnimatedInRef.current ? 0 : FILTER_OVERLAY_ENTRY_DELAY_MS;
@@ -4887,7 +4893,26 @@ export function MapScreenVNext() {
       if (!finished) return;
       filterOverlayHasAnimatedInRef.current = true;
     });
-  }, [shouldShowInlineTopFilters, filterOverlayEntry]);
+  }, [shouldShowInlineTopFilters, exploreDesktopSidebarActive, filterOverlayEntry]);
+
+  useEffect(() => {
+    if (!exploreDesktopSidebarActive) return;
+    setIsFilterWaitingForCamera(false);
+    clearFilterWaitFallbackTimer();
+  }, [exploreDesktopSidebarActive, clearFilterWaitFallbackTimer]);
+
+  useEffect(() => {
+    if (!exploreDesktopSidebarActive || Platform.OS !== "web") return;
+    if (showExploreWelcomeSheet) setWelcomeSheetState("expanded");
+    if (countriesSheetOpen) setCountriesSheetState("expanded");
+    if (selectedSpot != null || poiTapped != null) setSheetState("expanded");
+  }, [
+    exploreDesktopSidebarActive,
+    showExploreWelcomeSheet,
+    countriesSheetOpen,
+    selectedSpot,
+    poiTapped,
+  ]);
 
   useEffect(() => {
     if (isBottomActionRowVisible && isAuthUser) return;

@@ -319,18 +319,12 @@ export function CountriesSheet({
       return;
     }
     if (webDesktopSidebar) {
-      const target = translateYToAnchor(state);
+      const target = translateYToAnchor("expanded");
       mountedRef.current = true;
-      translateYShared.value = withTiming(target, {
-        duration: DURATION_PROGRAMMATIC,
-        easing: EASING_SHEET,
-      });
-      opacityShared.value = withTiming(1, {
-        duration: DURATION_PROGRAMMATIC,
-        easing: EASING_SHEET,
-      });
+      translateYShared.value = target;
+      opacityShared.value = 1;
       onSheetHeightChange?.(
-        getSheetHeightForState(state, collapsedAnchor, mediumVisible, expandedVisible),
+        getSheetHeightForState("expanded", collapsedAnchor, mediumVisible, expandedVisible),
       );
       return;
     }
@@ -446,7 +440,8 @@ export function CountriesSheet({
   const listEntranceTranslateY = useSharedValue(0);
 
   const listEntranceKey = useMemo(() => {
-    if (!visible || (state !== "medium" && state !== "expanded")) return "";
+    const st = webDesktopSidebar ? "expanded" : state;
+    if (!visible || (st !== "medium" && st !== "expanded")) return "";
     if (isCountryDetailMode) {
       if (countryDetail == null) return "";
       const tagSeg = selectedCountryDetailTagFilterId ?? "none";
@@ -464,9 +459,15 @@ export function CountriesSheet({
     filterMode,
     items.length,
     selectedCountryDetailTagFilterId,
+    webDesktopSidebar,
   ]);
 
   useLayoutEffect(() => {
+    if (webDesktopSidebar) {
+      listEntranceOpacity.value = 1;
+      listEntranceTranslateY.value = 0;
+      return;
+    }
     if (!visible || !listEntranceKey) {
       listEntranceOpacity.value = 1;
       listEntranceTranslateY.value = 0;
@@ -482,7 +483,7 @@ export function CountriesSheet({
       duration: LIST_ENTRANCE_MS,
       easing: Easing.out(Easing.cubic),
     });
-  }, [visible, listEntranceKey]);
+  }, [visible, listEntranceKey, webDesktopSidebar]);
 
   const listEntranceAnimatedStyle = useAnimatedStyle(() => ({
     opacity: listEntranceOpacity.value,
@@ -491,8 +492,10 @@ export function CountriesSheet({
 
   if (!visible) return null;
 
+  const layoutState = webDesktopSidebar ? "expanded" : state;
+
   const visibleHeightForState = getSheetHeightForState(
-    state,
+    layoutState,
     collapsedAnchor,
     mediumVisible,
     expandedVisible,
@@ -514,9 +517,9 @@ export function CountriesSheet({
         0,
         maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
       );
-  const showPlacesList = state === "medium" || state === "expanded";
+  const showPlacesList = layoutState === "medium" || layoutState === "expanded";
   const expandedListMaxHeight = Math.max(120, maxListHeight);
-  const bottomOffset = state === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
+  const bottomOffset = layoutState === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
   const previewCountryCodes = items
     .map((item) => item.key.match(/^iso:([A-Z]{2})$/)?.[1] ?? null)
     .filter((code): code is string => code != null);
@@ -547,7 +550,7 @@ export function CountriesSheet({
           paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
           pointerEvents: "box-none",
         },
-        animatedContainerStyle,
+        webDesktopSidebar ? null : animatedContainerStyle,
       ]}
     >
       {showPlacesScopeDropdown && placesScopeMenuOpen ? (
@@ -559,7 +562,7 @@ export function CountriesSheet({
         />
       ) : null}
       <View style={showPlacesScopeDropdown ? styles.placesScopeHeaderWrap : undefined}>
-        <GestureDetector gesture={panGesture}>
+        {webDesktopSidebar ? (
           <SpotSheetHeader
             isDraft={false}
             isPlacingDraftSpot={false}
@@ -595,7 +598,7 @@ export function CountriesSheet({
                 </Pressable>
               ) : undefined
             }
-            state={state}
+            state={layoutState}
             colors={colors}
             onHeaderTap={handleHeaderTap}
             onShare={onShare}
@@ -608,8 +611,61 @@ export function CountriesSheet({
             onClose={onClose}
             onDragAreaLayout={onDragAreaLayout}
             onHeaderLayout={onHeaderLayout}
+            hideSheetHandle
           />
-        </GestureDetector>
+        ) : (
+          <GestureDetector gesture={panGesture}>
+            <SpotSheetHeader
+              isDraft={false}
+              isPlacingDraftSpot={false}
+              isPoiMode={false}
+              poiLoading={false}
+              displayTitle={listViewHeaderTitle}
+              titleSlot={
+                showPlacesScopeDropdown ? (
+                  <Pressable
+                    style={styles.placesScopeTrigger}
+                    onPress={() => setPlacesScopeMenuOpen((o) => !o)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      countryDetail?.kind === "country"
+                        ? `Lugares: ${countryDetail.label}. Cambiar país o todos`
+                        : "Filtrar lugares: Todos o un país"
+                    }
+                    accessibilityState={{ expanded: placesScopeMenuOpen }}
+                  >
+                    <Text
+                      style={[styles.placesScopeTriggerText, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {countryDetail?.kind === "country" ? countryDetail.label : "Todos"}
+                    </Text>
+                    <View
+                      style={{
+                        transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
+                      }}
+                    >
+                      <ChevronDown size={20} color={colors.text} strokeWidth={2.2} />
+                    </View>
+                  </Pressable>
+                ) : undefined
+              }
+              state={state}
+              colors={colors}
+              onHeaderTap={handleHeaderTap}
+              onShare={onShare}
+              shareDisabled={shareDisabled}
+              backAction={
+                countryDetail != null && onCountryDetailBack != null
+                  ? { onPress: onCountryDetailBack }
+                  : undefined
+              }
+              onClose={onClose}
+              onDragAreaLayout={onDragAreaLayout}
+              onHeaderLayout={onHeaderLayout}
+            />
+          </GestureDetector>
+        )}
 
         {showPlacesScopeDropdown && placesScopeMenuOpen ? (
           <Animated.View
@@ -808,7 +864,7 @@ export function CountriesSheet({
               textSecondary: colors.textSecondary,
               primary: colors.primary,
             }}
-            sheetState={state}
+            sheetState={layoutState}
             onCountriesKpiPress={onCountriesKpiPress}
             onSpotsKpiPress={onSpotsKpiPress}
             onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
