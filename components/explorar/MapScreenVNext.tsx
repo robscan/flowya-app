@@ -4749,8 +4749,7 @@ export function MapScreenVNext() {
   }, [showExploreWelcomeSheet]);
 
   const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
-  const flowsBadgeChromeEligible =
-    !toast.hasVisibleMessages && !showLogoutOption;
+  const flowsBadgeChromeEligible = !showLogoutOption;
   const flowsBadgePayload =
     flowsBadgeChromeEligible &&
     (isFlowyaStatusRowOnMap || isFlowyaSidebarHeaderVisible)
