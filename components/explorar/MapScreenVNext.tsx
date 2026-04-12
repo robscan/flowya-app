@@ -1744,14 +1744,17 @@ export function MapScreenVNext() {
     }
   }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
 
-  // Sincronizar selectedSpot con versión fresca de filteredSpots (ej. tras refetch o edición)
+  // Sincronizar selectedSpot con versión fresca de filteredSpots (ej. tras refetch o edición).
+  // Durante mutación de pin: no sustituir por `fresh` (mismo pin, otra referencia) para evitar
+  // un render extra en la pill que no se pulsó.
   useEffect(() => {
     if (!selectedSpot?.id) return;
+    if (pinMutationTarget != null) return;
     const fresh = filteredSpots.find((s) => s.id === selectedSpot.id);
     if (fresh && fresh !== selectedSpot) {
       setSelectedSpot(fresh);
     }
-  }, [filteredSpots, selectedSpot]);
+  }, [filteredSpots, selectedSpot, pinMutationTarget]);
 
   // Si el spot seleccionado deja de cumplir el filtro activo por un toggle explícito, cerrar sheet.
   useEffect(() => {
@@ -4602,6 +4605,7 @@ export function MapScreenVNext() {
     }
   }, [toast]);
 
+  /** Solo muta `spots`; el caller actualiza `selectedSpot` (evita dos setState en el sheet al cambiar pin). */
   const updateSpotPinState = useCallback(
     (spotId: string, next: { saved: boolean; visited: boolean }) => {
       const pinStatus: SpotPinStatus = next.visited
@@ -4615,13 +4619,6 @@ export function MapScreenVNext() {
             ? { ...s, saved: next.saved, visited: next.visited, pinStatus }
             : s,
         ),
-      );
-      setSelectedSpot((prev) =>
-        prev?.id === spotId
-          ? prev
-            ? { ...prev, saved: next.saved, visited: next.visited, pinStatus }
-            : null
-          : prev,
       );
     },
     [],
