@@ -47,4 +47,5 @@ PR: https://github.com/robscan/flowya-app/pull/139 (squash a `main`)
 ## Referencia
 
 - Esta bitácora: `docs/bitacora/2026/04/348-merge-pr139-explore-pins-sheet-y-globo-entrada.md`
+- Índice PR #130–#139: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md)
 - Relacionada (entrada animada mapa / controles, contexto histórico): `docs/bitacora/2026/03/254-fix-map-controls-entrada-animada-real-y-sin-salto-inicial.md`

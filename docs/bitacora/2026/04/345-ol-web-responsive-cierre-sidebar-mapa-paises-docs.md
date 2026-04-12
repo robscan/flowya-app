@@ -42,6 +42,11 @@ Se cierra **`OL-WEB-RESPONSIVE-001`** con documentación en [`docs/ops/OPEN_LOOP
 | Países / DS | `countries-map-preview.web.tsx`, `CountriesSheet.tsx`, demos |
 | Docs | `OPEN_LOOPS.md`, `PLAN_OL_WEB_RESPONSIVE_*`, `PLAN_EXECUTION_POST_WR001_*` |
 
+## Trazabilidad GitHub
+
+- Merge implementación (sidebar `setPadding`, mini-mapa países, cierre OL-WEB-RESPONSIVE-001): [**PR #137**](https://github.com/robscan/flowya-app/pull/137) (2026-04-12).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 ## Referencias
 
 - Canon sidebar: [`EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md`](../../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md) (si aplica versión vigente en repo).

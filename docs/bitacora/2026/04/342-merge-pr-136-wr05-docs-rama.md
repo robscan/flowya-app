@@ -1,5 +1,7 @@
 # 342 — Merge PR #136 (WR-05 docs / rama sidebar)
 
+Índice PR recientes (#130–#139): [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 **Fecha:** 2026-04-12
 
 ## Resultado

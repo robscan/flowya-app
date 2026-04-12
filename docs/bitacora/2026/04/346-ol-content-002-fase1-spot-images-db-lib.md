@@ -18,6 +18,11 @@ Loop activo **OL-CONTENT-002** ([`PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md`]
 
 - UI: grid en SpotSheet / detalle, modal fullscreen multi-imagen, flujos crear/editar según plan §4–§5.
 
+## Trazabilidad GitHub
+
+- Merge conjunto galería web + cierre OL (incluye trabajo de esta fase): [**PR #138**](https://github.com/robscan/flowya-app/pull/138) (2026-04-12).
+- Cierre operativo y paridad nativa: [`347`](347-ol-content-002-cierre-web-galeria-paridad-deferida.md). Índice PR: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 ## Aplicar migraciones
 
 Ejecutar en el proyecto Supabase correspondiente (local/prod) el pipeline habitual de migraciones; no sustituye revisión de políticas en entorno real.

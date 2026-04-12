@@ -29,6 +29,11 @@ En web **≥1080px**, al pasar del **KPI de países** (columna **400px**, `WEB_E
 - Actualizado [`docs/contracts/EXPLORE_CHROME_SHELL.md`](../../contracts/EXPLORE_CHROME_SHELL.md) §8b (notas de overflow y ancho KPI ↔ lugares).
 - Trazabilidad loop: [`docs/ops/OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md).
 
+## Trazabilidad GitHub
+
+- Merge: [**PR #135**](https://github.com/robscan/flowya-app/pull/135) (2026-04-11).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 ## QA sugerido
 
 Web **≥1080px**, filtro **Por visitar** o **Visitados**, sheet países abierto: **KPI → tap país** (o «Todos» en lugares) → **volver**; comprobar que no hay flash/recorte horizontal en la columna ni en el listado.

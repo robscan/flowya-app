@@ -15,6 +15,11 @@
 - `npm run typecheck`
 - `npm run lint`
 
+## Trazabilidad GitHub
+
+- Merge (ExploreChromeShell, layout chrome, columnas WR-04): [**PR #133**](https://github.com/robscan/flowya-app/pull/133) (2026-04-11).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 ## Referencias
 
 - [`docs/contracts/INDEX.md`](../../contracts/INDEX.md), [`DESIGN_SYSTEM_USAGE.md`](../../contracts/DESIGN_SYSTEM_USAGE.md), [`FILTER_RUNTIME_RULES.md`](../../contracts/explore/FILTER_RUNTIME_RULES.md), inventario DS, `OPEN_LOOPS.md`.

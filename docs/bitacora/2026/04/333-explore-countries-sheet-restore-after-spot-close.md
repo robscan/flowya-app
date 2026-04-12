@@ -5,3 +5,8 @@
 **Implementación:** `countriesSheetBeforeSpotSheetRef` + `captureCountriesBeforeSpotFnRef` (captura antes de abrir spot/POI en KPI con Countries abierto); restauración en `SpotSheet` `onClose`; ref anulada al cerrar Countries manualmente, al abrir spot desde lista de países, o al abrir búsqueda con snapshot paralelo.
 
 **Contrato:** `FILTER_RUNTIME_RULES.md` §1c, `EXPLORE_CHROME_SHELL.md` §7.
+
+## Trazabilidad GitHub
+
+- Merge principal (sheet países, etiquetas, listado, sidebar web, restauración): [**PR #134**](https://github.com/robscan/flowya-app/pull/134) (2026-04-11).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).

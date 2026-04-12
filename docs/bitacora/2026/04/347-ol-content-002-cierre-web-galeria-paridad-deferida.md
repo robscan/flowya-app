@@ -14,6 +14,11 @@
 - UI web edit galería: `app/spot/edit/[id].web.tsx` (grid responsivo, reorden con flechas, sync portada vía `lib/spot-images`).
 - Crear multi-foto web: `app/create-spot/index.web.tsx`.
 
+## Trazabilidad GitHub
+
+- Merge código y cierre de alcance web (galería, `spot_images`, OL-CONTENT-002): [**PR #138**](https://github.com/robscan/flowya-app/pull/138) (2026-04-12).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+
 ## Operativa
 
 - Loop ejecutivo único siguiente: **`OL-PRIVACY-001`** (ver [`OPEN_LOOPS.md`](../../../ops/OPEN_LOOPS.md)).

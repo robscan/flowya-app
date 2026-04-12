@@ -21,3 +21,9 @@ En el flujo de refresh por foco de Explore, `mergeSpotFromDbById` devolvía `mis
 
 ## Resultado
 Se reduce el riesgo de reconciliación incorrecta ante errores transitorios en la consulta puntual de spot durante el refresh rápido por foco.
+
+## Trazabilidad GitHub
+
+- Línea de trabajo refresh por foco: [**PR #123**](https://github.com/robscan/flowya-app/pull/123) (evitar reconciliación falsa ante «missing»).
+- Spot **eliminado** en backend vs refresh rápido: [**PR #132**](https://github.com/robscan/flowya-app/pull/132) (2026-04-11).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
