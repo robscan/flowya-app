@@ -210,6 +210,7 @@ export function ExploreDesktopSidebarPanelBody({
 
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={{
         flex: 1,
         minHeight: 0,

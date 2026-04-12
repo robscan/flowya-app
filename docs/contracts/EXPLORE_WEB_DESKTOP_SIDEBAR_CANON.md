@@ -87,8 +87,8 @@ Orden de prioridad de render en el panel (simplificado):
 
 Definido en `components/explorar/layer-z.ts`:
 
-- **`FILTER` (14) > `MAP_CONTROLS` (10)**  
-  La franja superior de filtros es **más alta** que los controles del mapa. Eso es correcto **solo en la banda superior**; el contenedor del filtro tiene `left: 0; right: 0` pero **no** debe extenderse verticalmente hasta cubrir los controles inferiores.
+- **`FILTER` (14) < `MAP_CONTROLS` (15) < `TOP_ACTIONS` (16)**  
+  Los controles del mapa deben quedar **por encima** del contenedor del filtro: en web la caja de hit-test del filtro (`left`/`right` 0) puede solaparse con la zona inferior del mapa; si `MAP_CONTROLS` ≤ `FILTER`, los botones dejan de recibir toques. La franja de filtros sigue siendo la capa superior **solo en su banda** gracias al layout; el z-index corrige solapes accidentales.
 
 **Si los controles “no responden” en desktop:**
 
