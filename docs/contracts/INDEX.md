@@ -7,6 +7,7 @@
 - **EXPLORE_SHEET.md** — Sheet único Explore vNext: estados (collapsed/medium/expanded), modos (search/spot), no overlay, keyboard-safe.
 - **EXPLORE_CHROME_SHELL.md** — Chrome inferior unificado (host único), modos welcome vs KPI, persistencia de estados, WR-01, flag de transición.
 - **EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md** — Sidebar web ≥1080: variantes de ancho (400/720), animaciones, contenido por modo, checklist MapControls / capas.
+- **APP_LOCALE_AND_MAP_LANGUAGE.md** — Locale canónico (`locale-config`), mapa Mapbox (`mapLanguage`), geocoding/búsqueda; rumbo a preferencia usuario + preview DS.
 - **SPOT_SELECTION_SHEET_SIZING.md** — Spot selection → Sheet sizing: 1º tap MEDIUM, 2º tap mismo spot EXPANDED, cambio de spot MEDIUM, SearchResultCard MEDIUM; navegación a detalle solo desde CTA en sheet.
 - **MOTION_SHEET.md** — Motion spec para sheets: duraciones, easing, snap (threshold/velocity), reduced motion, guardrails (translateY, keyboard-safe).
 - **CANONICAL_BOTTOM_SHEET.md** — Contrato base reusable para cualquier sheet inferior (header, estados, drag/snap, sizing, integración con mapa/search).

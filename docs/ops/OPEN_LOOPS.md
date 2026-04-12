@@ -19,7 +19,7 @@
   4. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
   5. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
   6. **OL-CONTENT-CLIMATE-UNITS-001** — clima por temporadas (normales en DB) + toggles °C/°F y km/mi ([PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md)). *Dependencia suave:* perfil/settings para preferencias de unidades; puede arrancar con persistencia local web si se documenta la deuda.
-  7. **OL-I18N-EN-001** — UI en inglés en **rutas productivas:** Explorar (mapa, búsqueda, sheets, auth modal) + **editar spot** web. **Fuera de alcance:** vitrina `/design-system`, demos internas y pantallas solo de prueba. Sustituye la etiqueta histórica `OL-I18N-UI-001`. Ver [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) § decisiones.
+  7. **OL-I18N-EN-001** — UI en inglés: **Explorar**, **auth**, **crear/editar/detalle spot** web, **mapa y geocoding** (misma fuente que `getCurrentLanguage()` — ver [`APP_LOCALE_AND_MAP_LANGUAGE.md`](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md)). **Design System (`/design-system`):** **incluido** como vitrina de componentes canónicos compartidos con Explore; conviene **preview es/en** (conmutador que no sustituye preferencia global del usuario hasta acordar UX). Sustituye la etiqueta histórica `OL-I18N-UI-001`. Ver [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md).
   8. **Auth** — social login (investigación / activación).
   9. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
   10. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
@@ -33,15 +33,15 @@
 |----|---------|-----------------|
 | **OL-WEB-RESPONSIVE-001** (activo) | WR-05 + **transiciones sidebar** desktop (calidad); MapControls no prioritario | [PLAN_OL_WEB_RESPONSIVE…](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md), [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md), [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) |
 | **OL-CONTENT-CLIMATE-UNITS-001** | Normales climáticas por estación en Supabase; tap °C↔°F y km↔mi | [PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md) |
-| **OL-I18N-EN-001** | EN en Explore + auth + editar spot; **no** DS/vitrinas | [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) §4–5 |
+| **OL-I18N-EN-001** | EN en Explore + auth + flujos spot + mapa + DS (preview); locale unificado | [APP_LOCALE_AND_MAP_LANGUAGE.md](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md), [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) |
 
 ---
 
 ## Decisiones producto (2026-04-12)
 
 - **Sidebar desktop:** priorizar **transiciones** (entrada/salida, cambios de ancho) sobre incidencias puntuales en MapControls (validado: controles operativos; bug previo no reproducido).
-- **`OL-I18N-EN-001`:** alcance = **Explorar + flujos de auth + editar spot** web; excluir herramientas internas (p. ej. `/design-system`).
-- **Login:** prioridad alta — **reducir abuso de APIs** (coste Mapbox/geocoding/etc.), además de UX; alinear con gate global de app cuando producto lo defina (`OL-PROFILE-001`, `OL-SECURITY-VALIDATION-001`, política anon).
+- **`OL-I18N-EN-001`:** alcance = **Explorar + auth + crear/editar/detalle spot** + **mapa** (locale unificado) + **DS** como vitrina bilingüe de canónicos; ver contrato locale y capas API en gobernanza.
+- **Login:** prioridad alta — **reducir abuso de APIs** (coste Mapbox/geocoding/etc.), además de UX; alinear con gate global de app cuando producto lo defina (`OL-PROFILE-001`, `OL-SECURITY-VALIDATION-001`, política anon). **Capas técnicas recomendadas:** [API_AND_AUTH_PROTECTION_LAYERS.md](governance/API_AND_AUTH_PROTECTION_LAYERS.md) (producto + identidad + RLS + proveedor + observabilidad).
 
 ## Seguimiento (abiertos pero no “en cola” de ejecución inmediata)
 
