@@ -216,6 +216,8 @@ export function useMapCore(
   const onMapLoad = useCallback(
     (e: MapEvent) => {
       const map = e.target;
+      /** Evita que proyección globo / niebla disparen `onUserMapGestureStart` y cancelen la animación de entrada. */
+      programmaticMoveRef.current = true;
       setMapInstance(map);
       setZoom(map.getZoom());
       if (!enableLandmarkLabels) {

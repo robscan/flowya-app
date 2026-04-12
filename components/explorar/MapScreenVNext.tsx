@@ -57,6 +57,7 @@ import {
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
+import { TypographyStyles } from "@/components/design-system/typography";
 import {
   ExploreDesktopSidebarAnimatedColumn,
   ExploreDesktopSidebarPanelBody,
@@ -81,7 +82,7 @@ import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
-import { Colors, Fonts, Radius, Spacing } from "@/constants/theme";
+import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
@@ -544,12 +545,11 @@ const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
-/** Tras estabilizar cámara; fade más corto para que el mensaje se lea sin arrastrarse. */
-const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 420;
-const FLOWYA_SLOGAN_FADE_IN_MS = 720;
-const FLOWYA_SLOGAN_HOLD_MS = 2200;
-const FLOWYA_SLOGAN_FADE_OUT_MS = 640;
-const FLOWYA_SLOGAN_RISE_IN_PX = 14;
+const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 780;
+const FLOWYA_SLOGAN_FADE_IN_MS = 1450;
+const FLOWYA_SLOGAN_HOLD_MS = 2400;
+const FLOWYA_SLOGAN_FADE_OUT_MS = 980;
+const FLOWYA_SLOGAN_RISE_IN_PX = 18;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -696,8 +696,6 @@ export function MapScreenVNext() {
   const globeEntryMotionPlayedRef = useRef(false);
   const globeEntryMotionInFlightRef = useRef(false);
   const globeEntryMotionDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Si `moveend` no llega (p. ej. flyTo no-op), igual cerramos el arranque del globo. */
-  const globeEntrySettleFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isGlobeEntryMotionSettled, setIsGlobeEntryMotionSettled] = useState(false);
 
   useEffect(() => {
@@ -1379,11 +1377,13 @@ export function MapScreenVNext() {
     handleMapPointerUp,
   } = mapCore;
 
-  /** Evita re-ejecutar el efecto del globo cuando cambia la identidad de callbacks (cancelaba el `setTimeout` de 160ms). */
+  /** Refs para el fly de entrada: el `setTimeout` debe llamar siempre al último `programmaticFlyTo` (con `mapInstance` ya fijado). */
   const programmaticFlyToRef = useRef(programmaticFlyTo);
   programmaticFlyToRef.current = programmaticFlyTo;
   const suspendFilterUntilCameraSettlesRef = useRef(suspendFilterUntilCameraSettles);
   suspendFilterUntilCameraSettlesRef.current = suspendFilterUntilCameraSettles;
+  const mapInstanceRef = useRef(mapInstance);
+  mapInstanceRef.current = mapInstance;
 
   /**
    * Mapbox: un `map.resize()` tras el siguiente paint (un solo rAF) cuando cambia el tamaño del contenedor (ventana).
@@ -1429,10 +1429,6 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (!globeEntryMotionInFlightRef.current) return;
     globeEntryMotionInFlightRef.current = false;
-    if (globeEntrySettleFallbackRef.current != null) {
-      clearTimeout(globeEntrySettleFallbackRef.current);
-      globeEntrySettleFallbackRef.current = null;
-    }
     setIsGlobeEntryMotionSettled(true);
   }, [viewportNonce]);
 
@@ -1446,84 +1442,67 @@ export function MapScreenVNext() {
     [createSpotNameOverlayOpen, isPlacingDraftSpot, programmaticFlyTo, suspendFilterUntilCameraSettles],
   );
 
-  /**
-   * Entrada globo: se dispara desde `onLoad` (mapa real en `e.target`), no desde un efecto
-   * que depende de `mapInstance` en estado — evita carreras y `flyTo` contra un mapa obsoleto.
-   */
   const handleMapLoadWithFilterDelay = useCallback(
     (e: Parameters<typeof onMapLoad>[0]) => {
       suspendFilterUntilCameraSettles();
       onMapLoad(e);
-
-      const skipGlobeEntry =
-        Boolean(params.spotId || params.created) ||
-        selectedSpot != null ||
-        poiTapped != null ||
-        searchIsOpenRef.current ||
-        createSpotNameOverlayOpen;
-
-      if (globeEntryMotionDelayRef.current != null) {
-        clearTimeout(globeEntryMotionDelayRef.current);
-        globeEntryMotionDelayRef.current = null;
-      }
-
-      globeEntryMotionDelayRef.current = setTimeout(() => {
-        globeEntryMotionDelayRef.current = null;
-        if (globeEntryMotionPlayedRef.current) return;
-        if (skipGlobeEntry) {
-          globeEntryMotionPlayedRef.current = true;
-          setIsGlobeEntryMotionSettled(true);
-          return;
-        }
-        globeEntryMotionPlayedRef.current = true;
-        globeEntryMotionInFlightRef.current = true;
-        suspendFilterUntilCameraSettlesRef.current();
-        if (globeEntrySettleFallbackRef.current != null) {
-          clearTimeout(globeEntrySettleFallbackRef.current);
-          globeEntrySettleFallbackRef.current = null;
-        }
-        try {
-          programmaticFlyToRef.current(
-            { lng: e.target.getCenter().lng, lat: e.target.getCenter().lat },
-            { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
-          );
-          globeEntrySettleFallbackRef.current = setTimeout(() => {
-            globeEntrySettleFallbackRef.current = null;
-            if (globeEntryMotionInFlightRef.current) {
-              globeEntryMotionInFlightRef.current = false;
-              setIsGlobeEntryMotionSettled(true);
-            }
-          }, FIT_BOUNDS_DURATION_MS + 600);
-        } catch {
-          globeEntryMotionInFlightRef.current = false;
-          setIsGlobeEntryMotionSettled(true);
-        }
-      }, 160);
     },
-    [
-      onMapLoad,
-      suspendFilterUntilCameraSettles,
-      params.spotId,
-      params.created,
-      selectedSpot,
-      poiTapped,
+    [onMapLoad, suspendFilterUntilCameraSettles],
+  );
+
+  const shouldSkipGlobeEntryMotion = Boolean(
+    params.spotId ||
+      params.created ||
+      selectedSpot != null ||
+      poiTapped != null ||
+      searchIsOpenRef.current ||
       createSpotNameOverlayOpen,
-    ],
   );
+  const shouldSkipGlobeEntryMotionRef = useRef(shouldSkipGlobeEntryMotion);
+  shouldSkipGlobeEntryMotionRef.current = shouldSkipGlobeEntryMotion;
 
-  useEffect(
-    () => () => {
+  /** Entrada globo: deps mínimas para no limpiar el delay de 160ms; el timeout usa refs (fly/map/skip) con valores actuales. */
+  useEffect(() => {
+    if (!mapInstance) return;
+    if (globeEntryMotionPlayedRef.current) return;
+    if (shouldSkipGlobeEntryMotion) {
+      globeEntryMotionPlayedRef.current = true;
+      setIsGlobeEntryMotionSettled(true);
+      return;
+    }
+
+    globeEntryMotionDelayRef.current = setTimeout(() => {
+      const map = mapInstanceRef.current;
+      if (
+        globeEntryMotionPlayedRef.current ||
+        shouldSkipGlobeEntryMotionRef.current ||
+        !map
+      ) {
+        globeEntryMotionPlayedRef.current = true;
+        return;
+      }
+      globeEntryMotionPlayedRef.current = true;
+      globeEntryMotionInFlightRef.current = true;
+      suspendFilterUntilCameraSettlesRef.current();
+      try {
+        const center = map.getCenter();
+        programmaticFlyToRef.current(
+          { lng: center.lng, lat: center.lat },
+          { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
+        );
+      } catch {
+        globeEntryMotionInFlightRef.current = false;
+        setIsGlobeEntryMotionSettled(true);
+      }
+    }, 160);
+
+    return () => {
       if (globeEntryMotionDelayRef.current != null) {
         clearTimeout(globeEntryMotionDelayRef.current);
         globeEntryMotionDelayRef.current = null;
       }
-      if (globeEntrySettleFallbackRef.current != null) {
-        clearTimeout(globeEntrySettleFallbackRef.current);
-        globeEntrySettleFallbackRef.current = null;
-      }
-    },
-    [],
-  );
+    };
+  }, [mapInstance, shouldSkipGlobeEntryMotion]);
 
   /** Misma heurística que useMapCore reframe + búsqueda (fitBounds si hay mapbox_bbox). */
   const focusCameraOnSpot = useCallback(
@@ -5663,11 +5642,7 @@ export function MapScreenVNext() {
       {showEntrySlogan &&
       !createSpotNameOverlayOpen &&
       !entrySloganOccludedByOverlay &&
-      !(
-        showExploreWelcomeSheet &&
-        !exploreDesktopSidebarActive &&
-        welcomeSheetState === "expanded"
-      ) ? (
+      !(showExploreWelcomeSheet && welcomeSheetState !== "peek") ? (
         <Animated.View
           style={[
             styles.sloganOverlay,
@@ -5676,8 +5651,10 @@ export function MapScreenVNext() {
             { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
         >
-          <Text style={styles.sloganText}>
-            <Text style={styles.sloganLineLight}>SIGUE LO QUE{"\n"}</Text>
+          <Text style={[TypographyStyles.heading2, styles.sloganText]}>
+            <Text style={styles.sloganLineLight}>
+              {"SIGUE LO QUE\n"}
+            </Text>
             <Text style={styles.sloganLineStrong}>TE MUEVE</Text>
           </Text>
         </Animated.View>
@@ -6711,22 +6688,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   sloganText: {
-    fontFamily: Fonts.sans,
     color: "#FFFFFF",
-    fontSize: 28,
-    lineHeight: 36,
-    letterSpacing: 0.4,
+    fontSize: 32,
+    lineHeight: 32,
+    letterSpacing: 0.6,
     textAlign: "center",
-    ...Platform.select({
-      web: {
-        textShadow: "0 1px 8px rgba(0,0,0,0.45)",
-      },
-      default: {
-        textShadowColor: "rgba(0,0,0,0.45)",
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 8,
-      },
-    }),
+    textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
   } as TextStyle,
   sloganLineLight: {
     fontWeight: "300",
