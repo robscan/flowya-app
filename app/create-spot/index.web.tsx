@@ -19,12 +19,17 @@ import type { PlaceResult } from '@/lib/places/searchPlaces';
 import { AUTH_MODAL_MESSAGES, useAuthModal } from '@/contexts/auth-modal';
 import { checkDuplicateSpot } from '@/lib/spot-duplicate-check';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
-import { uploadSpotCover } from '@/lib/spot-image-upload';
+import {
+  MAX_SPOT_GALLERY_IMAGES,
+  addSpotImageRow,
+  syncCoverFromGallery,
+} from '@/lib/spot-images';
+import { uploadSpotGalleryImage } from '@/lib/spot-image-upload';
 import { supabase } from '@/lib/supabase';
 import { HeaderBackButton, type HeaderBackButtonProps } from '@react-navigation/elements';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { X } from 'lucide-react-native';
+import { Plus, X } from 'lucide-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActivityIndicator,
@@ -137,8 +142,8 @@ export default function CreateSpotScreen() {
   const [descriptionLong, setDescriptionLong] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** URI local de la imagen de portada seleccionada (step 5). */
-  const [selectedCoverUri, setSelectedCoverUri] = useState<string | null>(null);
+  /** URIs locales de fotos del spot (step 5); orden = portada primero. Máx. `MAX_SPOT_GALLERY_IMAGES`. */
+  const [selectedSpotImageUris, setSelectedSpotImageUris] = useState<string[]>([]);
   /** Foco en el botón principal del paso actual (para estilo focus-visible en web). */
   const [wizardButtonFocused, setWizardButtonFocused] = useState(false);
   /** Comprobación de duplicado al pasar de paso 2 a 3. */
@@ -315,50 +320,61 @@ export default function CreateSpotScreen() {
       router.replace('/(tabs)');
       return;
     }
-    if (selectedCoverUri) {
+    if (selectedSpotImageUris.length > 0) {
       try {
-        const res = await fetch(selectedCoverUri);
-        if (res.ok) {
+        for (const uri of selectedSpotImageUris) {
+          const res = await fetch(uri);
+          if (!res.ok) continue;
           const blob = await res.blob();
           const optimized = await optimizeSpotImage(blob);
           const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
-          if (toUpload) {
-            const url = await uploadSpotCover(newId, toUpload);
-            if (url) {
-              await supabase
-                .from('spots')
-                .update({ cover_image_url: url })
-                .eq('id', newId);
-            }
-          }
+          if (!toUpload) continue;
+          const url = await uploadSpotGalleryImage(newId, toUpload);
+          if (!url) continue;
+          const { error: rowErr } = await addSpotImageRow(newId, url);
+          if (rowErr === 'limit') break;
         }
+        await syncCoverFromGallery(newId);
       } catch {
-        // Fallback silencioso: spot ya creado, cover_image_url queda null. No mostrar errores al usuario.
+        // Spot ya creado; portada puede quedar sin sincronizar. Sin toast ruidoso.
       }
     }
     setSubmitting(false);
     router.replace(`/(tabs)?created=${newId}`);
-  }, [location, title, descriptionShort, descriptionLong, selectedCoverUri, router, openAuthModal]);
+  }, [location, title, descriptionShort, descriptionLong, selectedSpotImageUris, router, openAuthModal]);
 
-  const handlePickCover = useCallback(async () => {
-    blurActiveElement();
-    try {
-      const ImagePicker = await import('expo-image-picker');
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        quality: 1,
-      });
-      if (!result.canceled && result.assets[0]?.uri) {
-        setSelectedCoverUri(result.assets[0].uri);
+  const pickSpotImages = useCallback(
+    async (mode: 'replace' | 'append') => {
+      blurActiveElement();
+      const remaining =
+        mode === 'replace'
+          ? MAX_SPOT_GALLERY_IMAGES
+          : Math.max(0, MAX_SPOT_GALLERY_IMAGES - selectedSpotImageUris.length);
+      if (remaining <= 0) return;
+      try {
+        const ImagePicker = await import('expo-image-picker');
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ['images'],
+          allowsMultipleSelection: true,
+          selectionLimit: remaining,
+          quality: 1,
+        });
+        if (result.canceled || !result.assets?.length) return;
+        const incoming = result.assets.map((a) => a.uri).filter(Boolean) as string[];
+        setSelectedSpotImageUris((prev) =>
+          mode === 'replace'
+            ? incoming.slice(0, MAX_SPOT_GALLERY_IMAGES)
+            : [...prev, ...incoming].slice(0, MAX_SPOT_GALLERY_IMAGES),
+        );
+      } catch {
+        // Silencioso
       }
-    } catch {
-      // Fallback silencioso: no bloquear flujo
-    }
-  }, []);
+    },
+    [selectedSpotImageUris.length],
+  );
 
-  const handleRemoveCover = useCallback(() => {
-    setSelectedCoverUri(null);
+  const handleRemoveSpotImageAt = useCallback((index: number) => {
+    setSelectedSpotImageUris((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   /** Navegación "Atrás" centralizada: step 1 → sale del flujo; step 2–6 → paso anterior. */
@@ -406,7 +422,7 @@ export default function CreateSpotScreen() {
             : step === 4
               ? 'Cuéntanos un poco más del lugar'
               : step === 5
-                ? 'Foto de portada'
+                ? 'Fotos (opcional)'
                 : 'Revisa la información del lugar';
     navigation.setOptions({
       title,
@@ -722,26 +738,56 @@ export default function CreateSpotScreen() {
               keyboardDismissMode="on-drag"
             >
               <View style={styles.stepImageOnly}>
-                {selectedCoverUri ? (
-                  <View style={styles.coverPreviewWrap}>
-                    <Image
-                      source={{ uri: selectedCoverUri }}
-                      style={styles.coverPreview}
-                      contentFit="cover"
-                    />
-                    <Pressable
-                      style={[styles.coverRemoveBtn, { backgroundColor: colors.borderSubtle }]}
-                      onPress={handleRemoveCover}
-                      accessibilityLabel="Quitar foto"
-                    >
-                      <Text style={[styles.coverRemoveLabel, { color: colors.text }]}>Quitar</Text>
-                    </Pressable>
+                {selectedSpotImageUris.length > 0 ? (
+                  <View style={styles.createGalleryBlock}>
+                    <View style={styles.createGalleryGrid}>
+                      {selectedSpotImageUris.map((uri, index) => (
+                        <View key={`${uri}-${index}`}>
+                          <View style={styles.createGalleryThumbWrap}>
+                            <Image
+                              source={{ uri }}
+                              style={styles.createGalleryThumb}
+                              contentFit="cover"
+                            />
+                            <Pressable
+                              style={styles.createGalleryDeleteFab}
+                              onPress={() => handleRemoveSpotImageAt(index)}
+                              accessibilityLabel="Quitar foto"
+                            >
+                              <X size={16} color="#fff" strokeWidth={2.5} />
+                            </Pressable>
+                          </View>
+                        </View>
+                      ))}
+                      {selectedSpotImageUris.length < MAX_SPOT_GALLERY_IMAGES ? (
+                        <Pressable
+                          style={[
+                            styles.createGalleryAddTile,
+                            { borderColor: colors.primary, backgroundColor: colors.backgroundElevated },
+                          ]}
+                          onPress={() => pickSpotImages('append')}
+                          accessibilityLabel="Añadir más fotos"
+                        >
+                          <Plus size={22} color={colors.primary} strokeWidth={2.4} />
+                          <Text
+                            style={[styles.createGalleryAddTileLabel, { color: colors.primary }]}
+                            numberOfLines={2}
+                          >
+                            Añadir
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.createGalleryHint, { color: colors.textSecondary }]}>
+                      Comparte con la comunidad: las fotos que subas aquí son públicas. Hasta{' '}
+                      {MAX_SPOT_GALLERY_IMAGES} fotos.
+                    </Text>
                   </View>
                 ) : (
                   <Pressable
                     style={[styles.coverAddWrapLarge, { borderColor: colors.borderSubtle }]}
-                    onPress={handlePickCover}
-                    accessibilityLabel="Agregar foto"
+                    onPress={() => pickSpotImages('replace')}
+                    accessibilityLabel="Agregar fotos"
                   >
                     <ImagePlaceholder
                       width={200}
@@ -751,7 +797,7 @@ export default function CreateSpotScreen() {
                       iconSize={32}
                     />
                     <Text style={[styles.coverAddLabelLarge, { color: colors.textSecondary }]}>
-                      Agregar foto
+                      Agregar fotos
                     </Text>
                   </Pressable>
                 )}
@@ -800,7 +846,9 @@ export default function CreateSpotScreen() {
                   <Text style={[styles.summaryAddress, { color: colors.textSecondary }]}>{location.address}</Text>
                 ) : null}
                 <Text style={[styles.summaryMeta, { color: colors.textSecondary }]}>
-                  Foto de portada: {selectedCoverUri ? 'Sí' : 'No'}
+                  {selectedSpotImageUris.length === 0
+                    ? 'Sin fotos'
+                    : `${selectedSpotImageUris.length} ${selectedSpotImageUris.length === 1 ? 'foto' : 'fotos'}`}
                 </Text>
               </View>
               {error ? <Text style={[styles.error, { color: '#c62828' }]}>{error}</Text> : null}
@@ -907,11 +955,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.base,
     paddingBottom: Spacing.xxl,
+    alignItems: 'stretch',
   },
   scrollContentWithBar: {
     padding: Spacing.base,
     paddingBottom: Spacing.sm,
     flexGrow: 1,
+    alignItems: 'stretch',
   },
   wizardButtonSpacer: {
     height: 88,
@@ -1030,6 +1080,8 @@ const styles = StyleSheet.create({
   },
   stepImageOnly: {
     marginTop: Spacing.sm,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   coverSection: {
     marginTop: Spacing.base,
@@ -1083,7 +1135,8 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
   },
   coverAddWrapLarge: {
-    width: 200,
+    width: '100%',
+    alignSelf: 'stretch',
     borderWidth: 1,
     borderRadius: Radius.md,
     borderStyle: 'dashed',
@@ -1096,5 +1149,59 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '500',
     marginTop: Spacing.sm,
+  },
+  createGalleryBlock: {
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  createGalleryGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    alignContent: 'flex-start',
+  },
+  createGalleryThumbWrap: {
+    position: 'relative',
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+  },
+  createGalleryThumb: {
+    width: 136,
+    height: 104,
+    borderRadius: Radius.md,
+  },
+  createGalleryDeleteFab: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createGalleryAddTile: {
+    width: 136,
+    height: 104,
+    marginRight: Spacing.sm,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  createGalleryAddTileLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  createGalleryHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: Spacing.xs,
   },
 });

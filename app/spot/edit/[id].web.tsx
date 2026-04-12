@@ -3,7 +3,14 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, MapPin, X } from "lucide-react-native";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  MapPin,
+  Plus,
+  X,
+} from "lucide-react-native";
 import {
   useCallback,
   useEffect,
@@ -51,7 +58,17 @@ import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
 import { featureFlags } from "@/lib/feature-flags";
 import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
-import { uploadSpotCover } from "@/lib/spot-image-upload";
+import {
+  MAX_SPOT_GALLERY_IMAGES,
+  addSpotImageRow,
+  ensureGallerySeedFromCover,
+  listSpotImages,
+  removeSpotImage,
+  reorderSpotImages,
+  syncCoverFromGallery,
+  type SpotImageRow,
+} from "@/lib/spot-images";
+import { uploadSpotCover, uploadSpotGalleryImage } from "@/lib/spot-image-upload";
 import { supabase } from "@/lib/supabase";
 import { ImagePlaceholder } from "@/components/design-system/image-placeholder";
 import { SpotImage } from "@/components/design-system/spot-image";
@@ -59,6 +76,23 @@ import { SpotImage } from "@/components/design-system/spot-image";
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_SPOT_HEIGHT = 320;
 const MAP_CONTROLS_PADDING = 8;
+/** Límites de tamaño de celda en grid responsivo (edición galería). */
+const GALLERY_MIN_THUMB = 96;
+const GALLERY_MAX_THUMB = 200;
+
+function galleryLayoutMetrics(containerWidth: number) {
+  const gap = Spacing.sm;
+  const w = containerWidth > 0 ? containerWidth : 360;
+  let cols = 5;
+  let thumb = 0;
+  while (cols >= 2) {
+    thumb = Math.floor((w - gap * (cols - 1)) / cols);
+    if (thumb >= GALLERY_MIN_THUMB) break;
+    cols -= 1;
+  }
+  thumb = Math.min(GALLERY_MAX_THUMB, Math.max(GALLERY_MIN_THUMB, thumb));
+  return { gap, thumb };
+}
 
 type SpotEdit = {
   id: string;
@@ -194,7 +228,10 @@ function EditSpotMapSlot({
 }
 
 export default function EditSpotScreenWeb() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, returnTo } = useLocalSearchParams<{
+    id: string;
+    returnTo?: string;
+  }>();
   const router = useRouter();
   const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
@@ -209,13 +246,19 @@ export default function EditSpotScreenWeb() {
   const [longDesc, setLongDesc] = useState("");
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(null);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [galleryRows, setGalleryRows] = useState<SpotImageRow[]>([]);
+  const [galleryUploading, setGalleryUploading] = useState(false);
   const [locationDraft, setLocationDraft] =
     useState<MapLocationPickerResult | null>(null);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [galleryGridWidth, setGalleryGridWidth] = useState(0);
   const screenRootRef = useRef<View>(null);
+
+  const { gap: galleryGap, thumb: galleryThumbSize } =
+    galleryLayoutMetrics(galleryGridWidth);
 
   /** Evita aria-hidden en ancestro mientras un botón de la pantalla anterior conserva foco (web). */
   const blurIfFocusOutsideScreenRoot = useCallback(() => {
@@ -311,9 +354,27 @@ export default function EditSpotScreenWeb() {
     };
   }, [id]);
 
+  useEffect(() => {
+    if (!spot?.id) {
+      setGalleryRows([]);
+      return;
+    }
+    let cancelled = false;
+    void listSpotImages(spot.id).then((rows) => {
+      if (!cancelled) setGalleryRows(rows);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [spot?.id]);
+
   const handleBack = useCallback(() => {
+    if (returnTo === "explore" && id) {
+      (router.replace as (href: string) => void)(getMapSpotDeepLink(id, "extended"));
+      return;
+    }
     router.back();
-  }, [router]);
+  }, [router, returnTo, id]);
 
   const handleAddOrChangeCover = useCallback(async () => {
     if (!spot?.id || !isAuthenticated) {
@@ -377,6 +438,166 @@ export default function EditSpotScreenWeb() {
       setCoverUploading(false);
     }
   }, [spot?.id, isAuthenticated]);
+
+  const handleAddGalleryPhoto = useCallback(async () => {
+    if (!spot?.id || !isAuthenticated) {
+      openAuthModal({ message: AUTH_MODAL_MESSAGES.editSpot });
+      return;
+    }
+    setGalleryUploading(true);
+    try {
+      await ensureGallerySeedFromCover(spot.id, coverImageUrl);
+      const currentRows = await listSpotImages(spot.id);
+      setGalleryRows(currentRows);
+
+      if (currentRows.length >= MAX_SPOT_GALLERY_IMAGES) {
+        toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, {
+          type: "error",
+        });
+        return;
+      }
+      const remainingSlots = MAX_SPOT_GALLERY_IMAGES - currentRows.length;
+      const ImagePicker = await import("expo-image-picker");
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ["images"],
+        allowsMultipleSelection: true,
+        selectionLimit: remainingSlots,
+        quality: 1,
+      });
+      if (result.canceled || !result.assets?.length) {
+        return;
+      }
+      const picked = result.assets.slice(0, remainingSlots);
+      let added = 0;
+      let hitLimit = false;
+      for (const asset of picked) {
+        if (!asset.uri) continue;
+        const res = await fetch(asset.uri);
+        if (!res.ok) continue;
+        const blob = await res.blob();
+        const optimized = await optimizeSpotImage(blob);
+        const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+        if (!toUpload) continue;
+
+        const url = await uploadSpotGalleryImage(spot.id, toUpload);
+        if (!url) continue;
+        const { row, error } = await addSpotImageRow(spot.id, url);
+        if (error === "limit") {
+          hitLimit = true;
+          toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, {
+            type: "error",
+          });
+          break;
+        }
+        if (error === "db" || !row) continue;
+        added += 1;
+      }
+
+      if (added > 0) {
+        await syncCoverFromGallery(spot.id);
+        const { data: coverData } = await supabase
+          .from("spots")
+          .select("cover_image_url")
+          .eq("id", spot.id)
+          .single();
+        if (coverData?.cover_image_url) {
+          const u = String(coverData.cover_image_url);
+          setCoverImageUrl(`${u}${u.includes("?") ? "&" : "?"}t=${Date.now()}`);
+        }
+        const rows = await listSpotImages(spot.id);
+        setGalleryRows(rows);
+        toast.show(added === 1 ? "Foto añadida" : `${added} fotos añadidas`, {
+          type: "success",
+        });
+      } else if (!hitLimit && picked.length > 0) {
+        toast.show("No se pudo subir ninguna foto. Inténtalo de nuevo.", {
+          type: "error",
+        });
+      }
+    } catch {
+      toast.show("No se pudo añadir la foto.", { type: "error" });
+    } finally {
+      setGalleryUploading(false);
+    }
+  }, [spot, isAuthenticated, openAuthModal, toast, coverImageUrl]);
+
+  const handleRemoveGalleryImage = useCallback(
+    async (imageId: string) => {
+      if (!spot?.id || !isAuthenticated) {
+        openAuthModal({ message: AUTH_MODAL_MESSAGES.editSpot });
+        return;
+      }
+      setGalleryUploading(true);
+      try {
+        const ok = await removeSpotImage(imageId);
+        if (!ok) {
+          toast.show("No se pudo eliminar la foto.", { type: "error" });
+          return;
+        }
+        await syncCoverFromGallery(spot.id);
+        const rows = await listSpotImages(spot.id);
+        setGalleryRows(rows);
+        const { data: coverData } = await supabase
+          .from("spots")
+          .select("cover_image_url")
+          .eq("id", spot.id)
+          .single();
+        if (coverData?.cover_image_url) {
+          const u = String(coverData.cover_image_url);
+          setCoverImageUrl(`${u}${u.includes("?") ? "&" : "?"}t=${Date.now()}`);
+        } else {
+          setCoverImageUrl(null);
+        }
+        toast.show("Foto eliminada", { type: "success" });
+      } catch {
+        toast.show("No se pudo eliminar la foto.", { type: "error" });
+      } finally {
+        setGalleryUploading(false);
+      }
+    },
+    [spot?.id, isAuthenticated, openAuthModal, toast],
+  );
+
+  const handleGallerySwapWithNeighbor = useCallback(
+    async (index: number, delta: -1 | 1) => {
+      if (!spot?.id || !isAuthenticated) return;
+      const j = index + delta;
+      if (j < 0 || j >= galleryRows.length) return;
+      const next = [...galleryRows];
+      [next[index], next[j]] = [next[j], next[index]];
+      const newIds = next.map((r) => r.id);
+      setGalleryUploading(true);
+      try {
+        const ok = await reorderSpotImages(spot.id, newIds);
+        if (!ok) {
+          toast.show("No se pudo reordenar.", { type: "error" });
+          const rows = await listSpotImages(spot.id);
+          setGalleryRows(rows);
+          return;
+        }
+        await syncCoverFromGallery(spot.id);
+        setGalleryRows(next);
+        const { data: coverData } = await supabase
+          .from("spots")
+          .select("cover_image_url")
+          .eq("id", spot.id)
+          .single();
+        if (coverData?.cover_image_url) {
+          const u = String(coverData.cover_image_url);
+          setCoverImageUrl(`${u}${u.includes("?") ? "&" : "?"}t=${Date.now()}`);
+        } else {
+          setCoverImageUrl(null);
+        }
+      } catch {
+        toast.show("No se pudo reordenar.", { type: "error" });
+        const rows = await listSpotImages(spot.id);
+        setGalleryRows(rows);
+      } finally {
+        setGalleryUploading(false);
+      }
+    },
+    [spot?.id, isAuthenticated, galleryRows, toast],
+  );
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
@@ -619,46 +840,249 @@ export default function EditSpotScreenWeb() {
           >
             <View style={styles.fieldGroup}>
               <Text style={[styles.label, { color: colors.textSecondary }]}>
-                Foto de portada
+                Fotos
               </Text>
-              {coverImageUrl ? (
-                <View style={styles.coverWrap}>
-                  <Pressable
-                    style={styles.coverTouch}
-                    onPress={handleAddOrChangeCover}
-                    disabled={coverUploading || !isAuthenticated}
-                    accessibilityLabel="Cambiar foto"
-                  >
-                    {coverUploading ? (
+              <Text style={[styles.photoSubLabel, { color: colors.textSecondary }]}>
+                Comparte con la comunidad: las fotos que subas aquí son públicas.
+              </Text>
+              {coverImageUrl || galleryRows.length > 0 ? (
+                <View style={styles.photoBlock}>
+                  {galleryRows.length > 0 ? (
+                    <>
                       <View
+                        style={[styles.galleryGrid, { gap: galleryGap }]}
+                        onLayout={(e) =>
+                          setGalleryGridWidth(e.nativeEvent.layout.width)
+                        }
+                      >
+                        {galleryRows.map((item, index) => (
+                          <View
+                            key={item.id}
+                            style={[
+                              styles.galleryCell,
+                              { width: galleryThumbSize },
+                            ]}
+                          >
+                            <View style={styles.galleryThumbWrap}>
+                              <SpotImage
+                                uri={item.url}
+                                width={galleryThumbSize}
+                                height={galleryThumbSize}
+                                borderRadius={Radius.sm}
+                                colorScheme={colorScheme ?? undefined}
+                              />
+                              {isAuthenticated ? (
+                                <>
+                                  <Pressable
+                                    style={styles.galleryDeleteFab}
+                                    onPress={() =>
+                                      handleRemoveGalleryImage(item.id)
+                                    }
+                                    disabled={galleryUploading}
+                                    hitSlop={{
+                                      top: 8,
+                                      right: 8,
+                                      bottom: 8,
+                                      left: 8,
+                                    }}
+                                    accessibilityLabel="Eliminar foto"
+                                  >
+                                    <X size={16} color="#fff" strokeWidth={2.5} />
+                                  </Pressable>
+                                  {index > 0 ? (
+                                    <Pressable
+                                      style={styles.galleryReorderLeft}
+                                      onPress={() =>
+                                        handleGallerySwapWithNeighbor(index, -1)
+                                      }
+                                      disabled={galleryUploading}
+                                      accessibilityLabel="Mover antes en la galería"
+                                      accessibilityRole="button"
+                                    >
+                                      <ChevronLeft
+                                        size={18}
+                                        color="#fff"
+                                        strokeWidth={2.5}
+                                      />
+                                    </Pressable>
+                                  ) : null}
+                                  {index < galleryRows.length - 1 ? (
+                                    <Pressable
+                                      style={styles.galleryReorderRight}
+                                      onPress={() =>
+                                        handleGallerySwapWithNeighbor(index, 1)
+                                      }
+                                      disabled={galleryUploading}
+                                      accessibilityLabel="Mover después en la galería"
+                                      accessibilityRole="button"
+                                    >
+                                      <ChevronRight
+                                        size={18}
+                                        color="#fff"
+                                        strokeWidth={2.5}
+                                      />
+                                    </Pressable>
+                                  ) : null}
+                                </>
+                              ) : null}
+                            </View>
+                          </View>
+                        ))}
+                        {isAuthenticated &&
+                        galleryRows.length < MAX_SPOT_GALLERY_IMAGES ? (
+                          <Pressable
+                            style={[
+                              styles.galleryAddTile,
+                              {
+                                width: galleryThumbSize,
+                                height: galleryThumbSize,
+                                borderColor: colors.primary,
+                                backgroundColor: colors.backgroundElevated,
+                              },
+                            ]}
+                            onPress={handleAddGalleryPhoto}
+                            disabled={coverUploading || galleryUploading}
+                            accessibilityRole="button"
+                            accessibilityLabel="Añadir otra foto"
+                          >
+                            {galleryUploading ? (
+                              <ActivityIndicator
+                                size="small"
+                                color={colors.primary}
+                              />
+                            ) : (
+                              <>
+                                <Plus
+                                  size={22}
+                                  color={colors.primary}
+                                  strokeWidth={2.4}
+                                />
+                                <Text
+                                  style={[
+                                    styles.galleryAddTileLabel,
+                                    { color: colors.primary },
+                                  ]}
+                                  numberOfLines={2}
+                                >
+                                  Añadir
+                                </Text>
+                              </>
+                            )}
+                          </Pressable>
+                        ) : null}
+                      </View>
+                      <Text
                         style={[
-                          styles.coverOverlay,
-                          { backgroundColor: colors.background },
+                          styles.photoReorderHint,
+                          { color: colors.textSecondary },
                         ]}
                       >
-                        <ActivityIndicator size="small" color={colors.text} />
+                        Usa las flechas en la parte inferior de cada foto para
+                        cambiar el orden.
+                      </Text>
+                      {isAuthenticated ? (
+                        <Text
+                          style={[styles.photoMeta, { color: colors.textSecondary }]}
+                        >
+                          {`${galleryRows.length} ${
+                            galleryRows.length === 1 ? "foto" : "fotos"
+                          } · máx. ${MAX_SPOT_GALLERY_IMAGES}`}
+                        </Text>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.coverWrap}>
+                        <Pressable
+                          style={styles.coverTouch}
+                          onPress={handleAddOrChangeCover}
+                          disabled={
+                            coverUploading || galleryUploading || !isAuthenticated
+                          }
+                          accessibilityLabel="Cambiar foto"
+                          accessibilityHint="Sustituye la imagen principal"
+                        >
+                          {coverUploading ? (
+                            <View
+                              style={[
+                                styles.coverOverlay,
+                                { backgroundColor: colors.background },
+                              ]}
+                            >
+                              <ActivityIndicator size="small" color={colors.text} />
+                            </View>
+                          ) : null}
+                          <SpotImage
+                            uri={coverImageUrl!}
+                            height={140}
+                            borderRadius={Radius.md}
+                            colorScheme={colorScheme ?? undefined}
+                          />
+                        </Pressable>
+                        {isAuthenticated ? (
+                          <Pressable
+                            style={[
+                              styles.coverRemoveBtn,
+                              { backgroundColor: colors.background },
+                            ]}
+                            onPress={handleRemoveCover}
+                            disabled={coverUploading || galleryUploading}
+                            accessibilityLabel="Quitar foto"
+                          >
+                            <X size={18} color={colors.text} strokeWidth={2.5} />
+                          </Pressable>
+                        ) : null}
                       </View>
-                    ) : null}
-                    <SpotImage
-                      uri={coverImageUrl}
-                      height={140}
-                      borderRadius={Radius.md}
-                      colorScheme={colorScheme ?? undefined}
-                    />
-                  </Pressable>
-                  {isAuthenticated ? (
-                    <Pressable
-                      style={[
-                        styles.coverRemoveBtn,
-                        { backgroundColor: colors.background },
-                      ]}
-                      onPress={handleRemoveCover}
-                      disabled={coverUploading}
-                      accessibilityLabel="Quitar foto"
-                    >
-                      <X size={18} color={colors.text} strokeWidth={2.5} />
-                    </Pressable>
-                  ) : null}
+                      {isAuthenticated ? (
+                        <>
+                          {galleryRows.length < MAX_SPOT_GALLERY_IMAGES ? (
+                            <Pressable
+                              style={[
+                                styles.galleryAddTile,
+                                {
+                                  borderColor: colors.primary,
+                                  backgroundColor: colors.backgroundElevated,
+                                },
+                              ]}
+                              onPress={handleAddGalleryPhoto}
+                              disabled={coverUploading || galleryUploading}
+                              accessibilityRole="button"
+                              accessibilityLabel="Añadir otra foto"
+                            >
+                              {galleryUploading ? (
+                                <ActivityIndicator
+                                  size="small"
+                                  color={colors.primary}
+                                />
+                              ) : (
+                                <>
+                                  <Plus
+                                    size={22}
+                                    color={colors.primary}
+                                    strokeWidth={2.4}
+                                  />
+                                  <Text
+                                    style={[
+                                      styles.galleryAddTileLabel,
+                                      { color: colors.primary },
+                                    ]}
+                                    numberOfLines={2}
+                                  >
+                                    Añadir
+                                  </Text>
+                                </>
+                              )}
+                            </Pressable>
+                          ) : null}
+                          <Text
+                            style={[styles.photoMeta, { color: colors.textSecondary }]}
+                          >
+                            {`1 foto · máx. ${MAX_SPOT_GALLERY_IMAGES}`}
+                          </Text>
+                        </>
+                      ) : null}
+                    </>
+                  )}
                 </View>
               ) : (
                 <Pressable
@@ -669,9 +1093,9 @@ export default function EditSpotScreenWeb() {
                       opacity: isAuthenticated ? 1 : 0.6,
                     },
                   ]}
-                  onPress={handleAddOrChangeCover}
-                  disabled={coverUploading || !isAuthenticated}
-                  accessibilityLabel="Agregar foto"
+                  onPress={handleAddGalleryPhoto}
+                  disabled={coverUploading || galleryUploading || !isAuthenticated}
+                  accessibilityLabel="Añadir fotos"
                 >
                   {coverUploading ? (
                     <ActivityIndicator
@@ -693,7 +1117,7 @@ export default function EditSpotScreenWeb() {
                           { color: colors.textSecondary },
                         ]}
                       >
-                        Agregar foto
+                        Añadir fotos
                       </Text>
                     </>
                   )}
@@ -995,6 +1419,8 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: Spacing.base,
     paddingBottom: Spacing.xxl,
+    /** Las filas de formulario y la galería usan todo el ancho útil del panel. */
+    alignItems: "stretch",
   },
   fieldGroup: {
     marginBottom: Spacing.lg,
@@ -1018,7 +1444,7 @@ const styles = StyleSheet.create({
   coverWrap: {
     position: "relative",
     width: "100%",
-    maxWidth: 320,
+    alignSelf: "stretch",
     borderRadius: Radius.md,
     overflow: "hidden",
   },
@@ -1042,7 +1468,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   coverPlaceholder: {
-    width: 200,
+    width: "100%",
+    alignSelf: "stretch",
     borderWidth: 1,
     borderStyle: "dashed",
     borderRadius: Radius.md,
@@ -1054,6 +1481,91 @@ const styles = StyleSheet.create({
   coverPlaceholderLabel: {
     fontSize: 15,
     marginTop: Spacing.xs,
+  },
+  photoSubLabel: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -4,
+    marginBottom: Spacing.md,
+  },
+  photoReorderHint: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: Spacing.sm,
+  },
+  photoBlock: {
+    width: "100%",
+    alignSelf: "stretch",
+    gap: Spacing.md,
+  },
+  /** Celda “Añadir”: mismo aspecto que miniaturas; el tamaño en grid viene inline. */
+  galleryAddTile: {
+    minWidth: GALLERY_MIN_THUMB,
+    minHeight: GALLERY_MIN_THUMB,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: 6,
+  },
+  galleryAddTileLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  photoMeta: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  /** Grid responsivo: ancho completo del campo; celdas con `width` calculado en runtime. */
+  galleryGrid: {
+    width: "100%",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignContent: "flex-start",
+  },
+  galleryCell: {
+    flexShrink: 0,
+  },
+  galleryThumbWrap: {
+    position: "relative",
+    borderRadius: Radius.sm,
+    overflow: "hidden",
+  },
+  galleryDeleteFab: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryReorderLeft: {
+    position: "absolute",
+    left: 4,
+    bottom: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  galleryReorderRight: {
+    position: "absolute",
+    right: 4,
+    bottom: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "rgba(0,0,0,0.52)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   mapSection: {
     height: MAP_SPOT_HEIGHT,

@@ -191,4 +191,6 @@ Secuencia recomendada:
 
 ## Estado: **cerrado** (2026-04-12)
 
-Criterios del plan (WR-01–WR-05, auth/formularios, QA multiviewport) y trabajo desktop sidebar considerados cumplidos: mapa a ancho completo con `setPadding` (menos parpadeo que `resize` en animación), clip KPI/listado, mini-mapa países visitados con encuadre y gesto vertical. Declaración operativa: [`docs/ops/OPEN_LOOPS.md`](../OPEN_LOOPS.md) — loop activo siguiente **`OL-CONTENT-002`**.
+Criterios del plan (WR-01–WR-05, auth/formularios, QA multiviewport) y trabajo desktop sidebar considerados cumplidos: mapa a ancho completo con `setPadding` (menos parpadeo que `resize` en animación), clip KPI/listado, mini-mapa países visitados con encuadre y gesto vertical. Declaración operativa al cerrar WR: [`docs/ops/OPEN_LOOPS.md`](../OPEN_LOOPS.md) — en ese momento el loop activo siguiente era **`OL-CONTENT-002`**.
+
+*Actualización 2026-04-12:* **`OL-CONTENT-002`** quedó **cerrado** (galería, alcance web). Loop ejecutivo activo vigente: **`OL-PRIVACY-001`**. Evidencia: [`OPEN_LOOPS.md`](../OPEN_LOOPS.md), bitácora [`347`](../../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md).
