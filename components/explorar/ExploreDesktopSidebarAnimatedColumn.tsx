@@ -1,10 +1,14 @@
 /**
  * Panel lateral Explore (web ≥1080): anima el **contenedor** en ancho (solo entrada al montar / cambiar `animationKey`).
+ * `ExploreDesktopSidebarPanelBody`: fade-in al cambiar contenido (welcome ↔ países ↔ spot) para reducir parpadeo.
  */
 
 import { WEB_EXPLORE_SIDEBAR_PANEL_WIDTH } from "@/lib/web-layout";
 import { ReactNode, useEffect, useRef } from "react";
-import { Animated, Easing, View, type ViewStyle } from "react-native";
+import { Animated, Easing, Platform, View, type ViewStyle } from "react-native";
+
+const PANEL_CONTENT_FADE_IN_MS = 220;
+const PANEL_CONTENT_FADE_FROM = 0.94;
 
 const ENTRANCE_DURATION_MS = 400;
 
@@ -173,5 +177,47 @@ export function ExploreDesktopSidebarAnimatedColumn({
     >
       {children}
     </ExploreDesktopSidebarEntranceAnimatedColumn>
+  );
+}
+
+/**
+ * Envuelve el cuerpo del sidebar (sheet activo). Al cambiar `panelKey` (welcome / countries / spot),
+ * aplica un fade-in corto para evitar un frame “en blanco” perceptible al sustituir árboles de React distintos.
+ */
+export function ExploreDesktopSidebarPanelBody({
+  panelKey,
+  children,
+}: {
+  panelKey: string;
+  children: ReactNode;
+}) {
+  const opacity = useRef(new Animated.Value(1)).current;
+  const isInitialPanel = useRef(true);
+
+  useEffect(() => {
+    if (isInitialPanel.current) {
+      isInitialPanel.current = false;
+      return;
+    }
+    opacity.setValue(PANEL_CONTENT_FADE_FROM);
+    Animated.timing(opacity, {
+      toValue: 1,
+      duration: PANEL_CONTENT_FADE_IN_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }, [panelKey, opacity]);
+
+  return (
+    <Animated.View
+      style={{
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        opacity,
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }

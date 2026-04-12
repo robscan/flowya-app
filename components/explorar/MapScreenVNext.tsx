@@ -58,7 +58,10 @@ import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
 import { TypographyStyles } from "@/components/design-system/typography";
-import { ExploreDesktopSidebarAnimatedColumn } from "@/components/explorar/ExploreDesktopSidebarAnimatedColumn";
+import {
+  ExploreDesktopSidebarAnimatedColumn,
+  ExploreDesktopSidebarPanelBody,
+} from "@/components/explorar/ExploreDesktopSidebarAnimatedColumn";
 import { CreateSpotNameOverlay } from "@/components/explorar/CreateSpotNameOverlay";
 import {
   CountriesSheet,
@@ -5172,6 +5175,13 @@ export function MapScreenVNext() {
         ? countriesDesktopSidebarPanelWidth
         : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH;
 
+  /** Transición suave entre árboles distintos del sidebar (welcome ↔ países ↔ spot). */
+  const exploreSidebarPanelKey = useMemo(() => {
+    if (spotInSidebarDesktop) return "spot";
+    if (countriesInSidebarDesktop) return "countries";
+    return "welcome";
+  }, [spotInSidebarDesktop, countriesInSidebarDesktop]);
+
   if (!MAPBOX_TOKEN) {
     return (
       <View style={[styles.mapScreenRoot, styles.placeholder]}>
@@ -5350,12 +5360,14 @@ export function MapScreenVNext() {
             styles.exploreSidebarColumn,
             {
               borderRightColor: exploreSidebarPalette.borderSubtle,
+              backgroundColor: exploreSidebarPalette.backgroundElevated,
               width: exploreDesktopSidebarPanelWidthResolved,
             },
           ]}
         >
           {exploreSidebarFlowyaHeaderEl}
           <View style={styles.exploreSidebarSheetBody}>
+            <ExploreDesktopSidebarPanelBody panelKey={exploreSidebarPanelKey}>
             {spotInSidebarDesktop ? (
               renderExploreSpotSheet(true)
             ) : countriesInSidebarDesktop ? (
@@ -5438,6 +5450,7 @@ export function MapScreenVNext() {
                 onSidebarShare={handleWelcomeSidebarShare}
               />
             )}
+            </ExploreDesktopSidebarPanelBody>
           </View>
         </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
