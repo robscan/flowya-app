@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-04-12 — **`OL-CONTENT-002` cerrado** (galería multi-foto, **alcance web**; paridad nativa diferida). Loop activo siguiente: **`OL-PRIVACY-001`**. Evidencia: bitácora [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md). *(Cierre previo en esta fecha: `OL-WEB-RESPONSIVE-001` — bitácora [`345`](../bitacora/2026/04/345-ol-web-responsive-cierre-sidebar-mapa-paises-docs.md).)*
+**Fecha:** 2026-04-12 — **`OL-PRIVACY-001` cerrado** (política de privacidad pública + integración en auth/beta). Loop activo siguiente: **`OL-SECURITY-VALIDATION-001`**. Evidencia: bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md). *(Cierres previos el mismo día: `OL-CONTENT-002` — [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md); `OL-WEB-RESPONSIVE-001` — [`345`](../bitacora/2026/04/345-ol-web-responsive-cierre-sidebar-mapa-paises-docs.md).)*
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -11,19 +11,19 @@
 
 ## Loop activo único (regla operativa)
 
-- **Loop ejecutivo activo (único, ejecución):** **OL-PRIVACY-001** — política de privacidad / consentimiento. Plan: [PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md).
-- **Cerrado recientemente:** **OL-CONTENT-002** — galería multi-foto (**solo web** en este cierre: crear/editar, sheet, lightbox, `spot_images` + lib). Paridad **nativa** (crear/editar en iOS/Android) **fuera de alcance** hasta decisión de producto/stack. Plan: [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Evidencia: bitácora [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md); fase 1 DB/lib: [`346`](../bitacora/2026/04/346-ol-content-002-fase1-spot-images-db-lib.md).
-- **Siguiente en lista (abierto para priorización; no activo en paralelo):** **OL-SECURITY-VALIDATION-001** — primera entrada tras el activo. Plan: [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md).
+- **Loop ejecutivo activo (único, ejecución):** **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first. Plan: [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md).
+- **Cerrado recientemente:** **OL-PRIVACY-001** — política de privacidad en español, ruta pública `/privacy`, texto en `lib/legal/privacy-policy-es.ts`, enlaces desde modal de auth y modal beta. Plan: [PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md). Evidencia: bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md).
+- **Cerrado recientemente (anterior):** **OL-CONTENT-002** — galería multi-foto (**solo web** en este cierre: crear/editar, sheet, lightbox, `spot_images` + lib). Paridad **nativa** (crear/editar en iOS/Android) **fuera de alcance** hasta decisión de producto/stack. Plan: [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Evidencia: bitácora [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md); fase 1 DB/lib: [`346`](../bitacora/2026/04/346-ol-content-002-fase1-spot-images-db-lib.md).
+- **Siguiente en lista (abierto para priorización; no activo en paralelo):** **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual. Plan: [PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md).
 - **En espera (cola — sin incluir el loop activo):**
-  1. **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first ([PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)).
-  2. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
-  3. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
-  4. **OL-CONTENT-CLIMATE-UNITS-001** — clima por temporadas (normales en DB) + toggles °C/°F y km/mi ([PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md)). *Dependencia suave:* perfil/settings para preferencias de unidades; puede arrancar con persistencia local web si se documenta la deuda.
-  5. **OL-I18N-EN-001** — UI en inglés: **Explorar**, **auth**, **crear/editar/detalle spot** web, **mapa y geocoding** (misma fuente que `getCurrentLanguage()` — ver [`APP_LOCALE_AND_MAP_LANGUAGE.md`](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md)). **Design System (`/design-system`):** **incluido** como vitrina de componentes canónicos compartidos con Explore; conviene **preview es/en** (conmutador que no sustituye preferencia global del usuario hasta acordar UX). Sustituye la etiqueta histórica `OL-I18N-UI-001`. Ver [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md).
-  6. **Auth** — social login (investigación / activación).
-  7. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
-  8. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
-  9. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
+  1. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
+  2. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
+  3. **OL-CONTENT-CLIMATE-UNITS-001** — clima por temporadas (normales en DB) + toggles °C/°F y km/mi ([PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md)). *Dependencia suave:* perfil/settings para preferencias de unidades; puede arrancar con persistencia local web si se documenta la deuda.
+  4. **OL-I18N-EN-001** — UI en inglés: **Explorar**, **auth**, **crear/editar/detalle spot** web, **mapa y geocoding** (misma fuente que `getCurrentLanguage()` — ver [`APP_LOCALE_AND_MAP_LANGUAGE.md`](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md)). **Design System (`/design-system`):** **incluido** como vitrina de componentes canónicos compartidos con Explore; conviene **preview es/en** (conmutador que no sustituye preferencia global del usuario hasta acordar UX). Sustituye la etiqueta histórica `OL-I18N-UI-001`. Ver [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md).
+  5. **Auth** — social login (investigación / activación).
+  6. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
+  7. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
+  8. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
 
 ---
 
@@ -33,6 +33,7 @@
 |----|---------|-----------------|
 | **OL-WEB-RESPONSIVE-001** (**cerrado** 2026-04-12) | WR-01–WR-05 + sidebar desktop (`setPadding`, clip KPI/listado, mini-mapa países) | [PLAN_OL_WEB_RESPONSIVE…](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md), [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md) |
 | **OL-CONTENT-002** (**cerrado** 2026-04-12, **alcance web**) | Galería `spot_images` + UI web crear/editar/exploración; paridad nativa no incluida | [PLAN_OL_CONTENT_002…](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md), bitácora [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md) |
+| **OL-PRIVACY-001** (**cerrado** 2026-04-12) | Política de privacidad ES, `/privacy`, enlaces auth/beta | [PLAN_OL_PRIVACY…](plans/PLAN_OL_PRIVACY_001_2026-03-10.md), bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md) |
 | **OL-CONTENT-CLIMATE-UNITS-001** | Normales climáticas por estación en Supabase; tap °C↔°F y km↔mi | [PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md) |
 | **OL-I18N-EN-001** | EN en Explore + auth + flujos spot + mapa + DS (preview); locale unificado | [APP_LOCALE_AND_MAP_LANGUAGE.md](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md), [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) |
 
@@ -126,7 +127,7 @@
 
 ## Proyecto: Política de privacidad / consentimiento
 
-- **OL-PRIVACY-001** — Crear política de privacidad con disclaimers necesarios: uso de geolocalización (solo cliente, sin persistencia ni envío a servidores), cookies, datos de sesión, analytics si aplica. Abordar tras búsqueda y auth. Plan: [docs/ops/plans/PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md).
+- **OL-PRIVACY-001** — **Cerrado (2026-04-12, MVP):** política en español, ruta `/privacy`, integración en modal de auth y modal beta. Bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md). Plan: [PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md).
 
 ---
 
@@ -167,7 +168,8 @@
 
 ## Cierres recientes (trazabilidad)
 
-- **`OL-CONTENT-002` cerrado (2026-04-12, alcance web):** galería multi-foto (`spot_images`, lib, Storage), UI web crear/editar + exploración (grid, lightbox). Paridad nativa fuera de alcance. Plan: [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Bitácora **`347`**. Loop activo siguiente: **`OL-PRIVACY-001`**.
+- **`OL-PRIVACY-001` cerrado (2026-04-12):** política de privacidad pública + enlaces UX. Bitácora **`350`**. Loop activo siguiente: **`OL-SECURITY-VALIDATION-001`**.
+- **`OL-CONTENT-002` cerrado (2026-04-12, alcance web):** galería multi-foto (`spot_images`, lib, Storage), UI web crear/editar + exploración (grid, lightbox). Paridad nativa fuera de alcance. Plan: [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Bitácora **`347`**.
 - **`OL-WEB-RESPONSIVE-001` cerrado (2026-04-12):** capa responsiva web-first (search, sheets, auth/formularios, QA multiviewport); desktop Explore con sidebar estable (`map.setPadding` vs `resize` en animación), clip 400↔720, mini-mapa países (`countries-map-preview.web`), toast estable. Plan: [PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md). Bitácora **`345`**.
 - Etiquetas personales Explore (`OL-EXPLORE-TAGS-001`): merge PR #106; contratos y DS actualizados. Bitácora `310`. Regresión tag filter chip → búsqueda filtrada: PR #108. Bitácora `311`.
 - `OL-EXPLORE-RESTRUCTURE-001` cerrado: shell web más accionable, filtros superiores responsivos, banda inferior `input + perfil`, coordinación `FLOWYA` / toast / logout y badge `países | flows`. Bitácora `315`.
@@ -236,12 +238,12 @@
 ## Arranque activo (histórico 2026-03-22; actualizado 2026-04-12)
 
 1. **Ops sincronizada:** reconciliación calendario vs repo (bitácora `307`); integración 2026-03-21 PRs #101 / #99 / #100 (contrato + RLS spots). Bitácora `308`. Retiro snapshot `CURRENT_STATE.md` (bitácora `309`). **Integración 2026-03-22:** PRs #104–#106 (búsqueda/Mapbox, ubicación, etiquetas Explore). Bitácora `310`. **Follow-up:** PR #108 (fix chip etiqueta en sheet). Bitácora `311`.
-2. **Loop activo (2026-04-12):** **`OL-PRIVACY-001`**. **`OL-CONTENT-002` cerrado** (alcance web, bitácora `347`). **`OL-WEB-RESPONSIVE-001` cerrado** (bitácora `345`).
+2. **Loop activo (2026-04-12):** **`OL-SECURITY-VALIDATION-001`**. **`OL-PRIVACY-001` cerrado** (bitácora `350`). **`OL-CONTENT-002` cerrado** (alcance web, bitácora `347`). **`OL-WEB-RESPONSIVE-001` cerrado** (bitácora `345`).
 3. **Smoke 306 cerrado:** validación post-merge (mapa sin clusters, distancia sin ubicación, etiqueta N resultados, geoloc persist).
 4. **OL-SEARCHV2-002** — postergado; retomar sesiones + informe cuando prioritario.
 5. Mantener freeze de `OL-P3-002.B` salvo bug crítico.
 6. Perfil/actividad: si se reactiva, alinearlo con `OL-METRICS-001` y `ACTIVITY_SUMMARY`; no abrir tracking paralelo ad hoc.
-7. Web-first: `OL-EXPLORE-RESTRUCTURE-001` y **`OL-WEB-RESPONSIVE-001` cerrados**; **`OL-CONTENT-002` cerrado** (galería web); siguiente foco según cola: **`OL-PRIVACY-001`** → **`OL-SECURITY-VALIDATION-001`** → …
+7. Web-first: `OL-EXPLORE-RESTRUCTURE-001` y **`OL-WEB-RESPONSIVE-001` cerrados**; **`OL-CONTENT-002` cerrado** (galería web); **`OL-PRIVACY-001` cerrado**; siguiente foco según cola: **`OL-SECURITY-VALIDATION-001`** → **`OL-PROFILE-001`** → …
 8. No mover `Auth` social login antes de `OL-SECURITY-VALIDATION-001` y `OL-PROFILE-001`.
 9. **OL-WEB-RESPONSIVE-001** — **cerrado**; plan: [PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md).
 10. Orden de cola vigente: ver sección **Loop activo único** y lista **En espera** → … → OL-SEARCHV2-002 → **`OL-EXPLORE-WEB-ZOOM-GUARD-001` al final** (postergado).
