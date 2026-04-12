@@ -28,6 +28,19 @@ export async function getCurrentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/**
+ * Usuario desde sesión almacenada (sin round-trip de validación JWT contra Auth HTTP).
+ * Mejor para hot paths (p. ej. tap en pins); si no hay sesión, devuelve null.
+ */
+export async function getCurrentUserIdFromSession(): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const u = session?.user;
+  if (!u || u.is_anonymous) return null;
+  return u.id;
+}
+
 /** Estado del pin del usuario para un spot. null si no hay fila (ni saved ni visited). */
 export async function getPinState(spotId: string): Promise<PinState | null> {
   const userId = await getCurrentUserId();
@@ -145,19 +158,21 @@ export async function setVisited(spotId: string, value: boolean): Promise<PinSta
  * Persiste ambos flags del pin en una sola operación.
  * Regla canónica: si `visited=true`, `saved` se fuerza a `false` para evitar estados ambiguos en UI.
  * Devuelve el nuevo PinState o null si falló.
+ * @param preloadedUserId Si se pasa, no vuelve a llamar a `getCurrentUserId()` (un solo round-trip auth por tap).
  */
 export async function setPinState(
   spotId: string,
-  next: PinState
+  next: PinState,
+  preloadedUserId?: string,
 ): Promise<PinState | null> {
-  const userId = await getCurrentUserId();
+  const userId = preloadedUserId ?? (await getCurrentUserId());
   if (!userId) return null;
   const normalized: PinState = next.visited
     ? { saved: false, visited: true }
     : { saved: Boolean(next.saved), visited: false };
 
   if (!normalized.saved && !normalized.visited) {
-    const ok = await removePin(spotId);
+    const ok = await removePin(spotId, userId);
     return ok ? normalized : null;
   }
 
@@ -180,9 +195,12 @@ export async function setPinState(
   return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
 }
 
-/** Elimina el pin del usuario para el spot. Devuelve true si se eliminó. */
-export async function removePin(spotId: string): Promise<boolean> {
-  const userId = await getCurrentUserId();
+/**
+ * Elimina el pin del usuario para el spot. Devuelve true si se eliminó.
+ * @param preloadedUserId Si se pasa (p. ej. ya obtenido en el caller), evita una segunda llamada a `getUser()`.
+ */
+export async function removePin(spotId: string, preloadedUserId?: string): Promise<boolean> {
+  const userId = preloadedUserId ?? (await getCurrentUserId());
   if (!userId) return false;
   const { error } = await supabase
     .from('pins')

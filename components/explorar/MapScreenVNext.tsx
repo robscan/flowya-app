@@ -135,7 +135,7 @@ import {
     isPointVisibleInViewport,
 } from "@/lib/map-core/constants";
 import {
-    getCurrentUserId,
+    getCurrentUserIdFromSession,
     getPinsForSpots,
     setPinState,
     setSaved,
@@ -215,6 +215,7 @@ import {
   setMapPinFilterPreference,
 } from "@/lib/storage/mapPinFilterPreference";
 import { computeTravelerPoints } from "@/lib/traveler-levels";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
     attachTagToSpot,
@@ -598,8 +599,14 @@ export function MapScreenVNext() {
   );
   /** Supresión puntual de toasts en handlers (p. ej. `toastMessage: ""`); se resetea a false cada render. */
   const suppressToastRef = useRef(false);
+  /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
+  const exploreAuthUserIdRef = useRef<string | null>(null);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  /** Pill en curso: solo esa muestra "Guardando…" (la otra queda deshabilitada sin spinner). */
+  const [pinMutationTarget, setPinMutationTarget] = useState<
+    null | "saved" | "visited"
+  >(null);
   const gallerySpotId =
     selectedSpot && !selectedSpot.id.startsWith("draft_")
       ? selectedSpot.id
@@ -983,20 +990,17 @@ export function MapScreenVNext() {
   }, [createSpotNameOverlayOpen, createSpotInitialName]);
 
   useEffect(() => {
-    const loadInitialAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthUser(!!user && !user.is_anonymous);
+    const applySession = (session: Session | null) => {
+      const u = session?.user;
+      const ok = Boolean(u && !u.is_anonymous);
+      exploreAuthUserIdRef.current = ok ? u!.id : null;
+      setIsAuthUser(ok);
     };
-    loadInitialAuth();
-    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (session?.user) {
-          setIsAuthUser(!session.user.is_anonymous);
-        } else {
-          setIsAuthUser(false);
-        }
-      }
+        applySession(session);
+      },
     );
     return () => subscription.unsubscribe();
   }, []);
@@ -1373,6 +1377,14 @@ export function MapScreenVNext() {
     handleMapPointerUp,
   } = mapCore;
 
+  /** Refs para el fly de entrada: el `setTimeout` debe llamar siempre al último `programmaticFlyTo` (con `mapInstance` ya fijado). */
+  const programmaticFlyToRef = useRef(programmaticFlyTo);
+  programmaticFlyToRef.current = programmaticFlyTo;
+  const suspendFilterUntilCameraSettlesRef = useRef(suspendFilterUntilCameraSettles);
+  suspendFilterUntilCameraSettlesRef.current = suspendFilterUntilCameraSettles;
+  const mapInstanceRef = useRef(mapInstance);
+  mapInstanceRef.current = mapInstance;
+
   /**
    * Mapbox: un `map.resize()` tras el siguiente paint (un solo rAF) cuando cambia el tamaño del contenedor (ventana).
    * El hueco del sidebar desktop se aplica con `map.setPadding`, no con flex → no hace falta resize al animar el panel.
@@ -1446,7 +1458,10 @@ export function MapScreenVNext() {
       searchIsOpenRef.current ||
       createSpotNameOverlayOpen,
   );
+  const shouldSkipGlobeEntryMotionRef = useRef(shouldSkipGlobeEntryMotion);
+  shouldSkipGlobeEntryMotionRef.current = shouldSkipGlobeEntryMotion;
 
+  /** Entrada globo: deps mínimas para no limpiar el delay de 160ms; el timeout usa refs (fly/map/skip) con valores actuales. */
   useEffect(() => {
     if (!mapInstance) return;
     if (globeEntryMotionPlayedRef.current) return;
@@ -1457,22 +1472,21 @@ export function MapScreenVNext() {
     }
 
     globeEntryMotionDelayRef.current = setTimeout(() => {
+      const map = mapInstanceRef.current;
       if (
         globeEntryMotionPlayedRef.current ||
-        shouldSkipGlobeEntryMotion ||
-        !mapInstance
+        shouldSkipGlobeEntryMotionRef.current ||
+        !map
       ) {
         globeEntryMotionPlayedRef.current = true;
         return;
       }
       globeEntryMotionPlayedRef.current = true;
       globeEntryMotionInFlightRef.current = true;
-      suspendFilterUntilCameraSettles();
+      suspendFilterUntilCameraSettlesRef.current();
       try {
-        const center = mapInstance.getCenter();
-        // Usar fly programático canónico para no disparar handlers de gesto de usuario
-        // que desactivan el bootstrap de sugerencias globales en cold-start.
-        programmaticFlyTo(
+        const center = map.getCenter();
+        programmaticFlyToRef.current(
           { lng: center.lng, lat: center.lat },
           { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
         );
@@ -1488,12 +1502,7 @@ export function MapScreenVNext() {
         globeEntryMotionDelayRef.current = null;
       }
     };
-  }, [
-    mapInstance,
-    programmaticFlyTo,
-    shouldSkipGlobeEntryMotion,
-    suspendFilterUntilCameraSettles,
-  ]);
+  }, [mapInstance, shouldSkipGlobeEntryMotion]);
 
   /** Misma heurística que useMapCore reframe + búsqueda (fitBounds si hay mapbox_bbox). */
   const focusCameraOnSpot = useCallback(
@@ -1740,14 +1749,17 @@ export function MapScreenVNext() {
     }
   }, [pinFilter, filteredSpots, selectedSpot, setSheetState]);
 
-  // Sincronizar selectedSpot con versión fresca de filteredSpots (ej. tras refetch o edición)
+  // Sincronizar selectedSpot con versión fresca de filteredSpots (ej. tras refetch o edición).
+  // Durante mutación de pin: no sustituir por `fresh` (mismo pin, otra referencia) para evitar
+  // un render extra en la pill que no se pulsó.
   useEffect(() => {
     if (!selectedSpot?.id) return;
+    if (pinMutationTarget != null) return;
     const fresh = filteredSpots.find((s) => s.id === selectedSpot.id);
     if (fresh && fresh !== selectedSpot) {
       setSelectedSpot(fresh);
     }
-  }, [filteredSpots, selectedSpot]);
+  }, [filteredSpots, selectedSpot, pinMutationTarget]);
 
   // Si el spot seleccionado deja de cumplir el filtro activo por un toggle explícito, cerrar sheet.
   useEffect(() => {
@@ -4598,6 +4610,7 @@ export function MapScreenVNext() {
     }
   }, [toast]);
 
+  /** Solo muta `spots`; el caller actualiza `selectedSpot` (evita dos setState en el sheet al cambiar pin). */
   const updateSpotPinState = useCallback(
     (spotId: string, next: { saved: boolean; visited: boolean }) => {
       const pinStatus: SpotPinStatus = next.visited
@@ -4611,13 +4624,6 @@ export function MapScreenVNext() {
             ? { ...s, saved: next.saved, visited: next.visited, pinStatus }
             : s,
         ),
-      );
-      setSelectedSpot((prev) =>
-        prev?.id === spotId
-          ? prev
-            ? { ...prev, saved: next.saved, visited: next.visited, pinStatus }
-            : null
-          : prev,
       );
     },
     [],
@@ -4633,7 +4639,10 @@ export function MapScreenVNext() {
         | "clear_visited",
     ) => {
       if (spot.id.startsWith("draft_")) return;
-      const userId = await getCurrentUserId();
+      let userId = exploreAuthUserIdRef.current;
+      if (!userId) {
+        userId = await getCurrentUserIdFromSession();
+      }
       if (!userId) {
         openAuthModal({
           message: AUTH_MODAL_MESSAGES.savePin,
@@ -4641,6 +4650,7 @@ export function MapScreenVNext() {
         });
         return;
       }
+      const previousSpotSnapshot: Spot = { ...spot };
       const currentSaved = Boolean(spot.saved ?? (spot.pinStatus === "to_visit"));
       const currentVisited = Boolean(spot.visited ?? (spot.pinStatus === "visited"));
       const currentState = { saved: currentSaved, visited: currentVisited };
@@ -4673,83 +4683,154 @@ export function MapScreenVNext() {
       ) {
         return;
       }
-      const nextState = await setPinState(spot.id, normalizedState);
-      if (!nextState) return;
-      const nextPinStatus: SpotPinStatus = nextState.visited
+
+      const optimisticPinStatus: SpotPinStatus = normalizedState.visited
         ? "visited"
-        : nextState.saved
+        : normalizedState.saved
           ? "to_visit"
           : "default";
-      const nextSpotSelection: Spot = {
+      const optimisticSpot: Spot = {
         ...spot,
-        saved: nextState.saved,
-        visited: nextState.visited,
-        pinStatus: nextPinStatus,
+        saved: normalizedState.saved,
+        visited: normalizedState.visited,
+        pinStatus: optimisticPinStatus,
       };
-      const isExplicitClearAction =
-        targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
-      if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
-        preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
-      } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
-        preserveOutOfFilterSelectionSpotIdRef.current = null;
-      }
+      const mutationTarget: "saved" | "visited" =
+        targetStatus === "to_visit" || targetStatus === "clear_to_visit"
+          ? "saved"
+          : targetStatus === "visited" || targetStatus === "clear_visited"
+            ? "visited"
+            : currentVisited
+              ? "visited"
+              : "saved";
 
-      const transition = resolveFilterTransitionPolicy({
-        currentFilter: pinFilter,
-        nextSaved: nextState.saved,
-        nextVisited: nextState.visited,
-        policy: "sticky",
-      });
+      updateSpotPinState(spot.id, normalizedState);
+      setSelectedSpot(optimisticSpot);
+      setPinMutationTarget(mutationTarget);
 
-      if (!nextState.saved && !nextState.visited) {
-        if (lastStatusSpotIdRef.current.saved === spot.id) {
-          lastStatusSpotIdRef.current.saved = null;
+      const revertOptimistic = () => {
+        const prevSaved = Boolean(
+          previousSpotSnapshot.saved ??
+            previousSpotSnapshot.pinStatus === "to_visit",
+        );
+        const prevVisited = Boolean(
+          previousSpotSnapshot.visited ??
+            previousSpotSnapshot.pinStatus === "visited",
+        );
+        updateSpotPinState(spot.id, { saved: prevSaved, visited: prevVisited });
+        setSelectedSpot(previousSpotSnapshot);
+      };
+
+      try {
+        const nextState = await setPinState(spot.id, normalizedState, userId);
+        if (!nextState) {
+          revertOptimistic();
+          if (!suppressToastRef.current) {
+            toast.show("No se pudo actualizar el estado.", { type: "error" });
+          }
+          return;
         }
-        if (lastStatusSpotIdRef.current.visited === spot.id) {
-          lastStatusSpotIdRef.current.visited = null;
+        const nextPinStatus: SpotPinStatus = nextState.visited
+          ? "visited"
+          : nextState.saved
+            ? "to_visit"
+            : "default";
+        const nextSpotSelection: Spot = {
+          ...spot,
+          saved: nextState.saved,
+          visited: nextState.visited,
+          pinStatus: nextPinStatus,
+        };
+        const isExplicitClearAction =
+          targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
+        if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
+          preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
+        } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
+          preserveOutOfFilterSelectionSpotIdRef.current = null;
         }
-        updatePendingFilterBadges((prev) => ({ ...prev, saved: false, visited: false }));
-      } else if (transition.ctaTargetFilter && transition.ctaTargetFilter !== "all") {
-        const destinationFilter = transition.ctaTargetFilter;
-        lastStatusSpotIdRef.current[destinationFilter] = spot.id;
-        if (destinationFilter === "visited" && lastStatusSpotIdRef.current.saved === spot.id) {
-          lastStatusSpotIdRef.current.saved = null;
-        }
-        if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
+
+        const transition = resolveFilterTransitionPolicy({
+          currentFilter: pinFilter,
+          nextSaved: nextState.saved,
+          nextVisited: nextState.visited,
+          policy: "sticky",
+        });
+
+        if (!nextState.saved && !nextState.visited) {
+          if (lastStatusSpotIdRef.current.saved === spot.id) {
+            lastStatusSpotIdRef.current.saved = null;
+          }
+          if (lastStatusSpotIdRef.current.visited === spot.id) {
+            lastStatusSpotIdRef.current.visited = null;
+          }
           updatePendingFilterBadges((prev) => ({
             ...prev,
-            [destinationFilter]: true,
+            saved: false,
+            visited: false,
           }));
+        } else if (
+          transition.ctaTargetFilter &&
+          transition.ctaTargetFilter !== "all"
+        ) {
+          const destinationFilter = transition.ctaTargetFilter;
+          lastStatusSpotIdRef.current[destinationFilter] = spot.id;
+          if (
+            destinationFilter === "visited" &&
+            lastStatusSpotIdRef.current.saved === spot.id
+          ) {
+            lastStatusSpotIdRef.current.saved = null;
+          }
+          if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
+            updatePendingFilterBadges((prev) => ({
+              ...prev,
+              [destinationFilter]: true,
+            }));
+          }
         }
-      }
-      if (transition.shouldPulse) {
-        setPinFilterPulseNonce((n) => n + 1);
-      }
+        if (transition.shouldPulse) {
+          setPinFilterPulseNonce((n) => n + 1);
+        }
 
-      updateSpotPinState(spot.id, nextState);
-      setSelectedSpot(nextSpotSelection);
-      setRecentMutation(spot.id, pinFilter);
-      if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
-        flyToUnlessActMode(
-          { lng: spot.longitude, lat: spot.latitude },
-          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-        );
-      }
-      const outcome = nextState.visited
-        ? "visited"
-        : nextState.saved
-          ? "saved"
-          : "dismissed";
-      recordExploreDecisionCompleted({ outcome, pinFilter });
-      setSheetState("medium");
-      if (!suppressToastRef.current) {
-        const toastText =
-          outcome === "visited"
-            ? "Marcado como visitado."
-            : outcome === "saved"
-              ? "Agregado a Por visitar."
-              : "Estado actualizado.";
-        toast.show(toastText, { type: "success", replaceVisible: true });
+        updateSpotPinState(spot.id, nextState);
+        setSelectedSpot(nextSpotSelection);
+        setRecentMutation(spot.id, pinFilter);
+        setPinMutationTarget(null);
+        if (
+          mapInstance &&
+          !isPointVisibleInViewport(
+            mapInstance,
+            spot.longitude,
+            spot.latitude,
+          )
+        ) {
+          flyToUnlessActMode(
+            { lng: spot.longitude, lat: spot.latitude },
+            { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+          );
+        }
+        const outcome = nextState.visited
+          ? "visited"
+          : nextState.saved
+            ? "saved"
+            : "dismissed";
+        recordExploreDecisionCompleted({ outcome, pinFilter });
+        setSheetState("medium");
+        if (!suppressToastRef.current) {
+          const toastText =
+            outcome === "visited"
+              ? "Marcado como visitado."
+              : outcome === "saved"
+                ? "Agregado a Por visitar."
+                : "Estado actualizado.";
+          toast.show(toastText, { type: "success", replaceVisible: true });
+        }
+      } catch {
+        revertOptimistic();
+        if (!suppressToastRef.current) {
+          toast.show("No se pudo actualizar el estado.", { type: "error" });
+        }
+      } finally {
+        setPinMutationTarget(null);
       }
     },
     [
@@ -5383,6 +5464,7 @@ export function MapScreenVNext() {
           ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
           : undefined
       }
+      pinMutationTarget={pinMutationTarget}
       pinFilter={pinFilter}
       userCoords={userCoords ?? undefined}
       isAuthUser={isAuthUser}

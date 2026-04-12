@@ -213,6 +213,8 @@ export type SpotSheetProps = {
   onSheetEtiquetarPress?: () => void;
   /** Web ≥1080: panel en columna izquierda (paridad CountriesSheet / EXPLORE_CHROME_SHELL §8b). */
   webDesktopSidebar?: boolean;
+  /** Qué pill está persistiendo (`saved` = Por visitar, `visited` = Visitado); solo esa muestra cargando. */
+  pinMutationTarget?: null | "saved" | "visited";
 };
 
 type BodyContentProps = {
@@ -321,6 +323,7 @@ function MediumBodyContent({
   coverHeight = COVER_HEIGHT,
   heroImageUris,
   webDesktopSidebar = false,
+  pinMutationTarget = null,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -333,6 +336,7 @@ function MediumBodyContent({
   | "handleSavePin"
 > & {
   isDraft?: boolean;
+  pinMutationTarget?: null | "saved" | "visited";
   onImagePress?: SpotHeroImagePressHandler;
   distanceKmVal: number | null;
   sheetTagChips?: { id: string; label: string }[];
@@ -371,6 +375,10 @@ function MediumBodyContent({
       byViewport,
     );
   }, [webDesktopSidebar, coverHeight, windowHeight]);
+
+  const savingPorVisitar = pinMutationTarget === "saved";
+  const savingVisitado = pinMutationTarget === "visited";
+  const pinMutationBusy = pinMutationTarget != null;
 
   return (
     <>
@@ -432,7 +440,10 @@ function MediumBodyContent({
         </View>
       ) : null}
       {!isDraft ? (
-        <View style={styles.actionRow}>
+        <View
+          style={styles.actionRow}
+          pointerEvents={pinMutationBusy ? "none" : "auto"} // sin disabled en pills: evita atenuado del estado optimista
+        >
           <Pressable
             style={[
               styles.actionPill,
@@ -447,13 +458,20 @@ function MediumBodyContent({
             onPress={() => handleSavePin(isSaved ? "clear_to_visit" : "to_visit")}
             accessibilityLabel={isSaved ? "Quitar Por visitar" : "Agregar a Por visitar"}
             accessibilityRole="button"
-            accessibilityState={{ selected: isSaved }}
+            accessibilityState={{ selected: isSaved, busy: savingPorVisitar }}
           >
-            <Pin
-              size={ACTION_ICON_SIZE}
-              color={isSaved ? ACTIVE_STATE_FOREGROUND : colors.text}
-              strokeWidth={2}
-            />
+            {savingPorVisitar ? (
+              <ActivityIndicator
+                size="small"
+                color={isSaved ? ACTIVE_STATE_FOREGROUND : colors.primary}
+              />
+            ) : (
+              <Pin
+                size={ACTION_ICON_SIZE}
+                color={isSaved ? ACTIVE_STATE_FOREGROUND : colors.text}
+                strokeWidth={2}
+              />
+            )}
             <Text
               style={[
                 styles.actionPillText,
@@ -478,13 +496,20 @@ function MediumBodyContent({
             onPress={() => handleSavePin(isVisited ? "clear_visited" : "visited")}
             accessibilityLabel={isVisited ? "Quitar Visitado" : "Marcar Visitado"}
             accessibilityRole="button"
-            accessibilityState={{ selected: isVisited }}
+            accessibilityState={{ selected: isVisited, busy: savingVisitado }}
           >
-            <CheckCircle
-              size={ACTION_ICON_SIZE}
-              color={isVisited ? ACTIVE_STATE_FOREGROUND : colors.text}
-              strokeWidth={2}
-            />
+            {savingVisitado ? (
+              <ActivityIndicator
+                size="small"
+                color={isVisited ? ACTIVE_STATE_FOREGROUND : colors.primary}
+              />
+            ) : (
+              <CheckCircle
+                size={ACTION_ICON_SIZE}
+                color={isVisited ? ACTIVE_STATE_FOREGROUND : colors.text}
+                strokeWidth={2}
+              />
+            )}
             <Text
               style={[
                 styles.actionPillText,
@@ -892,6 +917,7 @@ type SpotSheetBodyProps = {
   onSheetEtiquetarPress?: () => void;
   coverImageHeight?: number;
   webDesktopSidebar?: boolean;
+  pinMutationTarget?: null | "saved" | "visited";
 };
 
 function SpotSheetBody({
@@ -935,6 +961,7 @@ function SpotSheetBody({
   onSheetEtiquetarPress,
   coverImageHeight = COVER_HEIGHT,
   webDesktopSidebar = false,
+  pinMutationTarget = null,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -969,6 +996,7 @@ function SpotSheetBody({
           colors={colors}
           colorScheme={colorScheme ?? 'light'}
           handleSavePin={handleSavePin}
+          pinMutationTarget={pinMutationTarget}
           onImagePress={onImagePress}
           heroImageUris={heroImageUris}
           distanceKmVal={distanceKmVal}
@@ -1061,6 +1089,7 @@ export function SpotSheet({
   onSheetTagChipPress,
   onSheetEtiquetarPress,
   webDesktopSidebar = false,
+  pinMutationTarget = null,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -1575,6 +1604,7 @@ export function SpotSheet({
           webDesktopSidebar ? COVER_HEIGHT_WEB_SIDEBAR : COVER_HEIGHT
         }
         webDesktopSidebar={webDesktopSidebar}
+        pinMutationTarget={pinMutationTarget}
       />
 
       <ConfirmModal
