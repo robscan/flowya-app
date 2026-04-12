@@ -29,6 +29,7 @@ import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { Colors, Spacing } from "@/constants/theme";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import {
   distanceKm,
   formatDistanceKm,
@@ -305,9 +306,11 @@ function SpotDetailScreenContent({
   setLoading: (v: boolean) => void;
   refreshed?: string;
 }) {
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(
-    null,
-  );
+  const { galleryUris } = useSpotGalleryUris(id);
+  const [fullscreenLightbox, setFullscreenLightbox] = useState<{
+    uris: string[];
+    initialIndex: number;
+  } | null>(null);
   const [userCoords, setUserCoords] = useState<{
     latitude: number;
     longitude: number;
@@ -494,7 +497,13 @@ function SpotDetailScreenContent({
         onShare={handleShare}
         onEdit={isAuthenticated ? handleEdit : undefined}
         onSaveEdit={() => {}}
-        onImagePress={setFullscreenImageUri}
+        heroImageUris={galleryUris}
+        onImagePress={(payload) =>
+          setFullscreenLightbox({
+            uris: payload.allUris,
+            initialIndex: payload.index,
+          })
+        }
         mapSlot={
           <SpotDetailMapSlot
             latitude={spot.latitude}
@@ -507,9 +516,10 @@ function SpotDetailScreenContent({
         distanceText={distanceText}
       />
       <ImageFullscreenModal
-        visible={!!fullscreenImageUri}
-        uri={fullscreenImageUri}
-        onClose={() => setFullscreenImageUri(null)}
+        visible={fullscreenLightbox != null}
+        uris={fullscreenLightbox?.uris}
+        initialIndex={fullscreenLightbox?.initialIndex ?? 0}
+        onClose={() => setFullscreenLightbox(null)}
       />
     </>
   );

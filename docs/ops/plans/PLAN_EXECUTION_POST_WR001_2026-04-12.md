@@ -12,7 +12,7 @@
 | **A** | ~~Cerrar web responsive con QA real~~ **Hecho (2026-04-12)** | **`OL-WEB-RESPONSIVE-001`** — cerrado; sidebar desktop + QA multiviewport | Regresiones en mobile al tocar capas compartidas |
 | **B** | Higiene legal / confianza | **`OL-PRIVACY-001`**, **`OL-SECURITY-VALIDATION-001`** | Alcance creep (política perfecta vs publicable) |
 | **C** | Cuenta usable + **menor abuso de APIs** | **`OL-PROFILE-001`** + **login requerido** (producto) + `OL-SECURITY-VALIDATION-001` | Coste Mapbox/geocoding si sesiones anónimas o rutas abiertas; paridad web/native |
-| **D** | Valor diferencial datos | **`OL-CONTENT-002`** (galería), **`OL-CONTENT-001`** (Recordar-lite) | Mezclar contenido editorial con notas privadas |
+| **D** | Valor diferencial datos | **`OL-CONTENT-002`** — **cerrado 2026-04-12** (galería **web**; paridad nativa diferida). **`OL-CONTENT-001`** (Recordar-lite) | Mezclar contenido editorial con notas privadas |
 | **E** | Clima + unidades | **`OL-CONTENT-CLIMATE-UNITS-001`** | Fuente de normales + granularidad geográfica; jobs de ingest |
 | **F** | Internacionalización UI | **`OL-I18N-EN-001`** — Explore + auth + **crear/editar/detalle** spot + **mapa** + **DS** (vitrina bilingüe); ver §4c–4e | Strings duplicados; preview DS vs preferencia usuario |
 | **G** | Escala y coste | **`OL-SEARCHV2-002`**, **`OL-METRICS-001`** | Medición sin PII |

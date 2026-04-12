@@ -8,7 +8,7 @@ import { Platform, StyleSheet, Text, View } from 'react-native';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-import { ButtonPrimary } from './buttons';
+import { ButtonPrimary, ButtonSecondary } from './buttons';
 import { ImageFullscreenModal } from './image-fullscreen-modal';
 import { ImagePlaceholder } from './image-placeholder';
 import { SpotImage } from './spot-image';
@@ -17,12 +17,21 @@ import { SpotImage } from './spot-image';
 const DEMO_COVER_URI = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400';
 const DEMO_FULL_URI = 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200';
 
+/** Tres fotos distintas para probar contador, flechas y miniaturas sin ir al mapa. */
+const DEMO_GALLERY_URIS = [
+  'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=1200',
+  'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=1200',
+  'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=1200',
+] as const;
+
+type LightboxDemo = 'closed' | 'single' | 'gallery';
+
 export function ImagesShowcase() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const meta = colors.textSecondary;
   const mono = Platform.OS === 'web' ? ({ fontFamily: 'monospace' } as const) : undefined;
-  const [fullscreenOpen, setFullscreenOpen] = useState(false);
+  const [lightboxDemo, setLightboxDemo] = useState<LightboxDemo>('closed');
 
   return (
     <View style={styles.root}>
@@ -72,15 +81,27 @@ export function ImagesShowcase() {
       <View>
         <Text style={[styles.blockTitle, { color: colors.text }]}>ImageFullscreenModal</Text>
         <Text style={[styles.caption, { color: meta }]}>
-          Modal oscuro, imagen <Text style={mono}>contain</Text>, cerrar por backdrop o botón.
+          Modal oscuro, imagen <Text style={mono}>contain</Text>, cierre con botón X, flechas y miniaturas en galería.
         </Text>
-        <ButtonPrimary accessibilityLabel="Abrir demo lightbox" onPress={() => setFullscreenOpen(true)}>
-          Abrir ImageFullscreenModal
-        </ButtonPrimary>
+        <View style={styles.lightboxActions}>
+          <ButtonPrimary
+            accessibilityLabel="Abrir demo lightbox una foto"
+            onPress={() => setLightboxDemo('single')}
+          >
+            Una foto
+          </ButtonPrimary>
+          <ButtonSecondary
+            accessibilityLabel="Abrir demo lightbox galería"
+            onPress={() => setLightboxDemo('gallery')}
+          >
+            Galería (3 fotos)
+          </ButtonSecondary>
+        </View>
         <ImageFullscreenModal
-          visible={fullscreenOpen}
-          uri={DEMO_FULL_URI}
-          onClose={() => setFullscreenOpen(false)}
+          visible={lightboxDemo !== 'closed'}
+          uri={lightboxDemo === 'single' ? DEMO_FULL_URI : undefined}
+          uris={lightboxDemo === 'gallery' ? [...DEMO_GALLERY_URIS] : undefined}
+          onClose={() => setLightboxDemo('closed')}
         />
       </View>
     </View>
@@ -120,5 +141,11 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     maxWidth: '100%',
+  },
+  lightboxActions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.sm,
+    alignItems: 'center',
   },
 });

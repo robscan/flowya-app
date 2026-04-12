@@ -84,6 +84,7 @@ import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
@@ -599,6 +600,11 @@ export function MapScreenVNext() {
   const suppressToastRef = useRef(false);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
+  const gallerySpotId =
+    selectedSpot && !selectedSpot.id.startsWith("draft_")
+      ? selectedSpot.id
+      : null;
+  const { galleryUris } = useSpotGalleryUris(gallerySpotId);
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
     exploreRuntimeReducer,
     INITIAL_EXPLORE_RUNTIME_STATE,
@@ -2435,6 +2441,22 @@ export function MapScreenVNext() {
           ? "medium"
           : null;
     if (!spotId || targetState === null) return;
+
+    /**
+     * El spot ya está seleccionado (p. ej. usuario en Explorar → Editar → atrás con `?spotId&sheet=`).
+     * `appliedSpotIdFromParamsRef === spotId` haría return sin tocar el sheet; forzamos el detent y limpiamos URL.
+     */
+    if (
+      appliedSpotIdFromParamsRef.current === spotId &&
+      selectedSpot?.id === spotId
+    ) {
+      setSheetState(targetState);
+      setTimeout(() => {
+        (router.replace as (href: string) => void)("/(tabs)");
+      }, 0);
+      return;
+    }
+
     if (appliedSpotIdFromParamsRef.current === spotId) return;
 
     const applySpot = (spot: Spot) => {
@@ -2490,6 +2512,7 @@ export function MapScreenVNext() {
     params.sheet,
     router,
     queueDeepLinkFocus,
+    selectedSpot?.id,
     setSheetState,
     ensureSpotVisibleWithActiveFilter,
     pushRecentViewedSpotId,
@@ -2954,7 +2977,10 @@ export function MapScreenVNext() {
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
-  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+  const [fullscreenLightbox, setFullscreenLightbox] = useState<{
+    uris: string[];
+    initialIndex: number;
+  } | null>(null);
   const resetPoiTappedVisualState = useCallback((poi: TappedMapFeature) => {
     setPoiTapped((prev) => {
       if (!prev) return prev;
@@ -5369,8 +5395,9 @@ export function MapScreenVNext() {
         selectedSpot
           ? (spotId) => {
               blurActiveElement();
+              /** `returnTo=explore`: al atrás, replace con deep link (sheet extended), no `router.back()` (no restaura sheet). */
               (router.push as (href: string) => void)(
-                `/spot/edit/${spotId}`,
+                `/spot/edit/${spotId}?returnTo=explore`,
               );
             }
           : undefined
@@ -5385,9 +5412,15 @@ export function MapScreenVNext() {
       onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
       onPoiShare={handleCreateSpotFromPoiAndShare}
       poiLoading={poiSheetLoading}
+      heroImageUris={galleryUris}
       onImagePress={
-        selectedSpot?.cover_image_url
-          ? (uri) => setFullscreenImageUri(uri)
+        selectedSpot &&
+        (galleryUris.length > 0 || Boolean(selectedSpot.cover_image_url))
+          ? (payload) =>
+              setFullscreenLightbox({
+                uris: payload.allUris,
+                initialIndex: payload.index,
+              })
           : undefined
       }
       sheetTagChips={sheetSpotTagChips}
@@ -6379,9 +6412,10 @@ export function MapScreenVNext() {
       {/* CONTRATO: Sheet disabled while search open; ocultar cuando flujo de creación (CreateSpotNameOverlay) activo; web ≥1080 → columna lateral */}
       {spotSheetChromeVisible && !spotInSidebarDesktop ? renderExploreSpotSheet(false) : null}
       <ImageFullscreenModal
-        visible={fullscreenImageUri != null}
-        uri={fullscreenImageUri}
-        onClose={() => setFullscreenImageUri(null)}
+        visible={fullscreenLightbox != null}
+        uris={fullscreenLightbox?.uris}
+        initialIndex={fullscreenLightbox?.initialIndex ?? 0}
+        onClose={() => setFullscreenLightbox(null)}
       />
       <ConfirmModal
         visible={showLogoutConfirm}

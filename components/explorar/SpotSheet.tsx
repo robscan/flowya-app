@@ -10,11 +10,12 @@
  * - X dismiss: onClose llamado al tap X (parent setSelectedSpot(null) → unmount)
  * - map->peek: parent useMapCore onUserMapGestureStart → setSheetState("peek")
  * - drag 3 estados: Pan gesture en handle/header → peek ↔ medium ↔ expanded
- * - scroll único: un solo ScrollView en body (bodyNeedsScroll); header fijo
+ * - scroll único: un solo ScrollView en body (solo en expanded si hace falta); en **medium** el cuerpo no hace scroll — el sheet crece con el contenido (EXPLORE_SHEET medium sin scroll fantasma).
  */
 
 import { ImagePlaceholder } from "@/components/design-system/image-placeholder";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
+import { SpotImageGrid } from "@/components/design-system/spot-image-grid";
 import { SpotImage } from "@/components/design-system/spot-image";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
@@ -25,6 +26,7 @@ import {
     formatDistanceKm,
     getMapsDirectionsUrl,
 } from "@/lib/geo-utils";
+import type { SpotHeroImagePressHandler } from "@/lib/spot-hero-press";
 import {
     CheckCircle,
     Hash,
@@ -32,7 +34,14 @@ import {
     Pencil,
     Pin,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
     ActivityIndicator,
     Dimensions,
@@ -100,8 +109,13 @@ export const EXPANDED_HEIGHT_VISIBLE = SHEET_EXPANDED_HEIGHT;
 export const MAX_SHEET_HEIGHT = SHEET_EXPANDED_HEIGHT;
 
 const COVER_HEIGHT = 100;
-/** Panel lateral web (≥1080): más altura útil para la portada en columna estrecha. */
+/** Panel lateral web: hero con más aire en columna estrecha (solo `webDesktopSidebar`). */
 const COVER_HEIGHT_WEB_SIDEBAR = 200;
+/** Sheet móvil (no sidebar): tope bajo del hero (portada o galería). */
+const COVER_HEIGHT_GALLERY_MOBILE = 180;
+const COVER_HEIGHT_GALLERY_MAX_MOBILE = 220;
+/** Tope dinámico: el hero móvil no supera este % del alto de ventana. */
+const GALLERY_HERO_MAX_VIEWPORT_RATIO = 0.3;
 const HEADER_BUTTON_SIZE = 40;
 const ACTION_PILL_HEIGHT = 46;
 const ACTION_PILL_GAP = 12;
@@ -187,8 +201,10 @@ export type SpotSheetProps = {
   poiLoading?: boolean;
   /** Override del título mostrado (p. ej. nombre resuelto desde tiles del mapa). */
   displayTitleOverride?: string | null;
-  /** Al tocar la imagen de portada: abrir en pantalla completa (lightbox). */
-  onImagePress?: (uri: string) => void;
+  /** Al tocar imagen del hero (portada o galería): lightbox con contexto completo. */
+  onImagePress?: SpotHeroImagePressHandler;
+  /** URLs del hero en orden (galería + portada); si no se pasa, solo `spot.cover_image_url`. */
+  heroImageUris?: string[];
   /** Etiquetas del spot en el sheet (solo lectura). */
   sheetTagChips?: { id: string; label: string }[];
   /** Tap en chip: buscador en Por visitar o Visitados con filtro por esa etiqueta. */
@@ -303,6 +319,8 @@ function MediumBodyContent({
   onSheetEtiquetarPress,
   isAuthUser,
   coverHeight = COVER_HEIGHT,
+  heroImageUris,
+  webDesktopSidebar = false,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -315,15 +333,44 @@ function MediumBodyContent({
   | "handleSavePin"
 > & {
   isDraft?: boolean;
-  onImagePress?: (uri: string) => void;
+  onImagePress?: SpotHeroImagePressHandler;
   distanceKmVal: number | null;
   sheetTagChips?: { id: string; label: string }[];
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
   isAuthUser?: boolean;
-  /** Por defecto `COVER_HEIGHT`; en sidebar web suele ser `COVER_HEIGHT_WEB_SIDEBAR`. */
+  /** Por defecto `COVER_HEIGHT`; en sidebar web el padre suele pasar `COVER_HEIGHT_WEB_SIDEBAR`. */
   coverHeight?: number;
+  /** Lista canónica de URLs del hero (galería o [portada]). */
+  heroImageUris?: string[];
+  /** Columna lateral desktop: hero con `coverHeight` único (sin subir grid aparte). */
+  webDesktopSidebar?: boolean;
 }) {
+  const effectiveUris =
+    heroImageUris != null && heroImageUris.length > 0
+      ? heroImageUris
+      : spot.cover_image_url
+        ? [spot.cover_image_url]
+        : [];
+  const showGrid = effectiveUris.length > 1;
+
+  const { height: windowHeight } = useWindowDimensions();
+  /**
+   * Sidebar desktop: `coverHeight` del padre (p. ej. `COVER_HEIGHT_WEB_SIDEBAR`).
+   * Móvil: techo adaptativo; no usa `coverHeight` (ver rama inferior).
+   */
+  const resolvedHeroHeight = useMemo(() => {
+    if (webDesktopSidebar) return coverHeight;
+    const dim = Dimensions.get("window");
+    const winH =
+      windowHeight > 0 ? windowHeight : dim.height > 0 ? dim.height : 640;
+    const byViewport = Math.round(winH * GALLERY_HERO_MAX_VIEWPORT_RATIO);
+    return Math.min(
+      COVER_HEIGHT_GALLERY_MOBILE,
+      COVER_HEIGHT_GALLERY_MAX_MOBILE,
+      byViewport,
+    );
+  }, [webDesktopSidebar, coverHeight, windowHeight]);
 
   return (
     <>
@@ -339,28 +386,48 @@ function MediumBodyContent({
       ) : null}
       {hasCover ? (
         <View style={styles.imageRow}>
-          <View style={styles.imageWrap}>
-            {spot.cover_image_url && onImagePress ? (
-              <Pressable
-                onPress={() => onImagePress(spot.cover_image_url!)}
-                accessibilityLabel="Ver imagen en pantalla completa"
-                accessibilityRole="button"
-              >
+          <View style={[styles.imageWrap, { height: resolvedHeroHeight }]}>
+            {showGrid ? (
+              <SpotImageGrid
+                uris={effectiveUris}
+                totalHeight={resolvedHeroHeight}
+                onImagePress={(index) =>
+                  onImagePress?.({
+                    uri: effectiveUris[index]!,
+                    allUris: effectiveUris,
+                    index,
+                  })
+                }
+              />
+            ) : effectiveUris[0] ? (
+              onImagePress ? (
+                <Pressable
+                  onPress={() =>
+                    onImagePress({
+                      uri: effectiveUris[0]!,
+                      allUris: effectiveUris,
+                      index: 0,
+                    })
+                  }
+                  accessibilityLabel="Ver imagen en pantalla completa"
+                  accessibilityRole="button"
+                >
+                  <SpotImage
+                    uri={effectiveUris[0]}
+                    height={resolvedHeroHeight}
+                    borderRadius={Radius.md}
+                    colorScheme={colorScheme ?? undefined}
+                  />
+                </Pressable>
+              ) : (
                 <SpotImage
-                  uri={spot.cover_image_url}
-                  height={coverHeight}
+                  uri={effectiveUris[0]}
+                  height={resolvedHeroHeight}
                   borderRadius={Radius.md}
                   colorScheme={colorScheme ?? undefined}
                 />
-              </Pressable>
-            ) : (
-              <SpotImage
-                uri={spot.cover_image_url}
-                height={coverHeight}
-                borderRadius={Radius.md}
-                colorScheme={colorScheme ?? undefined}
-              />
-            )}
+              )
+            ) : null}
           </View>
         </View>
       ) : null}
@@ -818,11 +885,13 @@ type SpotSheetBodyProps = {
   handleDirections: () => void;
   handleEdit: () => void;
   onEdit?: (spotId: string) => void;
-  onImagePress?: (uri: string) => void;
+  onImagePress?: SpotHeroImagePressHandler;
+  heroImageUris?: string[];
   sheetTagChips?: { id: string; label: string }[];
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
   coverImageHeight?: number;
+  webDesktopSidebar?: boolean;
 };
 
 function SpotSheetBody({
@@ -860,10 +929,12 @@ function SpotSheetBody({
   handleEdit,
   onEdit,
   onImagePress,
+  heroImageUris,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
   coverImageHeight = COVER_HEIGHT,
+  webDesktopSidebar = false,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -899,12 +970,14 @@ function SpotSheetBody({
           colorScheme={colorScheme ?? 'light'}
           handleSavePin={handleSavePin}
           onImagePress={onImagePress}
+          heroImageUris={heroImageUris}
           distanceKmVal={distanceKmVal}
           sheetTagChips={sheetTagChips}
           onSheetTagChipPress={onSheetTagChipPress}
           onSheetEtiquetarPress={onSheetEtiquetarPress}
           isAuthUser={isAuthUser}
           coverHeight={coverImageHeight}
+          webDesktopSidebar={webDesktopSidebar}
         />
         {isDraft ? (
           <DraftInlineEditor
@@ -983,6 +1056,7 @@ export function SpotSheet({
   poiLoading = false,
   displayTitleOverride,
   onImagePress,
+  heroImageUris,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
@@ -1033,13 +1107,25 @@ export function SpotSheet({
   const isDraftForAnchor = spot ? spot.id.startsWith("draft_") : false;
   const isDraftWithMinimalContent = isDraftForAnchor && !isPlacingDraftSpot;
 
+  /**
+   * Padding inferior del chrome del sheet: en peek/medium solo safe-area + mínimo (sin 24px extra
+   * que dejaba hueco y disparaba scroll en el body). En expanded se mantiene más respiro por scroll.
+   */
+  const sheetFooterReservePeekOrMedium = Math.max(insets.bottom, Spacing.sm);
+  const sheetFooterReserveExpanded = Math.max(
+    24,
+    CONTAINER_PADDING_BOTTOM + insets.bottom,
+  );
+
   /** Altura total del contenido (header + body + padding) para no dejar espacio vacío bajo el sheet. */
   const mediumContentTotal =
-    collapsedAnchor + mediumBodyContentHeight + CONTAINER_PADDING_BOTTOM;
+    collapsedAnchor +
+    mediumBodyContentHeight +
+    sheetFooterReservePeekOrMedium;
   const expandedContentTotal =
     collapsedAnchor +
     (fullBodyContentHeight || mediumBodyContentHeight) +
-    CONTAINER_PADDING_BOTTOM;
+    sheetFooterReserveExpanded;
   const mediumVisible =
     mediumBodyContentHeight > 0
       ? Math.min(mediumAnchor, mediumContentTotal)
@@ -1050,7 +1136,9 @@ export function SpotSheet({
       : expandedAnchor;
   /** Draft "Agregar imagen": anchor adaptativo para evitar sheet alto + scroll innecesario (MS-6). */
   const draftExpandedCap =
-    collapsedAnchor + DRAFT_BODY_HEIGHT_ESTIMATE + CONTAINER_PADDING_BOTTOM;
+    collapsedAnchor +
+    DRAFT_BODY_HEIGHT_ESTIMATE +
+    sheetFooterReservePeekOrMedium;
   const expandedVisible = isDraftWithMinimalContent
     ? Math.min(expandedVisibleRaw, draftExpandedCap)
     : expandedVisibleRaw;
@@ -1319,12 +1407,24 @@ export function SpotSheet({
   if (spot == null && !poi) return null;
 
   const isDraft = spot ? spot.id.startsWith("draft_") : false;
-  /** Draft "Agregar imagen": contenido mínimo, sin scroll necesario (MS-6). */
+  /**
+   * Medium: nunca ScrollView en el body (mobile): el detent crece con `mediumContentTotal`;
+   * un maxHeight + padding generaba scroll con barra aun habiendo espacio.
+   * Expanded: scroll solo si el contenido supera el viewport disponible.
+   * Draft mínimo: sin scroll (MS-6).
+   */
   const effectiveBodyNeedsScroll =
-    isDraft && !isPlacingDraftSpot ? false : bodyNeedsScroll;
+    state === "medium"
+      ? false
+      : isDraft && !isPlacingDraftSpot
+        ? false
+        : bodyNeedsScroll;
   const colors = Colors[colorScheme ?? "light"];
   const hasDesc = spot ? Boolean(spot.description_short?.trim()) : false;
-  const hasCover = spot ? Boolean(spot.cover_image_url) : false;
+  const hasCover = spot
+    ? (heroImageUris != null && heroImageUris.length > 0) ||
+      Boolean(spot.cover_image_url)
+    : false;
   const isSaved = spot ? (spot.saved ?? spot.pinStatus === "to_visit") : false;
   const isVisited = spot ? (spot.visited ?? spot.pinStatus === "visited") : false;
   const distanceKmVal =
@@ -1371,6 +1471,11 @@ export function SpotSheet({
   const bottomOffset = Math.max(Spacing.md, insets.bottom);
   const sheetBottom = state === "expanded" ? 0 : bottomOffset;
 
+  const sheetContainerPaddingBottom =
+    state === "expanded"
+      ? sheetFooterReserveExpanded
+      : sheetFooterReservePeekOrMedium;
+
   const sheetAnimated = (
     <Animated.View
       style={[
@@ -1381,7 +1486,7 @@ export function SpotSheet({
           borderColor: colors.borderSubtle,
           height: webDesktopSidebar ? ("100%" as const) : expandedAnchor,
           bottom: webDesktopSidebar ? 0 : useWebConstrainedSheet ? 0 : sheetBottom,
-          paddingBottom: Math.max(24, CONTAINER_PADDING_BOTTOM + insets.bottom),
+          paddingBottom: sheetContainerPaddingBottom,
         },
         webDesktopSidebar ? null : animatedContainerStyle,
       ]}
@@ -1462,12 +1567,14 @@ export function SpotSheet({
         handleEdit={handleEdit}
         onEdit={onEdit}
         onImagePress={onImagePress}
+        heroImageUris={heroImageUris}
         sheetTagChips={sheetTagChips}
         onSheetTagChipPress={onSheetTagChipPress}
         onSheetEtiquetarPress={onSheetEtiquetarPress}
         coverImageHeight={
           webDesktopSidebar ? COVER_HEIGHT_WEB_SIDEBAR : COVER_HEIGHT
         }
+        webDesktopSidebar={webDesktopSidebar}
       />
 
       <ConfirmModal
@@ -1708,7 +1815,6 @@ const styles = StyleSheet.create({
   },
   imageWrap: {
     width: "100%",
-    height: COVER_HEIGHT,
     borderRadius: Radius.md,
     overflow: "hidden",
   },

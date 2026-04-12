@@ -1,8 +1,17 @@
 # OL-CONTENT-002 — Galería v1 (scope acotado)
 
 **Fecha:** 2026-03-11  
-**Estado:** Plan guardado para ejecución posterior  
-**Scope:** Solo galería multi-foto. Seguridad y clima **deprecados/postponed**.
+**Estado:** **Cerrado (alcance web)** — 2026-04-12. Evidencia cierre: bitácora [`347`](../../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md).  
+**Scope original:** Solo galería multi-foto. Seguridad y clima **deprecados/postponed**.
+
+### Alcance cumplido (web)
+
+- **Fase 1 (fundamentos):** migraciones **`024_spot_images.sql`**, **`025_storage_spot_gallery_owner.sql`**; **`lib/spot-images.ts`**, **`lib/spot-image-upload.ts`**. Bitácora [`346`](../../bitacora/2026/04/346-ol-content-002-fase1-spot-images-db-lib.md).
+- **UI web:** crear spot con varias fotos (`app/create-spot/index.web.tsx`); editar spot galería + reorden + portada (`app/spot/edit/[id].web.tsx`); exploración/detalle/sheet con **`SpotImageGrid`**, **`ImageFullscreenModal`** (modo `uris[]`), **`useSpotGalleryUris`**.
+
+### Fuera de alcance de este cierre (no bloquea el OL)
+
+- **Paridad nativa** (`app/create-spot/index.tsx`, `app/spot/edit/[id].tsx` u otro stack): **diferida** hasta prioridad de producto y decisión de tecnología (p. ej. RN vs otra base). No hay loop activo asociado a esa paridad.
 
 ---
 

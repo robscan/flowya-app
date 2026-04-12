@@ -19,6 +19,7 @@ import {
 
 import { Colors, Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { SpotHeroImagePressHandler } from '@/lib/spot-hero-press';
 import { optimizeSpotImage } from '@/lib/spot-image-optimize';
 import { uploadSpotCover } from '@/lib/spot-image-upload';
 import { supabase } from '@/lib/supabase';
@@ -30,6 +31,7 @@ import type { SavePinState } from './icon-button';
 import { IconButton } from './icon-button';
 import { ImagePlaceholder } from './image-placeholder';
 import type { SpotPinStatus } from './map-pins';
+import { SpotImageGrid } from './spot-image-grid';
 import { SpotImage } from './spot-image';
 
 export type SpotDetailSpot = {
@@ -68,8 +70,10 @@ export type SpotDetailProps = {
   mapSlot: React.ReactNode;
   /** Texto de distancia, ej. "A 1.2 km de tu ubicación". Solo si hay ubicación del usuario. */
   distanceText?: string | null;
-  /** Al tocar la imagen del hero (abrir en grande). */
-  onImagePress?: (uri: string) => void;
+  /** URLs del hero (galería); si no hay, se usa solo `cover_image_url`. */
+  heroImageUris?: string[];
+  /** Al tocar imagen del hero (lightbox con contexto completo). */
+  onImagePress?: SpotHeroImagePressHandler;
   /** Tras cambiar o quitar la foto de portada (Edit Spot). */
   onCoverImageChange?: (url: string | null) => void;
   /** Si true, no se muestra el hero con imagen (ej. pantalla Edit Spot). */
@@ -97,6 +101,7 @@ export function SpotDetail({
   onDeleteSpot,
   mapSlot,
   distanceText,
+  heroImageUris,
   onImagePress,
   onCoverImageChange,
   hideHero = false,
@@ -210,6 +215,15 @@ export function SpotDetail({
       ? SAVE_PIN_ICON_ON_STATE
       : colors.background;
 
+  const effectiveHeroUris =
+    heroImageUris != null && heroImageUris.length > 0
+      ? heroImageUris
+      : spot.cover_image_url
+        ? [spot.cover_image_url]
+        : [];
+  const heroShowGrid = effectiveHeroUris.length > 1;
+  const heroDisplayUri = effectiveHeroUris[0] ?? spot.cover_image_url;
+
   return (
     <View
       style={[styles.root, Platform.OS === 'web' && styles.rootWebScroll]}
@@ -228,17 +242,44 @@ export function SpotDetail({
           <View
             style={[styles.hero, { backgroundColor: colors.surfaceMuted ?? colors.border }]}
           >
-            <SpotImage
-              uri={spot.cover_image_url}
-              height={HERO_HEIGHT}
-              borderRadius={0}
-              colorScheme={colorScheme ?? undefined}
-              onPress={
-                spot.cover_image_url && onImagePress
-                  ? () => onImagePress(spot.cover_image_url!)
-                  : undefined
-              }
-            />
+            {heroShowGrid ? (
+              <SpotImageGrid
+                uris={effectiveHeroUris}
+                totalHeight={HERO_HEIGHT}
+                onImagePress={
+                  onImagePress
+                    ? (index) =>
+                        onImagePress({
+                          uri: effectiveHeroUris[index]!,
+                          allUris: effectiveHeroUris,
+                          index,
+                        })
+                    : undefined
+                }
+              />
+            ) : (
+              <SpotImage
+                uri={heroDisplayUri}
+                height={HERO_HEIGHT}
+                borderRadius={0}
+                colorScheme={colorScheme ?? undefined}
+                onPress={
+                  heroDisplayUri && onImagePress
+                    ? () =>
+                        onImagePress({
+                          uri: heroDisplayUri,
+                          allUris:
+                            effectiveHeroUris.length > 0
+                              ? effectiveHeroUris
+                              : heroDisplayUri
+                                ? [heroDisplayUri]
+                                : [],
+                          index: 0,
+                        })
+                    : undefined
+                }
+              />
+            )}
             {/* Overlay de acciones */}
             <View
               style={[styles.heroActions, { pointerEvents: 'box-none' }]}

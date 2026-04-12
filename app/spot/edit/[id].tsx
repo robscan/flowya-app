@@ -4,6 +4,7 @@
  */
 
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
 import { ArrowLeft } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -33,7 +34,10 @@ type SpotEdit = {
 };
 
 export default function EditSpotScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, returnTo } = useLocalSearchParams<{
+    id: string;
+    returnTo?: string;
+  }>();
   const router = useRouter();
   const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
@@ -80,8 +84,12 @@ export default function EditSpotScreen() {
   }, [id]);
 
   const handleBack = useCallback(() => {
+    if (returnTo === "explore" && id) {
+      (router.replace as (href: string) => void)(getMapSpotDeepLink(id, "extended"));
+      return;
+    }
     router.back();
-  }, [router]);
+  }, [router, returnTo, id]);
 
   const handleSave = useCallback(async () => {
     if (!spot?.id || !title.trim()) {
@@ -111,8 +119,12 @@ export default function EditSpotScreen() {
       return;
     }
     toast.show("Cambios guardados correctamente", { type: "success" });
-    router.back();
-  }, [spot?.id, title, shortDesc, longDesc, toast, openAuthModal, router]);
+    if (returnTo === "explore" && spot?.id) {
+      (router.replace as (href: string) => void)(getMapSpotDeepLink(spot.id, "extended"));
+    } else {
+      router.back();
+    }
+  }, [spot?.id, title, shortDesc, longDesc, toast, openAuthModal, router, returnTo]);
 
   if (loading) {
     return (
