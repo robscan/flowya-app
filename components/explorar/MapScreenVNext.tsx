@@ -1446,70 +1446,73 @@ export function MapScreenVNext() {
     [createSpotNameOverlayOpen, isPlacingDraftSpot, programmaticFlyTo, suspendFilterUntilCameraSettles],
   );
 
+  /**
+   * Entrada globo: se dispara desde `onLoad` (mapa real en `e.target`), no desde un efecto
+   * que depende de `mapInstance` en estado — evita carreras y `flyTo` contra un mapa obsoleto.
+   */
   const handleMapLoadWithFilterDelay = useCallback(
     (e: Parameters<typeof onMapLoad>[0]) => {
       suspendFilterUntilCameraSettles();
       onMapLoad(e);
-    },
-    [onMapLoad, suspendFilterUntilCameraSettles],
-  );
 
-  const shouldSkipGlobeEntryMotion = Boolean(
-    params.spotId ||
-      params.created ||
-      selectedSpot != null ||
-      poiTapped != null ||
-      searchIsOpenRef.current ||
-      createSpotNameOverlayOpen,
-  );
+      const skipGlobeEntry =
+        Boolean(params.spotId || params.created) ||
+        selectedSpot != null ||
+        poiTapped != null ||
+        searchIsOpenRef.current ||
+        createSpotNameOverlayOpen;
 
-  useEffect(() => {
-    if (!mapInstance) return;
-    if (globeEntryMotionPlayedRef.current) return;
-    if (shouldSkipGlobeEntryMotion) {
-      globeEntryMotionPlayedRef.current = true;
-      setIsGlobeEntryMotionSettled(true);
-      return;
-    }
+      if (globeEntryMotionDelayRef.current != null) {
+        clearTimeout(globeEntryMotionDelayRef.current);
+        globeEntryMotionDelayRef.current = null;
+      }
 
-    globeEntryMotionDelayRef.current = setTimeout(() => {
-      if (
-        globeEntryMotionPlayedRef.current ||
-        shouldSkipGlobeEntryMotion ||
-        !mapInstance
-      ) {
+      globeEntryMotionDelayRef.current = setTimeout(() => {
+        globeEntryMotionDelayRef.current = null;
+        if (globeEntryMotionPlayedRef.current) return;
+        if (skipGlobeEntry) {
+          globeEntryMotionPlayedRef.current = true;
+          setIsGlobeEntryMotionSettled(true);
+          return;
+        }
         globeEntryMotionPlayedRef.current = true;
-        return;
-      }
-      globeEntryMotionPlayedRef.current = true;
-      globeEntryMotionInFlightRef.current = true;
-      suspendFilterUntilCameraSettlesRef.current();
-      if (globeEntrySettleFallbackRef.current != null) {
-        clearTimeout(globeEntrySettleFallbackRef.current);
-        globeEntrySettleFallbackRef.current = null;
-      }
-      try {
-        const center = mapInstance.getCenter();
-        // Usar fly programático canónico para no disparar handlers de gesto de usuario
-        // que desactivan el bootstrap de sugerencias globales en cold-start.
-        programmaticFlyToRef.current(
-          { lng: center.lng, lat: center.lat },
-          { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
-        );
-        globeEntrySettleFallbackRef.current = setTimeout(() => {
+        globeEntryMotionInFlightRef.current = true;
+        suspendFilterUntilCameraSettlesRef.current();
+        if (globeEntrySettleFallbackRef.current != null) {
+          clearTimeout(globeEntrySettleFallbackRef.current);
           globeEntrySettleFallbackRef.current = null;
-          if (globeEntryMotionInFlightRef.current) {
-            globeEntryMotionInFlightRef.current = false;
-            setIsGlobeEntryMotionSettled(true);
-          }
-        }, FIT_BOUNDS_DURATION_MS + 600);
-      } catch {
-        globeEntryMotionInFlightRef.current = false;
-        setIsGlobeEntryMotionSettled(true);
-      }
-    }, 160);
+        }
+        try {
+          programmaticFlyToRef.current(
+            { lng: e.target.getCenter().lng, lat: e.target.getCenter().lat },
+            { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
+          );
+          globeEntrySettleFallbackRef.current = setTimeout(() => {
+            globeEntrySettleFallbackRef.current = null;
+            if (globeEntryMotionInFlightRef.current) {
+              globeEntryMotionInFlightRef.current = false;
+              setIsGlobeEntryMotionSettled(true);
+            }
+          }, FIT_BOUNDS_DURATION_MS + 600);
+        } catch {
+          globeEntryMotionInFlightRef.current = false;
+          setIsGlobeEntryMotionSettled(true);
+        }
+      }, 160);
+    },
+    [
+      onMapLoad,
+      suspendFilterUntilCameraSettles,
+      params.spotId,
+      params.created,
+      selectedSpot,
+      poiTapped,
+      createSpotNameOverlayOpen,
+    ],
+  );
 
-    return () => {
+  useEffect(
+    () => () => {
       if (globeEntryMotionDelayRef.current != null) {
         clearTimeout(globeEntryMotionDelayRef.current);
         globeEntryMotionDelayRef.current = null;
@@ -1518,8 +1521,9 @@ export function MapScreenVNext() {
         clearTimeout(globeEntrySettleFallbackRef.current);
         globeEntrySettleFallbackRef.current = null;
       }
-    };
-  }, [mapInstance, shouldSkipGlobeEntryMotion]);
+    },
+    [],
+  );
 
   /** Misma heurística que useMapCore reframe + búsqueda (fitBounds si hay mapbox_bbox). */
   const focusCameraOnSpot = useCallback(
