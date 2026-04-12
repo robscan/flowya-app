@@ -600,8 +600,6 @@ export function MapScreenVNext() {
   const suppressToastRef = useRef(false);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  /** True mientras persiste Por visitar / Visitado (feedback inmediato en sheet). */
-  const [pinMutationPending, setPinMutationPending] = useState(false);
   const gallerySpotId =
     selectedSpot && !selectedSpot.id.startsWith("draft_")
       ? selectedSpot.id
@@ -4643,7 +4641,6 @@ export function MapScreenVNext() {
         });
         return;
       }
-      const previousSpotSnapshot: Spot = { ...spot };
       const currentSaved = Boolean(spot.saved ?? (spot.pinStatus === "to_visit"));
       const currentVisited = Boolean(spot.visited ?? (spot.pinStatus === "visited"));
       const currentState = { saved: currentSaved, visited: currentVisited };
@@ -4676,144 +4673,83 @@ export function MapScreenVNext() {
       ) {
         return;
       }
-
-      const optimisticPinStatus: SpotPinStatus = normalizedState.visited
+      const nextState = await setPinState(spot.id, normalizedState);
+      if (!nextState) return;
+      const nextPinStatus: SpotPinStatus = nextState.visited
         ? "visited"
-        : normalizedState.saved
+        : nextState.saved
           ? "to_visit"
           : "default";
-      const optimisticSpot: Spot = {
+      const nextSpotSelection: Spot = {
         ...spot,
-        saved: normalizedState.saved,
-        visited: normalizedState.visited,
-        pinStatus: optimisticPinStatus,
+        saved: nextState.saved,
+        visited: nextState.visited,
+        pinStatus: nextPinStatus,
       };
-      updateSpotPinState(spot.id, normalizedState);
-      setSelectedSpot(optimisticSpot);
-      setPinMutationPending(true);
+      const isExplicitClearAction =
+        targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
+      if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
+        preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
+      } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
+        preserveOutOfFilterSelectionSpotIdRef.current = null;
+      }
 
-      const revertOptimistic = () => {
-        const prevSaved = Boolean(
-          previousSpotSnapshot.saved ??
-            previousSpotSnapshot.pinStatus === "to_visit",
-        );
-        const prevVisited = Boolean(
-          previousSpotSnapshot.visited ??
-            previousSpotSnapshot.pinStatus === "visited",
-        );
-        updateSpotPinState(spot.id, { saved: prevSaved, visited: prevVisited });
-        setSelectedSpot(previousSpotSnapshot);
-      };
+      const transition = resolveFilterTransitionPolicy({
+        currentFilter: pinFilter,
+        nextSaved: nextState.saved,
+        nextVisited: nextState.visited,
+        policy: "sticky",
+      });
 
-      try {
-        const nextState = await setPinState(spot.id, normalizedState, userId);
-        if (!nextState) {
-          revertOptimistic();
-          if (!suppressToastRef.current) {
-            toast.show("No se pudo actualizar el estado.", { type: "error" });
-          }
-          return;
+      if (!nextState.saved && !nextState.visited) {
+        if (lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
         }
-        const nextPinStatus: SpotPinStatus = nextState.visited
-          ? "visited"
-          : nextState.saved
-            ? "to_visit"
-            : "default";
-        const nextSpotSelection: Spot = {
-          ...spot,
-          saved: nextState.saved,
-          visited: nextState.visited,
-          pinStatus: nextPinStatus,
-        };
-        const isExplicitClearAction =
-          targetStatus === "clear_to_visit" || targetStatus === "clear_visited";
-        if (isExplicitClearAction && !nextState.saved && !nextState.visited) {
-          preserveOutOfFilterSelectionSpotIdRef.current = spot.id;
-        } else if (preserveOutOfFilterSelectionSpotIdRef.current === spot.id) {
-          preserveOutOfFilterSelectionSpotIdRef.current = null;
+        if (lastStatusSpotIdRef.current.visited === spot.id) {
+          lastStatusSpotIdRef.current.visited = null;
         }
-
-        const transition = resolveFilterTransitionPolicy({
-          currentFilter: pinFilter,
-          nextSaved: nextState.saved,
-          nextVisited: nextState.visited,
-          policy: "sticky",
-        });
-
-        if (!nextState.saved && !nextState.visited) {
-          if (lastStatusSpotIdRef.current.saved === spot.id) {
-            lastStatusSpotIdRef.current.saved = null;
-          }
-          if (lastStatusSpotIdRef.current.visited === spot.id) {
-            lastStatusSpotIdRef.current.visited = null;
-          }
+        updatePendingFilterBadges((prev) => ({ ...prev, saved: false, visited: false }));
+      } else if (transition.ctaTargetFilter && transition.ctaTargetFilter !== "all") {
+        const destinationFilter = transition.ctaTargetFilter;
+        lastStatusSpotIdRef.current[destinationFilter] = spot.id;
+        if (destinationFilter === "visited" && lastStatusSpotIdRef.current.saved === spot.id) {
+          lastStatusSpotIdRef.current.saved = null;
+        }
+        if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
           updatePendingFilterBadges((prev) => ({
             ...prev,
-            saved: false,
-            visited: false,
+            [destinationFilter]: true,
           }));
-        } else if (
-          transition.ctaTargetFilter &&
-          transition.ctaTargetFilter !== "all"
-        ) {
-          const destinationFilter = transition.ctaTargetFilter;
-          lastStatusSpotIdRef.current[destinationFilter] = spot.id;
-          if (
-            destinationFilter === "visited" &&
-            lastStatusSpotIdRef.current.saved === spot.id
-          ) {
-            lastStatusSpotIdRef.current.saved = null;
-          }
-          if (shouldMarkPendingBadge({ currentFilter: pinFilter })) {
-            updatePendingFilterBadges((prev) => ({
-              ...prev,
-              [destinationFilter]: true,
-            }));
-          }
         }
-        if (transition.shouldPulse) {
-          setPinFilterPulseNonce((n) => n + 1);
-        }
+      }
+      if (transition.shouldPulse) {
+        setPinFilterPulseNonce((n) => n + 1);
+      }
 
-        updateSpotPinState(spot.id, nextState);
-        setSelectedSpot(nextSpotSelection);
-        setRecentMutation(spot.id, pinFilter);
-        if (
-          mapInstance &&
-          !isPointVisibleInViewport(
-            mapInstance,
-            spot.longitude,
-            spot.latitude,
-          )
-        ) {
-          flyToUnlessActMode(
-            { lng: spot.longitude, lat: spot.latitude },
-            { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-          );
-        }
-        const outcome = nextState.visited
-          ? "visited"
-          : nextState.saved
-            ? "saved"
-            : "dismissed";
-        recordExploreDecisionCompleted({ outcome, pinFilter });
-        setSheetState("medium");
-        if (!suppressToastRef.current) {
-          const toastText =
-            outcome === "visited"
-              ? "Marcado como visitado."
-              : outcome === "saved"
-                ? "Agregado a Por visitar."
-                : "Estado actualizado.";
-          toast.show(toastText, { type: "success", replaceVisible: true });
-        }
-      } catch {
-        revertOptimistic();
-        if (!suppressToastRef.current) {
-          toast.show("No se pudo actualizar el estado.", { type: "error" });
-        }
-      } finally {
-        setPinMutationPending(false);
+      updateSpotPinState(spot.id, nextState);
+      setSelectedSpot(nextSpotSelection);
+      setRecentMutation(spot.id, pinFilter);
+      if (mapInstance && !isPointVisibleInViewport(mapInstance, spot.longitude, spot.latitude)) {
+        flyToUnlessActMode(
+          { lng: spot.longitude, lat: spot.latitude },
+          { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+        );
+      }
+      const outcome = nextState.visited
+        ? "visited"
+        : nextState.saved
+          ? "saved"
+          : "dismissed";
+      recordExploreDecisionCompleted({ outcome, pinFilter });
+      setSheetState("medium");
+      if (!suppressToastRef.current) {
+        const toastText =
+          outcome === "visited"
+            ? "Marcado como visitado."
+            : outcome === "saved"
+              ? "Agregado a Por visitar."
+              : "Estado actualizado.";
+        toast.show(toastText, { type: "success", replaceVisible: true });
       }
     },
     [
@@ -5447,7 +5383,6 @@ export function MapScreenVNext() {
           ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
           : undefined
       }
-      pinMutationPending={pinMutationPending}
       pinFilter={pinFilter}
       userCoords={userCoords ?? undefined}
       isAuthUser={isAuthUser}
