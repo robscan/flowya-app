@@ -440,7 +440,10 @@ function MediumBodyContent({
         </View>
       ) : null}
       {!isDraft ? (
-        <View style={styles.actionRow}>
+        <View
+          style={styles.actionRow}
+          pointerEvents={pinMutationBusy ? "none" : "auto"} // sin disabled en pills: evita atenuado del estado optimista
+        >
           <Pressable
             style={[
               styles.actionPill,
@@ -450,11 +453,9 @@ function MediumBodyContent({
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isSaved ? 0 : 1,
-                opacity: savingPorVisitar ? 0.85 : 1,
               },
             ]}
             onPress={() => handleSavePin(isSaved ? "clear_to_visit" : "to_visit")}
-            disabled={pinMutationBusy}
             accessibilityLabel={isSaved ? "Quitar Por visitar" : "Agregar a Por visitar"}
             accessibilityRole="button"
             accessibilityState={{ selected: isSaved, busy: savingPorVisitar }}
@@ -478,7 +479,7 @@ function MediumBodyContent({
               ]}
               numberOfLines={1}
             >
-              {savingPorVisitar ? "Guardando…" : isSaved ? "Por visitar ×" : "Por visitar"}
+              {isSaved ? "Por visitar ×" : "Por visitar"}
             </Text>
           </Pressable>
           <Pressable
@@ -490,11 +491,9 @@ function MediumBodyContent({
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isVisited ? 0 : 1,
-                opacity: savingVisitado ? 0.85 : 1,
               },
             ]}
             onPress={() => handleSavePin(isVisited ? "clear_visited" : "visited")}
-            disabled={pinMutationBusy}
             accessibilityLabel={isVisited ? "Quitar Visitado" : "Marcar Visitado"}
             accessibilityRole="button"
             accessibilityState={{ selected: isVisited, busy: savingVisitado }}
@@ -518,7 +517,7 @@ function MediumBodyContent({
               ]}
               numberOfLines={1}
             >
-              {savingVisitado ? "Guardando…" : isVisited ? "Visitado ×" : "Visitado"}
+              {isVisited ? "Visitado ×" : "Visitado"}
             </Text>
           </Pressable>
         </View>
