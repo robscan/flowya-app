@@ -1,7 +1,7 @@
 # Plan de ejecución — Tras reorganización OL (2026-04-12)
 
 **Rol:** secuencia operativa + notas de arquitectura.  
-**No sustituye** `OPEN_LOOPS.md` como fuente de verdad del loop activo. Trazabilidad: bitácora `338`.
+**No sustituye** `OPEN_LOOPS.md` como fuente de verdad del loop activo. Trazabilidad: bitácoras `338`, `339`.
 
 ---
 
@@ -9,15 +9,15 @@
 
 | Fase | Objetivo | OL / entrega | Riesgo principal |
 |------|-----------|--------------|-------------------|
-| **A** | Cerrar web responsive con QA real | **`OL-WEB-RESPONSIVE-001`** — WR-05 + **calidad de transiciones sidebar desktop** (principal foco residual); MapControls validados en QA (sin P0 al cierre 2026-04-12) | Regresiones en mobile al tocar capas compartidas |
+| **A** | Cerrar web responsive con QA real | **`OL-WEB-RESPONSIVE-001`** — WR-05 + **calidad transiciones sidebar** desktop (prioridad); MapControls validados OK | Regresiones en mobile al tocar capas compartidas |
 | **B** | Higiene legal / confianza | **`OL-PRIVACY-001`**, **`OL-SECURITY-VALIDATION-001`** | Alcance creep (política perfecta vs publicable) |
-| **C** | Cuenta usable | **`OL-PROFILE-001`** + decisión **auth obligatoria** (producto) | Paridad web/native si preferencias viven en distintos almacenes |
+| **C** | Cuenta usable + **menor abuso de APIs** | **`OL-PROFILE-001`** + **login requerido** (producto) + `OL-SECURITY-VALIDATION-001` | Coste Mapbox/geocoding si sesiones anónimas o rutas abiertas; paridad web/native |
 | **D** | Valor diferencial datos | **`OL-CONTENT-002`** (galería), **`OL-CONTENT-001`** (Recordar-lite) | Mezclar contenido editorial con notas privadas |
 | **E** | Clima + unidades | **`OL-CONTENT-CLIMATE-UNITS-001`** | Fuente de normales + granularidad geográfica; jobs de ingest |
-| **F** | Internacionalización UI | **`OL-I18N-EN-001`** | Strings duplicados, RTL futuro, copy en DB vs código |
+| **F** | Internacionalización UI | **`OL-I18N-EN-001`** — **Explore + auth + editar spot**; excl. `/design-system` y demos | Strings duplicados; RTL futuro; copy en DB vs código |
 | **G** | Escala y coste | **`OL-SEARCHV2-002`**, **`OL-METRICS-001`** | Medición sin PII |
 
-**Rama inmediata (Fase A):** `fix/wr05-explore-desktop-qa` — mejoras de **transición/animación** sidebar + WR-05; merge cuando checklist WR-05 + desktop esté verde.
+**Rama inmediata (Fase A):** `fix/wr05-explore-desktop-qa` — solo bugs QA desktop/sidebar acordados; merge cuando checklist WR-05 + desktop esté verde.
 
 ---
 
@@ -25,7 +25,7 @@
 
 1. WR-01–WR-04 cumplidos según [PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md).
 2. WR-05: smoke en tres anchos representativos.
-3. **Desktop sidebar:** transiciones **perceptiblemente pulidas** (sin degradar calidad de producto: flash, saltos, clip); casos canon en [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](../../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md). MapControls: sin regresión; no bloqueó cierre (QA 2026-04-12).
+3. **Desktop sidebar:** transiciones **perceptiblemente pulidas** (entrada/salida, 400↔720); sin flash blanco reproducible en casos canon. MapControls: no bloqueante si QA confirma OK.
 4. Bitácora + una línea en `OPEN_LOOPS` al declarar cerrado.
 
 ---
@@ -42,36 +42,15 @@
 
 ---
 
-## 4. Preguntas abiertas (validar con producto)
+## 4. Respuestas producto (2026-04-12)
 
-| # | Pregunta | Por qué importa |
-|---|----------|-----------------|
-| 1 | ¿**Login obligatorio** antes de Fase C o después de MVP web cerrado? | Cambia prioridad de `OL-PROFILE-001` vs contenido. |
-| 2 | ¿Clima por **spot**, **ciudad** o **macrozona** en v1? | Determina esquema SQL y coste de ingest. |
-| 3 | ¿**Inglés** solo UI o también textos generados (descripciones)? | Afecta si `OL-I18N-EN-001` incluye pipeline editorial. |
-| 4 | ¿Los bugs desktop bloquean **release** o son **follow-up** post-merge? | **Resuelto (2026-04-12):** controles del mapa OK; foco en **transiciones sidebar**. |
+| # | Tema | Decisión |
+|---|------|----------|
+| 1 | Bugs desktop MapControls | **No reproducidos** en QA reciente; tratados como incidente temporal. **Enfoque WR-05:** mejorar **transiciones del sidebar** (calidad percibida). |
+| 2 | Alcance **`OL-I18N-EN-001`** | **Explorar + auth + editar spot** web. **Fuera:** vitrina `/design-system` y pantallas solo de prueba. *Sugerencia arquitectura:* añadir **detalle spot** (`/spot/[id]`) si es ruta usuaria en prod; si no aplica, omitir en v1 EN. |
+| 3 | Login | **Prioridad alta** — limitar **abuso de APIs** (coste), no solo UX. Complementar gate de app con **rate limits / políticas** donde el proveedor lo permita y **`OL-SECURITY-VALIDATION-001`**. |
 
----
-
-## 4b. Acuerdo de alcance — `OL-I18N-EN-001` (2026-04-12)
-
-**Producto actual:** solo lo que el usuario ve en **Explorar** y en **editar spot**, más **auth** (modal / flujos de sesión enlazados a Explore).
-
-| Incluir (v1 EN) | Notas |
-|-----------------|--------|
-| **Explore** | `app/(tabs)/index.web.tsx` y árbol que compone el mapa: `MapScreenVNext`, búsqueda (`SearchOverlayWeb` / `SearchFloating`), filtros, SpotSheet, CountriesSheet, welcome, overlays del mapa. |
-| **Auth** | `contexts/auth-modal` y copy de entrada/sesión usados desde Explore. |
-| **Editar spot** | `app/spot/edit/[id].web.tsx` y pantallas/componentes compartidos con ese flujo. |
-
-| Excluir (no v1 o explícitamente “no producto”) | Notas |
-|-----------------------------------------------|--------|
-| **`/design-system`** | Vitrina / pruebas; no es superficie de usuario. |
-| Otras rutas de laboratorio | Misma regla: solo si en el futuro pasan a producto. |
-
-**Recomendación de arquitectura (además de lo que pediste):**
-
-- **Crear spot** (`app/create-spot/index.web.tsx`): aunque no lo citaste, comparte DS y entra desde Explore; si se deja en español y el resto en inglés, la UX se rompe. **Sugerencia:** incluir **crear spot** en el mismo OL de i18n en cuanto el CTA siga vivo en Explore, salvo decisión explícita de congelar ese flujo.
-- **`app/spot/[id].web.tsx` (detalle):** útil si compartís enlaces profundos; si el tráfico real es Explore → sheet → editar, puede ser **fase 1.1** tras Explore+edit+auth.
+**Pendiente (no bloqueante para documentar):** granularidad clima v1 (spot vs ciudad vs macrozona); inglés en textos **generados** (IA/DB) vs solo UI.
 
 ---
 
@@ -80,6 +59,7 @@
 - **Fase A primero:** Sin web estable, iOS nativo hereda deuda.
 - **Clima (`OL-CONTENT-CLIMATE-UNITS-001`) después** de `OL-WEB-RESPONSIVE-001` cerrado y preferiblemente con perfil/settings para unidades.
 - **`OL-I18N-EN-001`** en paralelo solo si hay capacidad; si no, tras Fase A para no mezclar QA visual con extracción de strings.
+- **Login y coste API:** subir prioridad de **gate global** + **`OL-SECURITY-VALIDATION-001`** en la misma ventana que perfil si el coste Mapbox es el driver; el cliente solo con auth no basta sin cuotas/rate-limit en backend o en el proveedor.
 
 ---
 
