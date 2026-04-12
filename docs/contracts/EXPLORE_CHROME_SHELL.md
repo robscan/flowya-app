@@ -1,9 +1,9 @@
 # EXPLORE_CHROME_SHELL — Chrome inferior unificado (Explorar)
 
-**Última actualización:** 2026-04-11 (sidebar desktop ≥1080)  
+**Última actualización:** 2026-04-12 (enlace canon sidebar desktop)  
 **Estado:** ACTIVE  
 **Owner:** Explore vNext (`MapScreenVNext`), Design System  
-**Relacionado:** [EXPLORE_SHEET.md](EXPLORE_SHEET.md), [CANONICAL_BOTTOM_SHEET.md](CANONICAL_BOTTOM_SHEET.md), [DESIGN_SYSTEM_USAGE.md](DESIGN_SYSTEM_USAGE.md), [explore/FLOWYA_STATUS_ROW_VISIBILITY.md](explore/FLOWYA_STATUS_ROW_VISIBILITY.md), [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md)
+**Relacionado:** [EXPLORE_SHEET.md](EXPLORE_SHEET.md), [CANONICAL_BOTTOM_SHEET.md](CANONICAL_BOTTOM_SHEET.md), [DESIGN_SYSTEM_USAGE.md](DESIGN_SYSTEM_USAGE.md), [explore/FLOWYA_STATUS_ROW_VISIBILITY.md](explore/FLOWYA_STATUS_ROW_VISIBILITY.md), [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md), [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md)
 
 ## 1. Objetivo
 
@@ -68,6 +68,7 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 - **Toast** (`SystemStatusBar`): ancla inferior izquierda compensada con el ancho del panel lateral cuando el sidebar está activo.
 - Por debajo de 1080px se mantiene el comportamiento de sheet inferior (§8).
 - **Ancho KPI vs listado de lugares (400px ↔ 720px):** cuando el usuario entra al listado de lugares (`countriesSheetListView` no nulo), la columna usa `WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH` (720px). El contenedor lateral en desktop usa **`ExploreDesktopSidebarAnimatedColumn`** con `skipEntranceAnimation`: ruta **estática** (`View` con ancho fijo, sin `Animated` en el ancho) para evitar un frame de desfase y recorte con `overflow: hidden`. **`CountriesSheet`** en `webDesktopSidebar` anula el `overflow: hidden` del contenedor tipo sheet móvil en la variante desktop y aplica **`minWidth: 0`** en hosts/cadena flex donde aplica — ver bitácora `337`.
+- **Canon ampliado:** variantes de ancho, animaciones, checklist de **MapControls** / capas — [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md).
 
 ## 9. Feature flag (transición)
 

@@ -1,6 +1,6 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
-**Fecha:** 2026-04-11 (actualizado: sidebar desktop clip KPI↔lugares + bitácora `337`)
+**Fecha:** 2026-04-12 (reorganización OL + alcances clima/unidades/i18n EN + plan ejecución post-WR)
 
 > Fuente operativa diaria del alcance activo.
 > Este archivo contiene solo loops activos y dependencias inmediatas.
@@ -11,17 +11,30 @@
 
 ## Loop activo único (regla operativa)
 
-- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web), `322` (pastilla países|flows + niveles exploración en DS; MapControls sin solape con pastilla en peek), `323` (SheetHandle reclasificado como componente en vitrina; ancla `ds-comp-sheet-handle`), `324` (retiro SearchPill/SearchLauncherField en vitrina + tab Explore plantilla; ds-pat-explore solo productivo), `325` (ds-pat-explore: FLOWYA + ExploreMapStatusRow; logout en tap en perfil), `326` (SearchSurfaceShowcase en ds-run-surface; chips # en fila y en cards), `327` (SearchListCard: layout tres filas; chevron en fila de título), `328` (CountriesSheet detalle país + chips + lista), `329` (Explore welcome + cold-start + persistencia países + toasts; cierre DS/bitácora), `330` (CountriesSheet medium/lista, toasts expanded, filtros 0 deshabilitados, banda inferior WR-01 + `fullWidth`, vitrina DS), `331` (Explore Chrome shell DS + `lib/explore-map-chrome-layout.ts`; contrato `EXPLORE_CHROME_SHELL.md`), `334` (**WR-04** en curso: auth modal `WEB_MODAL_CARD_MAX_WIDTH`; create/edit/detail web columna `WEB_SHEET_MAX_WIDTH`), `335` (Explore web **sidebar** ≥1080px: `mapStage`, welcome/países en columna, toast), `336` (entrada sidebar sin repetir al cambiar filtro; `map.resize` durante animación + doble rAF en layout; persistencia welcome web inmediata; globo alineado), `337` (clip desktop al pasar KPI 400px ↔ listado lugares 720px: columna estática sin `Animated` en ancho + `overflow`/`minWidth` en `CountriesSheet` y cadena flex; contrato §8b). **Siguiente dentro del plan:** WR-05 QA multiviewport. Vitrina `/design-system`: TOC por anclas, taxonomía por capas, `ButtonsShowcase` + tokens (`DsSpacingSwatches` / radius / elevation), `SearchInputV2` en sección propia — ver inventario. Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
+- **Loop ejecutivo activo (único):** **OL-WEB-RESPONSIVE-001** — componentes responsivos web (UI/layout). Avance: bitácora `319` (WR-01/02 búsqueda), `320` (barrido DS + inventario + vitrina + WR-03 sheets web), `322` (pastilla países|flows + niveles exploración en DS; MapControls sin solape con pastilla en peek), `323` (SheetHandle reclasificado como componente en vitrina; ancla `ds-comp-sheet-handle`), `324` (retiro SearchPill/SearchLauncherField en vitrina + tab Explore plantilla; ds-pat-explore solo productivo), `325` (ds-pat-explore: FLOWYA + ExploreMapStatusRow; logout en tap en perfil), `326` (SearchSurfaceShowcase en ds-run-surface; chips # en fila y en cards), `327` (SearchListCard: layout tres filas; chevron en fila de título), `328` (CountriesSheet detalle país + chips + lista), `329` (Explore welcome + cold-start + persistencia países + toasts; cierre DS/bitácora), `330` (CountriesSheet medium/lista, toasts expanded, filtros 0 deshabilitados, banda inferior WR-01 + `fullWidth`, vitrina DS), `331` (Explore Chrome shell DS + `lib/explore-map-chrome-layout.ts`; contrato `EXPLORE_CHROME_SHELL.md`), `334` (**WR-04**: auth modal `WEB_MODAL_CARD_MAX_WIDTH`; create/edit/detail web columna `WEB_SHEET_MAX_WIDTH`), `335` (Explore web **sidebar** ≥1080px: `mapStage`, welcome/países en columna, toast), `336` (entrada sidebar sin repetir al cambiar filtro; `map.resize` durante animación + doble rAF en layout; persistencia welcome web inmediata; globo alineado), `337` (clip desktop KPI 400px ↔ listado 720px: columna estática + overflow/`minWidth`; contrato §8b). **Siguiente dentro del plan:** **WR-05** QA multiviewport **+** hardening desktop sidebar (MapControls clicables en `mapStage`, animaciones sin flash; canon [`EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md`](../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md)). Plan de fases sugerido: [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md). Rama de trabajo bugs desktop: `fix/wr05-explore-desktop-qa`. Vitrina `/design-system`: TOC por anclas, taxonomía por capas, `ButtonsShowcase` + tokens (`DsSpacingSwatches` / radius / elevation), `SearchInputV2` en sección propia — ver inventario. Inventario: [`docs/ops/analysis/DS_CANON_INVENTORY_2026-04.md`](analysis/DS_CANON_INVENTORY_2026-04.md). Al terminar este OL o pausar, volver a **dormido** o declarar el siguiente **uno solo**.
 - **En espera (cola — sin incluir el loop activo; próximo a activar uno solo al cerrar/pausar el actual):**
-  1. **OL-CONTENT-002** — galería / contenido spot (plan en `plans/`).
+  1. **OL-CONTENT-002** — galería / contenido spot ([PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md)).
   2. **OL-PRIVACY-001** — política de privacidad ([PLAN_OL_PRIVACY_001_2026-03-10.md](plans/PLAN_OL_PRIVACY_001_2026-03-10.md)).
   3. **OL-SECURITY-VALIDATION-001** — validación de seguridad mínima del estado web-first ([PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)).
   4. **OL-PROFILE-001** — perfil de usuario más robusto sobre auth actual ([PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)).
   5. **OL-CONTENT-001** — Recordar-lite sobre `pins` (nota privada / entry desde SpotSheet).
-  6. **Auth** — social login (investigación / activación).
-  7. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
-  8. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
-  9. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
+  6. **OL-CONTENT-CLIMATE-UNITS-001** — clima por temporadas (normales en DB) + toggles °C/°F y km/mi ([PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md)). *Dependencia suave:* perfil/settings para preferencias de unidades; puede arrancar con persistencia local web si se documenta la deuda.
+  7. **OL-I18N-EN-001** — UI en inglés (superficie mínima acotada en DoD). Sustituye la etiqueta histórica “`OL-I18N-UI-001`” en documentación; mismo espíritu: tras cerrar búsqueda/auth según prioridad producto.
+  8. **Auth** — social login (investigación / activación).
+  9. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
+  10. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
+  11. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
+
+---
+
+## Alcances nuevos (2026-04-12) — inventario
+
+| OL | Alcance | Plan / contrato |
+|----|---------|-----------------|
+| **OL-WEB-RESPONSIVE-001** (activo) | WR-05 + QA desktop sidebar (controles mapa, animaciones) | [PLAN_OL_WEB_RESPONSIVE…](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md), [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md), [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) |
+| **OL-CONTENT-CLIMATE-UNITS-001** | Normales climáticas por estación en Supabase; tap °C↔°F y km↔mi | [PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md) |
+| **OL-I18N-EN-001** | Cadenas UI en inglés (criterio “done” por superficie) | (DoD al abrir el OL; puede referenciar extracción de strings + QA) |
+
 - **Seguimiento (abiertos pero no “en cola” de ejecución inmediata):** `OL-SEARCHV2-EMPTY-K-ANONYMITY-001` (comportamiento aceptado con pocos usuarios); ítems búsqueda **OL-URGENT-MAKI-001** / **OL-URGENT-CLUSTER-001** marcados **abordados** en bitácora.
 - **OL-EXPLORE-COLD-START-RETIRE-001** — Monitoreo: listas **fallback** de exploración inicial (buscador vacío + sheet bienvenida) usan `lib/search/coldStartWorldRecommendations.ts` mientras `useExploreColdStartFallback` sea verdadero (bootstrap de sesión o hasta primera carga de spots). **Objetivo de salida:** cuando haya densidad suficiente de datos/listados generados por usuarios, retirar cold-start y mostrar solo fuentes UGC/RPC; definir criterios cuantitativos (ej. volumen de spots, engagement) antes del corte. Código: `MapScreenVNext` (`useExploreColdStartFallback`, `shouldShowColdStartWorldEmpty`, `welcomeExploreListItems`).
 - **Cierre de código reciente (2026-03-11):** PR #98 — lightbox en SpotSheet, ajuste de solapamiento de pin con filtro activo, plan [PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md](plans/PLAN_OL_CONTENT_002_GALERIA_V1_2026-03-11.md). Trazabilidad: bitácora `307`.
@@ -135,7 +148,7 @@
 - `OL-P1-006` — Migración POI DB (maki/categorías).
 - `OL-P1-007` — Pipeline turístico sin Google.
 - `OL-P3-001` — superseded por `OL-WEB-RESPONSIVE-001` (el alcance ya no es solo `max-width: 720px` + alineación derecha).
-- `OL-EXPLORE-SEARCH-BATCH-001`, `OL-I18N-UI-001` — tras cerrar búsqueda y auth.
+- `OL-EXPLORE-SEARCH-BATCH-001` — tras cerrar búsqueda y auth. *`OL-I18N-UI-001` renombrado en la cola activa como* **`OL-I18N-EN-001`** *(ver inventario § Alcances nuevos).*
 - **`OL-EXPLORE-TAGS-001`:** cerrado (PR #106, 2026-03-22). Evidencia: bitácora `310`, `docs/contracts/USER_TAGS_EXPLORE.md`. Follow-up de regresión QA: PR #108, bitácora `311`.
 
 ---

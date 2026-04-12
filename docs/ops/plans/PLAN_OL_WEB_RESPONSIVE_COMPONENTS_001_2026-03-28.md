@@ -137,6 +137,7 @@ Debe cumplirse:
 - smoke tablet
 - smoke desktop
 - checklist de teclado, scroll, overlay, CTA y tap targets
+- **Desktop ≥1080 (sidebar):** QA explícito de **MapControls** en `mapStage` (taps efectivos, sin capas fantasma), y revisión de **parpadeo / clip** al entrar o al cambiar ancho 400↔720 — canon [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](../../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md). Rama sugerida: `fix/wr05-explore-desktop-qa`.
 
 ## Backlog técnico sugerido
 
