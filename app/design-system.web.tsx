@@ -816,7 +816,7 @@ export default function DesignSystemScreen() {
           <View style={{ maxWidth: WEB_SHEET_MAX_WIDTH, alignSelf: 'stretch', borderRadius: Radius.lg, overflow: 'hidden' }}>
             <CountriesMapPreview
               countryCodes={['MX', 'ES', 'FR']}
-              height={172}
+              height={176}
               highlightColor={colors.stateToVisit}
               forceColorScheme={colorScheme === 'dark' ? 'dark' : 'light'}
               baseCountryColor={colors.countriesMapCountryBaseToVisit}

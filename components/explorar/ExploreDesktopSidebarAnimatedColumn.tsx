@@ -1,188 +1,158 @@
 /**
- * Panel lateral Explore (web ≥1080): anima el **contenedor** en ancho (solo entrada al montar / cambiar `animationKey`).
- * `ExploreDesktopSidebarPanelBody`: fade-in al cambiar contenido (welcome ↔ países ↔ spot) para reducir parpadeo.
+ * Panel lateral Explore (web ≥1080): host `width: 0` + panel `absolute` encima del mapa.
+ * El hueco visual del mapa lo reserva Mapbox (`setPadding` en MapScreen), no el flex — evita `resize()` al animar ancho.
+ * `ExploreDesktopSidebarPanelBody`: opacidad + slide vertical al cambiar contenido (welcome ↔ países ↔ spot).
  */
 
+import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { WEB_EXPLORE_SIDEBAR_PANEL_WIDTH } from "@/lib/web-layout";
 import { ReactNode, useEffect, useRef } from "react";
-import { Animated, Easing, Platform, View, type ViewStyle } from "react-native";
+import { Animated, Easing, StyleSheet, View, type ViewStyle } from "react-native";
+import Reanimated, {
+  Easing as ReanimatedEasing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from "react-native-reanimated";
 
-const PANEL_CONTENT_FADE_IN_MS = 220;
-const PANEL_CONTENT_FADE_FROM = 0.94;
+const PANEL_CONTENT_IN_MS = 340;
+const PANEL_CONTENT_OPACITY_FROM = 0.78;
+const PANEL_CONTENT_TRANSLATE_FROM = 14;
 
-const ENTRANCE_DURATION_MS = 400;
+const SIDEBAR_WIDTH_CHANGE_MS = 300;
+const PRESENCE_ENTRANCE_MS = 380;
+const PRESENCE_EXIT_MS = 320;
+
+function stripLayoutWidthFromStyle(style: ViewStyle | ViewStyle[] | undefined): ViewStyle {
+  const flat = StyleSheet.flatten(style) as ViewStyle | undefined;
+  if (flat == null) return {};
+  const { width: _w, maxWidth: _mw, ...rest } = flat;
+  return rest;
+}
 
 type ExploreDesktopSidebarAnimatedColumnProps = {
   children: ReactNode;
   style?: ViewStyle | ViewStyle[] | undefined;
-  animationKey: string;
+  presenceOpen: boolean;
+  onPresenceExitComplete?: () => void;
   panelWidth?: number;
-  /**
-   * Sin animación de entrada (ancho ya visible): p. ej. al cambiar de filtro/sheet dentro del mismo
-   * layout de sidebar desktop. La entrada solo debe verse cuando la columna lateral pasó de no existir a existir.
-   *
-   * Usa `View` con ancho fijo (no `Animated.Value`) para que al cambiar `panelWidth` (p. ej. KPI 400px ↔
-   * listado lugares 720px) no haya un frame con contenedor estrecho y contenido ancho — `overflow: hidden`
-   * recortaba la sheet.
-   */
-  skipEntranceAnimation?: boolean;
-  /**
-   * Durante la animación de ancho (entrada), el map stage cambia cada frame: Mapbox debe `resize()` para
-   * que el globo/canvas no queden desfasados.
-   */
-  onStageWidthAnimationFrame?: () => void;
 };
-
-/** Sidebar desktop sin animación de entrada: ancho siempre igual a `panelWidth` (sin bridge Animated). */
-function ExploreDesktopSidebarStaticColumn({
-  children,
-  style,
-  panelWidth,
-  onStageWidthAnimationFrame,
-}: {
-  children: ReactNode;
-  style?: ViewStyle | ViewStyle[] | undefined;
-  panelWidth: number;
-  onStageWidthAnimationFrame?: () => void;
-}) {
-  const w = panelWidth;
-  const onFrameRef = useRef(onStageWidthAnimationFrame);
-  onFrameRef.current = onStageWidthAnimationFrame;
-
-  useEffect(() => {
-    /** Cambio de ancho (KPI ↔ listado lugares): map stage y Mapbox tras layout. */
-    let id2: number | null = null;
-    const id1 = requestAnimationFrame(() => {
-      id2 = requestAnimationFrame(() => {
-        id2 = null;
-        onFrameRef.current?.();
-      });
-    });
-    return () => {
-      cancelAnimationFrame(id1);
-      if (id2 != null) cancelAnimationFrame(id2);
-    };
-  }, [w]);
-
-  return (
-    <View
-      style={[
-        style,
-        {
-          width: w,
-          maxWidth: w,
-          /** Sin animación de ancho: `hidden` recortaba un frame al saltar 400↔720 (KPI ↔ lugares). El sheet ya recorta bordes. */
-          overflow: "visible",
-        },
-      ]}
-    >
-      <View
-        style={{
-          width: w,
-          flex: 1,
-          minHeight: 0,
-          minWidth: 0,
-          alignSelf: "stretch",
-        }}
-      >
-        {children}
-      </View>
-    </View>
-  );
-}
-
-function ExploreDesktopSidebarEntranceAnimatedColumn({
-  children,
-  style,
-  animationKey,
-  panelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
-  onStageWidthAnimationFrame,
-}: Omit<ExploreDesktopSidebarAnimatedColumnProps, "skipEntranceAnimation"> & {
-  panelWidth?: number;
-}) {
-  const w = panelWidth;
-  const widthAnim = useRef(new Animated.Value(0)).current;
-  const onFrameRef = useRef(onStageWidthAnimationFrame);
-  onFrameRef.current = onStageWidthAnimationFrame;
-
-  useEffect(() => {
-    widthAnim.setValue(0);
-    const listenerId = widthAnim.addListener(() => {
-      onFrameRef.current?.();
-    });
-    Animated.timing(widthAnim, {
-      toValue: w,
-      duration: ENTRANCE_DURATION_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    }).start(({ finished }) => {
-      if (finished) onFrameRef.current?.();
-    });
-    return () => {
-      widthAnim.removeListener(listenerId);
-    };
-  }, [animationKey, w, widthAnim]);
-
-  return (
-    <Animated.View
-      style={[
-        style,
-        {
-          width: widthAnim,
-          maxWidth: w,
-          overflow: "hidden",
-        },
-      ]}
-    >
-      <View
-        style={{
-          width: w,
-          flex: 1,
-          minHeight: 0,
-          alignSelf: "stretch",
-        }}
-      >
-        {children}
-      </View>
-    </Animated.View>
-  );
-}
 
 export function ExploreDesktopSidebarAnimatedColumn({
   children,
   style,
-  animationKey,
+  presenceOpen,
+  onPresenceExitComplete,
   panelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
-  skipEntranceAnimation = false,
-  onStageWidthAnimationFrame,
 }: ExploreDesktopSidebarAnimatedColumnProps) {
-  if (skipEntranceAnimation) {
-    return (
-      <ExploreDesktopSidebarStaticColumn
-        style={style}
-        panelWidth={panelWidth}
-        onStageWidthAnimationFrame={onStageWidthAnimationFrame}
-      >
-        {children}
-      </ExploreDesktopSidebarStaticColumn>
-    );
-  }
+  const widthAnim = useRef(new Animated.Value(0)).current;
+  const lastAnimatedWidthRef = useRef(0);
+  const onExitRef = useRef(onPresenceExitComplete);
+  onExitRef.current = onPresenceExitComplete;
 
-  return (
-    <ExploreDesktopSidebarEntranceAnimatedColumn
-      style={style}
-      animationKey={animationKey}
-      panelWidth={panelWidth}
-      onStageWidthAnimationFrame={onStageWidthAnimationFrame}
+  const targetW = presenceOpen ? panelWidth : 0;
+  const restStyle = stripLayoutWidthFromStyle(style);
+
+  const innerBody = (
+    <View
+      style={{
+        width: panelWidth,
+        flex: 1,
+        minHeight: 0,
+        minWidth: 0,
+        alignSelf: "stretch",
+      }}
     >
       {children}
-    </ExploreDesktopSidebarEntranceAnimatedColumn>
+    </View>
+  );
+
+  useEffect(() => {
+    const from = lastAnimatedWidthRef.current;
+    const to = targetW;
+
+    if (Math.abs(to - from) < 0.5) {
+      widthAnim.setValue(to);
+      lastAnimatedWidthRef.current = to;
+      if (to === 0) onExitRef.current?.();
+      return;
+    }
+
+    widthAnim.stopAnimation();
+    widthAnim.setValue(from);
+
+    let duration = SIDEBAR_WIDTH_CHANGE_MS;
+    if (to === 0) duration = PRESENCE_EXIT_MS;
+    else if (from < 1) duration = PRESENCE_ENTRANCE_MS;
+
+    let listenerId: string | undefined;
+    listenerId = widthAnim.addListener(({ value }) => {
+      lastAnimatedWidthRef.current = value;
+    });
+
+    Animated.timing(widthAnim, {
+      toValue: to,
+      duration,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start(({ finished }) => {
+      if (listenerId != null) {
+        widthAnim.removeListener(listenerId);
+        listenerId = undefined;
+      }
+      if (!finished) return;
+      lastAnimatedWidthRef.current = to;
+      if (to === 0) {
+        onExitRef.current?.();
+      }
+    });
+
+    return () => {
+      widthAnim.stopAnimation();
+      if (listenerId != null) widthAnim.removeListener(listenerId);
+    };
+  }, [targetW, widthAnim]);
+
+  return (
+    <View
+      style={[
+        restStyle,
+        {
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: 0,
+          overflow: "visible",
+          zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
+        },
+      ]}
+    >
+      <Animated.View
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: widthAnim,
+          maxWidth: panelWidth,
+          overflow: "hidden",
+          zIndex: 1,
+          backgroundColor:
+            typeof restStyle.backgroundColor === "string"
+              ? restStyle.backgroundColor
+              : undefined,
+        }}
+      >
+        {innerBody}
+      </Animated.View>
+    </View>
   );
 }
 
 /**
  * Envuelve el cuerpo del sidebar (sheet activo). Al cambiar `panelKey` (welcome / countries / spot),
- * aplica un fade-in corto para evitar un frame “en blanco” perceptible al sustituir árboles de React distintos.
+ * aplica opacidad + slide vertical.
  */
 export function ExploreDesktopSidebarPanelBody({
   panelKey,
@@ -191,7 +161,8 @@ export function ExploreDesktopSidebarPanelBody({
   panelKey: string;
   children: ReactNode;
 }) {
-  const opacity = useRef(new Animated.Value(1)).current;
+  const opacity = useSharedValue(1);
+  const translateY = useSharedValue(0);
   const isInitialPanel = useRef(true);
 
   useEffect(() => {
@@ -199,26 +170,27 @@ export function ExploreDesktopSidebarPanelBody({
       isInitialPanel.current = false;
       return;
     }
-    opacity.setValue(PANEL_CONTENT_FADE_FROM);
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: PANEL_CONTENT_FADE_IN_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: Platform.OS !== "web",
-    }).start();
-  }, [panelKey, opacity]);
+    opacity.value = PANEL_CONTENT_OPACITY_FROM;
+    translateY.value = PANEL_CONTENT_TRANSLATE_FROM;
+    const timing = {
+      duration: PANEL_CONTENT_IN_MS,
+      easing: ReanimatedEasing.out(ReanimatedEasing.cubic),
+    };
+    opacity.value = withTiming(1, timing);
+    translateY.value = withTiming(0, timing);
+  }, [panelKey]);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ translateY: translateY.value }],
+  }));
 
   return (
-    <Animated.View
+    <Reanimated.View
       pointerEvents="box-none"
-      style={{
-        flex: 1,
-        minHeight: 0,
-        minWidth: 0,
-        opacity,
-      }}
+      style={[{ flex: 1, minHeight: 0, minWidth: 0 }, animatedStyle]}
     >
       {children}
-    </Animated.View>
+    </Reanimated.View>
   );
 }

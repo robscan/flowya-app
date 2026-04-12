@@ -18,6 +18,29 @@ type SystemStatusAnchor = {
   right?: number;
 };
 
+/** Evita re-renders por floats casi iguales (sheetHeight, layout) que mueven el toast un px. */
+function roundAnchorPx(a: SystemStatusAnchor): SystemStatusAnchor {
+  const r = (n: number | undefined) =>
+    n === undefined ? undefined : Math.round(n);
+  return {
+    placement: a.placement,
+    ...(a.top !== undefined ? { top: r(a.top) } : {}),
+    ...(a.bottom !== undefined ? { bottom: r(a.bottom) } : {}),
+    ...(a.left !== undefined ? { left: r(a.left) } : {}),
+    ...(a.right !== undefined ? { right: r(a.right) } : {}),
+  };
+}
+
+function anchorsEqual(a: SystemStatusAnchor, b: SystemStatusAnchor): boolean {
+  return (
+    a.placement === b.placement &&
+    a.top === b.top &&
+    a.bottom === b.bottom &&
+    a.left === b.left &&
+    a.right === b.right
+  );
+}
+
 export type SystemStatusType = 'success' | 'default' | 'error';
 
 type SystemStatusMessage = {
@@ -75,10 +98,12 @@ function resolveToastPalette(mode: 'light' | 'dark'): {
 export function SystemStatusProvider({ children }: { children: React.ReactNode }) {
   const colorScheme = useColorScheme();
   const [messages, setMessages] = useState<SystemStatusMessage[]>([]);
-  const [anchor, setAnchorState] = useState<SystemStatusAnchor>({
-    placement: 'top-center',
-    top: Platform.select({ web: DEFAULT_TOP_WEB, default: DEFAULT_TOP_NATIVE }),
-  });
+  const [anchor, setAnchorState] = useState<SystemStatusAnchor>(() =>
+    roundAnchorPx({
+      placement: 'top-center',
+      top: Platform.select({ web: DEFAULT_TOP_WEB, default: DEFAULT_TOP_NATIVE }),
+    }),
+  );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idRef = useRef(1);
   const opacity = useRef(new Animated.Value(0)).current;
@@ -135,14 +160,17 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
   );
 
   const setAnchor = useCallback((nextAnchor: SystemStatusAnchor) => {
-    setAnchorState(nextAnchor);
+    const next = roundAnchorPx(nextAnchor);
+    setAnchorState((prev) => (anchorsEqual(prev, next) ? prev : next));
   }, []);
 
   const resetAnchor = useCallback(() => {
-    setAnchorState({
-      placement: 'top-center',
-      top: Platform.select({ web: DEFAULT_TOP_WEB, default: DEFAULT_TOP_NATIVE }),
-    });
+    setAnchorState(
+      roundAnchorPx({
+        placement: 'top-center',
+        top: Platform.select({ web: DEFAULT_TOP_WEB, default: DEFAULT_TOP_NATIVE }),
+      }),
+    );
   }, []);
 
   const contextValue = useMemo(
@@ -152,10 +180,14 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
   const resolvedMode: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
   const activePalette = resolveToastPalette(resolvedMode);
 
-  // Permite anclar la barra por pantalla (top-center por defecto, bottom-left en Explore).
+  /**
+   * Web + bottom-left: `fixed` respecto al viewport. Si es `absolute` dentro del flex raíz,
+   * cualquier reflow del mapa/sidebar puede desplazar el contenedor y el toast «salta».
+   */
   const overlayPositionStyle =
     anchor.placement === 'bottom-left'
       ? ({
+          position: Platform.OS === 'web' ? ('fixed' as const) : ('absolute' as const),
           top: undefined,
           left: anchor.left ?? Spacing.base,
           right: anchor.right,

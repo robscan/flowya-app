@@ -186,3 +186,9 @@ Secuencia recomendada:
 ## Evidencia reciente (OL-WEB-RESPONSIVE-001)
 
 - **2026-04-11:** Bitácora [`337`](../bitacora/2026/04/337-explore-desktop-sidebar-clip-kpi-lugares-overflow.md) — clip en sidebar desktop al cambiar ancho KPI (400px) ↔ listado lugares (720px): columna estática, overflow y `minWidth` en cadena flex; contrato `EXPLORE_CHROME_SHELL.md` §8b.
+
+---
+
+## Estado: **cerrado** (2026-04-12)
+
+Criterios del plan (WR-01–WR-05, auth/formularios, QA multiviewport) y trabajo desktop sidebar considerados cumplidos: mapa a ancho completo con `setPadding` (menos parpadeo que `resize` en animación), clip KPI/listado, mini-mapa países visitados con encuadre y gesto vertical. Declaración operativa: [`docs/ops/OPEN_LOOPS.md`](../OPEN_LOOPS.md) — loop activo siguiente **`OL-CONTENT-002`**.

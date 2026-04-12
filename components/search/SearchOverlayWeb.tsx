@@ -219,7 +219,7 @@ export function SearchOverlayWeb<T>({
         ]}
       >
         <ExploreDesktopSidebarAnimatedColumn
-          animationKey="search"
+          presenceOpen
           panelWidth={WEB_SEARCH_OVERLAY_MAX_WIDTH}
           style={[
             styles.desktopSearchSidebar,

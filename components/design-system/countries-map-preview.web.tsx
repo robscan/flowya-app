@@ -22,7 +22,51 @@ const WORLD_SOURCE_ID = "flowya-world-countries-vector";
 const WORLD_BASE_LAYER_ID = "flowya-world-base";
 const WORLD_HIGHLIGHT_LAYER_ID = "flowya-world-highlight";
 const WORLD_LINE_LAYER_ID = "flowya-world-line";
-const WORLD_BOUNDS: [[number, number], [number, number]] = [[-179, -58], [179, 84]];
+/** Límite sur/norte Web Mercator (incluye Antártida). El encuadre inicial usa un sur menos extremo para recortar el polo. */
+const WORLD_BOUNDS: [[number, number], [number, number]] = [
+  [-179.99, -85.0511],
+  [179.99, 85.0511],
+];
+/** Encuadre inicial: Antártida parcialmente cortada; el usuario puede desplazar solo hacia el sur hasta verla entera. */
+const INITIAL_FIT_BOUNDS: [[number, number], [number, number]] = [
+  [-179.99, -58],
+  [179.99, 85.0511],
+];
+
+function clampVerticalPan(
+  map: import("mapbox-gl").Map,
+  initialSouthEdge: number,
+  floorSouth: number,
+) {
+  for (let i = 0; i < 10; i++) {
+    const b = map.getBounds();
+    if (!b) break;
+    const s = b.getSouth();
+    const c = map.getCenter();
+    const z = map.getZoom();
+    if (s > initialSouthEdge + 1e-5) {
+      map.jumpTo({
+        center: [c.lng, c.lat - (s - initialSouthEdge) * 0.52],
+        zoom: z,
+      });
+      continue;
+    }
+    if (s < floorSouth - 1e-5) {
+      map.jumpTo({
+        center: [c.lng, c.lat + (floorSouth - s) * 0.52],
+        zoom: z,
+      });
+      continue;
+    }
+    break;
+  }
+}
+
+function clampCenterLng(map: import("mapbox-gl").Map, lockedLng: number) {
+  const c = map.getCenter();
+  if (Math.abs(c.lng - lockedLng) < 1e-5) return;
+  map.jumpTo({ center: [lockedLng, c.lat], zoom: map.getZoom() });
+}
 const CLEAN_WORLD_STYLE = {
   version: 8,
   sources: {},
@@ -184,6 +228,13 @@ export function CountriesMapPreview({
   const mapRef = useRef<import("mapbox-gl").Map | null>(null);
   const worldLayerReadyRef = useRef(false);
   const normalizedCodesRef = useRef<string[]>([]);
+  /** Borde sur del viewport tras el primer fit (no se puede desplazar “hacia arriba” más allá de esto). */
+  const initialSouthEdgeRef = useRef<number | null>(null);
+  /** Longitud bloqueada: solo pan vertical (no desplazar el mapamundi horizontalmente). */
+  const initialLngRef = useRef<number | null>(null);
+  const wheelCleanupRef = useRef<(() => void) | null>(null);
+  /** Evita reentrada: `jumpTo` dispara `moveend` síncrono y recalaba el stack sin fin. */
+  const isApplyingClampRef = useRef(false);
 
   const emitSnapshot = useMemo(
     () => () => {
@@ -212,8 +263,6 @@ export function CountriesMapPreview({
     normalizedCodesRef.current = normalizedCodes;
   }, [normalizedCodes]);
 
-  /** Mapbox gestiona wheel/touch en el canvas; interceptar wheel en el host impedía pan/zoom del mini-mapa. */
-
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (!MAPBOX_TOKEN) return;
@@ -231,10 +280,12 @@ export function CountriesMapPreview({
         zoom: 0,
         minZoom: -1,
         maxZoom: 4,
+        /** Clicks + pan vertical (Antártida); zoom por rueda desactivado (scroll = pan). */
         interactive: true,
         attributionControl: false,
         preserveDrawingBuffer: true,
         renderWorldCopies: false,
+        maxBounds: WORLD_BOUNDS,
       });
       mapRef.current = map;
 
@@ -243,17 +294,13 @@ export function CountriesMapPreview({
         try {
           map.setProjection("naturalEarth");
           map.dragPan.enable();
-          map.scrollZoom.enable();
-          map.doubleClickZoom.enable();
-          map.touchZoomRotate.enable();
+          map.scrollZoom.disable();
+          map.doubleClickZoom.disable();
+          map.touchZoomRotate.disable();
+          map.dragRotate.disable();
           map.boxZoom.disable();
           map.keyboard.disable();
           map.resize();
-          map.fitBounds(WORLD_BOUNDS, {
-            padding: { top: 0, bottom: 0, left: 0, right: 0 },
-            duration: 0,
-            maxZoom: 1.2,
-          });
           if (!hasMapSource(map, WORLD_SOURCE_ID)) {
             map.addSource(WORLD_SOURCE_ID, {
               type: "vector",
@@ -348,11 +395,66 @@ export function CountriesMapPreview({
           requestAnimationFrame(() => {
             if (isCancelled || mapRef.current !== map) return;
             map.resize();
-            map.fitBounds(WORLD_BOUNDS, {
-              padding: { top: 0, bottom: 0, left: 0, right: 0 },
+            map.fitBounds(INITIAL_FIT_BOUNDS, {
+              padding: { top: 4, bottom: 4, left: 0, right: 0 },
               duration: 0,
-              maxZoom: 1.2,
+              maxZoom: 4,
             });
+            const b = map.getBounds();
+            if (!b) {
+              map.once("idle", emitSnapshot);
+              return;
+            }
+            initialSouthEdgeRef.current = b.getSouth();
+            initialLngRef.current = map.getCenter().lng;
+
+            const floorSouth = WORLD_BOUNDS[0][1];
+            const applyClampAndSnapshot = () => {
+              if (
+                isCancelled ||
+                initialSouthEdgeRef.current == null ||
+                initialLngRef.current == null
+              ) {
+                return;
+              }
+              if (isApplyingClampRef.current) return;
+              isApplyingClampRef.current = true;
+              try {
+                clampVerticalPan(map, initialSouthEdgeRef.current, floorSouth);
+                clampCenterLng(map, initialLngRef.current);
+                map.once("idle", emitSnapshot);
+              } finally {
+                queueMicrotask(() => {
+                  isApplyingClampRef.current = false;
+                });
+              }
+            };
+            const onMoveEnd = () => {
+              applyClampAndSnapshot();
+            };
+            map.on("moveend", onMoveEnd);
+
+            const containerEl = mapContainerRef.current;
+            if (containerEl) {
+              const onWheel = (e: WheelEvent) => {
+                if (
+                  isCancelled ||
+                  initialSouthEdgeRef.current == null ||
+                  initialLngRef.current == null
+                ) {
+                  return;
+                }
+                e.preventDefault();
+                map.panBy([0, -e.deltaY * 0.42], { animate: false });
+                applyClampAndSnapshot();
+              };
+              containerEl.addEventListener("wheel", onWheel, { passive: false });
+              wheelCleanupRef.current = () => {
+                containerEl.removeEventListener("wheel", onWheel);
+                wheelCleanupRef.current = null;
+              };
+            }
+
             map.once("idle", emitSnapshot);
           });
 
@@ -393,6 +495,10 @@ export function CountriesMapPreview({
     return () => {
       isCancelled = true;
       worldLayerReadyRef.current = false;
+      wheelCleanupRef.current?.();
+      initialSouthEdgeRef.current = null;
+      initialLngRef.current = null;
+      isApplyingClampRef.current = false;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -453,7 +559,7 @@ export function CountriesMapPreview({
         borderRadius: 16,
         background: "transparent",
         position: "relative",
-        touchAction: "manipulation",
+        touchAction: "pan-y",
         userSelect: "none",
       }}
     >

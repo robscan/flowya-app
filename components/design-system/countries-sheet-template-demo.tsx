@@ -19,7 +19,7 @@ import { StyleSheet, View } from 'react-native';
 
 import { DS_MOCK_COUNTRY_ITEMS } from './countries-sheet-list-demo';
 
-const MAP_PREVIEW_HEIGHT = 172;
+const MAP_PREVIEW_HEIGHT = 176;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const CONTAINER_PADDING_BOTTOM = 16;
 
