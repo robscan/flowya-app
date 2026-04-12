@@ -109,7 +109,8 @@ const HEADER_PADDING_V = 12;
 const HANDLE_ROW_ESTIMATE = 20;
 const DURATION_PROGRAMMATIC = 300;
 const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
-const MAP_PREVIEW_HEIGHT = 172;
+/** Mini-mapa países: un poco más alto para mejor lectura; el preview web rellena el ancho del wrap. */
+const MAP_PREVIEW_HEIGHT = 176;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 const PROGRESS_BLOCK_HEIGHT = 62;

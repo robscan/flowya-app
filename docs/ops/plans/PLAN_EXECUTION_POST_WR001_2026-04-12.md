@@ -9,7 +9,7 @@
 
 | Fase | Objetivo | OL / entrega | Riesgo principal |
 |------|-----------|--------------|-------------------|
-| **A** | Cerrar web responsive con QA real | **`OL-WEB-RESPONSIVE-001`** — WR-05 + **calidad transiciones sidebar** desktop (prioridad); MapControls validados OK | Regresiones en mobile al tocar capas compartidas |
+| **A** | ~~Cerrar web responsive con QA real~~ **Hecho (2026-04-12)** | **`OL-WEB-RESPONSIVE-001`** — cerrado; sidebar desktop + QA multiviewport | Regresiones en mobile al tocar capas compartidas |
 | **B** | Higiene legal / confianza | **`OL-PRIVACY-001`**, **`OL-SECURITY-VALIDATION-001`** | Alcance creep (política perfecta vs publicable) |
 | **C** | Cuenta usable + **menor abuso de APIs** | **`OL-PROFILE-001`** + **login requerido** (producto) + `OL-SECURITY-VALIDATION-001` | Coste Mapbox/geocoding si sesiones anónimas o rutas abiertas; paridad web/native |
 | **D** | Valor diferencial datos | **`OL-CONTENT-002`** (galería), **`OL-CONTENT-001`** (Recordar-lite) | Mezclar contenido editorial con notas privadas |
@@ -21,12 +21,12 @@
 
 ---
 
-## 2. Criterios de cierre `OL-WEB-RESPONSIVE-001`
+## 2. Criterios de cierre `OL-WEB-RESPONSIVE-001` — **cerrado 2026-04-12**
 
 1. WR-01–WR-04 cumplidos según [PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md).
 2. WR-05: smoke en tres anchos representativos.
-3. **Desktop sidebar:** transiciones **perceptiblemente pulidas** (entrada/salida, 400↔720); sin flash blanco reproducible en casos canon. MapControls: no bloqueante si QA confirma OK.
-4. Bitácora + una línea en `OPEN_LOOPS` al declarar cerrado.
+3. **Desktop sidebar:** transiciones y mapa (`setPadding`, clip 400↔720); MapControls OK en QA.
+4. `OPEN_LOOPS.md` actualizado; plan responsive con sección **Estado: cerrado**.
 
 ---
 

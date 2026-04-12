@@ -57,9 +57,11 @@ Solo cuando el panel lateral **aparece desde cero** (p. ej. primera vez que el l
 Causas típicas a vigilar (no son parches por pantalla, sino **checklist**):
 
 1. **Fondo:** `mapStage` usa `backgroundColor` del tema; durante `resize` del mapa un frame puede mostrar fondo claro — alinear color con el estilo Mapbox o usar color de mapa coherente en dark/light.
-2. **Mapbox `resize`:** Cualquier cambio de ancho del `mapStage` debe disparar **`map.resize()`** tras layout (patrón **doble `requestAnimationFrame`** ya usado en sidebar estático).
-3. **`overflow`:** `hidden` en el contenedor lateral durante animación de ancho corta contenido y puede verse como “flash” o franja blanca al redibujar.
-4. **Orden de capas:** Evitar que un hijo del sidebar con fondo opaco cubra transientemente el borde del mapa sin intención.
+2. **Columna lateral:** la columna del sidebar (`exploreSidebarColumn`) debe llevar **`backgroundColor: backgroundElevated`** del tema para no pintar un frame claro del navegador detrás del contenido al cambiar de welcome ↔ países ↔ spot.
+3. **Cambio de contenido:** `ExploreDesktopSidebarPanelBody` aplica un **fade-in** corto al variar la clave lógica (`spot` | `countries` | `welcome`) para suavizar el reemplazo de árboles de React distintos.
+4. **Mapbox `resize`:** Cualquier cambio de ancho del `mapStage` debe disparar **`map.resize()`** tras layout (patrón **doble `requestAnimationFrame`** ya usado en sidebar estático).
+5. **`overflow`:** `hidden` en el contenedor lateral durante animación de ancho corta contenido y puede verse como “flash” o franja blanca al redibujar.
+6. **Orden de capas:** Evitar que un hijo del sidebar con fondo opaco cubra transientemente el borde del mapa sin intención.
 
 ---
 
@@ -85,8 +87,8 @@ Orden de prioridad de render en el panel (simplificado):
 
 Definido en `components/explorar/layer-z.ts`:
 
-- **`FILTER` (14) > `MAP_CONTROLS` (10)**  
-  La franja superior de filtros es **más alta** que los controles del mapa. Eso es correcto **solo en la banda superior**; el contenedor del filtro tiene `left: 0; right: 0` pero **no** debe extenderse verticalmente hasta cubrir los controles inferiores.
+- **`FILTER` (14) < `MAP_CONTROLS` (15) < `TOP_ACTIONS` (16)**  
+  Los controles del mapa deben quedar **por encima** del contenedor del filtro: en web la caja de hit-test del filtro (`left`/`right` 0) puede solaparse con la zona inferior del mapa; si `MAP_CONTROLS` ≤ `FILTER`, los botones dejan de recibir toques. La franja de filtros sigue siendo la capa superior **solo en su banda** gracias al layout; el z-index corrige solapes accidentales.
 
 **Si los controles “no responden” en desktop:**
 
