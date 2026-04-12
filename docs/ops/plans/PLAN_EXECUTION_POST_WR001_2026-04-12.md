@@ -1,7 +1,7 @@
 # Plan de ejecución — Tras reorganización OL (2026-04-12)
 
 **Rol:** secuencia operativa + notas de arquitectura.  
-**No sustituye** `OPEN_LOOPS.md` como fuente de verdad del loop activo. Trazabilidad: bitácoras `338`, `339`, `340`.
+**No sustituye** `OPEN_LOOPS.md` como fuente de verdad del loop activo. Trazabilidad: bitácoras `338`, `339`, `340`, `341`.
 
 ---
 
@@ -17,7 +17,7 @@
 | **F** | Internacionalización UI | **`OL-I18N-EN-001`** — Explore + auth + **crear/editar/detalle** spot + **mapa** + **DS** (vitrina bilingüe); ver §4c–4e | Strings duplicados; preview DS vs preferencia usuario |
 | **G** | Escala y coste | **`OL-SEARCHV2-002`**, **`OL-METRICS-001`** | Medición sin PII |
 
-**Rama inmediata (Fase A):** `fix/wr05-explore-desktop-qa` — solo bugs QA desktop/sidebar acordados; merge cuando checklist WR-05 + desktop esté verde.
+**Rama vigente (Fase A / WR-05):** `feat/wr05-sidebar-transitions` — calidad transiciones sidebar desktop + QA multiviewport; merge cuando checklist WR-05 esté verde.
 
 ---
 
