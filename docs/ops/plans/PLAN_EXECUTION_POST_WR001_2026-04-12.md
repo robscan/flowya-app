@@ -17,7 +17,7 @@
 | **F** | Internacionalización UI | **`OL-I18N-EN-001`** — Explore + auth + **crear/editar/detalle** spot + **mapa** + **DS** (vitrina bilingüe); ver §4c–4e | Strings duplicados; preview DS vs preferencia usuario |
 | **G** | Escala y coste | **`OL-SEARCHV2-002`**, **`OL-METRICS-001`** | Medición sin PII |
 
-**Rama vigente (Fase A / WR-05):** `feat/wr05-sidebar-transitions` — calidad transiciones sidebar desktop + QA multiviewport; merge cuando checklist WR-05 esté verde.
+**WR-05:** docs rama + bitácora `341` fusionados (**PR #136**). Implementación (transiciones sidebar + QA multiviewport): nueva rama desde `main` cuando se retome; merge al cumplir checklist WR-05.
 
 ---
 
