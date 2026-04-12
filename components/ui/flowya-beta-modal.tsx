@@ -3,6 +3,7 @@
  * Reutiliza estructura, overlay y animación del modal de Auth.
  */
 
+import { useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
@@ -38,6 +39,7 @@ export function FlowyaBetaModal({
   const colors = Colors[colorScheme ?? 'light'];
   const toast = useSystemStatus();
   const { openAuthModal } = useAuthModal();
+  const router = useRouter();
   const [feedback, setFeedback] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -102,6 +104,20 @@ export function FlowyaBetaModal({
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
               Oscar - @robscan
             </Text>
+
+            <Pressable
+              accessibilityRole="link"
+              accessibilityLabel="Ver política de privacidad"
+              onPress={() => {
+                onClose();
+                router.push('/privacy');
+              }}
+              style={styles.privacyLinkWrap}
+            >
+              <Text style={[styles.privacyLink, { color: colors.primary }]}>
+                Política de privacidad
+              </Text>
+            </Pressable>
 
             <View style={[styles.separator, { backgroundColor: colors.borderSubtle }]} />
 
@@ -181,6 +197,15 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 22,
     marginBottom: Spacing.sm,
+  },
+  privacyLinkWrap: {
+    alignSelf: 'flex-start',
+    marginBottom: Spacing.sm,
+  },
+  privacyLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   separator: {
     height: 1,

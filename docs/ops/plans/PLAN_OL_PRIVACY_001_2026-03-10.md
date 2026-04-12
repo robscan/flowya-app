@@ -1,8 +1,9 @@
 # PLAN — OL-PRIVACY-001: Política de privacidad y consentimiento
 
-**Fecha:** 2026-03-10  
-**Estado:** Postergado — abordar tras experiencia de búsqueda y auth  
-**Origen:** Revisión seguridad PR #97; necesidad de disclaimers explícitos
+**Fecha:** 2026-03-10 — **Cierre MVP:** 2026-04-12  
+**Estado:** **Cerrado (MVP)** — política pública + enlaces en flujo de acceso  
+**Origen:** Revisión seguridad PR #97; necesidad de disclaimers explícitos  
+**Evidencia:** bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md)
 
 ---
 

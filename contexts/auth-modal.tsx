@@ -23,6 +23,8 @@ import {
     TextInput
 } from 'react-native';
 
+import { useRouter } from 'expo-router';
+
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { WEB_MODAL_CARD_MAX_WIDTH } from '@/lib/web-layout';
@@ -172,6 +174,7 @@ function AuthModalView({
 }: AuthModalViewProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const router = useRouter();
 
   /** Web: keyboard height para CTA sticky (contrato KEYBOARD_AND_TEXT_INPUTS). */
   const [keyboardHeightWeb, setKeyboardHeightWeb] = useState(0);
@@ -263,6 +266,19 @@ function AuthModalView({
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   Te enviaremos un enlace seguro a tu correo. No necesitas contraseña.
                 </Text>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel="Ver política de privacidad"
+                  onPress={() => {
+                    onClose();
+                    router.push('/privacy');
+                  }}
+                  style={styles.privacyLinkWrap}
+                >
+                  <Text style={[styles.privacyLink, { color: colors.primary }]}>
+                    Política de privacidad
+                  </Text>
+                </Pressable>
                 <TextInput
                   style={[
                     styles.input,
@@ -347,7 +363,16 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     lineHeight: 20,
+    marginBottom: Spacing.sm,
+  },
+  privacyLinkWrap: {
+    alignSelf: 'flex-start',
     marginBottom: Spacing.base,
+  },
+  privacyLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
   hint: {
     fontSize: 15,
