@@ -696,10 +696,11 @@ export function MapScreenVNext() {
   const globeEntryMotionPlayedRef = useRef(false);
   const globeEntryMotionInFlightRef = useRef(false);
   const globeEntryMotionDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Si `moveend` no llega (p. ej. flyTo no-op), igual cerramos el arranque del globo. */
+  const globeEntrySettleFallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isGlobeEntryMotionSettled, setIsGlobeEntryMotionSettled] = useState(false);
 
   useEffect(() => {
-    if (!isGlobeEntryMotionSettled) return;
     sloganEntryAnimationRef.current?.stop();
     sloganEntryOpacity.setValue(0);
     sloganEntryTranslateY.setValue(FLOWYA_SLOGAN_RISE_IN_PX);
@@ -739,7 +740,7 @@ export function MapScreenVNext() {
       sloganEntryOpacity.stopAnimation();
       sloganEntryTranslateY.stopAnimation();
     };
-  }, [sloganEntryOpacity, sloganEntryTranslateY, isGlobeEntryMotionSettled]);
+  }, [sloganEntryOpacity, sloganEntryTranslateY]);
 
   const dismissEntrySlogan = useCallback(() => {
     sloganEntryAnimationRef.current?.stop();
@@ -1378,6 +1379,12 @@ export function MapScreenVNext() {
     handleMapPointerUp,
   } = mapCore;
 
+  /** Evita re-ejecutar el efecto del globo cuando cambia la identidad de callbacks (cancelaba el `setTimeout` de 160ms). */
+  const programmaticFlyToRef = useRef(programmaticFlyTo);
+  programmaticFlyToRef.current = programmaticFlyTo;
+  const suspendFilterUntilCameraSettlesRef = useRef(suspendFilterUntilCameraSettles);
+  suspendFilterUntilCameraSettlesRef.current = suspendFilterUntilCameraSettles;
+
   /**
    * Mapbox: un `map.resize()` tras el siguiente paint (un solo rAF) cuando cambia el tamaño del contenedor (ventana).
    * El hueco del sidebar desktop se aplica con `map.setPadding`, no con flex → no hace falta resize al animar el panel.
@@ -1422,6 +1429,10 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (!globeEntryMotionInFlightRef.current) return;
     globeEntryMotionInFlightRef.current = false;
+    if (globeEntrySettleFallbackRef.current != null) {
+      clearTimeout(globeEntrySettleFallbackRef.current);
+      globeEntrySettleFallbackRef.current = null;
+    }
     setIsGlobeEntryMotionSettled(true);
   }, [viewportNonce]);
 
@@ -1472,15 +1483,26 @@ export function MapScreenVNext() {
       }
       globeEntryMotionPlayedRef.current = true;
       globeEntryMotionInFlightRef.current = true;
-      suspendFilterUntilCameraSettles();
+      suspendFilterUntilCameraSettlesRef.current();
+      if (globeEntrySettleFallbackRef.current != null) {
+        clearTimeout(globeEntrySettleFallbackRef.current);
+        globeEntrySettleFallbackRef.current = null;
+      }
       try {
         const center = mapInstance.getCenter();
         // Usar fly programático canónico para no disparar handlers de gesto de usuario
         // que desactivan el bootstrap de sugerencias globales en cold-start.
-        programmaticFlyTo(
+        programmaticFlyToRef.current(
           { lng: center.lng, lat: center.lat },
           { zoom: GLOBE_ZOOM_WORLD, duration: FIT_BOUNDS_DURATION_MS },
         );
+        globeEntrySettleFallbackRef.current = setTimeout(() => {
+          globeEntrySettleFallbackRef.current = null;
+          if (globeEntryMotionInFlightRef.current) {
+            globeEntryMotionInFlightRef.current = false;
+            setIsGlobeEntryMotionSettled(true);
+          }
+        }, FIT_BOUNDS_DURATION_MS + 600);
       } catch {
         globeEntryMotionInFlightRef.current = false;
         setIsGlobeEntryMotionSettled(true);
@@ -1492,13 +1514,12 @@ export function MapScreenVNext() {
         clearTimeout(globeEntryMotionDelayRef.current);
         globeEntryMotionDelayRef.current = null;
       }
+      if (globeEntrySettleFallbackRef.current != null) {
+        clearTimeout(globeEntrySettleFallbackRef.current);
+        globeEntrySettleFallbackRef.current = null;
+      }
     };
-  }, [
-    mapInstance,
-    programmaticFlyTo,
-    shouldSkipGlobeEntryMotion,
-    suspendFilterUntilCameraSettles,
-  ]);
+  }, [mapInstance, shouldSkipGlobeEntryMotion]);
 
   /** Misma heurística que useMapCore reframe + búsqueda (fitBounds si hay mapbox_bbox). */
   const focusCameraOnSpot = useCallback(
@@ -5636,7 +5657,6 @@ export function MapScreenVNext() {
         </Animated.View>
       ) : null}
       {showEntrySlogan &&
-      isGlobeEntryMotionSettled &&
       !createSpotNameOverlayOpen &&
       !entrySloganOccludedByOverlay &&
       !(
