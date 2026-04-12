@@ -90,3 +90,4 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 
 - Contrato auth: [`PROFILE_AUTH_CONTRACT_CURRENT.md`](../../contracts/PROFILE_AUTH_CONTRACT_CURRENT.md)
 - Privacidad: [`PLAN_OL_PRIVACY_001_2026-03-10.md`](../plans/PLAN_OL_PRIVACY_001_2026-03-10.md)
+- Trazabilidad (PR #140, bitácoras 350–352): [`352`](../../bitacora/2026/04/352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md)

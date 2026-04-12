@@ -12,6 +12,10 @@ Primer entregable del plan [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](../..
 
 - [`docs/ops/analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md`](../../ops/analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md)
 
+## Referencias cruzadas
+
+- Índice trazabilidad (con PR #140 / privacidad): [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md).
+
 ## Siguientes pasos (no cerrado el OL)
 
 - Validación en **instancia Supabase remota** (migraciones aplicadas, políticas efectivas).
