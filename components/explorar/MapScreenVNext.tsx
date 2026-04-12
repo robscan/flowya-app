@@ -600,8 +600,10 @@ export function MapScreenVNext() {
   const suppressToastRef = useRef(false);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
-  /** True mientras persiste Por visitar / Visitado (feedback inmediato en sheet). */
-  const [pinMutationPending, setPinMutationPending] = useState(false);
+  /** Pill en curso: solo esa muestra "Guardando…" (la otra queda deshabilitada sin spinner). */
+  const [pinMutationTarget, setPinMutationTarget] = useState<
+    null | "saved" | "visited"
+  >(null);
   const gallerySpotId =
     selectedSpot && !selectedSpot.id.startsWith("draft_")
       ? selectedSpot.id
@@ -4688,9 +4690,18 @@ export function MapScreenVNext() {
         visited: normalizedState.visited,
         pinStatus: optimisticPinStatus,
       };
+      const mutationTarget: "saved" | "visited" =
+        targetStatus === "to_visit" || targetStatus === "clear_to_visit"
+          ? "saved"
+          : targetStatus === "visited" || targetStatus === "clear_visited"
+            ? "visited"
+            : currentVisited
+              ? "visited"
+              : "saved";
+
       updateSpotPinState(spot.id, normalizedState);
       setSelectedSpot(optimisticSpot);
-      setPinMutationPending(true);
+      setPinMutationTarget(mutationTarget);
 
       const revertOptimistic = () => {
         const prevSaved = Boolean(
@@ -4813,7 +4824,7 @@ export function MapScreenVNext() {
           toast.show("No se pudo actualizar el estado.", { type: "error" });
         }
       } finally {
-        setPinMutationPending(false);
+        setPinMutationTarget(null);
       }
     },
     [
@@ -5447,7 +5458,7 @@ export function MapScreenVNext() {
           ? (targetStatus) => handleSavePin(selectedSpot, targetStatus)
           : undefined
       }
-      pinMutationPending={pinMutationPending}
+      pinMutationTarget={pinMutationTarget}
       pinFilter={pinFilter}
       userCoords={userCoords ?? undefined}
       isAuthUser={isAuthUser}

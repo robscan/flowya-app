@@ -213,8 +213,8 @@ export type SpotSheetProps = {
   onSheetEtiquetarPress?: () => void;
   /** Web ≥1080: panel en columna izquierda (paridad CountriesSheet / EXPLORE_CHROME_SHELL §8b). */
   webDesktopSidebar?: boolean;
-  /** Persistencia Por visitar / Visitado en curso (muestra feedback en los botones). */
-  pinMutationPending?: boolean;
+  /** Qué pill está persistiendo (`saved` = Por visitar, `visited` = Visitado); solo esa muestra cargando. */
+  pinMutationTarget?: null | "saved" | "visited";
 };
 
 type BodyContentProps = {
@@ -323,7 +323,7 @@ function MediumBodyContent({
   coverHeight = COVER_HEIGHT,
   heroImageUris,
   webDesktopSidebar = false,
-  pinMutationPending = false,
+  pinMutationTarget = null,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -336,7 +336,7 @@ function MediumBodyContent({
   | "handleSavePin"
 > & {
   isDraft?: boolean;
-  pinMutationPending?: boolean;
+  pinMutationTarget?: null | "saved" | "visited";
   onImagePress?: SpotHeroImagePressHandler;
   distanceKmVal: number | null;
   sheetTagChips?: { id: string; label: string }[];
@@ -375,6 +375,10 @@ function MediumBodyContent({
       byViewport,
     );
   }, [webDesktopSidebar, coverHeight, windowHeight]);
+
+  const savingPorVisitar = pinMutationTarget === "saved";
+  const savingVisitado = pinMutationTarget === "visited";
+  const pinMutationBusy = pinMutationTarget != null;
 
   return (
     <>
@@ -446,16 +450,16 @@ function MediumBodyContent({
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isSaved ? 0 : 1,
-                opacity: pinMutationPending ? 0.85 : 1,
+                opacity: savingPorVisitar ? 0.85 : 1,
               },
             ]}
             onPress={() => handleSavePin(isSaved ? "clear_to_visit" : "to_visit")}
-            disabled={pinMutationPending}
+            disabled={pinMutationBusy}
             accessibilityLabel={isSaved ? "Quitar Por visitar" : "Agregar a Por visitar"}
             accessibilityRole="button"
-            accessibilityState={{ selected: isSaved, busy: pinMutationPending }}
+            accessibilityState={{ selected: isSaved, busy: savingPorVisitar }}
           >
-            {pinMutationPending ? (
+            {savingPorVisitar ? (
               <ActivityIndicator
                 size="small"
                 color={isSaved ? ACTIVE_STATE_FOREGROUND : colors.primary}
@@ -474,7 +478,7 @@ function MediumBodyContent({
               ]}
               numberOfLines={1}
             >
-              {pinMutationPending ? "Guardando…" : isSaved ? "Por visitar ×" : "Por visitar"}
+              {savingPorVisitar ? "Guardando…" : isSaved ? "Por visitar ×" : "Por visitar"}
             </Text>
           </Pressable>
           <Pressable
@@ -486,16 +490,16 @@ function MediumBodyContent({
                   : colors.backgroundElevated,
                 borderColor: colors.borderSubtle,
                 borderWidth: isVisited ? 0 : 1,
-                opacity: pinMutationPending ? 0.85 : 1,
+                opacity: savingVisitado ? 0.85 : 1,
               },
             ]}
             onPress={() => handleSavePin(isVisited ? "clear_visited" : "visited")}
-            disabled={pinMutationPending}
+            disabled={pinMutationBusy}
             accessibilityLabel={isVisited ? "Quitar Visitado" : "Marcar Visitado"}
             accessibilityRole="button"
-            accessibilityState={{ selected: isVisited, busy: pinMutationPending }}
+            accessibilityState={{ selected: isVisited, busy: savingVisitado }}
           >
-            {pinMutationPending ? (
+            {savingVisitado ? (
               <ActivityIndicator
                 size="small"
                 color={isVisited ? ACTIVE_STATE_FOREGROUND : colors.primary}
@@ -514,7 +518,7 @@ function MediumBodyContent({
               ]}
               numberOfLines={1}
             >
-              {pinMutationPending ? "Guardando…" : isVisited ? "Visitado ×" : "Visitado"}
+              {savingVisitado ? "Guardando…" : isVisited ? "Visitado ×" : "Visitado"}
             </Text>
           </Pressable>
         </View>
@@ -914,7 +918,7 @@ type SpotSheetBodyProps = {
   onSheetEtiquetarPress?: () => void;
   coverImageHeight?: number;
   webDesktopSidebar?: boolean;
-  pinMutationPending?: boolean;
+  pinMutationTarget?: null | "saved" | "visited";
 };
 
 function SpotSheetBody({
@@ -958,7 +962,7 @@ function SpotSheetBody({
   onSheetEtiquetarPress,
   coverImageHeight = COVER_HEIGHT,
   webDesktopSidebar = false,
-  pinMutationPending = false,
+  pinMutationTarget = null,
 }: SpotSheetBodyProps) {
   const renderBodyContent = () => {
     if (isPoiMode) {
@@ -993,7 +997,7 @@ function SpotSheetBody({
           colors={colors}
           colorScheme={colorScheme ?? 'light'}
           handleSavePin={handleSavePin}
-          pinMutationPending={pinMutationPending}
+          pinMutationTarget={pinMutationTarget}
           onImagePress={onImagePress}
           heroImageUris={heroImageUris}
           distanceKmVal={distanceKmVal}
@@ -1086,7 +1090,7 @@ export function SpotSheet({
   onSheetTagChipPress,
   onSheetEtiquetarPress,
   webDesktopSidebar = false,
-  pinMutationPending = false,
+  pinMutationTarget = null,
 }: SpotSheetProps) {
   const [headerHeight, setHeaderHeight] = useState(SHEET_PEEK_HEIGHT);
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
@@ -1601,7 +1605,7 @@ export function SpotSheet({
           webDesktopSidebar ? COVER_HEIGHT_WEB_SIDEBAR : COVER_HEIGHT
         }
         webDesktopSidebar={webDesktopSidebar}
-        pinMutationPending={pinMutationPending}
+        pinMutationTarget={pinMutationTarget}
       />
 
       <ConfirmModal
