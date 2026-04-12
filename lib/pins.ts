@@ -28,6 +28,19 @@ export async function getCurrentUserId(): Promise<string | null> {
   return user?.id ?? null;
 }
 
+/**
+ * Usuario desde sesión almacenada (sin round-trip de validación JWT contra Auth HTTP).
+ * Mejor para hot paths (p. ej. tap en pins); si no hay sesión, devuelve null.
+ */
+export async function getCurrentUserIdFromSession(): Promise<string | null> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const u = session?.user;
+  if (!u || u.is_anonymous) return null;
+  return u.id;
+}
+
 /** Estado del pin del usuario para un spot. null si no hay fila (ni saved ni visited). */
 export async function getPinState(spotId: string): Promise<PinState | null> {
   const userId = await getCurrentUserId();

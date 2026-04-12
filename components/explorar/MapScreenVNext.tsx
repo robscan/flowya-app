@@ -135,7 +135,7 @@ import {
     isPointVisibleInViewport,
 } from "@/lib/map-core/constants";
 import {
-    getCurrentUserId,
+    getCurrentUserIdFromSession,
     getPinsForSpots,
     setPinState,
     setSaved,
@@ -215,6 +215,7 @@ import {
   setMapPinFilterPreference,
 } from "@/lib/storage/mapPinFilterPreference";
 import { computeTravelerPoints } from "@/lib/traveler-levels";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
     attachTagToSpot,
@@ -598,6 +599,8 @@ export function MapScreenVNext() {
   );
   /** Supresión puntual de toasts en handlers (p. ej. `toastMessage: ""`); se resetea a false cada render. */
   const suppressToastRef = useRef(false);
+  /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
+  const exploreAuthUserIdRef = useRef<string | null>(null);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   /** Pill en curso: solo esa muestra "Guardando…" (la otra queda deshabilitada sin spinner). */
@@ -987,20 +990,17 @@ export function MapScreenVNext() {
   }, [createSpotNameOverlayOpen, createSpotInitialName]);
 
   useEffect(() => {
-    const loadInitialAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setIsAuthUser(!!user && !user.is_anonymous);
+    const applySession = (session: Session | null) => {
+      const u = session?.user;
+      const ok = Boolean(u && !u.is_anonymous);
+      exploreAuthUserIdRef.current = ok ? u!.id : null;
+      setIsAuthUser(ok);
     };
-    loadInitialAuth();
-    // Evitar async dentro del callback (AbortError con navigator.locks/Supabase). Usar session síncrona.
+    void supabase.auth.getSession().then(({ data }) => applySession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        if (session?.user) {
-          setIsAuthUser(!session.user.is_anonymous);
-        } else {
-          setIsAuthUser(false);
-        }
-      }
+        applySession(session);
+      },
     );
     return () => subscription.unsubscribe();
   }, []);
@@ -4634,7 +4634,10 @@ export function MapScreenVNext() {
         | "clear_visited",
     ) => {
       if (spot.id.startsWith("draft_")) return;
-      const userId = await getCurrentUserId();
+      let userId = exploreAuthUserIdRef.current;
+      if (!userId) {
+        userId = await getCurrentUserIdFromSession();
+      }
       if (!userId) {
         openAuthModal({
           message: AUTH_MODAL_MESSAGES.savePin,
@@ -4786,6 +4789,7 @@ export function MapScreenVNext() {
         updateSpotPinState(spot.id, nextState);
         setSelectedSpot(nextSpotSelection);
         setRecentMutation(spot.id, pinFilter);
+        setPinMutationTarget(null);
         if (
           mapInstance &&
           !isPointVisibleInViewport(
