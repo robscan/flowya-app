@@ -57,7 +57,6 @@ import {
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
-import { TypographyStyles } from "@/components/design-system/typography";
 import {
   ExploreDesktopSidebarAnimatedColumn,
   ExploreDesktopSidebarPanelBody,
@@ -82,7 +81,7 @@ import { useSystemStatus } from "@/components/ui/system-status-bar";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Fonts, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
@@ -545,11 +544,12 @@ const STATUS_AVOID_CONTROLS_RIGHT = 64;
 /** Retardo para priorizar lectura de subtítulos antes de mostrar contador de países. */
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
-const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 780;
-const FLOWYA_SLOGAN_FADE_IN_MS = 1450;
-const FLOWYA_SLOGAN_HOLD_MS = 2400;
-const FLOWYA_SLOGAN_FADE_OUT_MS = 980;
-const FLOWYA_SLOGAN_RISE_IN_PX = 18;
+/** Tras estabilizar cámara; fade más corto para que el mensaje se lea sin arrastrarse. */
+const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 420;
+const FLOWYA_SLOGAN_FADE_IN_MS = 720;
+const FLOWYA_SLOGAN_HOLD_MS = 2200;
+const FLOWYA_SLOGAN_FADE_OUT_MS = 640;
+const FLOWYA_SLOGAN_RISE_IN_PX = 14;
 
 function dedupePlaceResults(items: PlaceResult[]): PlaceResult[] {
   const seen = new Set<string>();
@@ -699,6 +699,7 @@ export function MapScreenVNext() {
   const [isGlobeEntryMotionSettled, setIsGlobeEntryMotionSettled] = useState(false);
 
   useEffect(() => {
+    if (!isGlobeEntryMotionSettled) return;
     sloganEntryAnimationRef.current?.stop();
     sloganEntryOpacity.setValue(0);
     sloganEntryTranslateY.setValue(FLOWYA_SLOGAN_RISE_IN_PX);
@@ -738,7 +739,7 @@ export function MapScreenVNext() {
       sloganEntryOpacity.stopAnimation();
       sloganEntryTranslateY.stopAnimation();
     };
-  }, [sloganEntryOpacity, sloganEntryTranslateY]);
+  }, [sloganEntryOpacity, sloganEntryTranslateY, isGlobeEntryMotionSettled]);
 
   const dismissEntrySlogan = useCallback(() => {
     sloganEntryAnimationRef.current?.stop();
@@ -5635,9 +5636,14 @@ export function MapScreenVNext() {
         </Animated.View>
       ) : null}
       {showEntrySlogan &&
+      isGlobeEntryMotionSettled &&
       !createSpotNameOverlayOpen &&
       !entrySloganOccludedByOverlay &&
-      !(showExploreWelcomeSheet && welcomeSheetState !== "peek") ? (
+      !(
+        showExploreWelcomeSheet &&
+        !exploreDesktopSidebarActive &&
+        welcomeSheetState === "expanded"
+      ) ? (
         <Animated.View
           style={[
             styles.sloganOverlay,
@@ -5646,10 +5652,8 @@ export function MapScreenVNext() {
             { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
         >
-          <Text style={[TypographyStyles.heading2, styles.sloganText]}>
-            <Text style={styles.sloganLineLight}>
-              {"SIGUE LO QUE\n"}
-            </Text>
+          <Text style={styles.sloganText}>
+            <Text style={styles.sloganLineLight}>SIGUE LO QUE{"\n"}</Text>
             <Text style={styles.sloganLineStrong}>TE MUEVE</Text>
           </Text>
         </Animated.View>
@@ -6683,12 +6687,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   sloganText: {
+    fontFamily: Fonts.sans,
     color: "#FFFFFF",
-    fontSize: 32,
-    lineHeight: 32,
-    letterSpacing: 0.6,
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: 0.4,
     textAlign: "center",
-    textShadow: "0px 1px 6px rgba(0,0,0,0.28)",
+    ...Platform.select({
+      web: {
+        textShadow: "0 1px 8px rgba(0,0,0,0.45)",
+      },
+      default: {
+        textShadowColor: "rgba(0,0,0,0.45)",
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 8,
+      },
+    }),
   } as TextStyle,
   sloganLineLight: {
     fontWeight: "300",
