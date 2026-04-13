@@ -3,9 +3,11 @@
 **Fecha:** 2026-04-12  
 **Tipo:** Cierre de loop — perfil / identidad
 
+**Merge GitHub:** [#142](https://github.com/robscan/flowya-app/pull/142) — feat(profile): tabla `profiles`, RLS, cuenta web, Storage, cierre OL. Trazabilidad índice: [`355`](355-indice-trazabilidad-pr-141-142-2026-04.md).
+
 ## Resumen
 
-Se cierra **`OL-PROFILE-001`** en su **alcance web-first (mobile-first de producto):** fuente de verdad `public.profiles`, superficie **`/account`** (web), avatar vía **Storage** (`profile-avatars`, `avatar_storage_path`), **email** sincronizado con `auth.users`, **última actividad** (`last_activity_at`), integración en **Explorar** (botón perfil, filtros, modal transparente en desktop). Evidencia de esquema y políticas Storage en repo: `scripts/supabase/snapshots/`.
+Se cierra **`OL-PROFILE-001`** en su **alcance web-first (mobile-first de producto):** fuente de verdad `public.profiles`, superficie **`/account`** (web), avatar vía **Storage** (`profile-avatars`, `avatar_storage_path`), **email** sincronizado con `auth.users`, columna **`last_activity_at`** persistida para uso analítico (**OL-METRICS-001**; sin mostrar en UI de cuenta — ver [`356`](356-last-activity-no-ui-cuenta-ol-metrics-001-2026-04.md)), integración en **Explorar** (botón perfil, filtros, modal transparente en desktop). Evidencia de esquema y políticas Storage en repo: `scripts/supabase/snapshots/`.
 
 **Paridad iOS/Android** (`app/account/index.tsx` y mismas capacidades que en web): **fuera de alcance** en este cierre — mismo criterio que **`OL-CONTENT-002`** (galería web primero; nativo en cola cuando producto lo priorice).
 
@@ -31,3 +33,4 @@ Según [`OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md): **`OL-CONTENT-001`** (Recorda
 ## Referencia
 
 - Esta bitácora: `docs/bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md`
+- Ajuste post-merge (visibilidad `last_activity_at` / OL-METRICS): [`356`](356-last-activity-no-ui-cuenta-ol-metrics-001-2026-04.md)

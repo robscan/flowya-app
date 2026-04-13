@@ -1,6 +1,6 @@
 # PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28
 
-**Estado:** **cerrado (2026-04-12)** — alcance **web-first** cumplido (cuenta `/account`, perfil en DB, avatar Storage, email + última actividad). **Paridad nativa** (pantalla cuenta en iOS/Android) **diferida** — bitácora [`354`](../../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md).
+**Estado:** **cerrado (2026-04-12)** — alcance **web-first** cumplido (cuenta `/account`, perfil en DB, avatar Storage, email; **`last_activity_at`** persistido para **OL-METRICS-001**, sin mostrar en UI de cuenta). **Paridad nativa** (pantalla cuenta en iOS/Android) **diferida** — bitácora [`354`](../../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md).
 
 **Actualización 2026-04-12:** decisiones de modelo V1 cerradas — ver § [Decisiones cerradas](#decisiones-cerradas-2026-04-12). *Nota: avatar en producto = `avatar_storage_path` + bucket, no `avatar_url` libre.*
 

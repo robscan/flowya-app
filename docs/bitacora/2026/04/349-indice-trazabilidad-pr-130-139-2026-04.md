@@ -36,5 +36,5 @@ Tabla de merges recientes a `main` y su documentación canónica en repo. Los n�
 ## Referencia
 
 - Esta bitácora: `docs/bitacora/2026/04/349-indice-trazabilidad-pr-130-139-2026-04.md`
-- **Continuación (PR #140, OL-PRIVACY / OL-SECURITY):** [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md)
+- **Continuación (PR #140, OL-PRIVACY / OL-SECURITY):** [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md) → **PR #141–#142:** [`355`](355-indice-trazabilidad-pr-141-142-2026-04.md)
 - Estado operativo: [`docs/ops/OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md)

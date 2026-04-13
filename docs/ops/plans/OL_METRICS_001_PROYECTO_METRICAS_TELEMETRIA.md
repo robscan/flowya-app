@@ -48,6 +48,12 @@ Métricas y telemetría productiva: consumo de APIs externas (Mapbox, etc.), pat
 
 ---
 
+## 2.2 Alcance anticipado: `profiles.last_activity_at`
+
+- La columna **`public.profiles.last_activity_at`** (migración **029**) ya se **actualiza** desde la app (`touchMyProfileLastActivity`, p. ej. al usar Explorar) con throttle en cliente.
+- **No** se muestra en la pantalla de cuenta; el dato es para **consulta en base de datos** y, al cerrar el alcance de **OL-METRICS-001**, para **cohortes / retorno / actividad** junto al resto de eventos canónicos.
+- Considerar esta columna como **avance de datos** hacia OL-METRICS-001, no como feature de producto en perfil.
+
 ## 3. Habilitadores sugeridos
 
 1. Definir qué eventos capturar (Mapbox, búsqueda, conversiones).

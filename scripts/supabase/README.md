@@ -35,6 +35,6 @@ FROM (
 1. `026_profiles_private_owner_rls.sql` — tabla `profiles`, RLS, trigger fila nueva en `auth.users`.
 2. `027_profile_avatar_storage.sql` — `avatar_storage_path`, bucket `profile-avatars`, políticas Storage.
 3. `028_profiles_email_sync.sql` — columna `email` y sincronización con `auth.users`.
-4. `029_profiles_last_activity_at.sql` — columna `last_activity_at` (marca de uso de la app).
+4. `029_profiles_last_activity_at.sql` — columna `last_activity_at` (marca de uso de la app; **no** se muestra en UI de cuenta; analítica / **OL-METRICS-001** vía DB).
 
 Si en remoto solo está 026, la app fallará al seleccionar `avatar_storage_path` hasta aplicar **027**. El email en tabla requiere **028**.

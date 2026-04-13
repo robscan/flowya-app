@@ -59,6 +59,7 @@ No debe ser la fuente principal para producto ni para decidir membresía.
 
 Base existente que se debe reaprovechar:
 
+- **`profiles.last_activity_at`** (migración **029**): ya se escribe desde la app; **no** se expone en UI de cuenta. Incluir en OL-METRICS-001 como señal de **última actividad registrada** consultable en SQL/ETL junto a eventos agregados.
 - [lib/search/metrics.ts](../../../lib/search/metrics.ts)
 - [lib/explore/decision-metrics.ts](../../../lib/explore/decision-metrics.ts)
 - [lib/mapbox-api-metrics.ts](../../../lib/mapbox-api-metrics.ts)

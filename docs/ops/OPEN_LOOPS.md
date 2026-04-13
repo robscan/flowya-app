@@ -20,7 +20,7 @@
   1. **OL-CONTENT-CLIMATE-UNITS-001** — clima por temporadas (normales en DB) + toggles °C/°F y km/mi ([PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md)). *Dependencia suave:* perfil/settings para preferencias de unidades; puede arrancar con persistencia local web si se documenta la deuda.
   2. **OL-I18N-EN-001** — UI en inglés: **Explorar**, **auth**, **crear/editar/detalle spot** web, **mapa y geocoding** (misma fuente que `getCurrentLanguage()` — ver [`APP_LOCALE_AND_MAP_LANGUAGE.md`](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md)). **Design System (`/design-system`):** **incluido** como vitrina de componentes canónicos compartidos con Explore; conviene **preview es/en** (conmutador que no sustituye preferencia global del usuario hasta acordar UX). Sustituye la etiqueta histórica `OL-I18N-UI-001`. Ver [`PLAN_EXECUTION_POST_WR001_2026-04-12.md`](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md).
   3. **Auth** — social login (investigación / activación).
-  4. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`.
+  4. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`; incluye **`profiles.last_activity_at`** (dato ya guardado; no UI de cuenta).
   5. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
   6. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
 
@@ -152,7 +152,7 @@
 
 ## Proyecto: Métricas / retorno
 
-- **OL-METRICS-001** — Medición de actividad, retorno y comparación `Explore` vs `Recordar`. Plan marco: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). Subplan detallado: [PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md](plans/PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md). Ejecutar antes de monetización y antes de `OL-SEARCHV2-002`. Vercel solo como complemento web; Supabase como fuente canónica.
+- **OL-METRICS-001** — Medición de actividad, retorno y comparación `Explore` vs `Recordar`. Incluye como **avance de alcance** el uso de **`profiles.last_activity_at`** (ya persistido; no visible en cuenta; consulta vía DB). Plan marco: [OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md](plans/OL_METRICS_001_PROYECTO_METRICAS_TELEMETRIA.md). Subplan detallado: [PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md](plans/PLAN_OL_METRICS_001_ACTIVITY_RETENTION_2026-03-28.md). Ejecutar antes de monetización y antes de `OL-SEARCHV2-002`. Vercel solo como complemento web; Supabase como fuente canónica.
 
 ---
 

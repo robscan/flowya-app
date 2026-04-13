@@ -1,4 +1,3 @@
-import { getCurrentLocale } from '@/lib/i18n/locale-config';
 import { supabase } from '../supabase';
 
 export type ProfileRow = {
@@ -10,7 +9,7 @@ export type ProfileRow = {
   avatar_storage_path: string | null;
   created_at: string;
   updated_at: string;
-  /** Última actividad registrada en la app (migración 029). */
+  /** Última actividad en app (migración 029). No mostrar en UI de cuenta; uso analítico vía DB (OL-METRICS-001). */
   last_activity_at: string | null;
 };
 
@@ -75,21 +74,6 @@ export async function touchMyProfileLastActivity(options?: {
     return { ok: false };
   }
   return { ok: true };
-}
-
-/** Etiqueta legible para UI (cuenta, etc.). */
-export function formatProfileLastActivity(iso: string | null | undefined): string {
-  if (!iso?.trim()) return '—';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '—';
-  try {
-    return new Intl.DateTimeFormat(getCurrentLocale(), {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(d);
-  } catch {
-    return d.toLocaleString();
-  }
 }
 
 /**

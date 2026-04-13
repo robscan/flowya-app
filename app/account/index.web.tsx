@@ -17,7 +17,6 @@ import {
 } from '@/lib/profile-avatar-upload';
 import {
   fetchMyProfile,
-  formatProfileLastActivity,
   touchMyProfileLastActivity,
   updateMyProfile,
   type ProfileRow,
@@ -339,17 +338,6 @@ export default function AccountScreenWeb() {
                 Correo electrónico
               </Text>
               <Text style={[TypographyStyles.body, { color: colors.text }]}>{accountEmail}</Text>
-            </View>
-          ) : null}
-
-          {sessionReady && profile ? (
-            <View style={[styles.listBlock, { borderColor: colors.borderSubtle, marginTop: Spacing.sm }]}>
-              <Text style={[TypographyStyles.caption, { color: colors.textSecondary, marginBottom: Spacing.xs }]}>
-                Última actividad
-              </Text>
-              <Text style={[TypographyStyles.body, { color: colors.text }]}>
-                {formatProfileLastActivity(profile.last_activity_at)}
-              </Text>
             </View>
           ) : null}
 

@@ -21,4 +21,5 @@
 ## Referencias cruzadas
 
 - Índice anterior (PR #130–#139): [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md)
+- **Continuación (PR #141–#142):** [`355`](355-indice-trazabilidad-pr-141-142-2026-04.md)
 - Estado operativo: [`OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md)

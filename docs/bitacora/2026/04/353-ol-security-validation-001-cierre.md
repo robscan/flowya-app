@@ -3,6 +3,8 @@
 **Fecha:** 2026-04-12  
 **Tipo:** Cierre de loop — seguridad / ops
 
+**Merge GitHub:** [#141](https://github.com/robscan/flowya-app/pull/141) — docs(security): OL-SECURITY-VALIDATION-001 cerrado (H1–H4) + alineación inventario. Trazabilidad índice: [`355`](355-indice-trazabilidad-pr-141-142-2026-04.md).
+
 ## Resumen
 
 Se cierra **`OL-SECURITY-VALIDATION-001`** con evidencia de inventario en repo, validación remota de hallazgos **H1–H4** (orden de migraciones, delete `spots`, modelo `pin_tags`, política `feedback` anon) y documento de análisis actualizado.
