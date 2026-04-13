@@ -82,8 +82,19 @@ Se verificó:
 
 ---
 
+## 5) Dirección acordada — OL-PROFILE-001 (aún no reflejada en DB)
+
+**Estado del contrato anterior:** sigue vigente la evidencia de §1–4 hasta que exista migración en Supabase.
+
+**Decisión de producto/arquitectura (2026-04-12):** la fuente de verdad del perfil será una tabla **`public.profiles`** (`id` = `auth.users.id`), columnas mínimas V1: `display_name`, `avatar_url`, `created_at`, `updated_at`; **RLS owner-only** (perfil privado, sin superficie pública). Detalle: [`docs/ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md`](../ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md) § Decisiones cerradas.
+
+Tras aplicar la migración, actualizar este documento (o un `PROFILE_AUTH_CONTRACT_NEXT.md`) con introspección SQL y policies.
+
+---
+
 ## Referencias
 
 - `docs/definitions/contracts/DATA_MODEL_CURRENT.md`
 - `docs/ops/governance/GUARDRAILS.md`
 - `docs/ops/governance/DECISIONS.md`
+- `docs/ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md`
