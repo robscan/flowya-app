@@ -88,7 +88,9 @@ Se verificó:
 
 **Decisión de producto/arquitectura (2026-04-12):** la fuente de verdad del perfil será una tabla **`public.profiles`** (`id` = `auth.users.id`), columnas mínimas V1: `display_name`, `avatar_url`, `created_at`, `updated_at`; **RLS owner-only** (perfil privado, sin superficie pública). Detalle: [`docs/ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md`](../ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md) § Decisiones cerradas.
 
-Tras aplicar la migración, actualizar este documento (o un `PROFILE_AUTH_CONTRACT_NEXT.md`) con introspección SQL y policies.
+**Migración en repo (aplicar en Supabase antes de dar por cerrado en DB):** [`supabase/migrations/026_profiles_private_owner_rls.sql`](../../supabase/migrations/026_profiles_private_owner_rls.sql) — tabla, RLS, trigger `handle_new_user_profile`, backfill desde `auth.users`.
+
+Tras aplicar la migración en el proyecto remoto, actualizar este documento (o un `PROFILE_AUTH_CONTRACT_NEXT.md`) con introspección SQL y policies.
 
 ---
 

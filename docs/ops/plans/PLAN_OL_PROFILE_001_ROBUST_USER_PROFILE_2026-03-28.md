@@ -96,7 +96,7 @@ Referencia:
 ## Backlog técnico sugerido
 
 - `BT-PROFILE-01` Actualizar contrato de perfil en docs (`PROFILE_AUTH_CONTRACT_*`) cuando exista evidencia en DB; alinear tipos/capa `lib/profile`.
-- `BT-PROFILE-02` Crear migración `profiles` + RLS owner-only (según § Decisiones cerradas).
+- `BT-PROFILE-02` ~~Crear migración `profiles` + RLS owner-only~~ — **en repo:** `supabase/migrations/026_profiles_private_owner_rls.sql` (aplicar en Supabase).
 - `BT-PROFILE-03` Crear capa de dominio `lib/profile/*`.
 - `BT-PROFILE-04` Crear superficie web de perfil/cuenta.
 - `BT-PROFILE-05` Integrar edición básica de nombre/avatar.
