@@ -4,6 +4,8 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 
 **Chrome / banda inferior:** al cambiar entre `all` y `saved`/`visited`, el host del chrome de Explorar sigue [EXPLORE_CHROME_SHELL.md](../EXPLORE_CHROME_SHELL.md) (sheet bienvenida vs banda KPI; offsets centralizados en `computeExploreMapChromeLayout`). **Snap inferior compartido** (`peek` / `medium` / `expanded`) y **entrada KPI → CountriesSheet:** ver EXPLORE_CHROME_SHELL §5–7. **Fila FLOWYA / `ExploreMapStatusRow`:** [FLOWYA_STATUS_ROW_VISIBILITY.md](FLOWYA_STATUS_ROW_VISIBILITY.md).
 
+**Fila superior de filtros en mapa (2026-04):** coexiste con `ExploreMapProfileButton`. Ancho útil tras reserva de perfil: `EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X`. **Web viewport ≥ tablet (768px):** `MapPinFilterInline` layout **wide** (inline amplio). **Viewport web &lt; 768 o nativo:** si ancho útil &lt; `MAP_FILTER_CHIP_BREAKPOINT_WIDTH` → `MapPinFilter` (chip); si no → `MapPinFilterInline` **compact**. Con **sidebar desktop**, el overlay de filtros se ancla solo a la columna del mapa (`left: desktopSidebarPixelWidth`) y el contenido queda centrado en esa columna.
+
 ## Scope
 
 - Selección de filtro.

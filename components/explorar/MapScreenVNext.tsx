@@ -53,7 +53,8 @@ import { MapPinFilterInline } from "@/components/design-system/map-pin-filter-in
 import { TagChip } from "@/components/design-system/tag-chip";
 import { MapControls } from "@/components/design-system/map-controls";
 import {
-    type MapPinFilterValue,
+  MapPinFilter,
+  type MapPinFilterValue,
 } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
@@ -89,7 +90,10 @@ import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
-import { computeExploreMapChromeLayout } from "@/lib/explore-map-chrome-layout";
+import {
+  computeExploreMapChromeLayout,
+  EXPLORE_MAP_LAYOUT,
+} from "@/lib/explore-map-chrome-layout";
 import {
   getWelcomeSidebarDismissedSync,
   loadWelcomeSidebarDismissedAsync,
@@ -117,6 +121,7 @@ import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH,
   WEB_SHEET_MAX_WIDTH,
+  WEB_VIEWPORT_REF,
   webExploreUsesDesktopSidebar,
 } from "@/lib/web-layout";
 import {
@@ -5333,6 +5338,29 @@ export function MapScreenVNext() {
     !searchV2.isOpen &&
     exploreMapProfileSurfaceVisible;
 
+  const effectiveMapFilterWidth = Math.max(
+    0,
+    topFiltersAvailableWidth -
+      (showExploreMapProfileCorner ? EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X : 0),
+  );
+
+  /** Web ≥ tablet: inline amplio; nativo/web estrecho: chip si muy poco ancho, si no inline compacto. */
+  const mapFilterStripMode:
+    | "wide_inline"
+    | "compact_inline"
+    | "chip" =
+    Platform.OS === "web" && windowWidth >= WEB_VIEWPORT_REF.tabletMin
+      ? "wide_inline"
+      : effectiveMapFilterWidth < EXPLORE_MAP_LAYOUT.MAP_FILTER_CHIP_BREAKPOINT_WIDTH
+        ? "chip"
+        : "compact_inline";
+
+  const filterOverlayPaddingLeft =
+    insets.left +
+    TOP_OVERLAY_INSET_X +
+    (showExploreMapProfileCorner ? EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X : 0);
+  const filterOverlayPaddingRight = insets.right + TOP_OVERLAY_INSET_X;
+
   const mapStyle =
     colorScheme === "dark" ? FLOWYA_MAP_STYLE_DARK : FLOWYA_MAP_STYLE_LIGHT;
 
@@ -5579,18 +5607,36 @@ export function MapScreenVNext() {
         <Animated.View
           style={[
             styles.filterOverlay,
-            { top: Math.max(filterMinimumTop, filterTop), pointerEvents: 'box-none' },
+            exploreDesktopSidebarActive && {
+              left: desktopSidebarPixelWidth,
+              right: 0,
+            },
+            {
+              top: Math.max(filterMinimumTop, filterTop),
+              pointerEvents: "box-none",
+              paddingLeft: filterOverlayPaddingLeft,
+              paddingRight: filterOverlayPaddingRight,
+            },
             filterOverlayAnimatedStyle,
           ]}
         >
-          <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
-            <MapPinFilterInline
-              value={pinFilter}
-              onChange={(next) => handlePinFilterChange(next, { reframe: true })}
-              counts={pinCounts}
-              layout="auto"
-              availableWidth={topFiltersAvailableWidth}
-            />
+          <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
+            {mapFilterStripMode === "chip" ? (
+              <MapPinFilter
+                value={pinFilter}
+                onChange={(next) => handlePinFilterChange(next, { reframe: true })}
+                counts={pinCounts}
+                menuPlacement="down"
+              />
+            ) : (
+              <MapPinFilterInline
+                value={pinFilter}
+                onChange={(next) => handlePinFilterChange(next, { reframe: true })}
+                counts={pinCounts}
+                layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
+                availableWidth={effectiveMapFilterWidth}
+              />
+            )}
           </View>
         </Animated.View>
       ) : null}
