@@ -8,7 +8,7 @@ import "@/styles/viewport-dvh.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { X } from "lucide-react-native";
 import {
   Fragment,
@@ -52,10 +52,7 @@ import { IconButton } from "@/components/design-system/icon-button";
 import { MapPinFilterInline } from "@/components/design-system/map-pin-filter-inline";
 import { TagChip } from "@/components/design-system/tag-chip";
 import { MapControls } from "@/components/design-system/map-controls";
-import {
-  MapPinFilter,
-  type MapPinFilterValue,
-} from "@/components/design-system/map-pin-filter";
+import { type MapPinFilterValue } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
@@ -160,6 +157,8 @@ import {
   type ExploreSheetState,
   validateExploreRuntimeState,
 } from "@/core/explore/runtime";
+import { fetchMyProfile, touchMyProfileLastActivity } from "@/lib/profile";
+import { getProfileAvatarPublicUrl } from "@/lib/profile-avatar-upload";
 import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot, DEFAULT_DUPLICATE_RADIUS_METERS } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
@@ -556,6 +555,7 @@ function coerceCountriesSheetInitialState(state: CountriesSheetState): Countries
 
 export function MapScreenVNext() {
   const router = useRouter();
+  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { openAuthModal } = useAuthModal();
@@ -644,6 +644,8 @@ export function MapScreenVNext() {
   );
   const [, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
+  /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
+  const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
   const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
   const [selectedTagFilterId, setSelectedTagFilterId] = useState<string | null>(null);
@@ -977,6 +979,7 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     if (!isAuthUser) {
+      setMyProfileAvatarPublicUrl(null);
       setUserTags([]);
       setPinTagIndex({});
       setSelectedTagFilterId(null);
@@ -1001,6 +1004,25 @@ export function MapScreenVNext() {
       cancelled = true;
     };
   }, [isAuthUser]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthUser) {
+        setMyProfileAvatarPublicUrl(null);
+        return;
+      }
+      let cancelled = false;
+      void (async () => {
+        void touchMyProfileLastActivity();
+        const { data } = await fetchMyProfile();
+        if (cancelled) return;
+        setMyProfileAvatarPublicUrl(getProfileAvatarPublicUrl(data?.avatar_storage_path ?? null));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthUser]),
+  );
 
   const invalidateSpotIdRef = useRef<((spotId: string) => void) | null>(null);
 
@@ -5328,15 +5350,23 @@ export function MapScreenVNext() {
     );
   }
 
+  /** Incluye `shouldShowInlineTopFilters` para que el perfil no desaparezca en móvil al abrir KPI/países (fila inferior oculta). */
   const exploreMapProfileSurfaceVisible =
     isBottomActionRowVisible ||
     showExploreWelcomeSheet ||
-    (exploreDesktopSidebarActive && hasDesktopSidebarPanel);
+    (exploreDesktopSidebarActive && hasDesktopSidebarPanel) ||
+    shouldShowInlineTopFilters;
+
+  /** Ruta `/account` (panel lateral de perfil en desktop): el botón de perfil en el mapa es redundante. */
+  const accountProfileSidebarOpen =
+    Platform.OS === "web" &&
+    (pathname === "/account" || pathname?.startsWith("/account/"));
 
   const showExploreMapProfileCorner =
     !createSpotNameOverlayOpen &&
     !searchV2.isOpen &&
-    exploreMapProfileSurfaceVisible;
+    exploreMapProfileSurfaceVisible &&
+    !accountProfileSidebarOpen;
 
   const effectiveMapFilterWidth = Math.max(
     0,
@@ -5344,21 +5374,14 @@ export function MapScreenVNext() {
       (showExploreMapProfileCorner ? EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X : 0),
   );
 
-  /** Web ≥ tablet: inline amplio; nativo/web estrecho: chip si muy poco ancho, si no inline compacto. */
-  const mapFilterStripMode:
-    | "wide_inline"
-    | "compact_inline"
-    | "chip" =
+  /** Web ≥ tablet: inline amplio; móvil / web estrecho: siempre inline compacto (sin chip). */
+  const mapFilterStripMode: "wide_inline" | "compact_inline" =
     Platform.OS === "web" && windowWidth >= WEB_VIEWPORT_REF.tabletMin
       ? "wide_inline"
-      : effectiveMapFilterWidth < EXPLORE_MAP_LAYOUT.MAP_FILTER_CHIP_BREAKPOINT_WIDTH
-        ? "chip"
-        : "compact_inline";
+      : "compact_inline";
 
-  const filterOverlayPaddingLeft =
-    insets.left +
-    TOP_OVERLAY_INSET_X +
-    (showExploreMapProfileCorner ? EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X : 0);
+  /** Simétrico: el bloque de filtros se centra en la columna; la reserva del perfil va en `maxWidth` + `ExploreMapProfileButton` absoluto. */
+  const filterOverlayPaddingLeft = insets.left + TOP_OVERLAY_INSET_X;
   const filterOverlayPaddingRight = insets.right + TOP_OVERLAY_INSET_X;
 
   const mapStyle =
@@ -5620,23 +5643,23 @@ export function MapScreenVNext() {
             filterOverlayAnimatedStyle,
           ]}
         >
-          <View style={[styles.filterRowWrap, { pointerEvents: "box-none" }]}>
-            {mapFilterStripMode === "chip" ? (
-              <MapPinFilter
-                value={pinFilter}
-                onChange={(next) => handlePinFilterChange(next, { reframe: true })}
-                counts={pinCounts}
-                menuPlacement="down"
-              />
-            ) : (
-              <MapPinFilterInline
-                value={pinFilter}
-                onChange={(next) => handlePinFilterChange(next, { reframe: true })}
-                counts={pinCounts}
-                layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
-                availableWidth={effectiveMapFilterWidth}
-              />
-            )}
+          <View
+            style={[
+              styles.filterRowWrap,
+              {
+                pointerEvents: "box-none",
+                alignSelf: "center",
+                maxWidth: effectiveMapFilterWidth,
+              },
+            ]}
+          >
+            <MapPinFilterInline
+              value={pinFilter}
+              onChange={(next) => handlePinFilterChange(next, { reframe: true })}
+              counts={pinCounts}
+              layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
+              availableWidth={effectiveMapFilterWidth}
+            />
           </View>
         </Animated.View>
       ) : null}
@@ -5647,7 +5670,11 @@ export function MapScreenVNext() {
         <Animated.View
           style={[
             styles.sloganOverlay,
-            { top: sloganTop, pointerEvents: 'none' },
+            exploreDesktopSidebarActive && {
+              left: desktopSidebarPixelWidth,
+              right: 0,
+            },
+            { top: sloganTop, pointerEvents: "none" },
             { opacity: sloganEntryOpacity },
             { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
@@ -5675,6 +5702,7 @@ export function MapScreenVNext() {
           <ExploreMapProfileButton
             onPress={() => void handleProfilePress()}
             isAuthUser={isAuthUser}
+            avatarUri={myProfileAvatarPublicUrl}
           />
         </View>
       ) : null}

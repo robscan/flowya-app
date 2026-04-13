@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "source": "Supabase SQL — profiles_snapshot_json.sql",
+    "validated_against_migrations": [
+      "026_profiles_private_owner_rls.sql",
+      "027_profile_avatar_storage.sql",
+      "028_profiles_email_sync.sql",
+      "029_profiles_last_activity_at.sql"
+    ],
+    "note": "Sin columna avatar_url (sustituida por avatar_storage_path). OK."
+  },
+  "profiles_snapshot": {
+    "table": "profiles",
+    "columns": [
+      {
+        "column_name": "id",
+        "data_type": "uuid",
+        "is_nullable": "NO",
+        "column_default": null
+      },
+      {
+        "column_name": "display_name",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "column_name": "created_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "column_name": "updated_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "NO",
+        "column_default": "now()"
+      },
+      {
+        "column_name": "avatar_storage_path",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "column_name": "email",
+        "data_type": "text",
+        "is_nullable": "YES",
+        "column_default": null
+      },
+      {
+        "column_name": "last_activity_at",
+        "data_type": "timestamp with time zone",
+        "is_nullable": "YES",
+        "column_default": null
+      }
+    ]
+  }
+}

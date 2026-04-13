@@ -34,7 +34,8 @@ export type SpotSheetHeaderProps = {
   hideSheetHandle?: boolean;
 };
 
-const HEADER_BUTTON_SIZE = 40;
+/** Botón redondo 40px (cerrar / compartir / atrás); exportado para alinear chrome fuera del sheet (p. ej. cuenta). */
+export const SHEET_HEADER_BUTTON_SIZE = 40;
 
 export function SpotSheetHeader({
   isDraft,
@@ -181,13 +182,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   headerPlaceholder: {
-    width: HEADER_BUTTON_SIZE,
-    height: HEADER_BUTTON_SIZE,
+    width: SHEET_HEADER_BUTTON_SIZE,
+    height: SHEET_HEADER_BUTTON_SIZE,
   },
   headerActionButton: {
-    width: HEADER_BUTTON_SIZE,
-    height: HEADER_BUTTON_SIZE,
-    borderRadius: HEADER_BUTTON_SIZE / 2,
+    width: SHEET_HEADER_BUTTON_SIZE,
+    height: SHEET_HEADER_BUTTON_SIZE,
+    borderRadius: SHEET_HEADER_BUTTON_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -225,9 +226,9 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   closeButton: {
-    width: HEADER_BUTTON_SIZE,
-    height: HEADER_BUTTON_SIZE,
-    borderRadius: HEADER_BUTTON_SIZE / 2,
+    width: SHEET_HEADER_BUTTON_SIZE,
+    height: SHEET_HEADER_BUTTON_SIZE,
+    borderRadius: SHEET_HEADER_BUTTON_SIZE / 2,
     alignItems: "center",
     justifyContent: "center",
   },

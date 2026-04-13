@@ -1,6 +1,8 @@
 # PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28
 
-**Actualización 2026-04-12:** decisiones de modelo V1 cerradas — ver § [Decisiones cerradas](#decisiones-cerradas-2026-04-12).
+**Estado:** **cerrado (2026-04-12)** — alcance **web-first** cumplido (cuenta `/account`, perfil en DB, avatar Storage, email + última actividad). **Paridad nativa** (pantalla cuenta en iOS/Android) **diferida** — bitácora [`354`](../../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md).
+
+**Actualización 2026-04-12:** decisiones de modelo V1 cerradas — ver § [Decisiones cerradas](#decisiones-cerradas-2026-04-12). *Nota: avatar en producto = `avatar_storage_path` + bucket, no `avatar_url` libre.*
 
 ## Objetivo
 
@@ -25,8 +27,8 @@ Referencia:
 - definir modelo canónico de perfil (**tabla `public.profiles`**; ver § Decisiones cerradas)
 - persistir en DB:
   - `display_name`
-  - `avatar_url`
-  - timestamps de cuenta
+  - avatar vía **`avatar_storage_path`** + bucket `profile-avatars` (no URL libre)
+  - timestamps de cuenta (`created_at` / `updated_at`; más `email`, `last_activity_at` en 028–029)
 - exponer una superficie web real de perfil/cuenta
 - permitir edición de datos básicos
 - integrar logout y estado de sesión de forma clara
@@ -51,7 +53,7 @@ Referencia:
 2. **Mínimo V1 web (columnas):**
    - `id` — uuid, PK, igual a `auth.users.id`
    - `display_name` — texto (nullable al crear; la UI puede pedirlo o mostrar placeholder hasta completar)
-   - `avatar_url` — texto nullable (URL a Storage u origen acordado)
+   - ~~`avatar_url`~~ — sustituido en implementación por **`avatar_storage_path`** + bucket `profile-avatars` (migración 027).
    - `created_at`, `updated_at` — `timestamptz`
    - **No** `username` / handle único en V1 (evita unicidad, reservas y validación extra hasta que producto lo pida).
 3. **Visibilidad:** perfil **privado** — solo el **owner** puede SELECT/INSERT/UPDATE su fila vía RLS; sin página pública de usuario, sin listado de perfiles, sin datos pensados como “públicos en internet”. Mostrar nombre de otro usuario en un recurso (p. ej. pin) es decisión de **otro** alcance; no forma parte del V1 de este plan.
@@ -76,7 +78,7 @@ Referencia:
 ### PF-03 Edición básica
 
 - editar `display_name`
-- editar avatar (`avatar_url`)
+- editar avatar (subida a Storage; columna `avatar_storage_path`)
 - feedback claro de guardado/error
 
 ### PF-04 Estado de sesión y continuidad
@@ -95,12 +97,12 @@ Referencia:
 
 ## Backlog técnico sugerido
 
-- `BT-PROFILE-01` Actualizar contrato de perfil en docs (`PROFILE_AUTH_CONTRACT_*`) cuando exista evidencia en DB; alinear tipos/capa `lib/profile`.
-- `BT-PROFILE-02` ~~Crear migración `profiles` + RLS owner-only~~ — **en repo:** `supabase/migrations/026_profiles_private_owner_rls.sql` (aplicar en Supabase).
-- `BT-PROFILE-03` Crear capa de dominio `lib/profile/*`.
-- `BT-PROFILE-04` ~~Crear superficie web de perfil/cuenta~~ — **en repo:** ruta `/account` (`app/account/index.web.tsx`), entrada desde perfil en Explore (web).
-- `BT-PROFILE-05` ~~Integrar edición básica de nombre/avatar~~ — **en repo:** formulario web (`display_name`, URL opcional `avatar_url`); sin upload a Storage en V1.
-- `BT-PROFILE-06` QA de sesión, logout, estados vacíos y usuario sin completar perfil.
+- `BT-PROFILE-01` ~~Actualizar contrato de perfil en docs~~ — **hecho:** `PROFILE_AUTH_CONTRACT_CURRENT.md` (2026-04-12).
+- `BT-PROFILE-02` ~~Crear migración `profiles` + RLS owner-only~~ — **026** (+ 027–029 en repo; aplicar en Supabase).
+- `BT-PROFILE-03` ~~Capa `lib/profile`~~ — **hecho.**
+- `BT-PROFILE-04` ~~Superficie web `/account`~~ — **hecho** (`app/account/index.web.tsx`).
+- `BT-PROFILE-05` ~~Nombre + avatar~~ — **hecho** (avatar por Storage, no URL libre).
+- `BT-PROFILE-06` QA de sesión, logout, estados vacíos — **recomendado** como seguimiento operativo; no bloquea cierre de OL.
 
 ## Riesgos
 
