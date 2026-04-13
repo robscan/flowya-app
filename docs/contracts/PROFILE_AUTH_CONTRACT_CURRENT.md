@@ -1,7 +1,7 @@
 # PROFILE_AUTH_CONTRACT_CURRENT
 
 **Estado:** CURRENT  
-**Última verificación:** 2026-04-12 (esquema remoto + políticas Storage; ver bitácora `[354](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md)`)  
+**Última verificación:** 2026-04-13 (app `/account` + `MapScreenVNext` + esquema remoto + políticas Storage; ver bitácoras `[354](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md)` y `[356](../bitacora/2026/04/356-last-activity-no-ui-cuenta-ol-metrics-001-2026-04.md)`)  
 **Fuente de verdad:** este archivo + migraciones en `supabase/migrations/`.
 
 ---
@@ -38,8 +38,15 @@
 
 ## 3) Capa de aplicación
 
-- `**lib/profile`:** `fetchMyProfile`, `updateMyProfile` (display_name, avatar_storage_path), `touchMyProfileLastActivity` (actualiza `last_activity_at` sin mostrarlo al usuario), tipos `ProfileRow`.
-- `**lib/profile-avatar-upload`:** subida/eliminación y URL pública.
+- **`lib/profile`:**
+  - `fetchMyProfile` (lectura owner-only; sin sesión retorna `data: null` sin error).
+  - `updateMyProfile` (solo `display_name`, `avatar_storage_path`).
+  - `touchMyProfileLastActivity` (actualiza `last_activity_at` sin mostrarlo al usuario).
+  - Tipo canónico `ProfileRow`.
+- **`lib/profile-avatar-upload`:**
+  - `pickProfileImageBlob` (web: `input[type=file]`; nativo: galería + recorte 1:1).
+  - `uploadMyProfileAvatar` (optimiza imagen y escribe en `profile-avatars/{user_id}/avatar.jpg`, `upsert: true`).
+  - `deleteMyProfileAvatarObject`, `getProfileAvatarPublicUrl`.
 - **Web — cuenta:** `app/account/index.web.tsx`, ruta `/account`; header oculto en stack; desktop: panel lateral + mapa visible (modal transparente).
 - **Nativo — cuenta:** `app/account/index.tsx` permanece **stub** hasta OL de paridad; alcance explícitamente **web-first** en OL-PROFILE-001.
 
@@ -58,8 +65,71 @@ La introspección de **2026-02-08** no encontraba tabla `profiles` en `public`. 
 
 ---
 
+## 6) Interfaces públicas (TypeScript)
+
+```ts
+// lib/profile
+fetchMyProfile(): Promise<{ data: ProfileRow | null; error: Error | null }>
+updateMyProfile(patch: {
+  display_name?: string | null
+  avatar_storage_path?: string | null
+}): Promise<{ data: ProfileRow | null; error: Error | null }>
+touchMyProfileLastActivity(options?: { bypassThrottle?: boolean }): Promise<{ ok: boolean }>
+
+// lib/profile-avatar-upload
+pickProfileImageBlob(): Promise<Blob | null>
+uploadMyProfileAvatar(imageBlob: Blob): Promise<{ storagePath: string; publicUrl: string } | null>
+deleteMyProfileAvatarObject(storagePath: string | null | undefined): Promise<boolean>
+getProfileAvatarPublicUrl(storagePath: string | null | undefined): string | null
+```
+
+### 6.1 Restricciones verificadas
+
+- `touchMyProfileLastActivity` usa throttle cliente de `10 min` (constante `LAST_ACTIVITY_TOUCH_INTERVAL_MS`).
+- `/account` fuerza un touch inicial con `bypassThrottle: true` al cargar sesión válida.
+- `MapScreenVNext` toca actividad sin bypass en `useFocusEffect`.
+- `uploadMyProfileAvatar` puede devolver `null` ante fallo de optimización/subida/URL pública; la UI debe tratarlo como error recuperable.
+
+---
+
+## 7) Flujos canónicos
+
+### 7.1 Carga de cuenta (`/account`)
+
+1. `supabase.auth.getUser()`.
+2. Si no hay sesión o es anónima: no leer/escribir `profiles`; mostrar CTA de auth.
+3. Si hay sesión: `touchMyProfileLastActivity({ bypassThrottle: true })`.
+4. `fetchMyProfile()` y poblar UI con `display_name`, `email`, `avatar_storage_path`.
+
+### 7.2 Editar nombre visible
+
+1. Sanitizar (`trim`) en UI.
+2. `updateMyProfile({ display_name })`.
+3. Reflejar respuesta devuelta por DB y mostrar feedback.
+
+### 7.3 Cambiar/eliminar avatar
+
+1. Seleccionar blob (`pickProfileImageBlob`).
+2. Subir a Storage (`uploadMyProfileAvatar`) -> ruta fija `{user_id}/avatar.jpg`.
+3. Persistir ruta en `profiles.avatar_storage_path` con `updateMyProfile`.
+4. Para eliminar: borrar objeto (`deleteMyProfileAvatarObject`) y luego `updateMyProfile({ avatar_storage_path: null })`.
+
+---
+
+## 8) Troubleshooting rápido
+
+| Síntoma | Causa probable | Verificación |
+| --- | --- | --- |
+| Error al leer/escribir `avatar_storage_path` | Falta migración `027_profile_avatar_storage.sql` | Ejecutar `scripts/supabase/ol-profile-introspect.sql` y confirmar columna/policies de bucket |
+| `email` de `profiles` no sincroniza con `auth.users` | Falta `028_profiles_email_sync.sql` o trigger desactivado | Revisar introspección de triggers `on_auth_user_email_sync_profiles` y `profiles_enforce_email_from_auth_trigger` |
+| Subida de avatar falla con 403/`null` | Objeto fuera del patrón permitido por policy | Confirmar que la ruta sea exactamente `{auth.uid()}/avatar.jpg` |
+| `last_activity_at` parece “no cambiar” en pruebas cortas | Throttle cliente de 10 min | Probar desde `/account` (usa `bypassThrottle: true`) o esperar ventana de throttle |
+
+---
+
 ## Referencias
 
 - `[PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md](../ops/plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md)`
 - `[OPEN_LOOPS.md](../ops/OPEN_LOOPS.md)`
 - `[DATA_MODEL_CURRENT.md](DATA_MODEL_CURRENT.md)`
+- `[scripts/supabase/README.md](../../scripts/supabase/README.md)`
