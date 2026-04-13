@@ -4564,6 +4564,12 @@ export function MapScreenVNext() {
 
   const handleProfilePress = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
+    if (Platform.OS === "web") {
+      blurActiveElement();
+      setShowLogoutOption(false);
+      (router.push as (href: string) => void)("/account");
+      return;
+    }
     const { data: { user } } = await supabase.auth.getUser();
     const accountLabel = resolveAccountDisplayLabel(user);
     const nextShowLogoutOption = !showLogoutOption;
@@ -4572,7 +4578,7 @@ export function MapScreenVNext() {
     if (nextShowLogoutOption) {
       if (!suppressToastRef.current) toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
     }
-  }, [requireAuthOrModal, showLogoutOption, toast]);
+  }, [requireAuthOrModal, router, showLogoutOption, toast]);
 
   const handleLogoutPress = useCallback(() => {
     setShowLogoutConfirm(true);

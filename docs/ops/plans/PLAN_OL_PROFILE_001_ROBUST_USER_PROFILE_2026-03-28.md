@@ -98,8 +98,8 @@ Referencia:
 - `BT-PROFILE-01` Actualizar contrato de perfil en docs (`PROFILE_AUTH_CONTRACT_*`) cuando exista evidencia en DB; alinear tipos/capa `lib/profile`.
 - `BT-PROFILE-02` ~~Crear migración `profiles` + RLS owner-only~~ — **en repo:** `supabase/migrations/026_profiles_private_owner_rls.sql` (aplicar en Supabase).
 - `BT-PROFILE-03` Crear capa de dominio `lib/profile/*`.
-- `BT-PROFILE-04` Crear superficie web de perfil/cuenta.
-- `BT-PROFILE-05` Integrar edición básica de nombre/avatar.
+- `BT-PROFILE-04` ~~Crear superficie web de perfil/cuenta~~ — **en repo:** ruta `/account` (`app/account/index.web.tsx`), entrada desde perfil en Explore (web).
+- `BT-PROFILE-05` ~~Integrar edición básica de nombre/avatar~~ — **en repo:** formulario web (`display_name`, URL opcional `avatar_url`); sin upload a Storage en V1.
 - `BT-PROFILE-06` QA de sesión, logout, estados vacíos y usuario sin completar perfil.
 
 ## Riesgos
