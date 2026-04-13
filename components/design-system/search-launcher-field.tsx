@@ -1,3 +1,7 @@
+/**
+ * Launcher “tap to search” (sin foco hasta abrir el panel). En Explorar, la pastilla canónica en mapa/sidebar/KPI
+ * es `ExploreChromeSearchField` (compone este componente con `variant="onMap"`).
+ */
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 

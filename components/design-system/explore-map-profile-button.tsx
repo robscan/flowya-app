@@ -1,6 +1,6 @@
 /**
  * Botón de cuenta en esquina superior del mapa (Explorar).
- * Separado de ExploreSearchActionRow (solo búsqueda).
+ * Separado de `ExploreChromeSearchField` (solo búsqueda en mapa/sidebar).
  */
 
 import { IconButton } from "@/components/design-system/icon-button";

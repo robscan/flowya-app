@@ -42,7 +42,7 @@ import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
 import { ExploreChromeShell } from "@/components/design-system/explore-chrome-shell";
 import { ExploreMapProfileButton } from "@/components/design-system/explore-map-profile-button";
 import { ExploreMapStatusRow } from "@/components/design-system/explore-map-status-row";
-import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import { ExploreChromeSearchField } from "@/components/design-system/explore-chrome-search-field";
 import {
   ExploreWelcomeSheet,
   type ExploreWelcomeSheetState,
@@ -5677,7 +5677,7 @@ export function MapScreenVNext() {
               ]}
             >
               <View style={styles.bottomActionRowKpiInner}>
-                <ExploreSearchActionRow
+                <ExploreChromeSearchField
                   fullWidth
                   onSearchPress={openSearchPreservingCountriesSheet}
                   searchPlaceholder="Busca países o lugares"

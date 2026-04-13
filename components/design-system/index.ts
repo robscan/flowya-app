@@ -14,7 +14,11 @@ export type {
   ExploreMapStatusRowFlowsBadge,
   ExploreMapStatusRowProps,
 } from './explore-map-status-row';
+export { ExploreChromeSearchField } from './explore-chrome-search-field';
+export type { ExploreChromeSearchFieldProps } from './explore-chrome-search-field';
+/** @deprecated Usar `ExploreChromeSearchField`. */
 export { ExploreSearchActionRow } from './explore-search-action-row';
+/** @deprecated Usar `ExploreChromeSearchFieldProps`. */
 export type { ExploreSearchActionRowProps } from './explore-search-action-row';
 export { ExploreMapProfileButton } from './explore-map-profile-button';
 export type { ExploreMapProfileButtonProps } from './explore-map-profile-button';

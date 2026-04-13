@@ -34,7 +34,7 @@ import {
   ExploreCountriesFlowsPill,
   ExploreMapProfileButton,
   ExploreMapStatusRow,
-  ExploreSearchActionRow,
+  ExploreChromeSearchField,
   IconButtonShowcase,
   ClearIconCircleShowcase,
   ImagesShowcase,
@@ -1069,7 +1069,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Chrome alineado a MapScreen (`ExploreChromeShell`; ver EXPLORE_CHROME_SHELL.md): **perfil** arriba a la izquierda (`ExploreMapProfileButton`); fila FLOWYA + pastilla (`ExploreMapStatusRow`); banda inferior solo búsqueda (`ExploreSearchActionRow`, `fullWidth` / `WEB_SHEET_MAX_WIDTH`). Tap en perfil abre cuenta (`/account`). FLOWYA abre el modal beta de la vitrina."
+          description="Chrome alineado a MapScreen (`ExploreChromeShell`; ver EXPLORE_CHROME_SHELL.md): **perfil** arriba a la izquierda (`ExploreMapProfileButton`); fila FLOWYA + pastilla (`ExploreMapStatusRow`); **buscador canónico** solo launcher (`ExploreChromeSearchField`, `fullWidth` / `WEB_SHEET_MAX_WIDTH`). Tap en perfil abre cuenta (`/account`). FLOWYA abre el modal beta de la vitrina."
         >
           <View
             style={{
@@ -1091,7 +1091,7 @@ export default function DesignSystemScreen() {
                 accessibilityLabel: 'Abrir países visitados',
               }}
             />
-            <ExploreSearchActionRow fullWidth onSearchPress={() => {}} />
+            <ExploreChromeSearchField fullWidth onSearchPress={() => {}} />
           </View>
         </DesignSystemSection>
 

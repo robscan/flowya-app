@@ -8,7 +8,7 @@ import {
   type SearchResultCardProps,
 } from "@/components/design-system/search-result-card";
 import { SearchListCard } from "@/components/design-system/search-list-card";
-import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import { ExploreChromeSearchField } from "@/components/design-system/explore-chrome-search-field";
 import { SheetHandle } from "@/components/design-system/sheet-handle";
 import {
   getSheetHeightForState,
@@ -422,7 +422,7 @@ export function ExploreWelcomeSheet({
             <SheetHandle onPress={handleHeaderTap} />
           </View>
           <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
-            <ExploreSearchActionRow
+            <ExploreChromeSearchField
               fullWidth
               onSearchPress={onSearchPress}
               searchPlaceholder="Busca países o lugares"
@@ -496,7 +496,7 @@ export function ExploreWelcomeSheet({
           </View>
         ) : null}
         <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
-          <ExploreSearchActionRow
+          <ExploreChromeSearchField
             fullWidth
             onSearchPress={onSearchPress}
             searchPlaceholder="Busca países o lugares"
