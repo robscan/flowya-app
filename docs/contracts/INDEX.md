@@ -2,6 +2,10 @@
 
 Índice canónico de contratos en `docs/contracts/`. Actualizar cuando se agreguen o renombren contratos.
 
+## Legal / privacidad (producto)
+
+- **Política de privacidad (pantalla `/privacy`, texto canónico en código):** no hay contrato `.md` separado; OL cerrado **OL-PRIVACY-001** — bitácora [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md), merge [`PR #140`](https://github.com/robscan/flowya-app/pull/140), plan [`PLAN_OL_PRIVACY_001`](../ops/plans/PLAN_OL_PRIVACY_001_2026-03-10.md).
+
 ## Contratos canónicos
 
 - **EXPLORE_SHEET.md** — Sheet único Explore vNext: estados (collapsed/medium/expanded), modos (search/spot), no overlay, keyboard-safe.

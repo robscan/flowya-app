@@ -17,8 +17,8 @@
 ## Trazabilidad GitHub
 
 - Merge código y cierre de alcance web (galería, `spot_images`, OL-CONTENT-002): [**PR #138**](https://github.com/robscan/flowya-app/pull/138) (2026-04-12).
-- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md).
+- Índice PR recientes: [`349`](349-indice-trazabilidad-pr-130-139-2026-04.md); continuación [#140](https://github.com/robscan/flowya-app/pull/140) / privacidad: [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md).
 
 ## Operativa
 
-- Loop ejecutivo único siguiente: **`OL-PRIVACY-001`** (ver [`OPEN_LOOPS.md`](../../../ops/OPEN_LOOPS.md)).
+- **Actualización posterior al cierre de este documento:** `OL-PRIVACY-001` quedó **cerrado** (bitácora [`350`](350-ol-privacy-001-politica-y-ruta-privacidad.md)); el loop ejecutivo vigente está en [`OPEN_LOOPS.md`](../../../ops/OPEN_LOOPS.md) (en 2026-04-12: **`OL-SECURITY-VALIDATION-001`**).

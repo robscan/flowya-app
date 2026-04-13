@@ -28,6 +28,11 @@ Cumplir [PLAN_OL_PRIVACY_001_2026-03-10.md](../../ops/plans/PLAN_OL_PRIVACY_001_
 
 - `npx tsc --noEmit` OK.
 
+## Trazabilidad GitHub
+
+- Merge en `main`: [**PR #140**](https://github.com/robscan/flowya-app/pull/140) (2026-04-12).
+- Índice PR y OL relacionados: [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md).
+
 ## Referencias
 
 - Esta bitácora: `docs/bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md`

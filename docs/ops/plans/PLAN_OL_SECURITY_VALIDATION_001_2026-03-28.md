@@ -1,5 +1,7 @@
 # PLAN_OL_SECURITY_VALIDATION_001_2026-03-28
 
+**Estado de ejecución:** **cerrado (2026-04-12)** — inventario + validación remota H1–H4: [`../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md`](../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md); arranque [`351`](../bitacora/2026/04/351-ol-security-validation-001-inventario-repo.md); cierre [`353`](../bitacora/2026/04/353-ol-security-validation-001-cierre.md).
+
 ## Objetivo
 
 Ejecutar una validación de seguridad mínima pero seria sobre el estado web-first real de FLOWYA antes de seguir ampliando alcance.
