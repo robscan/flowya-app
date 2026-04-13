@@ -19,7 +19,7 @@ Las llamadas que usan tokens o cuotas **visibles en el navegador** pueden seguir
 |------|-----------|-----------------|
 | **A. Producto / UX** | Sesión requerida para usar la app o para acciones costosas | Sin usuario autenticado → no Explore completo / no búsqueda ilimitada (definir con producto). |
 | **B. Identidad** | Supabase Auth (magic link, etc.); `auth.uid()` en políticas | Reduce tráfico anónimo sin identidad. |
-| **C. Datos (RLS + políticas)** | Lectura/escritura según `auth.uid()`; sin usuario → mínimo o nada | Ya alineado con spots/pins; revisar en `OL-SECURITY-VALIDATION-001`. |
+| **C. Datos (RLS + políticas)** | Lectura/escritura según `auth.uid()`; sin usuario → mínimo o nada | Inventario y validación remota en **`OL-SECURITY-VALIDATION-001`** (cerrado 2026-04-12); seguimiento en nuevas tablas/políticas. |
 | **D. Proxy / Edge / backend** | Las claves del proveedor no expuestas; rate limit por IP/usuario | Si el token Mapbox está solo en cliente, evaluar restricciones de URL en Mapbox + cuotas de cuenta. |
 | **E. Proveedor (Mapbox, etc.)** | Budget alerts, rotación de tokens, restricciones de referrer/URL | Mitigación principal contra scraping masivo de la misma clave. |
 | **F. Observabilidad** | Métricas de uso por ruta (sin PII innecesario) | Detectar picos anómalos antes de facturación. |
@@ -28,7 +28,7 @@ Las llamadas que usan tokens o cuotas **visibles en el navegador** pueden seguir
 
 ## 3. Relación con loops vigentes
 
-- **`OL-SECURITY-VALIDATION-001`:** validar que mutaciones y lecturas sensibles cumplen B+C.
+- **`OL-SECURITY-VALIDATION-001`:** **cerrado (2026-04-12)** — inventario RLS/migraciones + H1–H4; nuevas mutaciones/lecturas sensibles deben seguir B+C.
 - **`OL-PROFILE-001`:** preferencias (idioma, unidades) atadas a usuario autenticado.
 - **Login obligatorio (decisión producto):** documentada en `OPEN_LOOPS.md` § Decisiones producto.
 

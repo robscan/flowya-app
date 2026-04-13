@@ -10,8 +10,8 @@
 | Fase | Objetivo | OL / entrega | Riesgo principal |
 |------|-----------|--------------|-------------------|
 | **A** | ~~Cerrar web responsive con QA real~~ **Hecho (2026-04-12)** | **`OL-WEB-RESPONSIVE-001`** — cerrado; sidebar desktop + QA multiviewport | Regresiones en mobile al tocar capas compartidas |
-| **B** | Higiene legal / confianza | **`OL-PRIVACY-001`**, **`OL-SECURITY-VALIDATION-001`** | Alcance creep (política perfecta vs publicable) |
-| **C** | Cuenta usable + **menor abuso de APIs** | **`OL-PROFILE-001`** + **login requerido** (producto) + `OL-SECURITY-VALIDATION-001` | Coste Mapbox/geocoding si sesiones anónimas o rutas abiertas; paridad web/native |
+| **B** | Higiene legal / confianza | **`OL-PRIVACY-001`** — **cerrado**; **`OL-SECURITY-VALIDATION-001`** — **cerrado 2026-04-12** (bitácora `353`) | Alcance creep (política perfecta vs publicable) |
+| **C** | Cuenta usable + **menor abuso de APIs** | **`OL-PROFILE-001`** + **login requerido** (producto); RLS/políticas validadas en **`OL-SECURITY-VALIDATION-001`** (cerrado) | Coste Mapbox/geocoding si sesiones anónimas o rutas abiertas; paridad web/native |
 | **D** | Valor diferencial datos | **`OL-CONTENT-002`** — **cerrado 2026-04-12** (galería **web**; paridad nativa diferida). **`OL-CONTENT-001`** (Recordar-lite) | Mezclar contenido editorial con notas privadas |
 | **E** | Clima + unidades | **`OL-CONTENT-CLIMATE-UNITS-001`** | Fuente de normales + granularidad geográfica; jobs de ingest |
 | **F** | Internacionalización UI | **`OL-I18N-EN-001`** — Explore + auth + **crear/editar/detalle** spot + **mapa** + **DS** (vitrina bilingüe); ver §4c–4e | Strings duplicados; preview DS vs preferencia usuario |
@@ -93,7 +93,7 @@ Ver **[API_AND_AUTH_PROTECTION_LAYERS.md](../governance/API_AND_AUTH_PROTECTION_
 - **Fase A primero:** Sin web estable, iOS nativo hereda deuda.
 - **Clima (`OL-CONTENT-CLIMATE-UNITS-001`) después** de `OL-WEB-RESPONSIVE-001` cerrado y preferiblemente con perfil/settings para unidades.
 - **`OL-I18N-EN-001`** en paralelo solo si hay capacidad; si no, tras Fase A para no mezclar QA visual con extracción de strings.
-- **Login y coste API:** aplicar checklist en [API_AND_AUTH_PROTECTION_LAYERS.md](../governance/API_AND_AUTH_PROTECTION_LAYERS.md); **`OL-SECURITY-VALIDATION-001`** alineado con gate de app.
+- **Login y coste API:** aplicar checklist en [API_AND_AUTH_PROTECTION_LAYERS.md](../governance/API_AND_AUTH_PROTECTION_LAYERS.md); **`OL-SECURITY-VALIDATION-001`** cerrado (2026-04-12); gate de app y hardening continúan en **`OL-PROFILE-001`** y capas del documento.
 
 ---
 

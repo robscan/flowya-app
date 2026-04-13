@@ -21,4 +21,4 @@
 
 ## Operativa
 
-- **Actualización posterior al cierre de este documento:** `OL-PRIVACY-001` quedó **cerrado** (bitácora [`350`](350-ol-privacy-001-politica-y-ruta-privacidad.md)); el loop ejecutivo vigente está en [`OPEN_LOOPS.md`](../../../ops/OPEN_LOOPS.md) (en 2026-04-12: **`OL-SECURITY-VALIDATION-001`**).
+- **Actualización posterior al cierre de este documento:** `OL-PRIVACY-001` quedó **cerrado** (bitácora [`350`](350-ol-privacy-001-politica-y-ruta-privacidad.md)); **`OL-SECURITY-VALIDATION-001`** quedó **cerrado** (bitácora [`353`](353-ol-security-validation-001-cierre.md)); el loop ejecutivo vigente está en [`OPEN_LOOPS.md`](../../../ops/OPEN_LOOPS.md) (en 2026-04-12: **`OL-PROFILE-001`**).
