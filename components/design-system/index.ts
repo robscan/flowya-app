@@ -16,6 +16,8 @@ export type {
 } from './explore-map-status-row';
 export { ExploreSearchActionRow } from './explore-search-action-row';
 export type { ExploreSearchActionRowProps } from './explore-search-action-row';
+export { ExploreMapProfileButton } from './explore-map-profile-button';
+export type { ExploreMapProfileButtonProps } from './explore-map-profile-button';
 export { ExploreChromeShell } from './explore-chrome-shell';
 export type {
   ExploreChromeShellMode,
