@@ -1,6 +1,6 @@
 # PLAN_OL_SECURITY_VALIDATION_001_2026-03-28
 
-**Estado de ejecución (2026-04-12):** en curso — inventario desde repo: [`../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md`](../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md); bitácora [`351`](../bitacora/2026/04/351-ol-security-validation-001-inventario-repo.md).
+**Estado de ejecución:** **cerrado (2026-04-12)** — inventario + validación remota H1–H4: [`../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md`](../analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md); arranque [`351`](../bitacora/2026/04/351-ol-security-validation-001-inventario-repo.md); cierre [`353`](../bitacora/2026/04/353-ol-security-validation-001-cierre.md).
 
 ## Objetivo
 

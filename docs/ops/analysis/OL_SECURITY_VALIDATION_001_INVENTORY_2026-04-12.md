@@ -1,14 +1,14 @@
 # OL-SECURITY-VALIDATION-001 — Inventario desde repo (2026-04-12)
 
 **Plan:** [`PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md`](../plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md)  
-**Estado:** trabajo en curso — este documento cumple **BT-SEC-01**, **BT-SEC-02** y base de **BT-SEC-06** (hallazgos iniciales).  
-**Remoto:** las comprobaciones en la instancia Supabase (policies efectivas = migraciones aplicadas en orden) son **SV-02** manual; marcar cada ítem al validar.
+**Estado:** **cerrado (2026-04-12)** — inventario + validación remota H1–H4; evidencia de cierre: bitácora [`353`](../../bitacora/2026/04/353-ol-security-validation-001-cierre.md).  
+**SV-02:** migraciones críticas confirmadas en instancia remota (orden y aplicación) — ver § Validación.
 
 ---
 
 ## SV-02 Migraciones críticas (archivos en repo)
 
-Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en orden** (sin saltos):
+En el proyecto Supabase objetivo están aplicadas **en orden** (sin saltos), según validación 2026-04-12:
 
 | Migración | Propósito breve |
 |-----------|-----------------|
@@ -27,7 +27,7 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 
 - **SELECT:** pública para lectura de filas (p. ej. [`008_spots_rls_select.sql`](../../../supabase/migrations/008_spots_rls_select.sql) — `spots_select_all`); encajar con producto “mapa descubre spots”.
 - **INSERT / UPDATE / DELETE:** tras [`018_spots_owner_write_guardrails.sql`](../../../supabase/migrations/018_spots_owner_write_guardrails.sql), políticas owner `user_id = auth.uid()` para roles autenticados; políticas permisivas antiguas eliminadas en bloque.
-- **Hard delete cliente:** [`018_spots_block_client_hard_delete.sql`](../../../supabase/migrations/018_spots_block_client_hard_delete.sql) revoca `DELETE` en tabla para `anon`/`authenticated`. La eliminación en producto debe alinearse con **soft delete** (`hide_spot`, `is_hidden`). **Validar en remoto** si el `DELETE` directo está imposibilitado (objetivo) y si la policy `spots_delete_authenticated_owner` es alcanzable o queda redundante según privilegios.
+- **Hard delete cliente:** [`018_spots_block_client_hard_delete.sql`](../../../supabase/migrations/018_spots_block_client_hard_delete.sql) revoca `DELETE` en tabla para `anon`/`authenticated`. La eliminación en producto se alinea con **soft delete** (`hide_spot`, `is_hidden`). Validación remota H2: comportamiento coherente con política (sin delete directo como camino feliz).
 
 ### `pins`
 
@@ -37,13 +37,13 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 ### `feedback`
 
 - [`009_feedback_table.sql`](../../../supabase/migrations/009_feedback_table.sql): `INSERT` permitido a `anon` y `authenticated` con `WITH CHECK (true)` — coherente con envío desde API serverless / cliente sin sesión fuerte.
-- No hay policy de `SELECT` en el archivo: con RLS activo, lectura típica desde cliente **denegada** salvo otras policies (confirmar en remoto).
+- No hay policy de `SELECT` en el archivo: con RLS activo, lectura típica desde cliente **denegada** salvo otras policies (confirmado en remoto, H4).
 
 ### `user_tags` / `pin_tags`
 
 - Owner-only en todas las operaciones definidas ([`020_user_tags_pin_tags.sql`](../../../supabase/migrations/020_user_tags_pin_tags.sql)).
 - `pin_tags` **INSERT** exige coherencia `spots.user_id` y `user_tags` del mismo usuario.
-- **UPDATE** en `pin_tags`: no hay policy `UPDATE` en migración 020 (solo select/insert/delete); confirmar si es intencional (sin updates) o hay migración posterior.
+- **UPDATE** en `pin_tags`: no hay policy `UPDATE` en migración 020 (solo select/insert/delete). **H3 validado:** modelo sin updates — cambios vía delete + insert.
 
 ### `spot_images`
 
@@ -55,10 +55,10 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 
 ---
 
-## SV-03 Runtime (punteros; QA manual / auditoría de código)
+## SV-03 Runtime (seguimiento continuo)
 
-- Mutaciones spots/pins/tags deben usar cliente Supabase con sesión; errores RLS no deben presentarse como éxito (revisar manejo de error en flujos save/visited/delete pin).
-- **Delete real de spots:** no debe ser el camino feliz del cliente si `REVOKE DELETE` + soft delete es la norma.
+- Mutaciones spots/pins/tags deben usar cliente Supabase con sesión; errores RLS no deben presentarse como éxito (revisar manejo de error en flujos save/visited/delete pin en futuros PR).
+- **Delete real de spots:** el cliente no debe usar `DELETE` de fila como flujo principal; vigilar en revisiones de código.
 
 ---
 
@@ -75,14 +75,16 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 
 ---
 
-## Hallazgos / follow-ups (viva voce)
+## Hallazgos H1–H4 — validación remota (2026-04-12)
 
-| ID | Tema | Severidad | Acción |
-|----|------|-----------|--------|
-| H1 | Confirmar en **Supabase remoto** orden y estado de migraciones SV-02 | Media | Checklist SQL / Dashboard |
-| H2 | Comportamiento efectivo de **DELETE** en `spots` tras `REVOKE` + policies owner | Media | Prueba: intento delete fila vs `hide_spot` |
-| H3 | Policy **UPDATE** en `pin_tags` ausente en migración 020 | Baja | Confirmar si mutación solo por delete+insert |
-| H4 | **feedback** insert abierto a anon | Informativa | Aceptado por diseño MVP; vigilar abuso vía API/rate limit fuera de alcance de este doc |
+Validación manual en Supabase / comportamiento acordado con el producto; orden aplicado según plan.
+
+| ID | Tema | Severidad | Resultado |
+|----|------|-----------|-----------|
+| H1 | Orden y estado de migraciones SV-02 en remoto | Media | **OK** — migraciones críticas aplicadas en orden. |
+| H2 | `DELETE` en `spots` tras `REVOKE` + owner policies | Media | **OK** — soft delete vía `hide_spot`; sin delete directo como camino operativo. |
+| H3 | Sin policy `UPDATE` en `pin_tags` (020) | Baja | **OK** — intencional; cambios por delete + insert. |
+| H4 | `feedback` INSERT abierto a `anon` | Informativa | **Aceptado** — diseño MVP; abuso vía rate limit/API fuera de alcance de este OL. |
 
 ---
 
@@ -91,3 +93,4 @@ Confirmar en el proyecto Supabase objetivo que existen y están aplicadas **en o
 - Contrato auth: [`PROFILE_AUTH_CONTRACT_CURRENT.md`](../../contracts/PROFILE_AUTH_CONTRACT_CURRENT.md)
 - Privacidad: [`PLAN_OL_PRIVACY_001_2026-03-10.md`](../plans/PLAN_OL_PRIVACY_001_2026-03-10.md)
 - Trazabilidad (PR #140, bitácoras 350–352): [`352`](../../bitacora/2026/04/352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md)
+- Cierre OL: [`353`](../../bitacora/2026/04/353-ol-security-validation-001-cierre.md)

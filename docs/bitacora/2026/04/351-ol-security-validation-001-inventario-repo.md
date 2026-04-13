@@ -16,7 +16,10 @@ Primer entregable del plan [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](../..
 
 - Índice trazabilidad (con PR #140 / privacidad): [`352`](352-indice-trazabilidad-pr-140-ol-privacy-ol-security-2026-04.md).
 
-## Siguientes pasos (no cerrado el OL)
+## Cierre
 
-- Validación en **instancia Supabase remota** (migraciones aplicadas, políticas efectivas).
-- QA mutaciones A/B entre usuarios y comprobación `userCoords` / feedback (referencias en el análisis).
+- Loop cerrado con validación remota H1–H4: bitácora [`353`](353-ol-security-validation-001-cierre.md).
+
+## Seguimiento (post-cierre)
+
+- Auditoría continua de mutaciones en código (SV-03 en inventario); no bloquea el cierre del OL según criterio de documento de hallazgos del plan.

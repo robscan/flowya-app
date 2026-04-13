@@ -9,15 +9,14 @@
 |----|--------------------|------------------|------------------------|
 | [#140](https://github.com/robscan/flowya-app/pull/140) | 2026-04-12 | OL-PRIVACY-001: política ES, `/privacy`, enlaces auth/beta | Bitácora [`350`](350-ol-privacy-001-politica-y-ruta-privacidad.md); plan [PLAN_OL_PRIVACY_001_2026-03-10.md](../../ops/plans/PLAN_OL_PRIVACY_001_2026-03-10.md); código `lib/legal/privacy-policy-es.ts`, `app/privacy.tsx`. |
 
-## OL-SECURITY-VALIDATION-001 (trabajo en curso)
+## OL-SECURITY-VALIDATION-001 (**cerrado** 2026-04-12)
 
 | Artefacto | Descripción |
 |-----------|-------------|
 | Plan | [PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md](../../ops/plans/PLAN_OL_SECURITY_VALIDATION_001_2026-03-28.md) |
-| Inventario repo (SV-01 / SV-02 / hallazgos) | [OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md](../../ops/analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md) |
+| Inventario + validación H1–H4 | [OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md](../../ops/analysis/OL_SECURITY_VALIDATION_001_INVENTORY_2026-04-12.md) |
 | Bitácora arranque | [`351`](351-ol-security-validation-001-inventario-repo.md) |
-
-**Nota:** el inventario de seguridad puede integrarse en `main` en un PR dedicado desde la rama `feat/ol-security-validation-001`; hasta entonces, la fuente en remoto puede ser solo la rama de trabajo.
+| Cierre | [`353`](353-ol-security-validation-001-cierre.md) |
 
 ## Referencias cruzadas
 
