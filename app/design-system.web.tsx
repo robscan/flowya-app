@@ -32,8 +32,9 @@ import {
   DS_MOCK_COUNTRY_ITEMS,
   ExploreWelcomeSheet,
   ExploreCountriesFlowsPill,
+  ExploreMapProfileButton,
   ExploreMapStatusRow,
-  ExploreSearchActionRow,
+  ExploreChromeSearchField,
   IconButtonShowcase,
   ClearIconCircleShowcase,
   ImagesShowcase,
@@ -138,8 +139,6 @@ export default function DesignSystemScreen() {
   const [dsMapFilterInlineCompact, setDsMapFilterInlineCompact] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineWide, setDsMapFilterInlineWide] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineDisabled, setDsMapFilterInlineDisabled] = useState<MapPinFilterValue>('all');
-  /** Vitrina ds-pat-explore: cerrar sesión solo tras tap en perfil (paridad UX MapScreen). */
-  const [dsPatExploreLogoutOpen, setDsPatExploreLogoutOpen] = useState(false);
   const [dsTplWelcomeState, setDsTplWelcomeState] = useState<ExploreWelcomeSheetState>('medium');
   const [dsTplWelcomeEmptyList, setDsTplWelcomeEmptyList] = useState(false);
   const sectionCard = {
@@ -1028,8 +1027,6 @@ export default function DesignSystemScreen() {
               state={dsTplWelcomeState}
               onStateChange={setDsTplWelcomeState}
               onSearchPress={() => {}}
-              onProfilePress={() => {}}
-              isAuthUser
               browseItems={dsTplWelcomeEmptyList ? [] : DS_EXPLORE_WELCOME_MOCK_ITEMS}
               onBrowseItemPress={() => {}}
               bottomOffset={0}
@@ -1072,7 +1069,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Chrome alineado a MapScreen (`ExploreChromeShell` en runtime con flag unificado; ver EXPLORE_CHROME_SHELL.md): fila FLOWYA + pastilla (ExploreMapStatusRow) y banda inferior (ExploreSearchActionRow con `fullWidth` cuando la banda coincide con el ancho del sheet WR-01, `WEB_SHEET_MAX_WIDTH`). Cerrar sesión: tap en perfil para mostrar u ocultar. FLOWYA abre el modal beta de la vitrina."
+          description="Chrome alineado a MapScreen (`ExploreChromeShell`; ver EXPLORE_CHROME_SHELL.md): **perfil** arriba a la izquierda (`ExploreMapProfileButton`); fila FLOWYA + pastilla (`ExploreMapStatusRow`); **buscador canónico** solo launcher (`ExploreChromeSearchField`, `fullWidth` / `WEB_SHEET_MAX_WIDTH`). Tap en perfil abre cuenta (`/account`). FLOWYA abre el modal beta de la vitrina."
         >
           <View
             style={{
@@ -1084,6 +1081,7 @@ export default function DesignSystemScreen() {
               gap: Spacing.sm,
             }}
           >
+            <ExploreMapProfileButton onPress={() => {}} isAuthUser />
             <ExploreMapStatusRow
               onFlowyaPress={() => setShowBetaModal(true)}
               flowsBadge={{
@@ -1093,14 +1091,7 @@ export default function DesignSystemScreen() {
                 accessibilityLabel: 'Abrir países visitados',
               }}
             />
-            <ExploreSearchActionRow
-              fullWidth
-              onSearchPress={() => {}}
-              onProfilePress={() => setDsPatExploreLogoutOpen((v) => !v)}
-              onLogoutPress={() => setDsPatExploreLogoutOpen(false)}
-              isAuthUser
-              showLogoutAction={dsPatExploreLogoutOpen}
-            />
+            <ExploreChromeSearchField fullWidth onSearchPress={() => {}} />
           </View>
         </DesignSystemSection>
 

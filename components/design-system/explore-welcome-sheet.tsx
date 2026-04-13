@@ -8,7 +8,7 @@ import {
   type SearchResultCardProps,
 } from "@/components/design-system/search-result-card";
 import { SearchListCard } from "@/components/design-system/search-list-card";
-import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import { ExploreChromeSearchField } from "@/components/design-system/explore-chrome-search-field";
 import { SheetHandle } from "@/components/design-system/sheet-handle";
 import {
   getSheetHeightForState,
@@ -84,11 +84,6 @@ export type ExploreWelcomeSheetProps = {
   onStateChange: (next: ExploreWelcomeSheetState) => void;
   onSheetHeightChange?: (height: number) => void;
   onSearchPress: () => void;
-  onProfilePress: () => void;
-  onLogoutPress?: () => void;
-  showLogoutAction?: boolean;
-  isAuthUser?: boolean;
-  logoutPopoverBottomOffset?: number;
   /** Título de la sección en medium/expanded (listado inferior). */
   browseSectionTitle?: string;
   /** RPC populares, o fallback cold-start alineado a MapScreen (`coldStartWorldRecommendations`). */
@@ -114,11 +109,6 @@ export function ExploreWelcomeSheet({
   onStateChange,
   onSheetHeightChange,
   onSearchPress,
-  onProfilePress,
-  onLogoutPress,
-  showLogoutAction,
-  isAuthUser,
-  logoutPopoverBottomOffset,
   browseSectionTitle = "Lugares populares en Flowya",
   browseItems,
   onBrowseItemPress,
@@ -432,17 +422,11 @@ export function ExploreWelcomeSheet({
             <SheetHandle onPress={handleHeaderTap} />
           </View>
           <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
-            <ExploreSearchActionRow
+            <ExploreChromeSearchField
               fullWidth
               onSearchPress={onSearchPress}
-              onProfilePress={onProfilePress}
-              onLogoutPress={onLogoutPress}
-              showLogoutAction={showLogoutAction}
-              isAuthUser={isAuthUser}
-              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
               searchPlaceholder="Busca países o lugares"
               accessibilityLabel="Buscar países o lugares"
-              profileAccessibilityLabel="Cuenta"
             />
           </View>
           {state === "medium" || state === "expanded" ? (
@@ -512,17 +496,11 @@ export function ExploreWelcomeSheet({
           </View>
         ) : null}
         <View onLayout={onPeekBlockLayout} style={styles.peekBlock}>
-          <ExploreSearchActionRow
+          <ExploreChromeSearchField
             fullWidth
             onSearchPress={onSearchPress}
-            onProfilePress={onProfilePress}
-            onLogoutPress={onLogoutPress}
-            showLogoutAction={showLogoutAction}
-            isAuthUser={isAuthUser}
-            logoutPopoverBottomOffset={logoutPopoverBottomOffset}
             searchPlaceholder="Busca países o lugares"
             accessibilityLabel="Buscar países o lugares"
-            profileAccessibilityLabel="Cuenta"
           />
         </View>
         <View style={[styles.mediumBlock, styles.desktopSidebarMedium]}>

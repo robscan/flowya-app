@@ -1,6 +1,6 @@
 # EXPLORE_CHROME_SHELL — Chrome inferior unificado (Explorar)
 
-**Última actualización:** 2026-04-12 (enlace canon sidebar desktop)  
+**Última actualización:** 2026-04-12 (ExploreChromeSearchField; perfil fuera del buscador)  
 **Estado:** ACTIVE  
 **Owner:** Explore vNext (`MapScreenVNext`), Design System  
 **Relacionado:** [EXPLORE_SHEET.md](EXPLORE_SHEET.md), [CANONICAL_BOTTOM_SHEET.md](CANONICAL_BOTTOM_SHEET.md), [DESIGN_SYSTEM_USAGE.md](DESIGN_SYSTEM_USAGE.md), [explore/FLOWYA_STATUS_ROW_VISIBILITY.md](explore/FLOWYA_STATUS_ROW_VISIBILITY.md), [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md), [EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md](EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md)
@@ -9,13 +9,17 @@
 
 Definir un **único host inferior** para el **chrome de Explorar** (entrada a búsqueda, perfil, acciones de cuenta) y, cuando aplique, el **cuerpo** tipo sheet (lista de bienvenida / recomendados). Sustituye el patrón histórico de **dos hosts mutuamente excluyentes** (banda flotante `ExploreSearchActionRow` vs `ExploreWelcomeSheet` con el mismo row embebido).
 
-## 2. Componente canónico
+## 2. Componentes canónicos
+
+- **`ExploreChromeSearchField`** (`components/design-system/explore-chrome-search-field.tsx`): **única** pieza de UI para la **entrada a búsqueda** en el chrome de Explorar (pastilla + `SearchLauncherField` `variant="onMap"`). **Sin perfil**; el acceso a cuenta es **`ExploreMapProfileButton`** (esquina superior del mapa). Usar este componente en welcome (móvil y **desktop/sidebar**), banda KPI, y camino legacy en `MapScreenVNext` cuando aplique.
 
 - **`ExploreChromeShell`** (`components/design-system/explore-chrome-shell.tsx`): contenedor que garantiza:
-  - **Zona chrome** fija al borde inferior del host (misma semántica que `ExploreSearchActionRow`).
+  - **Zona chrome** fija al borde inferior del host (misma semántica que la fila de `ExploreChromeSearchField`).
   - **Zona cuerpo** opcional encima del chrome cuando el modo lo requiere (lista cold-start / RPC en filtro **Todos** sin selección).
 
-- **`ExploreWelcomeSheet`** (design-system): implementación del cuerpo + gestos peek / medium / expanded + lista; puede componerse **dentro** del shell o exponerse como bloque reutilizable según el ensamblado en pantalla.
+- **`ExploreWelcomeSheet`** (design-system): implementación del cuerpo + gestos peek / medium / expanded + lista; compone **`ExploreChromeSearchField`** en el bloque peek / cabecera sidebar desktop.
+
+- *Compat:* `ExploreSearchActionRow` reexporta `ExploreChromeSearchField` (nombre histórico); nuevas importaciones deben usar **`ExploreChromeSearchField`**.
 
 ## 3. Modos de presentación
 
@@ -62,7 +66,7 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 ## 8b. Desktop ancho (sidebar, producto)
 
 - Viewport ≥ **`WEB_EXPLORE_SIDEBAR_MIN_WIDTH` (1080px)** (`lib/web-layout.ts`): **`webExploreUsesDesktopSidebar`**. Si aplica **welcome** (Todos) o **CountriesSheet** abierto en KPI, el panel deja de ser sheet inferior centrado y pasa a **columna izquierda** de ancho `WEB_EXPLORE_SIDEBAR_PANEL_WIDTH` (400px, panel lateral dedicado; más estrecho que el sheet centrado 720). El **mapa y overlays** viven en `mapStage` (columna derecha, `flex: 1`): el viewport de Mapbox coincide con esa región; `mapInstance.resize()` al cambiar el layout.
-- **`ExploreWelcomeSheet`**: prop `webExploreLayout="desktopSidebar"` (lista + barra en columna).
+- **`ExploreWelcomeSheet`**: prop `webExploreLayout="desktopSidebar"` (lista + **`ExploreChromeSearchField`** en cabecera de la columna).
 - **`CountriesSheet`**: prop `webDesktopSidebar` (panel anclado a la columna).
 - **`SpotSheet`** (spot o POI): prop `webDesktopSidebar` — misma columna y ancho que welcome/países; sin sheet inferior centrado a 720px.
 - **Toast** (`SystemStatusBar`): ancla inferior izquierda compensada con el ancho del panel lateral cuando el sidebar está activo.
@@ -80,6 +84,7 @@ Persistencia por filtro (`countriesSheetPersistRef`: `open` + estado por `saved`
 |---------|-----|
 | `components/design-system/explore-chrome-shell.tsx` | Host unificado (cuando flag ON) |
 | `components/design-system/explore-welcome-sheet.tsx` | Sheet lista bienvenida |
-| `components/design-system/explore-search-action-row.tsx` | Chrome mínimo |
+| `components/design-system/explore-chrome-search-field.tsx` | Buscador canónico (solo launcher) |
+| `components/design-system/explore-search-action-row.tsx` | Alias deprecated → `ExploreChromeSearchField` |
 | `components/explorar/MapScreenVNext.tsx` | Orquestación, flags, offsets |
 | `lib/explore-map-chrome-layout.ts` o `hooks/useExploreMapChromeLayout.ts` | Cálculo de offsets; `isFlowyaFeedbackVisible` (ver [FLOWYA_STATUS_ROW_VISIBILITY.md](explore/FLOWYA_STATUS_ROW_VISIBILITY.md)) |

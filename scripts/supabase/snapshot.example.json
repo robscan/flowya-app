@@ -1,0 +1,60 @@
+{
+  "_comment": "Plantilla: rellena con el resultado real de ol-profile-introspect.sql o de la API. Sirve para comparar entornos antes de migrar.",
+  "generated_at": "2026-04-12T00:00:00Z",
+  "project_ref": "tu-proyecto-ref",
+  "profiles_columns": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "column_name": "display_name",
+      "data_type": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "column_name": "avatar_storage_path",
+      "data_type": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "column_name": "email",
+      "data_type": "text",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "column_name": "last_activity_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES",
+      "column_default": null
+    }
+  ],
+  "migrations_expected_order": [
+    "026_profiles_private_owner_rls.sql",
+    "027_profile_avatar_storage.sql",
+    "028_profiles_email_sync.sql",
+    "029_profiles_last_activity_at.sql"
+  ],
+  "notes": [
+    "Si avatar_storage_path no existe: aplicar 027 antes de probar subida de foto.",
+    "Si email no existe: aplicar 028.",
+    "Si la subida falla: revisar políticas en storage.buckets y storage.objects para profile-avatars."
+  ]
+}

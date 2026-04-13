@@ -1,6 +1,7 @@
 /**
- * Host único del chrome inferior de Explorar (búsqueda + perfil): modo welcome (sheet lista)
- * o modo KPI (banda Por visitar / Visitados). Ver docs/contracts/EXPLORE_CHROME_SHELL.md.
+ * Host único del chrome inferior de Explorar (solo entrada a búsqueda vía `ExploreChromeSearchField`;
+ * perfil en mapa: `ExploreMapProfileButton`). Modo welcome (sheet lista) o KPI (banda Por visitar / Visitados).
+ * Ver docs/contracts/EXPLORE_CHROME_SHELL.md.
  */
 
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
@@ -9,9 +10,9 @@ import {
   type ExploreWelcomeSheetProps,
 } from "@/components/design-system/explore-welcome-sheet";
 import {
-  ExploreSearchActionRow,
-  type ExploreSearchActionRowProps,
-} from "@/components/design-system/explore-search-action-row";
+  ExploreChromeSearchField,
+  type ExploreChromeSearchFieldProps,
+} from "@/components/design-system/explore-chrome-search-field";
 import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
 import React from "react";
 import { StyleSheet, View } from "react-native";
@@ -22,8 +23,8 @@ export type ExploreChromeShellProps = {
   mode: ExploreChromeShellMode;
   /** Props completas del sheet de bienvenida (solo modo `welcome`). */
   welcomeProps: ExploreWelcomeSheetProps;
-  /** Props de la fila de acción; `fullWidth` se pasa aparte para KPI. */
-  kpiRowProps: ExploreSearchActionRowProps;
+  /** Props del buscador canónico; `fullWidth` se pasa aparte para KPI. */
+  kpiRowProps: ExploreChromeSearchFieldProps;
   kpiFullWidth: boolean;
   /** Insets del overlay absoluto (paridad MapScreen). */
   overlayLeft: number;
@@ -58,7 +59,7 @@ export function ExploreChromeShell({
       ]}
     >
       <View style={styles.bottomActionRowKpiInner}>
-        <ExploreSearchActionRow {...kpiRowProps} fullWidth={kpiFullWidth} />
+        <ExploreChromeSearchField {...kpiRowProps} fullWidth={kpiFullWidth} />
       </View>
     </View>
   );

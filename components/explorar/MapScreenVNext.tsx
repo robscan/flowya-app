@@ -8,7 +8,7 @@ import "@/styles/viewport-dvh.css";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
 import { X } from "lucide-react-native";
 import {
   Fragment,
@@ -40,8 +40,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
 import { ExploreChromeShell } from "@/components/design-system/explore-chrome-shell";
+import { ExploreMapProfileButton } from "@/components/design-system/explore-map-profile-button";
 import { ExploreMapStatusRow } from "@/components/design-system/explore-map-status-row";
-import { ExploreSearchActionRow } from "@/components/design-system/explore-search-action-row";
+import { ExploreChromeSearchField } from "@/components/design-system/explore-chrome-search-field";
 import {
   ExploreWelcomeSheet,
   type ExploreWelcomeSheetState,
@@ -51,9 +52,7 @@ import { IconButton } from "@/components/design-system/icon-button";
 import { MapPinFilterInline } from "@/components/design-system/map-pin-filter-inline";
 import { TagChip } from "@/components/design-system/tag-chip";
 import { MapControls } from "@/components/design-system/map-controls";
-import {
-    type MapPinFilterValue,
-} from "@/components/design-system/map-pin-filter";
+import { type MapPinFilterValue } from "@/components/design-system/map-pin-filter";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SearchListCard } from "@/components/design-system/search-list-card";
 import { SearchResultCard, type SearchResultCardProps } from "@/components/design-system/search-result-card";
@@ -88,7 +87,10 @@ import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
-import { computeExploreMapChromeLayout } from "@/lib/explore-map-chrome-layout";
+import {
+  computeExploreMapChromeLayout,
+  EXPLORE_MAP_LAYOUT,
+} from "@/lib/explore-map-chrome-layout";
 import {
   getWelcomeSidebarDismissedSync,
   loadWelcomeSidebarDismissedAsync,
@@ -116,6 +118,7 @@ import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH,
   WEB_SHEET_MAX_WIDTH,
+  WEB_VIEWPORT_REF,
   webExploreUsesDesktopSidebar,
 } from "@/lib/web-layout";
 import {
@@ -154,6 +157,8 @@ import {
   type ExploreSheetState,
   validateExploreRuntimeState,
 } from "@/core/explore/runtime";
+import { fetchMyProfile, touchMyProfileLastActivity } from "@/lib/profile";
+import { getProfileAvatarPublicUrl } from "@/lib/profile-avatar-upload";
 import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot, DEFAULT_DUPLICATE_RADIUS_METERS } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
@@ -479,40 +484,6 @@ function hasLinkedPlaceId(spot: Spot | null): boolean {
   return typeof spot.linked_place_id === "string" && spot.linked_place_id.trim().length > 0;
 }
 
-function resolveAccountDisplayLabel(user: {
-  email?: string | null;
-  user_metadata?: Record<string, unknown> | null;
-} | null): string {
-  if (!user) return "usuario";
-  const metadata = user.user_metadata ?? {};
-  const usernameCandidate =
-    metadata.username ??
-    metadata.preferred_username ??
-    metadata.full_name ??
-    metadata.name;
-  if (typeof usernameCandidate === "string" && usernameCandidate.trim().length > 0) {
-    return usernameCandidate.trim();
-  }
-  if (typeof user.email === "string" && user.email.trim().length > 0) {
-    const email = user.email.trim();
-    const [localRaw, domainRaw] = email.split("@");
-    if (!localRaw || !domainRaw) return "usuario";
-    const domainParts = domainRaw.split(".");
-    const hostRaw = domainParts[0] ?? "";
-    const tldRaw = domainParts.slice(1).join(".") || "";
-    const host =
-      hostRaw.length <= 2
-        ? `${hostRaw[0] ?? "*"}***`
-        : `${hostRaw[0]}***${hostRaw[hostRaw.length - 1]}`;
-    const tld =
-      tldRaw.length <= 2
-        ? `${tldRaw[0] ?? "*"}**`
-        : `${tldRaw[0]}**${tldRaw[tldRaw.length - 1]}`;
-    return `${localRaw}@${host}.${tld}`;
-  }
-  return "usuario";
-}
-
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 const MAP_PIN_CAP = 500;
 const SELECTED_PIN_HIT_RADIUS = 24;
@@ -584,6 +555,7 @@ function coerceCountriesSheetInitialState(state: CountriesSheetState): Countries
 
 export function MapScreenVNext() {
   const router = useRouter();
+  const pathname = usePathname();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
   const { openAuthModal } = useAuthModal();
@@ -672,6 +644,8 @@ export function MapScreenVNext() {
   );
   const [, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
+  /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
+  const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
   const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
   const [selectedTagFilterId, setSelectedTagFilterId] = useState<string | null>(null);
@@ -681,8 +655,6 @@ export function MapScreenVNext() {
   const [tagAssignSpot, setTagAssignSpot] = useState<Spot | null>(null);
   const [tagAssignInput, setTagAssignInput] = useState("");
   const [tagAssignSaving, setTagAssignSaving] = useState(false);
-  const [showLogoutOption, setShowLogoutOption] = useState(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
   const filterOverlayEntry = useRef(new Animated.Value(0)).current;
   const sloganEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -1007,6 +979,7 @@ export function MapScreenVNext() {
 
   useEffect(() => {
     if (!isAuthUser) {
+      setMyProfileAvatarPublicUrl(null);
       setUserTags([]);
       setPinTagIndex({});
       setSelectedTagFilterId(null);
@@ -1031,6 +1004,25 @@ export function MapScreenVNext() {
       cancelled = true;
     };
   }, [isAuthUser]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isAuthUser) {
+        setMyProfileAvatarPublicUrl(null);
+        return;
+      }
+      let cancelled = false;
+      void (async () => {
+        void touchMyProfileLastActivity();
+        const { data } = await fetchMyProfile();
+        if (cancelled) return;
+        setMyProfileAvatarPublicUrl(getProfileAvatarPublicUrl(data?.avatar_storage_path ?? null));
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [isAuthUser]),
+  );
 
   const invalidateSpotIdRef = useRef<((spotId: string) => void) | null>(null);
 
@@ -4564,25 +4556,11 @@ export function MapScreenVNext() {
 
   const handleProfilePress = useCallback(async () => {
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    const accountLabel = resolveAccountDisplayLabel(user);
-    const nextShowLogoutOption = !showLogoutOption;
-    setShowLogoutOption(nextShowLogoutOption);
-    // Hint contextual: solo cuando se abre la opción de logout estando autenticado.
-    if (nextShowLogoutOption) {
-      if (!suppressToastRef.current) toast.show(`Hola ${accountLabel}.`, { type: "default", replaceVisible: true });
+    if (Platform.OS === "web") {
+      blurActiveElement();
     }
-  }, [requireAuthOrModal, showLogoutOption, toast]);
-
-  const handleLogoutPress = useCallback(() => {
-    setShowLogoutConfirm(true);
-  }, []);
-
-  const handleLogoutConfirm = useCallback(async () => {
-    setShowLogoutConfirm(false);
-    setShowLogoutOption(false);
-    await supabase.auth.signOut();
-  }, []);
+    (router.push as (href: string) => void)("/account");
+  }, [requireAuthOrModal, router]);
 
   const handleShare = useCallback(
     async (spot: Spot) => {
@@ -4889,7 +4867,6 @@ export function MapScreenVNext() {
     isShellBlockedByOverlay,
     isBottomActionRowVisible,
     areMapControlsVisible,
-    logoutPopoverBottomOffset,
     filterTop,
     sloganTop,
     bottomActionRowBottomOffset,
@@ -4967,7 +4944,7 @@ export function MapScreenVNext() {
   }, [showExploreWelcomeSheet]);
 
   const mapControlsHeight = MAP_CONTROLS_FALLBACK_HEIGHT;
-  const flowsBadgeChromeEligible = !showLogoutOption;
+  const flowsBadgeChromeEligible = true;
   const flowsBadgePayload =
     flowsBadgeChromeEligible &&
     (isFlowyaStatusRowOnMap || isFlowyaSidebarHeaderVisible)
@@ -5140,11 +5117,6 @@ export function MapScreenVNext() {
     selectedSpot,
     poiTapped,
   ]);
-
-  useEffect(() => {
-    if (isBottomActionRowVisible && isAuthUser) return;
-    setShowLogoutOption(false);
-  }, [isBottomActionRowVisible, isAuthUser]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -5377,6 +5349,40 @@ export function MapScreenVNext() {
       </View>
     );
   }
+
+  /** Incluye `shouldShowInlineTopFilters` para que el perfil no desaparezca en móvil al abrir KPI/países (fila inferior oculta). */
+  const exploreMapProfileSurfaceVisible =
+    isBottomActionRowVisible ||
+    showExploreWelcomeSheet ||
+    (exploreDesktopSidebarActive && hasDesktopSidebarPanel) ||
+    shouldShowInlineTopFilters;
+
+  /** Ruta `/account` (panel lateral de perfil en desktop): el botón de perfil en el mapa es redundante. */
+  const accountProfileSidebarOpen =
+    Platform.OS === "web" &&
+    (pathname === "/account" || pathname?.startsWith("/account/"));
+
+  const showExploreMapProfileCorner =
+    !createSpotNameOverlayOpen &&
+    !searchV2.isOpen &&
+    exploreMapProfileSurfaceVisible &&
+    !accountProfileSidebarOpen;
+
+  const effectiveMapFilterWidth = Math.max(
+    0,
+    topFiltersAvailableWidth -
+      (showExploreMapProfileCorner ? EXPLORE_MAP_LAYOUT.MAP_FILTER_PROFILE_RESERVE_X : 0),
+  );
+
+  /** Web ≥ tablet: inline amplio; móvil / web estrecho: siempre inline compacto (sin chip). */
+  const mapFilterStripMode: "wide_inline" | "compact_inline" =
+    Platform.OS === "web" && windowWidth >= WEB_VIEWPORT_REF.tabletMin
+      ? "wide_inline"
+      : "compact_inline";
+
+  /** Simétrico: el bloque de filtros se centra en la columna; la reserva del perfil va en `maxWidth` + `ExploreMapProfileButton` absoluto. */
+  const filterOverlayPaddingLeft = insets.left + TOP_OVERLAY_INSET_X;
+  const filterOverlayPaddingRight = insets.right + TOP_OVERLAY_INSET_X;
 
   const mapStyle =
     colorScheme === "dark" ? FLOWYA_MAP_STYLE_DARK : FLOWYA_MAP_STYLE_LIGHT;
@@ -5624,17 +5630,35 @@ export function MapScreenVNext() {
         <Animated.View
           style={[
             styles.filterOverlay,
-            { top: Math.max(filterMinimumTop, filterTop), pointerEvents: 'box-none' },
+            exploreDesktopSidebarActive && {
+              left: desktopSidebarPixelWidth,
+              right: 0,
+            },
+            {
+              top: Math.max(filterMinimumTop, filterTop),
+              pointerEvents: "box-none",
+              paddingLeft: filterOverlayPaddingLeft,
+              paddingRight: filterOverlayPaddingRight,
+            },
             filterOverlayAnimatedStyle,
           ]}
         >
-          <View style={[styles.filterRowWrap, { pointerEvents: 'box-none' }]}>
+          <View
+            style={[
+              styles.filterRowWrap,
+              {
+                pointerEvents: "box-none",
+                alignSelf: "center",
+                maxWidth: effectiveMapFilterWidth,
+              },
+            ]}
+          >
             <MapPinFilterInline
               value={pinFilter}
               onChange={(next) => handlePinFilterChange(next, { reframe: true })}
               counts={pinCounts}
-              layout="auto"
-              availableWidth={topFiltersAvailableWidth}
+              layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
+              availableWidth={effectiveMapFilterWidth}
             />
           </View>
         </Animated.View>
@@ -5646,7 +5670,11 @@ export function MapScreenVNext() {
         <Animated.View
           style={[
             styles.sloganOverlay,
-            { top: sloganTop, pointerEvents: 'none' },
+            exploreDesktopSidebarActive && {
+              left: desktopSidebarPixelWidth,
+              right: 0,
+            },
+            { top: sloganTop, pointerEvents: "none" },
             { opacity: sloganEntryOpacity },
             { transform: [{ translateY: sloganEntryTranslateY }] },
           ]}
@@ -5659,6 +5687,25 @@ export function MapScreenVNext() {
           </Text>
         </Animated.View>
       ) : null}
+      {showExploreMapProfileCorner ? (
+        <View
+          style={[
+            styles.exploreMapProfileCorner,
+            {
+              top: insets.top + TOP_OVERLAY_INSET_Y,
+              left: TOP_OVERLAY_INSET_X + insets.left + desktopSidebarPixelWidth,
+              zIndex: EXPLORE_LAYER_Z.TOP_ACTIONS,
+            },
+          ]}
+          pointerEvents="box-none"
+        >
+          <ExploreMapProfileButton
+            onPress={() => void handleProfilePress()}
+            isAuthUser={isAuthUser}
+            avatarUri={myProfileAvatarPublicUrl}
+          />
+        </View>
+      ) : null}
       {featureFlags.exploreChromeUnified ? (
         ((showExploreWelcomeSheet && !exploreDesktopSidebarActive) ||
           isBottomActionRowVisible) ? (
@@ -5670,11 +5717,6 @@ export function MapScreenVNext() {
               onStateChange: setWelcomeSheetState,
               onSheetHeightChange: setWelcomeSheetHeight,
               onSearchPress: openSearchPreservingCountriesSheet,
-              onProfilePress: handleProfilePress,
-              onLogoutPress: handleLogoutPress,
-              showLogoutAction: showLogoutOption && isAuthUser,
-              isAuthUser,
-              logoutPopoverBottomOffset,
               browseSectionTitle: welcomeSheetBrowseSectionTitle,
               browseItems: welcomeExploreListItems,
               onBrowseItemPress: handleWelcomeBrowseItemPress,
@@ -5684,14 +5726,8 @@ export function MapScreenVNext() {
             }}
             kpiRowProps={{
               onSearchPress: openSearchPreservingCountriesSheet,
-              onProfilePress: handleProfilePress,
-              onLogoutPress: handleLogoutPress,
-              showLogoutAction: showLogoutOption && isAuthUser,
-              logoutPopoverBottomOffset,
-              isAuthUser,
               searchPlaceholder: "Busca países o lugares",
               accessibilityLabel: "Buscar países o lugares",
-              profileAccessibilityLabel: "Cuenta",
             }}
             kpiFullWidth
             overlayLeft={TOP_OVERLAY_INSET_X + insets.left}
@@ -5715,17 +5751,11 @@ export function MapScreenVNext() {
               ]}
             >
               <View style={styles.bottomActionRowKpiInner}>
-                <ExploreSearchActionRow
+                <ExploreChromeSearchField
                   fullWidth
                   onSearchPress={openSearchPreservingCountriesSheet}
-                  onProfilePress={handleProfilePress}
-                  onLogoutPress={handleLogoutPress}
-                  showLogoutAction={showLogoutOption && isAuthUser}
-                  logoutPopoverBottomOffset={logoutPopoverBottomOffset}
-                  isAuthUser={isAuthUser}
                   searchPlaceholder="Busca países o lugares"
                   accessibilityLabel="Buscar países o lugares"
-                  profileAccessibilityLabel="Cuenta"
                 />
               </View>
             </View>
@@ -5737,11 +5767,6 @@ export function MapScreenVNext() {
               onStateChange={setWelcomeSheetState}
               onSheetHeightChange={setWelcomeSheetHeight}
               onSearchPress={openSearchPreservingCountriesSheet}
-              onProfilePress={handleProfilePress}
-              onLogoutPress={handleLogoutPress}
-              showLogoutAction={showLogoutOption && isAuthUser}
-              isAuthUser={isAuthUser}
-              logoutPopoverBottomOffset={logoutPopoverBottomOffset}
               browseSectionTitle={welcomeSheetBrowseSectionTitle}
               browseItems={welcomeExploreListItems}
               onBrowseItemPress={handleWelcomeBrowseItemPress}
@@ -5997,14 +6022,6 @@ export function MapScreenVNext() {
         visible={showBetaModal}
         onClose={() => setShowBetaModal(false)}
       />
-      {showLogoutOption && isAuthUser && selectedSpot == null ? (
-        <Pressable
-          style={[StyleSheet.absoluteFill, { zIndex: 11 }]}
-          onPress={() => setShowLogoutOption(false)}
-          accessibilityLabel="Cerrar"
-          accessibilityRole="button"
-        />
-      ) : null}
       <CreateSpotNameOverlay
         visible={createSpotNameOverlayOpen}
         initialName={createSpotInitialName}
@@ -6097,11 +6114,6 @@ export function MapScreenVNext() {
                 onStateChange={setWelcomeSheetState}
                 onSheetHeightChange={setWelcomeSheetHeight}
                 onSearchPress={openSearchPreservingCountriesSheet}
-                onProfilePress={handleProfilePress}
-                onLogoutPress={handleLogoutPress}
-                showLogoutAction={showLogoutOption && isAuthUser}
-                isAuthUser={isAuthUser}
-                logoutPopoverBottomOffset={logoutPopoverBottomOffset}
                 browseSectionTitle={welcomeSheetBrowseSectionTitle}
                 browseItems={welcomeExploreListItems}
                 onBrowseItemPress={handleWelcomeBrowseItemPress}
@@ -6500,18 +6512,6 @@ export function MapScreenVNext() {
         onClose={() => setFullscreenLightbox(null)}
       />
       <ConfirmModal
-        visible={showLogoutConfirm}
-        title="¿Cerrar sesión?"
-        confirmLabel="Cerrar sesión"
-        cancelLabel="Cancelar"
-        variant="destructive"
-        onConfirm={handleLogoutConfirm}
-        onCancel={() => {
-          setShowLogoutConfirm(false);
-          setShowLogoutOption(false);
-        }}
-      />
-      <ConfirmModal
         visible={tagDeleteConfirm != null}
         title="¿Eliminar etiqueta?"
         message={
@@ -6659,6 +6659,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: CONTROLS_OVERLAY_RIGHT,
     zIndex: EXPLORE_LAYER_Z.MAP_CONTROLS,
+  },
+  exploreMapProfileCorner: {
+    position: "absolute",
   },
   flowyaStatusRow: {
     position: "absolute",

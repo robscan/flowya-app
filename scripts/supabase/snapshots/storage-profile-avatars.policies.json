@@ -1,0 +1,32 @@
+{
+  "_meta": {
+    "source": "Supabase — introspección políticas storage.objects (bucket profile-avatars)",
+    "migration_reference": "027_profile_avatar_storage.sql"
+  },
+  "policies": [
+    {
+      "policyname": "profile-avatars DELETE own",
+      "command": "DELETE",
+      "using_expr": "((bucket_id = 'profile-avatars'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text) AND (split_part(name, '/'::text, 2) = 'avatar.jpg'::text) AND (COALESCE(split_part(name, '/'::text, 3), ''::text) = ''::text))",
+      "with_check_expr": null
+    },
+    {
+      "policyname": "profile-avatars INSERT own",
+      "command": "INSERT",
+      "using_expr": null,
+      "with_check_expr": "((bucket_id = 'profile-avatars'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text) AND (split_part(name, '/'::text, 2) = 'avatar.jpg'::text) AND (COALESCE(split_part(name, '/'::text, 3), ''::text) = ''::text))"
+    },
+    {
+      "policyname": "profile-avatars SELECT public",
+      "command": "SELECT",
+      "using_expr": "(bucket_id = 'profile-avatars'::text)",
+      "with_check_expr": null
+    },
+    {
+      "policyname": "profile-avatars UPDATE own",
+      "command": "UPDATE",
+      "using_expr": "((bucket_id = 'profile-avatars'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text) AND (split_part(name, '/'::text, 2) = 'avatar.jpg'::text) AND (COALESCE(split_part(name, '/'::text, 3), ''::text) = ''::text))",
+      "with_check_expr": "((bucket_id = 'profile-avatars'::text) AND (split_part(name, '/'::text, 1) = (auth.uid())::text) AND (split_part(name, '/'::text, 2) = 'avatar.jpg'::text) AND (COALESCE(split_part(name, '/'::text, 3), ''::text) = ''::text))"
+    }
+  ]
+}
