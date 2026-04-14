@@ -1,6 +1,6 @@
 import { SheetHandle } from "@/components/design-system/sheet-handle";
 import { Radius, Spacing } from "@/constants/theme";
-import { ArrowLeft, Share2, X } from "lucide-react-native";
+import { ArrowLeft, Search, Share2, X } from "lucide-react-native";
 import type { ReactNode } from "react";
 import type { LayoutChangeEvent } from "react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -26,6 +26,8 @@ export type SpotSheetHeaderProps = {
   shareDisabled?: boolean;
   /** Si está definido, el botón izquierdo es «Atrás» en lugar de compartir (p. ej. detalle país en CountriesSheet). */
   backAction?: { onPress: () => void };
+  /** Acción opcional a la derecha (antes de cerrar), p. ej. abrir buscador desde CountriesSheet. */
+  onSearchPress?: () => void;
   onDraftBackToPlacing?: () => void;
   onClose: () => void;
   onDragAreaLayout: (e: LayoutChangeEvent) => void;
@@ -50,6 +52,7 @@ export function SpotSheetHeader({
   onShare,
   shareDisabled = false,
   backAction,
+  onSearchPress,
   onDraftBackToPlacing,
   onClose,
   onDragAreaLayout,
@@ -155,6 +158,19 @@ export function SpotSheetHeader({
             </View>
           </Pressable>
         )}
+        {onSearchPress ? (
+          <Pressable
+            style={({ pressed }) => [
+              styles.headerActionButton,
+              { backgroundColor: colors.borderSubtle, opacity: pressed ? 0.86 : 1 },
+            ]}
+            onPress={onSearchPress}
+            accessibilityLabel="Buscar"
+            accessibilityRole="button"
+          >
+            <Search size={20} color={colors.text} strokeWidth={2} />
+          </Pressable>
+        ) : null}
         <Pressable
           style={[styles.closeButton, { backgroundColor: colors.borderSubtle }]}
           onPress={onClose}
