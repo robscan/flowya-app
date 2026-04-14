@@ -3,7 +3,6 @@
  */
 
 import { CountriesSheetKpiRow } from '@/components/design-system/countries-sheet-kpi-row';
-import type { CountriesSheetState } from '@/components/design-system/countries-sheet-types';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import React, { useMemo } from 'react';
@@ -15,8 +14,6 @@ export type CountriesKpiRowDemoProps = {
   countriesCount?: number;
   placesCount?: number;
   flowsPointsLabel?: string;
-  /** Estado del sheet para iconos KPI (p. ej. `peek` + handlers en tarjeta de vitrina). */
-  sheetState?: CountriesSheetState;
 };
 
 export function CountriesKpiRowDemo({
@@ -25,7 +22,6 @@ export function CountriesKpiRowDemo({
   countriesCount = 12,
   placesCount = 48,
   flowsPointsLabel = '2.400',
-  sheetState: sheetStateProp,
 }: CountriesKpiRowDemoProps) {
   const colorScheme = useColorScheme();
   const colors = useMemo(() => {
@@ -48,8 +44,6 @@ export function CountriesKpiRowDemo({
     };
   }, [colorScheme, filterMode]);
 
-  const sheetState: CountriesSheetState =
-    sheetStateProp ?? (variant === 'card' ? 'peek' : 'expanded');
   const onCountriesKpiPress = variant === 'card' ? () => {} : undefined;
   const onSpotsKpiPress = variant === 'card' ? () => {} : undefined;
 
@@ -63,8 +57,10 @@ export function CountriesKpiRowDemo({
         text: colors.text,
         textSecondary: colors.textSecondary,
         primary: colors.primary,
+        borderSubtle: colors.border,
+        background: colors.panelBg,
+        backgroundElevated: colors.panelBg,
       }}
-      sheetState={sheetState}
       onCountriesKpiPress={onCountriesKpiPress}
       onSpotsKpiPress={onSpotsKpiPress}
     />

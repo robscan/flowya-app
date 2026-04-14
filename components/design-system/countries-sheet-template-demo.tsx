@@ -127,8 +127,10 @@ export function CountriesSheetTemplateDemo({
           text: colors.text,
           textSecondary: colors.textSecondary,
           primary: colors.primary,
+          borderSubtle: colors.borderSubtle,
+          background: colors.background,
+          backgroundElevated: colors.backgroundElevated,
         }}
-        sheetState="expanded"
       />
 
       <View style={styles.mapPreviewWrap}>

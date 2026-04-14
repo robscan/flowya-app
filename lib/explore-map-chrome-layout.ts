@@ -31,7 +31,7 @@ export const EXPLORE_MAP_LAYOUT = {
   MAP_CONTROLS_CLEARANCE_ABOVE_FLOWYA_ROW: 10,
   THUMB_FRIENDLY_CENTER_BIAS: 56,
   FILTER_TRIGGER_ESTIMATED_HEIGHT: 56,
-  /** Reserva horizontal para no solapar `ExploreMapProfileButton` (≈44px + aire). */
+  /** Reserva horizontal para no solapar `ExploreMapProfileButton` (~44px + aire). */
   MAP_FILTER_PROFILE_RESERVE_X: 56,
 } as const;
 

@@ -2,7 +2,6 @@
  * Fila KPI del sheet de países: países · lugares · flows (CountriesSheet).
  */
 
-import type { CountriesSheetState } from '@/components/design-system/countries-sheet-types';
 import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
@@ -25,7 +24,6 @@ export type CountriesSheetKpiRowProps = {
   /** Flows ya formateados (es-MX), como en runtime. */
   pointsLabel: string;
   colors: CountriesSheetKpiRowColors;
-  sheetState: CountriesSheetState;
   onCountriesKpiPress?: () => void;
   onSpotsKpiPress?: () => void;
   onLayout?: (e: LayoutChangeEvent) => void;
@@ -37,7 +35,6 @@ export function CountriesSheetKpiRow({
   summaryPlacesCount,
   pointsLabel,
   colors,
-  sheetState,
   onCountriesKpiPress,
   onSpotsKpiPress,
   onLayout,
@@ -63,13 +60,15 @@ export function CountriesSheetKpiRow({
         accessibilityRole={onCountriesKpiPress ? 'button' : undefined}
         accessibilityLabel={onCountriesKpiPress ? 'Ver lista completa de países' : undefined}
       >
-        <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
-        <View style={styles.kpiLabelRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
-          {countriesIsButton && sheetState === 'peek' ? (
+        <View style={styles.kpiValueRow}>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
+          {countriesIsButton ? (
             <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
           ) : null}
         </View>
+        <Text style={[styles.summaryLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
+          países
+        </Text>
       </Pressable>
       <Pressable
         onPress={onSpotsKpiPress}
@@ -88,13 +87,15 @@ export function CountriesSheetKpiRow({
         accessibilityRole={onSpotsKpiPress ? 'button' : undefined}
         accessibilityLabel={onSpotsKpiPress ? 'Ver listado de lugares en el sheet' : undefined}
       >
-        <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
-        <View style={styles.kpiLabelRow}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>lugares</Text>
-          {placesIsButton && sheetState === 'peek' ? (
+        <View style={styles.kpiValueRow}>
+          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
+          {placesIsButton ? (
             <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
           ) : null}
         </View>
+        <Text style={[styles.summaryLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
+          lugares
+        </Text>
       </Pressable>
       <View style={styles.summaryChip}>
         <Text style={[styles.summaryValue, { color: colors.text }]}>{pointsLabel}</Text>
@@ -133,11 +134,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
   },
-  kpiLabelRow: {
+  kpiValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 2,
+  },
+  kpiLabelBelow: {
     marginTop: 1,
+    textAlign: 'center',
   },
   summaryValue: {
     fontSize: 16,

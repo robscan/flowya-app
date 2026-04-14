@@ -62,6 +62,7 @@ export function SearchFloatingNative<T>({
   onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
+  searchInputAutoFocus = true,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -202,6 +203,7 @@ export function SearchFloatingNative<T>({
                     onCreateFromPlace={onCreateFromPlace}
                     onClosePress={requestClose}
                     scrollViewKeyboardDismissMode="on-drag"
+                    searchInputAutoFocus={searchInputAutoFocus}
                 />
               </KeyboardAvoidingView>
             </View>

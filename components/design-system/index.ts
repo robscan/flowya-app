@@ -16,6 +16,8 @@ export type {
 } from './explore-map-status-row';
 export { ExploreChromeSearchField } from './explore-chrome-search-field';
 export type { ExploreChromeSearchFieldProps } from './explore-chrome-search-field';
+export { ExploreTagIconLabel } from './explore-tag-icon-label';
+export type { ExploreTagIconLabelProps } from './explore-tag-icon-label';
 /** @deprecated Usar `ExploreChromeSearchField`. */
 export { ExploreSearchActionRow } from './explore-search-action-row';
 /** @deprecated Usar `ExploreChromeSearchFieldProps`. */
@@ -79,8 +81,12 @@ export type {
     MapLocationPickerResult,
     MapLocationPickerState
 } from './map-location-picker';
-export { ClearIconCircle, CLEAR_ICON_CIRCLE_TOKENS } from './clear-icon-circle';
-export type { ClearIconCircleProps } from './clear-icon-circle';
+export {
+  ClearIconCircle,
+  ClearIconCircleDecoration,
+  CLEAR_ICON_CIRCLE_TOKENS,
+} from './clear-icon-circle';
+export type { ClearIconCircleDecorationProps, ClearIconCircleProps } from './clear-icon-circle';
 export { MapPinFilter } from './map-pin-filter';
 export type { MapPinFilterCounts, MapPinFilterProps, MapPinFilterValue } from './map-pin-filter';
 export { MapPinFilterMenuOption } from './map-pin-filter-menu-option';

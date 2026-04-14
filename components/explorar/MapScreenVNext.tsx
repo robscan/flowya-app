@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { Tag, X } from "lucide-react-native";
 import {
   Fragment,
   useCallback,
@@ -38,7 +38,10 @@ import {
 import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
+import {
+  ClearIconCircle,
+  ClearIconCircleDecoration,
+} from "@/components/design-system/clear-icon-circle";
 import { ExploreChromeShell } from "@/components/design-system/explore-chrome-shell";
 import { ExploreMapProfileButton } from "@/components/design-system/explore-map-profile-button";
 import { ExploreMapStatusRow } from "@/components/design-system/explore-map-status-row";
@@ -121,6 +124,7 @@ import {
   WEB_VIEWPORT_REF,
   webExploreUsesDesktopSidebar,
 } from "@/lib/web-layout";
+import { buildSavedVisitedPlaceSections } from "@/lib/explore/saved-visited-place-sections";
 import {
     FIT_BOUNDS_PADDING,
     FIT_BOUNDS_DURATION_MS,
@@ -811,9 +815,12 @@ export function MapScreenVNext() {
   const searchTagFilterRefreshRef = useRef<string | null>(null);
   /** OL-WOW-F2-003: ref para evitar acceder a searchV2 antes de inicialización. */
   const searchIsOpenRef = useRef(false);
+  /** Chip de etiqueta en SpotSheet: abrir buscador sin `autoFocus` en el campo (más listado visible). */
+  const suppressSearchInputAutofocusRef = useRef(false);
   const countriesSheetBeforeSearchRef = useRef<{
     wasOpen: boolean;
     state: CountriesSheetState;
+    listView: CountriesSheetListDetail | null;
   } | null>(null);
   /** KPI: Countries abierto antes de cubrir con Spot/POI; restaurar al cerrar SpotSheet. */
   const countriesSheetBeforeSpotSheetRef = useRef<{
@@ -1230,10 +1237,17 @@ export function MapScreenVNext() {
       pinFilter === "all"
         ? visibilityFiltered.filter((s) => !isDefaultLinkedPoiSpot(s))
         : visibilityFiltered;
+    const tagActiveOnMapPins =
+      isAuthUser &&
+      selectedTagFilterId != null &&
+      (pinFilter === "saved" || pinFilter === "visited");
+    const afterTagFilter = tagActiveOnMapPins
+      ? filterExploreSearchItemsByTag(allFilterWithoutLinkedDefaults, selectedTagFilterId, pinTagIndex)
+      : allFilterWithoutLinkedDefaults;
     const base =
-      allFilterWithoutLinkedDefaults.length > MAP_PIN_CAP
-        ? allFilterWithoutLinkedDefaults.slice(0, MAP_PIN_CAP)
-        : allFilterWithoutLinkedDefaults;
+      afterTagFilter.length > MAP_PIN_CAP
+        ? afterTagFilter.slice(0, MAP_PIN_CAP)
+        : afterTagFilter;
     if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
     /**
      * POI match: incluir selectedSpot si está fuera de filtro.
@@ -1252,6 +1266,15 @@ export function MapScreenVNext() {
     ) {
       result = [...base, selectedSpot];
     }
+    if (
+      tagActiveOnMapPins &&
+      selectedSpot &&
+      !selectedSpot.id.startsWith("draft_") &&
+      !(canHideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
+      !result.some((s) => s.id === selectedSpot.id)
+    ) {
+      result = [...result, selectedSpot];
+    }
     if (!recentMutationSpot || result.some((s) => s.id === recentMutationSpot.id)) {
       return result;
     }
@@ -1262,7 +1285,17 @@ export function MapScreenVNext() {
       return result;
     }
     return [...result, recentMutationSpot];
-  }, [filteredSpots, selectedSpot, isPlacingDraftSpot, pinFilter, recentMutationSpot, spots]);
+  }, [
+    filteredSpots,
+    selectedSpot,
+    isPlacingDraftSpot,
+    pinFilter,
+    recentMutationSpot,
+    spots,
+    isAuthUser,
+    selectedTagFilterId,
+    pinTagIndex,
+  ]);
 
   const forceVisibleSpotIds = useMemo(() => {
     const ids = new Set<string>();
@@ -1889,6 +1922,12 @@ export function MapScreenVNext() {
     searchIsOpenRef.current = searchV2.isOpen;
   }, [searchV2.isOpen]);
 
+  useEffect(() => {
+    if (!searchV2.isOpen) {
+      suppressSearchInputAutofocusRef.current = false;
+    }
+  }, [searchV2.isOpen]);
+
   /** isEmpty: spots dentro de SPOTS_ZONA_RADIUS_KM del centro del mapa (independiente del zoom). */
   const defaultSpotsForEmpty = useMemo(() => {
     if (!searchV2.isOpen || !mapInstance) return defaultSpots;
@@ -2019,31 +2058,14 @@ export function MapScreenVNext() {
     if (!mapInstance || filteredSpots.length === 0) return [];
     try {
       const center = mapInstance.getCenter();
-      const ref = userCoords ?? { latitude: FALLBACK_VIEW.latitude, longitude: FALLBACK_VIEW.longitude };
-      const nearby = filteredSpots
-        .filter(
-          (s) =>
-            distanceKm(center.lat, center.lng, s.latitude, s.longitude) <= SPOTS_ZONA_RADIUS_KM,
-        )
-        .sort(
-          (a, b) =>
-            distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
-            distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
-        );
-      const inWorld = filteredSpots
-        .filter(
-          (s) =>
-            distanceKm(center.lat, center.lng, s.latitude, s.longitude) > SPOTS_ZONA_RADIUS_KM,
-        )
-        .sort(
-          (a, b) =>
-            distanceKm(ref.latitude, ref.longitude, a.latitude, a.longitude) -
-            distanceKm(ref.latitude, ref.longitude, b.latitude, b.longitude),
-        );
-      const sections: SearchSection<Spot | PlaceResult>[] = [];
-      if (nearby.length > 0) sections.push({ id: "nearby", title: "Lugares en la zona", items: nearby });
-      if (inWorld.length > 0) sections.push({ id: "world", title: "Lugares en el mapa", items: inWorld });
-      return sections;
+      const refLat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+      const refLng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+      return buildSavedVisitedPlaceSections(filteredSpots, {
+        mapCenter: { lat: center.lat, lng: center.lng },
+        refLatitude: refLat,
+        refLongitude: refLng,
+        forceSingleSection: isSearchColdStartBootstrapActive,
+      });
     } catch {
       return [];
     }
@@ -2063,6 +2085,7 @@ export function MapScreenVNext() {
     visibleLandmarksEmpty,
     nearbyPlacesEmpty,
     spots,
+    isSearchColdStartBootstrapActive,
   ]);
 
   /**
@@ -2301,6 +2324,7 @@ export function MapScreenVNext() {
   const handleSheetTagChipPress = useCallback(
     (tagId: string) => {
       const spot = selectedSpot;
+      suppressSearchInputAutofocusRef.current = true;
       setPinFilter(spot?.visited === true ? "visited" : "saved");
       setSelectedTagFilterId(tagId);
       setTagFilterEditMode(false);
@@ -3465,6 +3489,7 @@ export function MapScreenVNext() {
         (pinFilter === "saved" || pinFilter === "visited")
       ) {
         setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnapshot.state));
+        setCountriesSheetListView(countriesSnapshot.listView);
         setCountriesSheetOpen(true);
       }
     }
@@ -3684,19 +3709,45 @@ export function MapScreenVNext() {
     });
   }, [countriesSheetListView, countriesSheetOverlaySpotsPool]);
 
-  const countriesSheetDetailSpots = useMemo(() => {
+  const countriesSheetDetailSpotSections = useMemo(() => {
+    if (!countriesSheetListView) return null;
     const filtered = filterExploreSearchItemsByTag(
       countriesSheetDetailBaseSpots,
       selectedTagFilterId,
       pinTagIndex,
     );
-    if (userCoords == null) return filtered;
-    return [...filtered].sort((a, b) => {
-      const da = distanceKm(userCoords.latitude, userCoords.longitude, a.latitude, a.longitude);
-      const db = distanceKm(userCoords.latitude, userCoords.longitude, b.latitude, b.longitude);
-      return da - db;
+    if (filtered.length === 0) return [];
+    let mapCenter: { lat: number; lng: number } | null = null;
+    if (mapInstance) {
+      try {
+        const c = mapInstance.getCenter();
+        mapCenter = { lat: c.lat, lng: c.lng };
+      } catch {
+        mapCenter = null;
+      }
+    }
+    const refLat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+    const refLng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+    return buildSavedVisitedPlaceSections(filtered, {
+      mapCenter,
+      refLatitude: refLat,
+      refLongitude: refLng,
+      forceSingleSection: isSearchColdStartBootstrapActive,
     });
-  }, [countriesSheetDetailBaseSpots, selectedTagFilterId, pinTagIndex, userCoords]);
+  }, [
+    countriesSheetListView,
+    countriesSheetDetailBaseSpots,
+    selectedTagFilterId,
+    pinTagIndex,
+    mapInstance,
+    userCoords,
+    isSearchColdStartBootstrapActive,
+  ]);
+
+  const countriesSheetDetailSpots = useMemo(
+    () => (countriesSheetDetailSpotSections ?? []).flatMap((s) => s.items),
+    [countriesSheetDetailSpotSections],
+  );
 
   const countriesSheetDetailTagSpotIds = useMemo(() => {
     if (!countriesSheetListView) return new Set<string>();
@@ -4002,19 +4053,28 @@ export function MapScreenVNext() {
   const openSearchPreservingCountriesSheet = useCallback(() => {
     if (createSpotNameOverlayOpen) return;
     setShowFilteredResultsOnEmpty(false);
-    setCountriesSheetListView(null);
     countriesSheetBeforeSearchRef.current = {
       wasOpen: countriesSheetOpen,
       state: countriesSheetState,
+      listView: countriesSheetListView,
     };
     countriesSheetBeforeSpotSheetRef.current = null;
     countriesSheetPrevSelectionRef.current = null;
     if (countriesSheetOpen) setCountriesSheetOpen(false);
+    setCountriesSheetListView(null);
     prevSelectedSpotRef.current = selectedSpot;
     prevSheetStateRef.current = sheetState;
     blurActiveElement();
     searchV2.setOpen(true);
-  }, [createSpotNameOverlayOpen, countriesSheetOpen, countriesSheetState, selectedSpot, sheetState, searchV2]);
+  }, [
+    createSpotNameOverlayOpen,
+    countriesSheetOpen,
+    countriesSheetListView,
+    countriesSheetState,
+    selectedSpot,
+    sheetState,
+    searchV2,
+  ]);
 
   const handleCountriesKpiPress = useCallback(() => {
     if (!countriesSheetOpen) return;
@@ -4315,7 +4375,7 @@ export function MapScreenVNext() {
     return ids.map((id) => ({ id, label: tagLabelById.get(id) ?? id }));
   }, [selectedSpot, isAuthUser, pinTagIndex, tagLabelById]);
 
-  /** Etiquetas guardadas que aún no están en el spot (sin duplicar # en ambas secciones). */
+  /** Etiquetas guardadas que aún no están en el spot (sin duplicar icono+nombre en ambas secciones). */
   const tagModalAvailableToAdd = useMemo(() => {
     if (!tagAssignSpot) return [];
     const onSpot = new Set(pinTagIndex[tagAssignSpot.id] ?? []);
@@ -4387,6 +4447,19 @@ export function MapScreenVNext() {
     }
   }, [isAuthUser, spotTagFilterOptions, selectedTagFilterId]);
 
+  /** Pastilla en mapa: etiqueta activa cuando pin guardados/visitados también filtra pines. */
+  const mapPinTagFilterBannerLabel = useMemo(() => {
+    if (
+      !isAuthUser ||
+      selectedTagFilterId == null ||
+      (pinFilter !== "saved" && pinFilter !== "visited")
+    ) {
+      return null;
+    }
+    const fromChip = spotTagFilterOptions.find((o) => o.id === selectedTagFilterId);
+    return fromChip?.name ?? tagLabelById.get(selectedTagFilterId) ?? "Etiqueta";
+  }, [isAuthUser, selectedTagFilterId, pinFilter, spotTagFilterOptions, tagLabelById]);
+
   const kpiSpotsSearchResults = useMemo<(Spot | PlaceResult)[]>(() => {
     if (!showFilteredResultsOnEmpty) return searchDisplayResultsWithTag;
     if (!searchV2.isOpen || searchV2.query.trim().length > 0) return searchDisplayResultsWithTag;
@@ -4440,24 +4513,14 @@ export function MapScreenVNext() {
     if (!mapInstance) return [];
     try {
       const center = mapInstance.getCenter();
-      const nearby = searchDisplayResultsWithTag.filter((spot) => {
-        const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
-        const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
-        return distanceKm(center.lat, center.lng, lat, lng) <= SPOTS_ZONA_RADIUS_KM;
+      const refLat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+      const refLng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+      return buildSavedVisitedPlaceSections(searchDisplayResultsWithTag, {
+        mapCenter: { lat: center.lat, lng: center.lng },
+        refLatitude: refLat,
+        refLongitude: refLng,
+        forceSingleSection: isSearchColdStartBootstrapActive,
       });
-      const inWorld = searchDisplayResultsWithTag.filter((spot) => {
-        const lat = "latitude" in spot ? spot.latitude : (spot as PlaceResult).lat;
-        const lng = "longitude" in spot ? spot.longitude : (spot as PlaceResult).lng;
-        return distanceKm(center.lat, center.lng, lat, lng) > SPOTS_ZONA_RADIUS_KM;
-      });
-      const sections: SearchSection<Spot | PlaceResult>[] = [];
-      if (nearby.length > 0) {
-        sections.push({ id: "nearby", title: "Lugares en la zona", items: nearby });
-      }
-      if (inWorld.length > 0) {
-        sections.push({ id: "world", title: "Lugares en el mapa", items: inWorld });
-      }
-      return sections;
     } catch {
       return [];
     }
@@ -4470,6 +4533,8 @@ export function MapScreenVNext() {
     searchDisplayResultsWithTag,
     mapInstance,
     viewportNonce,
+    userCoords,
+    isSearchColdStartBootstrapActive,
   ]);
 
   /** Guardrail Search V2: al cambiar filtro saved/visited/all, re-ejecutar query activa para evitar resultados stale cross-filter. */
@@ -5644,22 +5709,75 @@ export function MapScreenVNext() {
           ]}
         >
           <View
-            style={[
-              styles.filterRowWrap,
-              {
-                pointerEvents: "box-none",
-                alignSelf: "center",
-                maxWidth: effectiveMapFilterWidth,
-              },
-            ]}
+            style={{
+              pointerEvents: "box-none",
+              alignSelf: "center",
+              maxWidth: effectiveMapFilterWidth,
+              width: "100%",
+              gap: Spacing.sm,
+            }}
           >
-            <MapPinFilterInline
-              value={pinFilter}
-              onChange={(next) => handlePinFilterChange(next, { reframe: true })}
-              counts={pinCounts}
-              layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
-              availableWidth={effectiveMapFilterWidth}
-            />
+            <View
+              style={[
+                styles.filterRowWrap,
+                {
+                  pointerEvents: "box-none",
+                  alignSelf: "center",
+                  maxWidth: effectiveMapFilterWidth,
+                },
+              ]}
+            >
+              <MapPinFilterInline
+                value={pinFilter}
+                onChange={(next) => handlePinFilterChange(next, { reframe: true })}
+                counts={pinCounts}
+                layout={mapFilterStripMode === "wide_inline" ? "wide" : "compact"}
+                availableWidth={effectiveMapFilterWidth}
+              />
+            </View>
+            {mapPinTagFilterBannerLabel != null ? (
+              <Pressable
+                onPress={() => {
+                  setSelectedTagFilterId(null);
+                  setTagFilterEditMode(false);
+                }}
+                hitSlop={10}
+                accessibilityRole="button"
+                accessibilityLabel={`Quitar filtro de etiqueta ${mapPinTagFilterBannerLabel}`}
+                style={({ pressed }) => [
+                  styles.mapPinTagFilterBanner,
+                  {
+                    backgroundColor: Colors[colorScheme ?? "light"].tint,
+                    borderColor: Colors[colorScheme ?? "light"].tint,
+                    opacity: pressed ? 0.88 : 1,
+                  },
+                  Platform.OS === "web" ? ({ cursor: "pointer" } as const) : null,
+                ]}
+              >
+                <Tag
+                  size={12}
+                  color={Colors[colorScheme ?? "light"].surfaceOnMap}
+                  strokeWidth={2.2}
+                  accessibilityElementsHidden
+                  importantForAccessibility="no"
+                />
+                <Text
+                  style={[
+                    styles.mapPinTagFilterBannerText,
+                    { color: Colors[colorScheme ?? "light"].surfaceOnMap },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {mapPinTagFilterBannerLabel}
+                </Text>
+                <ClearIconCircleDecoration
+                  variant="onPrimary"
+                  size={22}
+                  iconPx={11}
+                  iconColor={Colors[colorScheme ?? "light"].surfaceOnMap}
+                />
+              </Pressable>
+            ) : null}
           </View>
         </Animated.View>
       ) : null}
@@ -5802,6 +5920,7 @@ export function MapScreenVNext() {
           countryDetail={countriesSheetListView}
           onCountryDetailBack={handleCountryDetailBack}
           countryDetailSpots={countriesSheetDetailSpots}
+          countryDetailSpotSections={countriesSheetDetailSpotSections}
           renderCountryDetailItem={renderCountryDetailItem}
           countryDetailTagFilterOptions={
             isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
@@ -6063,6 +6182,7 @@ export function MapScreenVNext() {
                 summaryPlacesCount={countriesPlacesCountForOverlay}
                 onCountriesKpiPress={handleCountriesKpiPress}
                 onSpotsKpiPress={handleCountriesSpotsKpiPress}
+                onSearchPress={openSearchPreservingCountriesSheet}
                 onStateChange={setCountriesSheetState}
                 onClose={handleCountriesSheetClose}
                 onShare={handleCountriesSheetShare}
@@ -6074,6 +6194,7 @@ export function MapScreenVNext() {
                 countryDetail={countriesSheetListView}
                 onCountryDetailBack={handleCountryDetailBack}
                 countryDetailSpots={countriesSheetDetailSpots}
+                countryDetailSpotSections={countriesSheetDetailSpotSections}
                 renderCountryDetailItem={renderCountryDetailItem}
                 countryDetailTagFilterOptions={
                   isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
@@ -6132,6 +6253,7 @@ export function MapScreenVNext() {
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
       <SearchFloating<Spot | PlaceResult>
         controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult>}
+        searchInputAutoFocus={!suppressSearchInputAutofocusRef.current}
         defaultItems={defaultItemsForEmptyTagged}
         defaultItemSections={defaultSectionsForEmptyTagged}
         recentQueries={searchHistory.recentQueries}
@@ -6384,7 +6506,6 @@ export function MapScreenVNext() {
                           onPress={() => setTagAssignInput("")}
                           accessibilityLabel="Limpiar campo"
                           iconColor={Colors[colorScheme ?? "light"].textSecondary}
-                          backgroundColor={Colors[colorScheme ?? "light"].text}
                         />
                       </View>
                     ) : null}
@@ -6632,6 +6753,30 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: 30,
     ...Platform.select({ android: { elevation: 14 } }),
+  },
+  mapPinTagFilterBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    maxWidth: "100%",
+    alignSelf: "center",
+    paddingLeft: 8,
+    paddingRight: 8,
+    paddingVertical: 4,
+    minHeight: 28,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    ...Platform.select({
+      web: { boxShadow: "0 1px 2px rgba(0,0,0,0.06)" },
+      default: { elevation: 2 },
+    }),
+  },
+  mapPinTagFilterBannerText: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 12,
+    fontWeight: "600",
+    letterSpacing: -0.1,
   },
   bottomActionRowOverlay: {
     position: "absolute",

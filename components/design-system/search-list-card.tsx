@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { CheckCircle, ChevronRight, Hash, ImagePlus, Landmark, Pencil, Pin } from 'lucide-react-native';
+import { CheckCircle, ChevronRight, ImagePlus, Landmark, Pencil, Pin, Tag } from 'lucide-react-native';
 
 import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
 import React, { useMemo, useRef, useState } from 'react';
@@ -15,7 +15,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
  *
  * 1. **Fila título:** `title` + `ChevronRight` (misma fila; el título usa `flex:1` + `minWidth:0` para envolver sin robar ancho a las filas inferiores).
  * 2. **Fila contenido:** `subtitle` o CTA de nota (`edit_description`).
- * 3. **Fila meta:** distancia, chip de estado pin, landmark, `#tags`, Etiquetar — `rankingChipsCluster` con `flexWrap` para usar el ancho completo de la columna de texto.
+ * 3. **Fila meta:** distancia, chip de estado pin, landmark, chips de etiqueta (icono Tag), Etiquetar — `rankingChipsCluster` con `flexWrap` para usar el ancho completo de la columna de texto.
  *
  * Media: imagen al borde izquierdo, placeholder «Agregar imagen», o icono maki. Ver contrato en `docs/contracts/DESIGN_SYSTEM_USAGE.md` §6.2.
  */
@@ -31,7 +31,7 @@ export type SearchListCardProps = {
   disabled?: boolean;
   /**
    * Señal "cerca" (ej. "1,2 km" sin prefijo; el UI añade "A ").
-   * Canon: con ubicación de usuario va en la **misma franja** que chips de estado, #etiquetas y Etiquetar
+   * Canon: con ubicación de usuario va en la **misma franja** que chips de estado, etiquetas y Etiquetar
    * (un solo cluster inline), no en una línea aparte.
    */
   distanceText?: string | null;
@@ -246,91 +246,95 @@ export function SearchListCard({
         ) : null}
         {showRankingSignals ? (
           <View style={styles.rankingChipsCluster}>
-              {distanceText != null ? (
-                <Text
-                  style={[styles.rankingSignal, { color: colors.textSecondary }]}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                >
-                  A {distanceText}
+            {distanceText != null ? (
+              <Text
+                style={[styles.rankingSignal, { color: colors.textSecondary }]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
+                A {distanceText}
+              </Text>
+            ) : null}
+            {showPinStatusChip ? (
+              <View
+                style={[
+                  styles.rankingChip,
+                  styles.pinStatusChipQuiet,
+                  {
+                    backgroundColor: pinStatusMuted.bg,
+                    borderColor: pinStatusMuted.border,
+                  },
+                ]}
+                accessibilityLabel={statusLabel}
+                accessibilityRole="image"
+              >
+                {pinStatus === 'visited' ? (
+                  <CheckCircle size={12} color={pinStatusMuted.fg} strokeWidth={2.2} />
+                ) : (
+                  <Pin size={12} color={pinStatusMuted.fg} strokeWidth={2} />
+                )}
+                <Text style={[styles.rankingChipLabel, { color: pinStatusMuted.fg }]}>
+                  {statusLabel as string}
                 </Text>
-              ) : null}
-              {showPinStatusChip ? (
+              </View>
+            ) : null}
+            {isLandmark ? (
+              <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
+                <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
+                <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
+              </View>
+            ) : null}
+            {showTagChips
+              ? tagChips.map((chip) => (
                   <View
-                    style={[
-                      styles.rankingChip,
-                      styles.pinStatusChipQuiet,
-                      {
-                        backgroundColor: pinStatusMuted.bg,
-                        borderColor: pinStatusMuted.border,
-                      },
-                    ]}
-                    accessibilityLabel={statusLabel}
-                    accessibilityRole="image"
+                    key={chip.id}
+                    style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}
+                    accessibilityLabel={chip.label}
+                    accessibilityRole="text"
                   >
-                    {pinStatus === 'visited' ? (
-                      <CheckCircle size={12} color={pinStatusMuted.fg} strokeWidth={2.2} />
-                    ) : (
-                      <Pin size={12} color={pinStatusMuted.fg} strokeWidth={2} />
-                    )}
-                    <Text style={[styles.rankingChipLabel, { color: pinStatusMuted.fg }]}>
-                      {statusLabel as string}
+                    <Tag size={12} color={colors.textSecondary} strokeWidth={2} />
+                    <Text
+                      style={[styles.rankingChipLabel, { color: colors.textSecondary }]}
+                      numberOfLines={2}
+                    >
+                      {chip.label}
                     </Text>
                   </View>
-                ) : null}
-                {isLandmark ? (
-                  <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
-                    <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
-                    <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
-                  </View>
-                ) : null}
-                {showTagChips
-                  ? tagChips.map((chip) => (
-                      <View
-                        key={chip.id}
-                        style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}
-                        accessibilityLabel={chip.label}
-                        accessibilityRole="text"
-                      >
-                        <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-                          #{chip.label}
-                        </Text>
-                      </View>
-                    ))
-                  : null}
-                {addTagAction ? (
-                  <View
-                    collapsable={false}
-                    style={[
-                      styles.etiquetarBesideChips,
-                      Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as const) : null,
-                    ]}
-                    {...webInlineActionStopProps}
-                    {...(Platform.OS === 'web'
-                      ? ({
-                          onClick: (e: unknown) => {
-                            (e as { stopPropagation?: () => void })?.stopPropagation?.();
-                            triggerInlineAction(addTagAction.onPress);
-                          },
-                          accessibilityLabel: addTagAction.accessibilityLabel ?? addTagAction.label,
-                        } as const)
-                      : {
-                          onStartShouldSetResponder: () => true,
-                          onStartShouldSetResponderCapture: () => {
-                            markInlineActionIntent();
-                            return true;
-                          },
-                          onResponderRelease: (event: { stopPropagation?: () => void }) => {
-                            event.stopPropagation?.();
-                            triggerInlineAction(addTagAction.onPress);
-                          },
-                        })}
-                    accessible={false}
-                  >
-                    <Hash size={13} color={colors.primary} strokeWidth={2.2} />
-                    <Text style={[styles.etiquetarLabel, { color: colors.primary }]}>{addTagAction.label}</Text>
-                  </View>
-                ) : null}
+                ))
+              : null}
+            {addTagAction ? (
+              <View
+                collapsable={false}
+                style={[
+                  styles.etiquetarBesideChips,
+                  Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as const) : null,
+                ]}
+                {...webInlineActionStopProps}
+                {...(Platform.OS === 'web'
+                  ? ({
+                      onClick: (e: unknown) => {
+                        (e as { stopPropagation?: () => void })?.stopPropagation?.();
+                        triggerInlineAction(addTagAction.onPress);
+                      },
+                      accessibilityLabel: addTagAction.accessibilityLabel ?? addTagAction.label,
+                    } as const)
+                  : {
+                      onStartShouldSetResponder: () => true,
+                      onStartShouldSetResponderCapture: () => {
+                        markInlineActionIntent();
+                        return true;
+                      },
+                      onResponderRelease: (event: { stopPropagation?: () => void }) => {
+                        event.stopPropagation?.();
+                        triggerInlineAction(addTagAction.onPress);
+                      },
+                    })}
+                accessible={false}
+              >
+                <Tag size={13} color={colors.primary} strokeWidth={2.2} />
+                <Text style={[styles.etiquetarLabel, { color: colors.primary }]}>{addTagAction.label}</Text>
+              </View>
+            ) : null}
           </View>
         ) : null}
       </View>
@@ -449,15 +453,17 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '600',
   },
-  /** Distancia + pin + landmark + #tags + Etiquetar (misma franja que SpotSheetMetaRow). */
+  /** Distancia + pin + landmark + etiquetas + Etiquetar; `flexWrap` evita recortes en anchos estrechos. */
   rankingChipsCluster: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 4,
     flexWrap: 'wrap',
-    gap: Spacing.sm,
-    flexShrink: 0,
+    alignItems: 'center',
     alignContent: 'flex-start',
+    marginTop: 4,
+    rowGap: Spacing.xs,
+    columnGap: Spacing.sm,
+    width: '100%',
+    minWidth: 0,
   },
   /** Puede acortarse con puntos si hace falta espacio para el cluster. */
   rankingSignal: {
@@ -473,6 +479,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: Radius.sm,
+    flexShrink: 0,
+    maxWidth: '100%',
   },
   pinStatusChipQuiet: {
     borderWidth: 1,
@@ -486,7 +494,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     marginLeft: -2,
     borderRadius: Radius.sm,
-    alignSelf: 'flex-start',
+    flexShrink: 0,
   },
   etiquetarLabel: {
     fontSize: 13,
@@ -496,5 +504,7 @@ const styles = StyleSheet.create({
   rankingChipLabel: {
     fontSize: 11,
     fontWeight: '500',
+    flexShrink: 1,
+    minWidth: 0,
   },
 });

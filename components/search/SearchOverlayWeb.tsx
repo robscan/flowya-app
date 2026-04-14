@@ -60,6 +60,7 @@ export function SearchOverlayWeb<T>({
   onRequestDeleteUserTag,
   placeSuggestions = [],
   onCreateFromPlace,
+  searchInputAutoFocus = true,
 }: SearchFloatingProps<T>) {
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
@@ -197,6 +198,7 @@ export function SearchOverlayWeb<T>({
       scrollViewKeyboardDismissMode="none"
       onInputFocus={() => setIsInputFocused(true)}
       onInputBlur={() => setIsInputFocused(false)}
+      searchInputAutoFocus={searchInputAutoFocus}
     />
   );
 

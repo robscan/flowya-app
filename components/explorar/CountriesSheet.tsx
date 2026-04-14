@@ -1,3 +1,4 @@
+import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
 import { CountriesMapPreview } from "@/components/design-system/countries-map-preview";
 import { CountriesSheetCountryList } from "@/components/design-system/countries-sheet-country-list";
 import { CountriesSheetKpiRow } from "@/components/design-system/countries-sheet-kpi-row";
@@ -8,6 +9,7 @@ import type {
   CountriesSheetState,
   CountrySheetItem,
 } from "@/components/design-system/countries-sheet-types";
+import { SearchLauncherField } from "@/components/design-system/search-launcher-field";
 import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
@@ -19,6 +21,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useSta
 import {
   Dimensions,
   FlatList,
+  SectionList,
   Platform,
   Pressable,
   ScrollView,
@@ -84,11 +87,13 @@ type CountriesSheetProps = {
   countryDetail?: CountriesSheetListDetail | null;
   onCountryDetailBack?: () => void;
   countryDetailSpots?: SearchResultCardProps["spot"][];
+  /** Si el host la define, mismo criterio que el buscador (zona vs mapa o bloque único). */
+  countryDetailSpotSections?: { id: string; title: string; items: SearchResultCardProps["spot"][] }[] | null;
   renderCountryDetailItem?: (spot: SearchResultCardProps["spot"]) => React.ReactNode;
   countryDetailTagFilterOptions?: { id: string; name: string; count: number }[];
   selectedCountryDetailTagFilterId?: string | null;
   onCountryDetailTagFilterChange?: (tagId: string | null) => void;
-  /** Mismo contrato que SearchSurface: long press en un chip # entra en modo edición (renombrar/eliminar vía flujo del host). */
+  /** Mismo contrato que SearchSurface: long press en un chip de etiqueta entra en modo edición (renombrar/eliminar vía flujo del host). */
   countryDetailTagFilterEditMode?: boolean;
   onCountryDetailTagFilterEnterEditMode?: () => void;
   onCountryDetailTagFilterExitEditMode?: () => void;
@@ -154,6 +159,7 @@ export function CountriesSheet({
   countryDetail = null,
   onCountryDetailBack,
   countryDetailSpots = [],
+  countryDetailSpotSections = null,
   renderCountryDetailItem,
   countryDetailTagFilterOptions = [],
   selectedCountryDetailTagFilterId = null,
@@ -624,7 +630,6 @@ export function CountriesSheet({
                 ? { onPress: onCountryDetailBack }
                 : undefined
             }
-            onSearchPress={onSearchPress}
             onClose={onClose}
             onDragAreaLayout={onDragAreaLayout}
             onHeaderLayout={onHeaderLayout}
@@ -677,13 +682,23 @@ export function CountriesSheet({
                   ? { onPress: onCountryDetailBack }
                   : undefined
               }
-              onSearchPress={onSearchPress}
               onClose={onClose}
               onDragAreaLayout={onDragAreaLayout}
               onHeaderLayout={onHeaderLayout}
             />
           </GestureDetector>
         )}
+
+        {onSearchPress ? (
+          <View style={styles.countriesSearchLauncherWrap} pointerEvents="box-none">
+            <SearchLauncherField
+              variant="sheet"
+              onPress={onSearchPress}
+              placeholder="Busca: países, regiones o lugares"
+              accessibilityLabel="Abrir búsqueda"
+            />
+          </View>
+        ) : null}
 
         {showPlacesScopeDropdown && placesScopeMenuOpen ? (
           <Animated.View
@@ -854,13 +869,18 @@ export function CountriesSheet({
                           accessibilityRole="button"
                           accessibilityState={{ selected }}
                         >
-                          <Text
-                            style={[styles.tagFilterChipLabel, webTagChipNoSelect, { color: chipLabelColor }]}
-                            numberOfLines={1}
-                          >
-                            #{opt.name}
-                            {opt.count > 0 ? ` (${opt.count})` : ""}
-                          </Text>
+                          <ExploreTagIconLabel
+                            name={opt.name}
+                            suffix={opt.count > 0 ? ` (${opt.count})` : ""}
+                            color={chipLabelColor}
+                            iconSize={12}
+                            textStyle={[
+                              styles.tagFilterChipLabel,
+                              webTagChipNoSelect,
+                              { color: chipLabelColor },
+                            ]}
+                            containerStyle={styles.countriesTagFilterIconLabelFill}
+                          />
                         </Pressable>
                         {countryDetailTagFilterEditMode && onCountryDetailRequestDeleteUserTag != null ? (
                           <Pressable
@@ -913,16 +933,41 @@ export function CountriesSheet({
                   </Text>
                 </View>
               ) : renderCountryDetailItem != null ? (
-                <FlatList
-                  data={countryDetailSpots}
-                  keyExtractor={(item) => item.id}
-                  renderItem={({ item }) => (
-                    <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
-                  )}
-                  style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
-                  keyboardShouldPersistTaps="handled"
-                  windowSize={8}
-                />
+                countryDetailSpotSections != null &&
+                countryDetailSpotSections.some((s) => s.items.length > 0) ? (
+                  <SectionList
+                    sections={countryDetailSpotSections
+                      .filter((s) => s.items.length > 0)
+                      .map((s) => ({ title: s.title, data: s.items }))}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
+                    )}
+                    renderSectionHeader={({ section: { title } }) => (
+                      <Text
+                        style={[styles.placesSectionHeader, { color: colors.textSecondary }]}
+                        accessibilityRole="header"
+                      >
+                        {title}
+                      </Text>
+                    )}
+                    style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
+                    keyboardShouldPersistTaps="handled"
+                    stickySectionHeadersEnabled={false}
+                    windowSize={8}
+                  />
+                ) : (
+                  <FlatList
+                    data={countryDetailSpots}
+                    keyExtractor={(item) => item.id}
+                    renderItem={({ item }) => (
+                      <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
+                    )}
+                    style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
+                    keyboardShouldPersistTaps="handled"
+                    windowSize={8}
+                  />
+                )
               ) : null}
             </Animated.View>
           )}
@@ -942,8 +987,7 @@ export function CountriesSheet({
               background: colors.background,
               backgroundElevated: colors.backgroundElevated,
             }}
-            sheetState={layoutState}
-            onCountriesKpiPress={onCountriesKpiPress}
+            onCountriesKpiPress={showPlacesList ? undefined : onCountriesKpiPress}
             onSpotsKpiPress={onSpotsKpiPress}
             onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
           />
@@ -1130,6 +1174,12 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: EXPLORE_LAYER_Z.SHEET_HEADER_DROPDOWN,
   },
+  countriesSearchLauncherWrap: {
+    width: "100%",
+    marginTop: Spacing.md,
+    marginBottom: Spacing.md,
+    paddingHorizontal: 0,
+  },
   placesScopeMenuDropWrap: {
     position: "absolute",
     left: 0,
@@ -1200,10 +1250,20 @@ const styles = StyleSheet.create({
   detailItemWrap: {
     marginBottom: Spacing.sm,
   },
+  /** Alineado a SearchSurface (`sectionHeader`) para paridad buscador ↔ sheet lugares. */
+  placesSectionHeader: {
+    fontSize: 13,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginTop: Spacing.sm,
+    marginBottom: Spacing.xs,
+  },
   tagFilterRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: Spacing.sm,
+    marginTop: Spacing.sm,
     marginBottom: Spacing.md,
     maxHeight: DETAIL_TAG_ROW_HEIGHT,
     minHeight: 40,
@@ -1245,6 +1305,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minWidth: 0,
     flexShrink: 1,
+  },
+  countriesTagFilterIconLabelFill: {
+    flex: 1,
+    minWidth: 0,
   },
   tagFilterChipRemove: {
     padding: 2,

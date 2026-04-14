@@ -21,21 +21,14 @@ import {
   Text,
   View,
   type TextStyle,
-  type ViewStyle,
 } from 'react-native';
-import { Search, Trash2, X } from 'lucide-react-native';
+import { ExploreTagFilterChipRow } from '@/components/design-system/explore-tag-filter-chip-row';
+import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { ListView } from './SearchResultsListV2';
 import type { SearchFloatingProps } from './types';
 
-const HEADER_PILL_RADIUS = 22;
 const HEADER_ROW_HEIGHT = 44;
-
-/** Web: evita selección de texto en long-press (modo edición de chips). */
-const webTagChipNoSelect =
-  Platform.OS === 'web'
-    ? ({ userSelect: 'none', WebkitUserSelect: 'none' } as const)
-    : null;
 
 export type SearchSurfaceProps<T> = SearchFloatingProps<T> & {
   /** Callback al cerrar (pasado por adapter). */
@@ -78,6 +71,7 @@ export function SearchSurface<T>({
   scrollViewKeyboardDismissMode = 'on-drag',
   onInputFocus,
   onInputBlur,
+  searchInputAutoFocus = true,
 }: SearchSurfaceProps<T>) {
   const [searchInputFocused, setSearchInputFocused] = useState(false);
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
@@ -174,7 +168,7 @@ export function SearchSurface<T>({
             onClear={controller.clear}
             placeholder={searchPlaceholder}
             placeholderTextColor={searchPlaceholderColor}
-            autoFocus
+            autoFocus={searchInputAutoFocus}
             embedded
             accessibilityLabel={
               pinFilter === 'saved'
@@ -195,136 +189,16 @@ export function SearchSurface<T>({
         </View>
       </View>
       {showTagFilterRow ? (
-        <View style={styles.tagFilterRow}>
-          <View style={styles.tagFilterScrollWrap}>
-            <ScrollView
-              key={tagFilterEditMode ? 'tag-filter-edit' : 'tag-filter-browse'}
-              horizontal
-              scrollEnabled
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              removeClippedSubviews={false}
-              style={[
-                styles.tagFilterScroll,
-                Platform.OS === 'web' ? ({ touchAction: 'pan-x' } as ViewStyle) : null,
-              ]}
-              contentContainerStyle={styles.tagFilterScrollContent}
-            >
-            {!tagFilterEditMode ? (
-              <Pressable
-                onPress={() => {
-                  onTagFilterChange(null);
-                }}
-                style={[
-                  styles.tagFilterChip,
-                  webTagChipNoSelect,
-                  {
-                    backgroundColor: selectedTagFilterId == null ? colors.tint : colors.background,
-                    borderColor: colors.borderSubtle,
-                  },
-                ]}
-                accessibilityLabel="Sin filtrar por etiqueta"
-                accessibilityRole="button"
-                accessibilityState={{ selected: selectedTagFilterId == null }}
-              >
-                <Text
-                  style={[
-                    styles.tagFilterChipLabel,
-                    webTagChipNoSelect,
-                    { color: selectedTagFilterId == null ? colors.background : colors.text },
-                  ]}
-                  numberOfLines={1}
-                >
-                  Cualquiera
-                </Text>
-              </Pressable>
-            ) : null}
-            {tagFilterOptions.map((opt) => {
-              const selected = selectedTagFilterId === opt.id;
-              const chipEditSelected = tagFilterEditMode && selected;
-              const chipColors: ViewStyle = {
-                backgroundColor: chipEditSelected
-                  ? colors.stateError
-                  : selected
-                    ? colors.tint
-                    : colors.background,
-                borderColor: chipEditSelected ? colors.stateError : colors.borderSubtle,
-              };
-              const chipLabelColor = chipEditSelected
-                ? colors.surfaceOnMap
-                : selected
-                  ? colors.background
-                  : colors.text;
-              const trashIconColor = chipEditSelected
-                ? colors.surfaceOnMap
-                : tagFilterEditMode
-                  ? colors.stateError
-                  : colors.textSecondary;
-              return (
-                <View
-                  key={opt.id}
-                  style={[styles.tagFilterChip, styles.tagFilterChipInner, chipColors, webTagChipNoSelect]}
-                >
-                  <Pressable
-                    onPress={() => {
-                      if (tagFilterEditMode) return;
-                      onTagFilterChange(selected ? null : opt.id);
-                    }}
-                    onLongPress={
-                      onTagFilterEnterEditMode != null
-                        ? () => {
-                            onTagFilterEnterEditMode();
-                          }
-                        : undefined
-                    }
-                    delayLongPress={450}
-                    style={styles.tagFilterChipMainPress}
-                    accessibilityLabel={`Filtrar por ${opt.name}`}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected }}
-                  >
-                    <Text
-                      style={[styles.tagFilterChipLabel, webTagChipNoSelect, { color: chipLabelColor }]}
-                      numberOfLines={1}
-                    >
-                      #{opt.name}
-                      {opt.count > 0 ? ` (${opt.count})` : ''}
-                    </Text>
-                  </Pressable>
-                  {tagFilterEditMode && onRequestDeleteUserTag != null ? (
-                    <Pressable
-                      onPress={() => onRequestDeleteUserTag(opt.id, opt.name)}
-                      hitSlop={10}
-                      style={styles.tagFilterChipRemove}
-                      accessibilityLabel={`Eliminar etiqueta ${opt.name}`}
-                      accessibilityRole="button"
-                    >
-                      <Trash2 size={14} color={trashIconColor} strokeWidth={2.5} />
-                    </Pressable>
-                  ) : null}
-                </View>
-              );
-            })}
-          </ScrollView>
-          </View>
-          {tagFilterEditMode && onTagFilterExitEditMode != null ? (
-            <Pressable
-              onPress={onTagFilterExitEditMode}
-              style={({ pressed }) => [
-                styles.tagFilterDoneBtn,
-                {
-                  backgroundColor: colors.tint,
-                  borderColor: colors.tint,
-                  opacity: pressed ? 0.9 : 1,
-                },
-              ]}
-              accessibilityLabel="Salir del modo edición de etiquetas"
-              accessibilityRole="button"
-            >
-              <Text style={[styles.tagFilterDoneBtnLabel, { color: colors.surfaceOnMap }]}>Listo</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        <ExploreTagFilterChipRow
+          variant="search"
+          tagFilterOptions={tagFilterOptions}
+          selectedTagFilterId={selectedTagFilterId ?? null}
+          onTagFilterChange={onTagFilterChange!}
+          tagFilterEditMode={tagFilterEditMode}
+          onTagFilterEnterEditMode={onTagFilterEnterEditMode}
+          onTagFilterExitEditMode={onTagFilterExitEditMode}
+          onRequestDeleteUserTag={onRequestDeleteUserTag}
+        />
       ) : null}
       <View style={styles.resultsArea}>
         {!shouldRenderResultsOnEmpty &&
@@ -541,87 +415,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  /** Debajo de SearchInputV2; separa chips del listado (OL-WEB-RESPONSIVE-001). */
-  tagFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    marginBottom: Spacing.md,
-    maxHeight: 48,
-    minHeight: 40,
-  },
-  /** Contenedor flex para que el ScrollView horizontal siga midiendo bien al mostrar/ocultar «Listo». */
-  tagFilterScrollWrap: {
-    flex: 1,
-    minWidth: 0,
-    maxHeight: 48,
-  },
-  tagFilterScroll: {
-    flex: 1,
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    maxHeight: 48,
-  },
-  tagFilterScrollContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingRight: Spacing.sm,
-  },
-  tagFilterChip: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 6,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    maxWidth: 220,
-  },
-  tagFilterChipInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    maxWidth: 260,
-  },
-  /** Fila del chip # (no Pressable) para poder poner filtro y X como botones hermanos en web. */
-  tagFilterChipMainPress: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    minWidth: 0,
-    flexShrink: 1,
-  },
-  tagFilterChipRemove: {
-    padding: 2,
-    marginLeft: 2,
-    flexShrink: 0,
-  },
-  tagFilterDoneBtn: {
-    paddingHorizontal: Spacing.base,
-    paddingVertical: 10,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    flexShrink: 0,
-    minWidth: 72,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      web: {
-        boxShadow: '0 1px 3px rgba(0,0,0,0.12)',
-        cursor: 'pointer' as const,
-      },
-      default: {
-        elevation: 2,
-      },
-    }),
-  },
-  tagFilterDoneBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  tagFilterChipLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
   searchRow: {
     flexShrink: 0,
   },
@@ -633,7 +426,7 @@ const styles = StyleSheet.create({
     paddingLeft: Spacing.base,
     paddingRight: Spacing.sm,
     gap: Spacing.sm,
-    borderRadius: HEADER_PILL_RADIUS,
+    borderRadius: Radius.searchSurfacePill,
     borderWidth: 1,
     minWidth: 0,
   },

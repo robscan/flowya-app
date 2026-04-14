@@ -2,7 +2,7 @@
  * Chip de etiqueta — modal de spot, búsqueda y ajustes (OL-EXPLORE-TAGS-001).
  */
 
-import { X } from 'lucide-react-native';
+import { Tag, X } from 'lucide-react-native';
 import React from 'react';
 import type { PressableProps } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -12,7 +12,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export type TagChipProps = {
   label: string;
-  /** Sin #; el chip puede mostrarlo opcionalmente */
+  /** Si true, muestra el icono Tag de explorar junto al nombre (sin prefijo "#"). */
   showHash?: boolean;
   /** Quitar del spot: icono X al final del chip */
   onRemove?: () => void;
@@ -38,8 +38,24 @@ export function TagChip({
 }: TagChipProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const display = showHash ? `#${label}` : label;
   const suggested = visualVariant === 'suggested';
+  const labelColor = colors.text;
+  const tagGlyphColor = suggested ? colors.textSecondary : colors.text;
+
+  const labelBlock = showHash ? (
+    <View style={styles.tagIconLabelRow}>
+      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+        <Tag size={13} color={tagGlyphColor} strokeWidth={2.2} />
+      </View>
+      <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
+        {label}
+      </Text>
+    </View>
+  ) : (
+    <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
+      {label}
+    </Text>
+  );
 
   if (onRemove) {
     return (
@@ -54,9 +70,7 @@ export function TagChip({
         accessibilityRole="text"
         accessibilityLabel={accessibilityLabel ?? `Etiqueta ${label}`}
       >
-        <Text style={[styles.label, { color: colors.text }]} numberOfLines={1}>
-          {display}
-        </Text>
+        {labelBlock}
         <Pressable
           onPress={onRemove}
           disabled={disabled}
@@ -83,12 +97,30 @@ export function TagChip({
         },
       ]}
     >
-      <Text
-        style={[styles.label, { color: suggested ? colors.textSecondary : colors.text }]}
-        numberOfLines={1}
-      >
-        {display}
-      </Text>
+      {showHash ? (
+        <View style={styles.tagIconLabelRow}>
+          <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+            <Tag
+              size={13}
+              color={suggested ? colors.textSecondary : colors.text}
+              strokeWidth={2.2}
+            />
+          </View>
+          <Text
+            style={[styles.label, { color: suggested ? colors.textSecondary : colors.text }]}
+            numberOfLines={1}
+          >
+            {label}
+          </Text>
+        </View>
+      ) : (
+        <Text
+          style={[styles.label, { color: suggested ? colors.textSecondary : colors.text }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      )}
     </View>
   );
 
@@ -131,5 +163,12 @@ const styles = StyleSheet.create({
   },
   removeHit: {
     padding: 2,
+  },
+  tagIconLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexShrink: 1,
+    minWidth: 0,
   },
 });

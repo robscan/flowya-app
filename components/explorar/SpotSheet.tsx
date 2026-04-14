@@ -29,10 +29,10 @@ import {
 import type { SpotHeroImagePressHandler } from "@/lib/spot-hero-press";
 import {
     CheckCircle,
-    Hash,
     MapPin,
     Pencil,
     Pin,
+    Tag,
 } from "lucide-react-native";
 import React, {
   useCallback,
@@ -54,6 +54,7 @@ import {
     Text,
     useWindowDimensions,
     View,
+    type ViewStyle,
 } from "react-native";
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
@@ -271,32 +272,46 @@ function SpotSheetMetaRow({
         </Text>
       ) : null}
       {showTags || showEtiquetar ? (
-        <View style={styles.metaChipsCluster}>
-          {tagChips.map((chip) => (
-            <Pressable
-              key={chip.id}
-              onPress={() => onTagChipPress?.(chip.id)}
-              disabled={!onTagChipPress}
-              style={[styles.metaTagChip, { backgroundColor: colors.borderSubtle }]}
-              accessibilityLabel={`Buscar en el mapa con etiqueta ${chip.label}`}
-              accessibilityRole="button"
-            >
-              <Text style={[styles.metaTagChipLabel, { color: colors.textSecondary }]} numberOfLines={1}>
-                #{chip.label}
-              </Text>
-            </Pressable>
-          ))}
-          {showEtiquetar ? (
-            <Pressable
-              onPress={onEtiquetar}
-              style={styles.metaEtiquetar}
-              accessibilityLabel="Etiquetar este lugar"
-              accessibilityRole="button"
-            >
-              <Hash size={13} color={colors.primary} strokeWidth={2.2} />
-              <Text style={[styles.metaEtiquetarLabel, { color: colors.primary }]}>Etiquetar</Text>
-            </Pressable>
-          ) : null}
+        <View style={styles.metaChipsClusterHost}>
+          <ScrollView
+            horizontal
+            scrollEnabled
+            showsHorizontalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            removeClippedSubviews={false}
+            style={[
+              styles.metaChipsClusterScroll,
+              Platform.OS === "web" ? ({ touchAction: "pan-x" } as ViewStyle) : null,
+            ]}
+            contentContainerStyle={styles.metaChipsClusterScrollContent}
+          >
+            {tagChips.map((chip) => (
+              <Pressable
+                key={chip.id}
+                onPress={() => onTagChipPress?.(chip.id)}
+                disabled={!onTagChipPress}
+                style={[styles.metaTagChip, { backgroundColor: colors.borderSubtle }]}
+                accessibilityLabel={`Buscar en el mapa con etiqueta ${chip.label}`}
+                accessibilityRole="button"
+              >
+                <Tag size={11} color={colors.textSecondary} strokeWidth={2} />
+                <Text style={[styles.metaTagChipLabel, { color: colors.textSecondary }]} numberOfLines={1}>
+                  {chip.label}
+                </Text>
+              </Pressable>
+            ))}
+            {showEtiquetar ? (
+              <Pressable
+                onPress={onEtiquetar}
+                style={styles.metaEtiquetar}
+                accessibilityLabel="Etiquetar este lugar"
+                accessibilityRole="button"
+              >
+                <Tag size={13} color={colors.primary} strokeWidth={2.2} />
+                <Text style={[styles.metaEtiquetarLabel, { color: colors.primary }]}>Etiquetar</Text>
+              </Pressable>
+            ) : null}
+          </ScrollView>
         </View>
       ) : null}
     </View>
@@ -1880,7 +1895,6 @@ const styles = StyleSheet.create({
   },
   metaRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     alignItems: "center",
     gap: Spacing.sm,
     marginBottom: BODY_ROW_GAP,
@@ -1889,20 +1903,35 @@ const styles = StyleSheet.create({
   metaDistance: {
     fontSize: 13,
     lineHeight: 18,
+    flexShrink: 0,
   },
-  metaChipsCluster: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: Spacing.sm,
+  /** Ancho restante junto a distancia; el scroll horizontal replica el buscador (ExploreTagFilterChipRow). */
+  metaChipsClusterHost: {
     flex: 1,
     minWidth: 0,
+    maxHeight: 48,
+  },
+  metaChipsClusterScroll: {
+    flexGrow: 1,
+  },
+  metaChipsClusterScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    flexGrow: 1,
+    gap: Spacing.sm,
+    minHeight: 40,
+    paddingRight: Spacing.sm,
   },
   metaTagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: Radius.sm,
     maxWidth: 220,
+    flexShrink: 0,
   },
   metaTagChipLabel: {
     fontSize: 11,
@@ -1915,6 +1944,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 6,
     borderRadius: Radius.sm,
+    flexShrink: 0,
   },
   metaEtiquetarLabel: {
     fontSize: 13,

@@ -323,7 +323,6 @@ export function MapPinFilter({
               onPress={handleResetToAll}
               accessibilityLabel="Volver a Todos"
               iconColor={colors.pin.outline}
-              backgroundColor={selectedColors.bg}
             />
           ) : null}
         </View>

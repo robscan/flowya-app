@@ -54,4 +54,9 @@ export type SearchFloatingProps<T> = {
   placeSuggestions?: PlaceResult[];
   /** Callback al seleccionar un lugar de placeSuggestions. */
   onCreateFromPlace?: (place: PlaceResult) => void;
+  /**
+   * Si false, el input de búsqueda no recibe foco al abrir el overlay (más altura útil para el listado).
+   * Ej.: entrada desde chip de etiqueta en la ficha del lugar.
+   */
+  searchInputAutoFocus?: boolean;
 };

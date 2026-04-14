@@ -353,6 +353,11 @@ export const Radius = {
   md: 12,
   lg: 16,
   xl: 20,
+  /**
+   * Contenedor del campo en SearchSurface (icono + SearchInputV2 embebido) y launcher en CountriesSheet.
+   * Debe coincidir con la silueta que ve el usuario en el buscador a pantalla completa.
+   */
+  searchSurfacePill: 22,
   /** Pill / totalmente redondeado (chips, botones de acción). */
   pill: 9999,
 } as const;

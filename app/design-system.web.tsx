@@ -453,7 +453,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Modal de asignación y chips en cards. La fila de filtro del buscador (Cualquiera + #) es SearchSurface — no duplicar como TagChip."
+          description="Modal de asignación y chips en cards. La fila de filtro del buscador (Cualquiera + etiquetas con icono Tag) es SearchSurface — no duplicar como TagChip."
         >
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, alignItems: 'center' }}>
             <TagChip label="playa" onPress={() => {}} accessibilityLabel="Demo añadir playa" />
@@ -795,8 +795,10 @@ export default function DesignSystemScreen() {
                 text: colors.text,
                 textSecondary: colors.textSecondary,
                 primary: colors.primary,
+                borderSubtle: colors.countriesPanelToVisitBorderSubtle,
+                background: colors.countriesPanelToVisitBackground,
+                backgroundElevated: colors.countriesPanelToVisitBackgroundElevated,
               }}
-              sheetState="peek"
               onCountriesKpiPress={() => {}}
               onSpotsKpiPress={() => {}}
             />
@@ -1230,7 +1232,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Orquesta buscador, MapPinFilterInline, fila de chips #etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Import vitrina: @/components/design-system/search-surface-showcase."
+          description="Orquesta buscador, MapPinFilterInline, fila de chips de etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Import vitrina: @/components/design-system/search-surface-showcase."
         >
           <SearchSurfaceShowcase />
         </DesignSystemSection>

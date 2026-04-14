@@ -18,6 +18,11 @@ const BG_DEFAULT = 'rgba(128,128,128,0.22)';
 const BG_HOVER_WEB = 'rgba(128,128,128,0.28)';
 const BG_PRESSED = 'rgba(128,128,128,0.35)';
 
+/** Sobre fondo tint / primario: círculo claro semitransparente + icono claro (p. ej. chip de etiqueta en mapa). */
+const BG_ON_PRIMARY_DEFAULT = 'rgba(255,255,255,0.26)';
+const BG_ON_PRIMARY_HOVER_WEB = 'rgba(255,255,255,0.38)';
+const BG_ON_PRIMARY_PRESSED = 'rgba(255,255,255,0.48)';
+
 /** Referencia para la matriz DS y documentación (un solo tamaño canónico). */
 export const CLEAR_ICON_CIRCLE_TOKENS = {
   sizePx: SIZE,
@@ -32,8 +37,11 @@ export type ClearIconCircleProps = {
   onPress: () => void;
   accessibilityLabel: string;
   iconColor: string;
-  /** Reservado para futuros matices con el color del chip (p. ej. contraste). */
-  backgroundColor?: string;
+  /**
+   * `default`: disco gris neutro (buscador, chips sobre fondo claro).
+   * `onPrimary`: disco blanco semitransparente; usar con `iconColor` claro sobre tint/primary.
+   */
+  variant?: 'default' | 'onPrimary';
   disabled?: boolean;
   testID?: string;
 };
@@ -42,15 +50,18 @@ export function ClearIconCircle({
   onPress,
   accessibilityLabel,
   iconColor,
-  backgroundColor: _bg,
+  variant = 'default',
   disabled = false,
   testID,
 }: ClearIconCircleProps) {
-  void _bg;
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+
+  const bgDefault = variant === 'onPrimary' ? BG_ON_PRIMARY_DEFAULT : BG_DEFAULT;
+  const bgHover = variant === 'onPrimary' ? BG_ON_PRIMARY_HOVER_WEB : BG_HOVER_WEB;
+  const bgPressed = variant === 'onPrimary' ? BG_ON_PRIMARY_PRESSED : BG_PRESSED;
 
   return (
     <Pressable
@@ -73,12 +84,12 @@ export function ClearIconCircle({
           borderRadius: SIZE / 2,
           opacity: disabled ? 0.45 : 1,
           backgroundColor: disabled
-            ? BG_DEFAULT
+            ? bgDefault
             : pressed
-              ? BG_PRESSED
+              ? bgPressed
               : hovered && Platform.OS === 'web'
-                ? BG_HOVER_WEB
-                : BG_DEFAULT,
+                ? bgHover
+                : bgDefault,
         },
         Platform.OS === 'web' && !disabled ? { cursor: 'pointer' as const } : null,
         focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
@@ -92,6 +103,45 @@ export function ClearIconCircle({
   );
 }
 
+export type ClearIconCircleDecorationProps = {
+  iconColor: string;
+  variant?: 'default' | 'onPrimary';
+  /** Diámetro del disco (el botón canónico sigue siendo 26px). */
+  size?: number;
+  iconPx?: number;
+};
+
+/**
+ * Solo visual: disco semitransparente + X, sin Pressable.
+ * Uso: dentro de un control más grande (p. ej. chip de etiqueta en mapa), mismo canon visual que ClearIconCircle.
+ */
+export function ClearIconCircleDecoration({
+  iconColor,
+  variant = 'onPrimary',
+  size = 22,
+  iconPx = 11,
+}: ClearIconCircleDecorationProps) {
+  const bgDefault = variant === 'onPrimary' ? BG_ON_PRIMARY_DEFAULT : BG_DEFAULT;
+  return (
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+      style={[
+        styles.decorationWrap,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: bgDefault,
+        },
+      ]}
+    >
+      <X size={iconPx} color={iconColor} strokeWidth={2} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   wrap: {
     alignItems: 'center',
@@ -100,5 +150,10 @@ const styles = StyleSheet.create({
   iconCenter: {
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  decorationWrap: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
 });

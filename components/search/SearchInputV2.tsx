@@ -105,7 +105,6 @@ export const SearchInputV2 = forwardRef<TextInput, SearchInputV2Props>(function 
             onPress={onClear}
             accessibilityLabel="Limpiar búsqueda"
             iconColor={colors.textSecondary}
-            backgroundColor={colors.text}
           />
         </View>
       ) : null}

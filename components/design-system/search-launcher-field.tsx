@@ -1,6 +1,7 @@
 /**
  * Launcher “tap to search” (sin foco hasta abrir el panel). En Explorar, la pastilla canónica en mapa/sidebar/KPI
  * es `ExploreChromeSearchField` (compone este componente con `variant="onMap"`).
+ * `variant="sheet"`: fila bajo el header de CountriesSheet, misma silueta que `SearchInputV2`.
  */
 import React, { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -9,7 +10,7 @@ import { Colors, Radius, Shadow, Spacing, WebTouchManipulation } from '@/constan
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Search } from 'lucide-react-native';
 
-export type SearchLauncherFieldVariant = 'default' | 'onMap';
+export type SearchLauncherFieldVariant = 'default' | 'onMap' | 'sheet';
 
 export type SearchLauncherFieldProps = {
   onPress: () => void;
@@ -37,6 +38,7 @@ export function SearchLauncherField({
   const [focused, setFocused] = useState(false);
 
   const isOnMap = variant === 'onMap';
+  const isSheet = variant === 'sheet';
   const restingBackground = isOnMap ? MAP_BG : colors.backgroundElevated;
   const restingBorder = isOnMap ? MAP_BORDER : colors.borderSubtle;
   // El launcher on-map usa fondo blanco en light y dark; el placeholder debe contrastar
@@ -45,6 +47,10 @@ export function SearchLauncherField({
   const textColor = placeholderColor ?? (isOnMap ? onMapPlaceholderColor : colors.textSecondary);
   const iconColor = placeholderColor ?? (isOnMap ? onMapPlaceholderColor : colors.textSecondary);
   const pressedBackground = isOnMap ? MAP_BG_PRESSED : colors.background;
+  /** `sheet`: mismo radio que la pastilla del buscador (`SearchSurface` + `Radius.searchSurfacePill`). */
+  const radiusAndShadow = isSheet
+    ? { borderRadius: Radius.searchSurfacePill }
+    : { borderRadius: Radius.pill, ...Shadow.subtle };
 
   const focusStyle =
     Platform.OS === 'web'
@@ -65,6 +71,8 @@ export function SearchLauncherField({
       testID={testID}
       style={({ pressed }) => [
         styles.field,
+        isSheet ? styles.fieldSheet : styles.fieldCompact,
+        radiusAndShadow,
         {
           backgroundColor: pressed ? pressedBackground : restingBackground,
           borderColor: restingBorder,
@@ -80,8 +88,15 @@ export function SearchLauncherField({
       accessibilityLabel={accessibilityLabel ?? placeholder}
     >
       <View style={styles.content}>
-        <Search size={20} color={iconColor} strokeWidth={2} />
-        <Text style={[styles.placeholder, { color: textColor }]} numberOfLines={1}>
+        <Search size={isSheet ? 22 : 20} color={iconColor} strokeWidth={2} />
+        <Text
+          style={[
+            styles.placeholder,
+            isSheet && styles.placeholderSheet,
+            { color: textColor },
+          ]}
+          numberOfLines={1}
+        >
           {placeholder}
         </Text>
       </View>
@@ -93,12 +108,18 @@ const styles = StyleSheet.create({
   field: {
     flex: 1,
     minWidth: 0,
-    height: 44,
     paddingHorizontal: Spacing.base,
-    borderRadius: Radius.pill,
     borderWidth: 1,
     justifyContent: 'center',
-    ...Shadow.subtle,
+  },
+  /** Pastilla mapa / default: altura fija 44. */
+  fieldCompact: {
+    height: 44,
+ },
+  /** CountriesSheet: más aire vertical, alineado a SearchInputV2 legible en móvil. */
+  fieldSheet: {
+    minHeight: 50,
+    paddingVertical: 12,
   },
   content: {
     flexDirection: 'row',
@@ -110,5 +131,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     fontSize: 16,
+  },
+  placeholderSheet: {
+    lineHeight: 22,
+    paddingVertical: 1,
   },
 });
