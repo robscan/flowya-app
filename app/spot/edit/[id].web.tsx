@@ -80,6 +80,55 @@ const MAP_CONTROLS_PADDING = 8;
 const GALLERY_MIN_THUMB = 96;
 const GALLERY_MAX_THUMB = 200;
 
+function pickImageFilesFromWeb({
+  multiple,
+}: {
+  multiple: boolean;
+}): Promise<File[] | null> {
+  if (typeof document === "undefined") return Promise.resolve(null);
+  return new Promise<File[] | null>((resolve) => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/*";
+    input.multiple = multiple;
+    input.style.position = "fixed";
+    input.style.left = "-9999px";
+    let settled = false;
+    let focusListenerActive = false;
+
+    const onWindowFocus = () => {
+      window.setTimeout(() => {
+        const hasFile = (input.files?.length ?? 0) > 0;
+        if (!settled && !hasFile) finalize(null);
+      }, 0);
+    };
+
+    const finalize = (files: File[] | null) => {
+      if (settled) return;
+      settled = true;
+      if (focusListenerActive) {
+        window.removeEventListener("focus", onWindowFocus);
+        focusListenerActive = false;
+      }
+      input.onchange = null;
+      input.remove();
+      resolve(files);
+    };
+
+    input.onchange = () => {
+      const files = input.files ? Array.from(input.files) : [];
+      finalize(files.length > 0 ? files : null);
+    };
+
+    document.body.appendChild(input);
+    window.addEventListener("focus", onWindowFocus);
+    focusListenerActive = true;
+    input.click();
+    // Último recurso (algunos navegadores no disparan focus/change de forma consistente).
+    window.setTimeout(() => finalize(null), 2000);
+  });
+}
+
 function galleryLayoutMetrics(containerWidth: number) {
   const gap = Spacing.sm;
   const w = containerWidth > 0 ? containerWidth : 360;
@@ -383,28 +432,13 @@ export default function EditSpotScreenWeb() {
     }
     setCoverUploading(true);
     try {
-      const ImagePicker = await import("expo-image-picker");
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsEditing: true,
-        quality: 1,
-      });
-      if (result.canceled || !result.assets[0]?.uri) {
-        setCoverUploading(false);
-        return;
-      }
-      const res = await fetch(result.assets[0].uri);
-      if (!res.ok) {
-        setCoverUploading(false);
-        return;
-      }
-      const blob = await res.blob();
+      const files = await pickImageFilesFromWeb({ multiple: false });
+      const file = files?.[0] ?? null;
+      if (!file) return;
+      const blob = file;
       const optimized = await optimizeSpotImage(blob);
       const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
-      if (!toUpload) {
-        setCoverUploading(false);
-        return;
-      }
+      if (!toUpload) return;
       const url = await uploadSpotCover(spot.id, toUpload);
       if (url) {
         const { error } = await supabase
@@ -417,11 +451,11 @@ export default function EditSpotScreenWeb() {
         }
       }
     } catch {
-      // Silencioso
+      toast.show("No se pudo abrir el selector de imagen.", { type: "error" });
     } finally {
       setCoverUploading(false);
     }
-  }, [spot?.id, isAuthenticated, openAuthModal]);
+  }, [spot?.id, isAuthenticated, openAuthModal, toast]);
 
   const handleRemoveCover = useCallback(async () => {
     if (!spot?.id || !isAuthenticated) return;
@@ -446,35 +480,27 @@ export default function EditSpotScreenWeb() {
     }
     setGalleryUploading(true);
     try {
-      await ensureGallerySeedFromCover(spot.id, coverImageUrl);
-      const currentRows = await listSpotImages(spot.id);
-      setGalleryRows(currentRows);
-
-      if (currentRows.length >= MAX_SPOT_GALLERY_IMAGES) {
+      const currentCount = galleryRows.length;
+      if (currentCount >= MAX_SPOT_GALLERY_IMAGES) {
         toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, {
           type: "error",
         });
         return;
       }
-      const remainingSlots = MAX_SPOT_GALLERY_IMAGES - currentRows.length;
-      const ImagePicker = await import("expo-image-picker");
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ["images"],
-        allowsMultipleSelection: true,
-        selectionLimit: remainingSlots,
-        quality: 1,
-      });
-      if (result.canceled || !result.assets?.length) {
-        return;
-      }
-      const picked = result.assets.slice(0, remainingSlots);
+      const remainingSlots = MAX_SPOT_GALLERY_IMAGES - currentCount;
+      const files = await pickImageFilesFromWeb({ multiple: true });
+      if (!files || files.length === 0) return;
+
+      // Semilla (si aplica) después de la selección, pero antes de subir.
+      await ensureGallerySeedFromCover(spot.id, coverImageUrl);
+      const currentRows = await listSpotImages(spot.id);
+      setGalleryRows(currentRows);
+
+      const picked = files.slice(0, remainingSlots);
       let added = 0;
       let hitLimit = false;
       for (const asset of picked) {
-        if (!asset.uri) continue;
-        const res = await fetch(asset.uri);
-        if (!res.ok) continue;
-        const blob = await res.blob();
+        const blob = asset;
         const optimized = await optimizeSpotImage(blob);
         const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
         if (!toUpload) continue;
@@ -519,7 +545,7 @@ export default function EditSpotScreenWeb() {
     } finally {
       setGalleryUploading(false);
     }
-  }, [spot, isAuthenticated, openAuthModal, toast, coverImageUrl]);
+  }, [spot, isAuthenticated, openAuthModal, toast, coverImageUrl, galleryRows.length]);
 
   const handleRemoveGalleryImage = useCallback(
     async (imageId: string) => {

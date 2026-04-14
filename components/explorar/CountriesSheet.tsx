@@ -772,39 +772,39 @@ export function CountriesSheet({
                   ]}
                   contentContainerStyle={styles.tagFilterScrollContent}
                 >
-                  <Pressable
-                    onPress={() => {
-                      if (countryDetailTagFilterEditMode) return;
-                      onCountryDetailTagFilterChange?.(null);
-                    }}
-                    style={[
-                      styles.tagFilterChip,
-                      webTagChipNoSelect,
-                      {
-                        backgroundColor:
-                          selectedCountryDetailTagFilterId == null ? colors.tint : colors.background,
-                        borderColor: colors.borderSubtle,
-                        opacity: countryDetailTagFilterEditMode ? 0.75 : 1,
-                      },
-                    ]}
-                    accessibilityLabel="Sin filtrar por etiqueta"
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: selectedCountryDetailTagFilterId == null }}
-                  >
-                    <Text
+                  {!countryDetailTagFilterEditMode ? (
+                    <Pressable
+                      onPress={() => {
+                        onCountryDetailTagFilterChange?.(null);
+                      }}
                       style={[
-                        styles.tagFilterChipLabel,
+                        styles.tagFilterChip,
                         webTagChipNoSelect,
                         {
-                          color:
-                            selectedCountryDetailTagFilterId == null ? colors.background : colors.text,
+                          backgroundColor:
+                            selectedCountryDetailTagFilterId == null ? colors.tint : colors.background,
+                          borderColor: colors.borderSubtle,
                         },
                       ]}
-                      numberOfLines={1}
+                      accessibilityLabel="Sin filtrar por etiqueta"
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: selectedCountryDetailTagFilterId == null }}
                     >
-                      Cualquiera
-                    </Text>
-                  </Pressable>
+                      <Text
+                        style={[
+                          styles.tagFilterChipLabel,
+                          webTagChipNoSelect,
+                          {
+                            color:
+                              selectedCountryDetailTagFilterId == null ? colors.background : colors.text,
+                          },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        Cualquiera
+                      </Text>
+                    </Pressable>
+                  ) : null}
                   {countryDetailTagFilterOptions.map((opt) => {
                     const selected = selectedCountryDetailTagFilterId === opt.id;
                     const chipEditSelected = countryDetailTagFilterEditMode && selected;

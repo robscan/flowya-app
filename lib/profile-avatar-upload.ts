@@ -69,20 +69,36 @@ export async function pickProfileImageBlob(): Promise<Blob | null> {
       input.style.position = "fixed";
       input.style.left = "-9999px";
       let settled = false;
+      let focusListenerActive = false;
       const finalize = (blob: Blob | null) => {
         if (settled) return;
         settled = true;
+        if (focusListenerActive) {
+          window.removeEventListener("focus", onWindowFocus);
+          focusListenerActive = false;
+        }
         input.onchange = null;
         input.remove();
         resolve(blob);
+      };
+      const onWindowFocus = () => {
+        // Al cerrar el diálogo del picker el foco vuelve a la ventana.
+        // Si no hubo selección (no se disparó `change`), resolvemos como cancelación.
+        window.setTimeout(() => {
+          const hasFile = (input.files?.length ?? 0) > 0;
+          if (!settled && !hasFile) finalize(null);
+        }, 0);
       };
       input.onchange = () => {
         const file = input.files?.[0];
         finalize(file instanceof Blob ? file : null);
       };
       document.body.appendChild(input);
+      window.addEventListener("focus", onWindowFocus);
+      focusListenerActive = true;
       input.click();
-      window.setTimeout(() => finalize(null), 30000);
+      // Último recurso (si el navegador no dispara focus/change por alguna razón).
+      window.setTimeout(() => finalize(null), 2000);
     });
   }
 

@@ -210,35 +210,35 @@ export function SearchSurface<T>({
               ]}
               contentContainerStyle={styles.tagFilterScrollContent}
             >
-            <Pressable
-              onPress={() => {
-                if (tagFilterEditMode) return;
-                onTagFilterChange(null);
-              }}
-              style={[
-                styles.tagFilterChip,
-                webTagChipNoSelect,
-                {
-                  backgroundColor: selectedTagFilterId == null ? colors.tint : colors.background,
-                  borderColor: colors.borderSubtle,
-                  opacity: tagFilterEditMode ? 0.75 : 1,
-                },
-              ]}
-              accessibilityLabel="Sin filtrar por etiqueta"
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedTagFilterId == null }}
-            >
-              <Text
+            {!tagFilterEditMode ? (
+              <Pressable
+                onPress={() => {
+                  onTagFilterChange(null);
+                }}
                 style={[
-                  styles.tagFilterChipLabel,
+                  styles.tagFilterChip,
                   webTagChipNoSelect,
-                  { color: selectedTagFilterId == null ? colors.background : colors.text },
+                  {
+                    backgroundColor: selectedTagFilterId == null ? colors.tint : colors.background,
+                    borderColor: colors.borderSubtle,
+                  },
                 ]}
-                numberOfLines={1}
+                accessibilityLabel="Sin filtrar por etiqueta"
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedTagFilterId == null }}
               >
-                Cualquiera
-              </Text>
-            </Pressable>
+                <Text
+                  style={[
+                    styles.tagFilterChipLabel,
+                    webTagChipNoSelect,
+                    { color: selectedTagFilterId == null ? colors.background : colors.text },
+                  ]}
+                  numberOfLines={1}
+                >
+                  Cualquiera
+                </Text>
+              </Pressable>
+            ) : null}
             {tagFilterOptions.map((opt) => {
               const selected = selectedTagFilterId === opt.id;
               const chipEditSelected = tagFilterEditMode && selected;
