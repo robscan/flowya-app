@@ -67,6 +67,8 @@ type CountriesSheetProps = {
   summaryPlacesCount: number;
   onCountriesKpiPress?: () => void;
   onSpotsKpiPress?: () => void;
+  /** Entry point a búsqueda (preserva estado del sheet en el host). */
+  onSearchPress?: () => void;
   emptyLabel?: string;
   onStateChange: (next: CountriesSheetState) => void;
   onClose: () => void;
@@ -139,6 +141,7 @@ export function CountriesSheet({
   summaryPlacesCount,
   onCountriesKpiPress,
   onSpotsKpiPress,
+  onSearchPress,
   emptyLabel = "No hay países detectados por ahora.",
   onStateChange,
   onClose,
@@ -621,6 +624,7 @@ export function CountriesSheet({
                 ? { onPress: onCountryDetailBack }
                 : undefined
             }
+            onSearchPress={onSearchPress}
             onClose={onClose}
             onDragAreaLayout={onDragAreaLayout}
             onHeaderLayout={onHeaderLayout}
@@ -673,6 +677,7 @@ export function CountriesSheet({
                   ? { onPress: onCountryDetailBack }
                   : undefined
               }
+              onSearchPress={onSearchPress}
               onClose={onClose}
               onDragAreaLayout={onDragAreaLayout}
               onHeaderLayout={onHeaderLayout}
@@ -933,6 +938,9 @@ export function CountriesSheet({
               text: colors.text,
               textSecondary: colors.textSecondary,
               primary: colors.primary,
+              borderSubtle: colors.borderSubtle,
+              background: colors.background,
+              backgroundElevated: colors.backgroundElevated,
             }}
             sheetState={layoutState}
             onCountriesKpiPress={onCountriesKpiPress}

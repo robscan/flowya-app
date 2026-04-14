@@ -5790,6 +5790,7 @@ export function MapScreenVNext() {
           summaryPlacesCount={countriesPlacesCountForOverlay}
           onCountriesKpiPress={handleCountriesKpiPress}
           onSpotsKpiPress={handleCountriesSpotsKpiPress}
+          onSearchPress={openSearchPreservingCountriesSheet}
           onStateChange={setCountriesSheetState}
           onClose={handleCountriesSheetClose}
           onShare={handleCountriesSheetShare}

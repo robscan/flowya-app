@@ -5,7 +5,7 @@
 import type { CountriesSheetState } from '@/components/design-system/countries-sheet-types';
 import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 
@@ -13,6 +13,9 @@ export type CountriesSheetKpiRowColors = {
   text: string;
   textSecondary: string;
   primary: string;
+  borderSubtle: string;
+  background: string;
+  backgroundElevated: string;
 };
 
 export type CountriesSheetKpiRowProps = {
@@ -39,6 +42,8 @@ export function CountriesSheetKpiRow({
   onSpotsKpiPress,
   onLayout,
 }: CountriesSheetKpiRowProps) {
+  const countriesIsButton = onCountriesKpiPress != null;
+  const placesIsButton = onSpotsKpiPress != null;
   return (
     <View style={styles.summaryWrap} onLayout={onLayout}>
       <Pressable
@@ -46,7 +51,14 @@ export function CountriesSheetKpiRow({
         disabled={onCountriesKpiPress == null}
         style={({ pressed }) => [
           styles.summaryChip,
-          pressed && onCountriesKpiPress != null ? styles.summaryChipPressed : null,
+          countriesIsButton ? styles.summaryChipButton : null,
+          countriesIsButton
+            ? {
+                borderColor: colors.borderSubtle,
+                backgroundColor: pressed ? colors.backgroundElevated : colors.background,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null),
+              }
+            : null,
         ]}
         accessibilityRole={onCountriesKpiPress ? 'button' : undefined}
         accessibilityLabel={onCountriesKpiPress ? 'Ver lista completa de países' : undefined}
@@ -54,7 +66,7 @@ export function CountriesSheetKpiRow({
         <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
         <View style={styles.kpiLabelRow}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>países</Text>
-          {onCountriesKpiPress && sheetState === 'peek' ? (
+          {countriesIsButton && sheetState === 'peek' ? (
             <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
           ) : null}
         </View>
@@ -64,7 +76,14 @@ export function CountriesSheetKpiRow({
         disabled={onSpotsKpiPress == null}
         style={({ pressed }) => [
           styles.summaryChip,
-          pressed && onSpotsKpiPress != null ? styles.summaryChipPressed : null,
+          placesIsButton ? styles.summaryChipButton : null,
+          placesIsButton
+            ? {
+                borderColor: colors.borderSubtle,
+                backgroundColor: pressed ? colors.backgroundElevated : colors.background,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null),
+              }
+            : null,
         ]}
         accessibilityRole={onSpotsKpiPress ? 'button' : undefined}
         accessibilityLabel={onSpotsKpiPress ? 'Ver listado de lugares en el sheet' : undefined}
@@ -72,7 +91,9 @@ export function CountriesSheetKpiRow({
         <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
         <View style={styles.kpiLabelRow}>
           <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>lugares</Text>
-          {onSpotsKpiPress ? <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} /> : null}
+          {placesIsButton && sheetState === 'peek' ? (
+            <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+          ) : null}
         </View>
       </Pressable>
       <View style={styles.summaryChip}>
@@ -108,8 +129,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  summaryChipPressed: {
-    opacity: 0.82,
+  summaryChipButton: {
+    borderWidth: 1,
+    borderRadius: 12,
   },
   kpiLabelRow: {
     flexDirection: 'row',
