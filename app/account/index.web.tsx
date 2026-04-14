@@ -170,14 +170,10 @@ export default function AccountScreenWeb() {
     setAvatarBusy(true);
     try {
       const blob = await pickProfileImageBlob();
-      if (!blob) {
-        setAvatarBusy(false);
-        return;
-      }
+      if (!blob) return;
       const uploaded = await uploadMyProfileAvatar(blob);
       if (!uploaded) {
         toast.show('No se pudo subir la imagen.', { type: 'error' });
-        setAvatarBusy(false);
         return;
       }
       const { data, error } = await updateMyProfile({
@@ -185,7 +181,6 @@ export default function AccountScreenWeb() {
       });
       if (error) {
         toast.show(error.message, { type: 'error' });
-        setAvatarBusy(false);
         return;
       }
       setProfile(data);
