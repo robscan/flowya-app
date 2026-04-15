@@ -98,7 +98,7 @@ type CountriesSheetProps = {
   onCountryDetailTagFilterEnterEditMode?: () => void;
   onCountryDetailTagFilterExitEditMode?: () => void;
   onCountryDetailRequestDeleteUserTag?: (tagId: string, tagName: string) => void;
-  /** Listado de lugares: desde el menú del título, volver a `all_places` o cambiar de país. */
+  /** Listado de lugares: selector de ámbito (todos / país) bajo el título «Lugares». */
   onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
   /** Web ≥1080: panel en columna izquierda; el host lo coloca MapScreen. */
   webDesktopSidebar?: boolean;
@@ -175,10 +175,12 @@ export function CountriesSheet({
   const insets = useSafeAreaInsets();
   const deviceColorScheme = useColorScheme();
   const activeScheme = forceColorScheme ?? (deviceColorScheme === "dark" ? "dark" : "light");
+  /** Vista resumen de países: título del host. Listado de lugares: título fijo «Lugares»; el ámbito país/Todos va en la fila inferior. */
   const listViewHeaderTitle = useMemo(() => {
-    if (countryDetail == null) return title;
-    if (countryDetail.kind === "country") return countryDetail.label;
-    return "Todos";
+    if (countryDetail?.kind === "all_places" || countryDetail?.kind === "country") {
+      return "Lugares";
+    }
+    return title;
   }, [countryDetail, title]);
 
   const showPlacesScopeDropdown =
@@ -591,35 +593,6 @@ export function CountriesSheet({
             isPoiMode={false}
             poiLoading={false}
             displayTitle={listViewHeaderTitle}
-            titleSlot={
-              showPlacesScopeDropdown ? (
-                <Pressable
-                  style={styles.placesScopeTrigger}
-                  onPress={() => setPlacesScopeMenuOpen((o) => !o)}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    countryDetail?.kind === "country"
-                      ? `Lugares: ${countryDetail.label}. Cambiar país o todos`
-                      : "Filtrar lugares: Todos o un país"
-                  }
-                  accessibilityState={{ expanded: placesScopeMenuOpen }}
-                >
-                  <Text
-                    style={[styles.placesScopeTriggerText, { color: colors.text }]}
-                    numberOfLines={1}
-                  >
-                    {countryDetail?.kind === "country" ? countryDetail.label : "Todos"}
-                  </Text>
-                  <View
-                    style={{
-                      transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
-                    }}
-                  >
-                    <ChevronDown size={20} color={colors.text} strokeWidth={2.2} />
-                  </View>
-                </Pressable>
-              ) : undefined
-            }
             state={layoutState}
             colors={colors}
             onHeaderTap={handleHeaderTap}
@@ -643,35 +616,6 @@ export function CountriesSheet({
               isPoiMode={false}
               poiLoading={false}
               displayTitle={listViewHeaderTitle}
-              titleSlot={
-                showPlacesScopeDropdown ? (
-                  <Pressable
-                    style={styles.placesScopeTrigger}
-                    onPress={() => setPlacesScopeMenuOpen((o) => !o)}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      countryDetail?.kind === "country"
-                        ? `Lugares: ${countryDetail.label}. Cambiar país o todos`
-                        : "Filtrar lugares: Todos o un país"
-                    }
-                    accessibilityState={{ expanded: placesScopeMenuOpen }}
-                  >
-                    <Text
-                      style={[styles.placesScopeTriggerText, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {countryDetail?.kind === "country" ? countryDetail.label : "Todos"}
-                    </Text>
-                    <View
-                      style={{
-                        transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
-                      }}
-                    >
-                      <ChevronDown size={20} color={colors.text} strokeWidth={2.2} />
-                    </View>
-                  </Pressable>
-                ) : undefined
-              }
               state={state}
               colors={colors}
               onHeaderTap={handleHeaderTap}
@@ -689,8 +633,123 @@ export function CountriesSheet({
           </GestureDetector>
         )}
 
+        {showPlacesScopeDropdown ? (
+          <View style={styles.placesScopeAnchor}>
+            <Pressable
+              style={[
+                styles.placesScopeTrigger,
+                {
+                  backgroundColor: colors.background,
+                  borderColor: colors.borderSubtle,
+                },
+              ]}
+              onPress={() => setPlacesScopeMenuOpen((o) => !o)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                countryDetail?.kind === "country"
+                  ? `Ámbito: ${countryDetail.label}. Abrir para elegir país o todos`
+                  : "Ámbito: todos los países. Abrir para filtrar por un país"
+              }
+              accessibilityState={{ expanded: placesScopeMenuOpen }}
+            >
+              <Text
+                style={[styles.placesScopeTriggerValue, { color: colors.text }]}
+                numberOfLines={1}
+              >
+                {countryDetail?.kind === "country" ? countryDetail.label : "Todos los países"}
+              </Text>
+              <View
+                style={{
+                  transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
+                }}
+              >
+                <ChevronDown size={18} color={colors.textSecondary} strokeWidth={2.2} />
+              </View>
+            </Pressable>
+            {placesScopeMenuOpen ? (
+              <Animated.View
+                style={[
+                  styles.placesScopeMenuDropWrap,
+                  Elevation.card,
+                  placesScopeMenuEntranceAnimatedStyle,
+                ]}
+              >
+                <View
+                  style={[
+                    styles.placesScopeMenuDropSurface,
+                    {
+                      borderColor: colors.borderSubtle,
+                      backgroundColor: colors.backgroundElevated,
+                    },
+                  ]}
+                >
+                  <ScrollView
+                    keyboardShouldPersistTaps="handled"
+                    nestedScrollEnabled
+                    showsVerticalScrollIndicator
+                    style={{ maxHeight: PLACES_SCOPE_MENU_MAX_HEIGHT }}
+                  >
+                    <Pressable
+                      onPress={handlePlacesScopeSelectTodos}
+                      style={({ pressed }) => [
+                        styles.placesScopeMenuRow,
+                        pressed && styles.placesScopeMenuRowPressed,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Todos los lugares"
+                      accessibilityState={{ selected: countryDetail?.kind === "all_places" }}
+                    >
+                      <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>Todos</Text>
+                      {countryDetail?.kind === "all_places" ? (
+                        <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
+                      ) : (
+                        <View style={styles.placesScopeMenuCheckSpacer} />
+                      )}
+                    </Pressable>
+                    {items.map((item) => {
+                      const countrySelected =
+                        countryDetail?.kind === "country" && countryDetail.key === item.key;
+                      return (
+                        <Pressable
+                          key={item.key}
+                          onPress={() => handlePlacesScopeSelectCountry(item)}
+                          style={({ pressed }) => [
+                            styles.placesScopeMenuRow,
+                            pressed && styles.placesScopeMenuRowPressed,
+                          ]}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${item.label}, ${item.count} lugares`}
+                          accessibilityState={{ selected: countrySelected }}
+                        >
+                          <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>{item.label}</Text>
+                          <View style={styles.placesScopeMenuRowEnd}>
+                            <Text style={[styles.placesScopeMenuCount, { color: colors.textSecondary }]}>
+                              {item.count} lugares
+                            </Text>
+                            {countrySelected ? (
+                              <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
+                            ) : (
+                              <View style={styles.placesScopeMenuCheckSpacer} />
+                            )}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </View>
+              </Animated.View>
+            ) : null}
+          </View>
+        ) : null}
+
         {onSearchPress ? (
-          <View style={styles.countriesSearchLauncherWrap} pointerEvents="box-none">
+          <View
+            style={[
+              styles.countriesSearchLauncherWrap,
+              showPlacesScopeDropdown && styles.countriesSearchLauncherWrapAfterScope,
+            ]}
+            pointerEvents="box-none"
+          >
             <SearchLauncherField
               variant="sheet"
               onPress={onSearchPress}
@@ -698,80 +757,6 @@ export function CountriesSheet({
               accessibilityLabel="Abrir búsqueda"
             />
           </View>
-        ) : null}
-
-        {showPlacesScopeDropdown && placesScopeMenuOpen ? (
-          <Animated.View
-            style={[
-              styles.placesScopeMenuDropWrap,
-              Elevation.card,
-              placesScopeMenuEntranceAnimatedStyle,
-            ]}
-          >
-            <View
-              style={[
-                styles.placesScopeMenuDropSurface,
-                {
-                  borderColor: colors.borderSubtle,
-                  backgroundColor: colors.backgroundElevated,
-                },
-              ]}
-            >
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-                showsVerticalScrollIndicator
-                style={{ maxHeight: PLACES_SCOPE_MENU_MAX_HEIGHT }}
-              >
-                <Pressable
-                  onPress={handlePlacesScopeSelectTodos}
-                  style={({ pressed }) => [
-                    styles.placesScopeMenuRow,
-                    pressed && styles.placesScopeMenuRowPressed,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Todos los lugares"
-                  accessibilityState={{ selected: countryDetail?.kind === "all_places" }}
-                >
-                  <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>Todos</Text>
-                  {countryDetail?.kind === "all_places" ? (
-                    <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
-                  ) : (
-                    <View style={styles.placesScopeMenuCheckSpacer} />
-                  )}
-                </Pressable>
-                {items.map((item) => {
-                  const countrySelected =
-                    countryDetail?.kind === "country" && countryDetail.key === item.key;
-                  return (
-                    <Pressable
-                      key={item.key}
-                      onPress={() => handlePlacesScopeSelectCountry(item)}
-                      style={({ pressed }) => [
-                        styles.placesScopeMenuRow,
-                        pressed && styles.placesScopeMenuRowPressed,
-                      ]}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${item.label}, ${item.count} lugares`}
-                      accessibilityState={{ selected: countrySelected }}
-                    >
-                      <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>{item.label}</Text>
-                      <View style={styles.placesScopeMenuRowEnd}>
-                        <Text style={[styles.placesScopeMenuCount, { color: colors.textSecondary }]}>
-                          {item.count} lugares
-                        </Text>
-                        {countrySelected ? (
-                          <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
-                        ) : (
-                          <View style={styles.placesScopeMenuCheckSpacer} />
-                        )}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
-            </View>
-          </Animated.View>
         ) : null}
       </View>
 
@@ -1150,20 +1135,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
+  /** Contenedor del menú de ámbito (posicionamiento del dropdown). */
+  placesScopeAnchor: {
+    position: "relative",
+    alignSelf: "stretch",
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
+    zIndex: EXPLORE_LAYER_Z.SHEET_HEADER_DROPDOWN,
+  },
+  /** Control tipo filtro: ámbito activo (todos los países o un país). */
   placesScopeTrigger: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: Spacing.sm,
     minWidth: 0,
-    flex: 1,
-    paddingVertical: 4,
+    alignSelf: "stretch",
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    borderRadius: Radius.md,
+    borderWidth: 1,
   },
-  placesScopeTriggerText: {
-    fontSize: 18,
+  placesScopeTriggerValue: {
+    fontSize: 15,
     fontWeight: "600",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 20,
+    flex: 1,
     flexShrink: 1,
   },
   placesScopeBackdrop: {
@@ -1179,6 +1177,10 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.md,
     paddingHorizontal: 0,
+  },
+  /** Tras la fila de ámbito ya hay separación; evita doble hueco grande. */
+  countriesSearchLauncherWrapAfterScope: {
+    marginTop: 0,
   },
   placesScopeMenuDropWrap: {
     position: "absolute",
