@@ -18,6 +18,15 @@ export { ExploreChromeSearchField } from './explore-chrome-search-field';
 export type { ExploreChromeSearchFieldProps } from './explore-chrome-search-field';
 export { ExploreTagIconLabel } from './explore-tag-icon-label';
 export type { ExploreTagIconLabelProps } from './explore-tag-icon-label';
+/** Filtros Explorar: chips «Cualquiera» + etiquetas (OR) y «Todos» + países (tokens café/tierra). Runtime: SearchSurface, modal filtros, CountriesSheet. */
+export { ExploreTagFilterChipRow } from './explore-tag-filter-chip-row';
+export type {
+  ExploreTagFilterChipRowProps,
+  ExploreTagFilterOption,
+} from './explore-tag-filter-chip-row';
+export { ExploreCountryFilterChipRow } from './explore-country-filter-chip-row';
+export type { ExploreCountryFilterChipRowProps } from './explore-country-filter-chip-row';
+export { ExploreFilterChipsShowcase } from './explore-filter-chips-showcase';
 /** @deprecated Usar `ExploreChromeSearchField`. */
 export { ExploreSearchActionRow } from './explore-search-action-row';
 /** @deprecated Usar `ExploreChromeSearchFieldProps`. */

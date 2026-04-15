@@ -5,7 +5,7 @@
 import { Tag, X } from 'lucide-react-native';
 import React from 'react';
 import type { PressableProps } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -44,7 +44,15 @@ export function TagChip({
 
   const labelBlock = showHash ? (
     <View style={styles.tagIconLabelRow}>
-      <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+      <View
+        pointerEvents="none"
+        {...(Platform.OS === "web"
+          ? ({ "aria-hidden": true } as const)
+          : {
+              accessibilityElementsHidden: true,
+              importantForAccessibility: "no" as const,
+            })}
+      >
         <Tag size={13} color={tagGlyphColor} strokeWidth={2.2} />
       </View>
       <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
@@ -99,7 +107,15 @@ export function TagChip({
     >
       {showHash ? (
         <View style={styles.tagIconLabelRow}>
-          <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no">
+          <View
+            pointerEvents="none"
+            {...(Platform.OS === "web"
+              ? ({ "aria-hidden": true } as const)
+              : {
+                  accessibilityElementsHidden: true,
+                  importantForAccessibility: "no" as const,
+                })}
+          >
             <Tag
               size={13}
               color={suggested ? colors.textSecondary : colors.text}

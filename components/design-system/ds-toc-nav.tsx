@@ -69,6 +69,7 @@ export const DS_TOC_GROUPS: DsTocGroup[] = [
       { id: 'ds-pat-explore', label: 'Explore: banda inferior' },
       { id: 'ds-pat-modales', label: 'Modales' },
       { id: 'ds-modal-explorer-levels', label: 'Modales: niveles' },
+      { id: 'ds-run-explore-filter-chips', label: 'Explore — chips etiquetas / país' },
       { id: 'ds-run-surface', label: 'SearchSurface' },
     ],
   },

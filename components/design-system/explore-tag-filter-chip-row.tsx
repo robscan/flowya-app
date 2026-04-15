@@ -1,5 +1,6 @@
 /**
- * Fila horizontal de chips «Cualquiera» + etiquetas (icono Tag) compartida entre SearchSurface y el mapa (Explorar).
+ * Chips «Cualquiera» + etiquetas (icono Tag); flujo multilínea con `flexWrap` (mapa, modal, vitrina DS).
+ * En búsqueda fullscreen el host usa `ExplorePlacesActiveFiltersBar`; esta fila es fallback/vitrina.
  */
 
 import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
@@ -7,27 +8,24 @@ import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Trash2 } from "lucide-react-native";
 import React from "react";
-import {
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-  type ViewStyle,
-} from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 const webTagChipNoSelect =
   Platform.OS === "web"
     ? ({ userSelect: "none", WebkitUserSelect: "none" } as const)
     : null;
 
-export type ExploreTagFilterOption = { id: string; name: string; count: number };
+export type ExploreTagFilterOption = {
+  id: string;
+  name: string;
+  count: number;
+};
 
 export type ExploreTagFilterChipRowProps = {
   tagFilterOptions: ExploreTagFilterOption[];
-  selectedTagFilterId: string | null;
-  onTagFilterChange: (tagId: string | null) => void;
+  /** Vacío = «Cualquiera» (sin filtro por etiqueta). Varios ids = OR (al menos una etiqueta). */
+  selectedTagFilterIds: readonly string[];
+  onTagFilterChange: (tagIds: string[]) => void;
   tagFilterEditMode: boolean;
   onTagFilterEnterEditMode?: () => void;
   onTagFilterExitEditMode?: () => void;
@@ -40,7 +38,7 @@ export type ExploreTagFilterChipRowProps = {
 
 export function ExploreTagFilterChipRow({
   tagFilterOptions,
-  selectedTagFilterId,
+  selectedTagFilterIds,
   onTagFilterChange,
   tagFilterEditMode,
   onTagFilterEnterEditMode,
@@ -61,46 +59,47 @@ export function ExploreTagFilterChipRow({
       style={[
         styles.row,
         variant === "search" ? styles.rowSearch : styles.rowMap,
-        containerMaxWidth != null ? { maxWidth: containerMaxWidth, alignSelf: "center" } : null,
+        containerMaxWidth != null
+          ? { maxWidth: containerMaxWidth, alignSelf: "center" }
+          : null,
       ]}
       pointerEvents="box-none"
     >
-      <View style={styles.scrollWrap}>
-        <ScrollView
-          key={tagFilterEditMode ? "tag-filter-edit" : "tag-filter-browse"}
-          horizontal
-          scrollEnabled
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          removeClippedSubviews={false}
-          style={[
-            styles.scroll,
-            Platform.OS === "web" ? ({ touchAction: "pan-x" } as ViewStyle) : null,
-          ]}
-          contentContainerStyle={styles.scrollContent}
-        >
+      <View
+        key={tagFilterEditMode ? "tag-filter-edit" : "tag-filter-browse"}
+        style={styles.chipWrap}
+      >
           {!tagFilterEditMode ? (
             <Pressable
               onPress={() => {
-                onTagFilterChange(null);
+                onTagFilterChange([]);
               }}
               style={[
                 styles.chip,
                 webTagChipNoSelect,
                 {
-                  backgroundColor: selectedTagFilterId == null ? colors.tint : colors.background,
+                  backgroundColor:
+                    selectedTagFilterIds.length === 0
+                      ? colors.tint
+                      : colors.background,
                   borderColor: colors.borderSubtle,
                 },
               ]}
               accessibilityLabel="Sin filtrar por etiqueta"
+              accessibilityHint="Puedes activar varias etiquetas; se muestran lugares que tengan al menos una (o)."
               accessibilityRole="button"
-              accessibilityState={{ selected: selectedTagFilterId == null }}
+              accessibilityState={{ selected: selectedTagFilterIds.length === 0 }}
             >
               <Text
                 style={[
                   styles.chipLabel,
                   webTagChipNoSelect,
-                  { color: selectedTagFilterId == null ? colors.background : colors.text },
+                  {
+                    color:
+                      selectedTagFilterIds.length === 0
+                        ? colors.background
+                        : colors.text,
+                  },
                 ]}
                 numberOfLines={1}
               >
@@ -109,7 +108,7 @@ export function ExploreTagFilterChipRow({
             </Pressable>
           ) : null}
           {tagFilterOptions.map((opt) => {
-            const selected = selectedTagFilterId === opt.id;
+            const selected = selectedTagFilterIds.includes(opt.id);
             const chipEditSelected = tagFilterEditMode && selected;
             const chipColors: ViewStyle = {
               backgroundColor: chipEditSelected
@@ -117,7 +116,9 @@ export function ExploreTagFilterChipRow({
                 : selected
                   ? colors.tint
                   : colors.background,
-              borderColor: chipEditSelected ? colors.stateError : colors.borderSubtle,
+              borderColor: chipEditSelected
+                ? colors.stateError
+                : colors.borderSubtle,
             };
             const chipLabelColor = chipEditSelected
               ? colors.surfaceOnMap
@@ -132,12 +133,20 @@ export function ExploreTagFilterChipRow({
             return (
               <View
                 key={opt.id}
-                style={[styles.chip, styles.chipInner, chipColors, webTagChipNoSelect]}
+                style={[
+                  styles.chip,
+                  styles.chipInner,
+                  chipColors,
+                  webTagChipNoSelect,
+                ]}
               >
                 <Pressable
                   onPress={() => {
                     if (tagFilterEditMode) return;
-                    onTagFilterChange(selected ? null : opt.id);
+                    const next = selected
+                      ? selectedTagFilterIds.filter((id) => id !== opt.id)
+                      : [...selectedTagFilterIds, opt.id];
+                    onTagFilterChange(next);
                   }}
                   onLongPress={
                     onTagFilterEnterEditMode != null
@@ -157,7 +166,11 @@ export function ExploreTagFilterChipRow({
                     suffix={opt.count > 0 ? ` (${opt.count})` : ""}
                     color={chipLabelColor}
                     iconSize={12}
-                    textStyle={[styles.chipLabel, webTagChipNoSelect, { color: chipLabelColor }]}
+                    textStyle={[
+                      styles.chipLabel,
+                      webTagChipNoSelect,
+                      { color: chipLabelColor },
+                    ]}
                     containerStyle={styles.chipIconLabelFill}
                   />
                 </Pressable>
@@ -169,13 +182,16 @@ export function ExploreTagFilterChipRow({
                     accessibilityLabel={`Eliminar etiqueta ${opt.name}`}
                     accessibilityRole="button"
                   >
-                    <Trash2 size={14} color={trashIconColor} strokeWidth={2.5} />
+                    <Trash2
+                      size={14}
+                      color={trashIconColor}
+                      strokeWidth={2.5}
+                    />
                   </Pressable>
                 ) : null}
               </View>
             );
           })}
-        </ScrollView>
       </View>
       {tagFilterEditMode && onTagFilterExitEditMode != null ? (
         <Pressable
@@ -191,7 +207,9 @@ export function ExploreTagFilterChipRow({
           accessibilityLabel="Salir del modo edición de etiquetas"
           accessibilityRole="button"
         >
-          <Text style={[styles.doneBtnLabel, { color: colors.surfaceOnMap }]}>Listo</Text>
+          <Text style={[styles.doneBtnLabel, { color: colors.surfaceOnMap }]}>
+            Listo
+          </Text>
         </Pressable>
       ) : null}
     </View>
@@ -201,10 +219,8 @@ export function ExploreTagFilterChipRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: Spacing.sm,
-    maxHeight: 48,
-    minHeight: 40,
     width: "100%",
   },
   rowSearch: {
@@ -213,23 +229,15 @@ const styles = StyleSheet.create({
   rowMap: {
     marginBottom: 0,
   },
-  scrollWrap: {
+  /** Multilínea responsiva (modal, mapa, buscador). */
+  chipWrap: {
     flex: 1,
     minWidth: 0,
-    maxHeight: 48,
-  },
-  scroll: {
-    flex: 1,
-    flexGrow: 1,
-    flexShrink: 1,
-    minWidth: 0,
-    maxHeight: 48,
-  },
-  scrollContent: {
     flexDirection: "row",
-    alignItems: "center",
+    flexWrap: "wrap",
+    alignItems: "flex-start",
+    alignContent: "flex-start",
     gap: Spacing.sm,
-    paddingRight: Spacing.sm,
   },
   chip: {
     paddingHorizontal: Spacing.sm,

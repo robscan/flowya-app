@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { Tag, X } from "lucide-react-native";
+import { X } from "lucide-react-native";
 import {
   Fragment,
   useCallback,
@@ -38,10 +38,7 @@ import {
 import type { TextStyle } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import {
-  ClearIconCircle,
-  ClearIconCircleDecoration,
-} from "@/components/design-system/clear-icon-circle";
+import { ClearIconCircle } from "@/components/design-system/clear-icon-circle";
 import { ExploreChromeShell } from "@/components/design-system/explore-chrome-shell";
 import { ExploreMapProfileButton } from "@/components/design-system/explore-map-profile-button";
 import { ExploreMapStatusRow } from "@/components/design-system/explore-map-status-row";
@@ -70,6 +67,11 @@ import {
   type CountriesSheetListDetail,
   type CountriesSheetState,
 } from "@/components/explorar/CountriesSheet";
+import {
+  ExplorePlacesActiveFilterChips,
+  ExplorePlacesActiveFiltersBar,
+} from "@/components/explorar/explore-places-active-filters-bar";
+import { ExplorePlacesFiltersModal } from "@/components/explorar/explore-places-filters-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
@@ -218,6 +220,13 @@ import {
   loadMapPinPendingBadgesAsync,
   setMapPinPendingBadges,
 } from "@/lib/storage/mapPinPendingBadges";
+import {
+  clearExplorePlacesFiltersSnapshot,
+  EXPLORE_PLACES_FILTERS_SNAPSHOT_VERSION,
+  getExplorePlacesFiltersSnapshotSync,
+  loadExplorePlacesFiltersSnapshotAsync,
+  setExplorePlacesFiltersSnapshot,
+} from "@/lib/storage/explorePlacesFiltersPreference";
 import {
   getMapPinFilterPreference,
   loadMapPinFilterPreferenceAsync,
@@ -577,6 +586,11 @@ export function MapScreenVNext() {
   const suppressToastRef = useRef(false);
   /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
   const exploreAuthUserIdRef = useRef<string | null>(null);
+  /**
+   * Tras hidratar filtros Lugares desde storage para este `userId`, se permite persistir debounced.
+   * Evita sobrescritura con estado inicial vacío antes de la lectura async (nativo).
+   */
+  const explorePlacesFiltersHydratedForUserRef = useRef<string | null>(null);
   const [spots, setSpots] = useState<Spot[]>([]);
   const [selectedSpot, setSelectedSpot] = useState<Spot | null>(null);
   /** Pill en curso: solo esa muestra "Guardando…" (la otra queda deshabilitada sin spinner). */
@@ -651,8 +665,25 @@ export function MapScreenVNext() {
   /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
   const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
+  /** Catálogo de etiquetas cargado al menos una vez; evita prune con pool vacío por carrera con hidratación. */
+  const [userTagsCatalogReady, setUserTagsCatalogReady] = useState(false);
+  const userTagsRef = useRef(userTags);
+  userTagsRef.current = userTags;
   const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
-  const [selectedTagFilterId, setSelectedTagFilterId] = useState<string | null>(null);
+  const [selectedTagFilterIds, setSelectedTagFilterIds] = useState<string[]>([]);
+  /**
+   * Ruta del sheet Países/Lugares: `null` = vista KPI (lista de países); no null = listado Lugares.
+   * Independiente del alcance de filtro en mapa — ver `explorePlacesCountryFilter`.
+   */
+  const [countriesSheetListView, setCountriesSheetListView] = useState<CountriesSheetListDetail | null>(
+    null,
+  );
+  /**
+   * Alcance país / «todos los lugares» compartido por mapa, modal Filtros y chips.
+   * No se borra al pasar a KPI (`countriesSheetListView === null`) ni al cerrar el sheet.
+   */
+  const [explorePlacesCountryFilter, setExplorePlacesCountryFilter] =
+    useState<CountriesSheetListDetail | null>(null);
   const [tagFilterEditMode, setTagFilterEditMode] = useState(false);
   const [tagDeleteConfirm, setTagDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [tagDeleteBusy, setTagDeleteBusy] = useState(false);
@@ -821,12 +852,14 @@ export function MapScreenVNext() {
     wasOpen: boolean;
     state: CountriesSheetState;
     listView: CountriesSheetListDetail | null;
+    countryFilter: CountriesSheetListDetail | null;
   } | null>(null);
   /** KPI: Countries abierto antes de cubrir con Spot/POI; restaurar al cerrar SpotSheet. */
   const countriesSheetBeforeSpotSheetRef = useRef<{
     wasOpen: boolean;
     state: CountriesSheetState;
     listView: CountriesSheetListDetail | null;
+    countryFilter: CountriesSheetListDetail | null;
   } | null>(null);
   /** Asignado cada render tras `countriesSheet*Ref`; handlers tempranos (p. ej. `handleMapClick`) llaman vía ref. */
   const captureCountriesBeforeSpotFnRef = useRef<() => void>(() => {});
@@ -972,7 +1005,12 @@ export function MapScreenVNext() {
     const applySession = (session: Session | null) => {
       const u = session?.user;
       const ok = Boolean(u && !u.is_anonymous);
-      exploreAuthUserIdRef.current = ok ? u!.id : null;
+      const nextId = ok ? u!.id : null;
+      if (exploreAuthUserIdRef.current !== nextId) {
+        /** Cambio de cuenta sin pasar por `isAuthUser === false`: volver a hidratar storage para el nuevo uid. */
+        explorePlacesFiltersHydratedForUserRef.current = null;
+      }
+      exploreAuthUserIdRef.current = nextId;
       setIsAuthUser(ok);
     };
     void supabase.auth.getSession().then(({ data }) => applySession(data.session));
@@ -989,12 +1027,17 @@ export function MapScreenVNext() {
       setMyProfileAvatarPublicUrl(null);
       setUserTags([]);
       setPinTagIndex({});
-      setSelectedTagFilterId(null);
+      setSelectedTagFilterIds([]);
+      setExplorePlacesCountryFilter(null);
+      setCountriesSheetListView(null);
+      setUserTagsCatalogReady(false);
+      explorePlacesFiltersHydratedForUserRef.current = null;
       setTagAssignSpot(null);
       setTagAssignInput("");
       setTagAssignSaving(false);
       return;
     }
+    setUserTagsCatalogReady(false);
     let cancelled = false;
     void (async () => {
       try {
@@ -1005,12 +1048,81 @@ export function MapScreenVNext() {
         }
       } catch {
         /* ignore */
+      } finally {
+        if (!cancelled) setUserTagsCatalogReady(true);
       }
     })();
     return () => {
       cancelled = true;
     };
   }, [isAuthUser]);
+
+  /** Hidratar filtros Lugares desde disco tras catálogo de etiquetas (web: antes de paint; nativo: async). */
+  useLayoutEffect(() => {
+    if (Platform.OS !== "web") return;
+    if (!isAuthUser || !userTagsCatalogReady) return;
+    const uid = exploreAuthUserIdRef.current;
+    if (!uid) return;
+    if (explorePlacesFiltersHydratedForUserRef.current === uid) return;
+    const snap = getExplorePlacesFiltersSnapshotSync(uid);
+    explorePlacesFiltersHydratedForUserRef.current = uid;
+    if (!snap) return;
+    const valid = new Set(userTagsRef.current.map((t) => t.id));
+    setSelectedTagFilterIds(snap.tagIds.filter((id) => valid.has(id)));
+    if (snap.country != null) {
+      setExplorePlacesCountryFilter(snap.country);
+    }
+  }, [isAuthUser, userTagsCatalogReady]);
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (!isAuthUser || !userTagsCatalogReady) return;
+    const uid = exploreAuthUserIdRef.current;
+    if (!uid) return;
+    if (explorePlacesFiltersHydratedForUserRef.current === uid) return;
+
+    let cancelled = false;
+    void (async () => {
+      const snap = await loadExplorePlacesFiltersSnapshotAsync(uid);
+      if (cancelled) return;
+      explorePlacesFiltersHydratedForUserRef.current = uid;
+      if (!snap) return;
+      const valid = new Set(userTagsRef.current.map((t) => t.id));
+      setSelectedTagFilterIds(snap.tagIds.filter((id) => valid.has(id)));
+      if (snap.country != null) {
+        setExplorePlacesCountryFilter(snap.country);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthUser, userTagsCatalogReady]);
+
+  /** Persistir debounced: solo tras hidratar para no pisar storage con estado inicial vacío (nativo). */
+  useEffect(() => {
+    if (!isAuthUser) return;
+    const uid = exploreAuthUserIdRef.current;
+    if (!uid || explorePlacesFiltersHydratedForUserRef.current !== uid) return;
+
+    if (pinFilter !== "saved" && pinFilter !== "visited") {
+      clearExplorePlacesFiltersSnapshot(uid);
+      return;
+    }
+
+    const t = setTimeout(() => {
+      setExplorePlacesFiltersSnapshot(uid, {
+        v: EXPLORE_PLACES_FILTERS_SNAPSHOT_VERSION,
+        tagIds: selectedTagFilterIds,
+        country: explorePlacesCountryFilter,
+      });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [
+    isAuthUser,
+    pinFilter,
+    selectedTagFilterIds,
+    explorePlacesCountryFilter,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1214,6 +1326,18 @@ export function MapScreenVNext() {
     });
   }, [countriesDrilldown, filteredSpots]);
 
+  /**
+   * Alcance para mapa, chips, conteos y modal Filtros.
+   * Debe prevalecer `explorePlacesCountryFilter` (selección persistida / mapa) sobre la ruta UI del sheet:
+   * si `countriesSheetListView` queda en «todos los lugares» (p. ej. fila Lugares del KPI) pero el filtro
+   * de país sigue activo, `listView ?? map` ocultaba el chip de país al reabrir el sheet; las etiquetas no pasaban por eso.
+   */
+  const placesScopeForData = useMemo(
+    (): CountriesSheetListDetail | null =>
+      explorePlacesCountryFilter ?? countriesSheetListView,
+    [explorePlacesCountryFilter, countriesSheetListView],
+  );
+
   const displayedSpots = useMemo(() => {
     if (isPlacingDraftSpot && selectedSpot?.id.startsWith("draft_")) {
       return [selectedSpot];
@@ -1239,15 +1363,26 @@ export function MapScreenVNext() {
         : visibilityFiltered;
     const tagActiveOnMapPins =
       isAuthUser &&
-      selectedTagFilterId != null &&
+      selectedTagFilterIds.length > 0 &&
       (pinFilter === "saved" || pinFilter === "visited");
     const afterTagFilter = tagActiveOnMapPins
-      ? filterExploreSearchItemsByTag(allFilterWithoutLinkedDefaults, selectedTagFilterId, pinTagIndex)
+      ? filterExploreSearchItemsByTag(allFilterWithoutLinkedDefaults, selectedTagFilterIds, pinTagIndex)
       : allFilterWithoutLinkedDefaults;
+
+    const countryScopeKey =
+      placesScopeForData?.kind === "country" ? placesScopeForData.key : null;
+    const afterCountryFilter =
+      countryScopeKey == null
+        ? afterTagFilter
+        : afterTagFilter.filter((spot) => {
+            const resolved = resolveCountryForSpot(spot);
+            return resolved?.key === countryScopeKey;
+          });
+
     const base =
-      afterTagFilter.length > MAP_PIN_CAP
-        ? afterTagFilter.slice(0, MAP_PIN_CAP)
-        : afterTagFilter;
+      afterCountryFilter.length > MAP_PIN_CAP
+        ? afterCountryFilter.slice(0, MAP_PIN_CAP)
+        : afterCountryFilter;
     if (selectedSpot?.id.startsWith("draft_")) return [...base, selectedSpot];
     /**
      * POI match: incluir selectedSpot si está fuera de filtro.
@@ -1275,6 +1410,18 @@ export function MapScreenVNext() {
     ) {
       result = [...result, selectedSpot];
     }
+    const countryScopeActiveOnMap =
+      placesScopeForData?.kind === "country" &&
+      (pinFilter === "saved" || pinFilter === "visited");
+    if (
+      countryScopeActiveOnMap &&
+      selectedSpot &&
+      !selectedSpot.id.startsWith("draft_") &&
+      !(canHideLinkedUnsaved && isLinkedUnsavedSpot(selectedSpot)) &&
+      !result.some((s) => s.id === selectedSpot.id)
+    ) {
+      result = [...result, selectedSpot];
+    }
     if (!recentMutationSpot || result.some((s) => s.id === recentMutationSpot.id)) {
       return result;
     }
@@ -1293,8 +1440,9 @@ export function MapScreenVNext() {
     recentMutationSpot,
     spots,
     isAuthUser,
-    selectedTagFilterId,
+    selectedTagFilterIds,
     pinTagIndex,
+    placesScopeForData,
   ]);
 
   const forceVisibleSpotIds = useMemo(() => {
@@ -1667,8 +1815,10 @@ export function MapScreenVNext() {
           : null;
       setPinFilter(nextFilter);
       if (nextFilter === "all") {
-        setSelectedTagFilterId(null);
+        setSelectedTagFilterIds([]);
         setTagFilterEditMode(false);
+        const uid = exploreAuthUserIdRef.current;
+        if (uid) clearExplorePlacesFiltersSnapshot(uid);
       }
       const fromAll = currentFilter === "all";
       const filterToast: Record<MapPinFilterValue, string> = fromAll
@@ -1725,8 +1875,9 @@ export function MapScreenVNext() {
       toast,
       setPinFilter,
       setSheetState,
-      setSelectedTagFilterId,
+      setSelectedTagFilterIds,
       setTagFilterEditMode,
+      clearExplorePlacesFiltersSnapshot,
     ],
   );
 
@@ -1894,7 +2045,7 @@ export function MapScreenVNext() {
     getFilters: () => ({
       pinFilter,
       hasVisited: pinCounts.visited > 0,
-      tagId: selectedTagFilterId,
+      tagIds: selectedTagFilterIds,
     }),
   });
 
@@ -2093,18 +2244,18 @@ export function MapScreenVNext() {
    * se construyen solo con filteredSpots y no pasaban por searchDisplayResultsWithTag.
    */
   const defaultItemsForEmptyTagged = useMemo(
-    () => filterExploreSearchItemsByTag(defaultItemsForEmpty, selectedTagFilterId, pinTagIndex),
-    [defaultItemsForEmpty, selectedTagFilterId, pinTagIndex],
+    () => filterExploreSearchItemsByTag(defaultItemsForEmpty, selectedTagFilterIds, pinTagIndex),
+    [defaultItemsForEmpty, selectedTagFilterIds, pinTagIndex],
   );
   const defaultSectionsForEmptyTagged = useMemo(() => {
-    if (selectedTagFilterId == null) return defaultSectionsForEmpty;
+    if (selectedTagFilterIds.length === 0) return defaultSectionsForEmpty;
     return defaultSectionsForEmpty
       .map((sec) => ({
         ...sec,
-        items: filterExploreSearchItemsByTag(sec.items, selectedTagFilterId, pinTagIndex),
+        items: filterExploreSearchItemsByTag(sec.items, selectedTagFilterIds, pinTagIndex),
       }))
       .filter((sec) => sec.items.length > 0);
-  }, [defaultSectionsForEmpty, selectedTagFilterId, pinTagIndex]);
+  }, [defaultSectionsForEmpty, selectedTagFilterIds, pinTagIndex]);
 
   /**
    * Sheet bienvenida: cold-start mundial mientras `useExploreColdStartFallback`; luego RPC/IDs.
@@ -2326,7 +2477,7 @@ export function MapScreenVNext() {
       const spot = selectedSpot;
       suppressSearchInputAutofocusRef.current = true;
       setPinFilter(spot?.visited === true ? "visited" : "saved");
-      setSelectedTagFilterId(tagId);
+      setSelectedTagFilterIds([tagId]);
       setTagFilterEditMode(false);
       searchV2.setOpen(true);
     },
@@ -2389,7 +2540,7 @@ export function MapScreenVNext() {
     setTagDeleteBusy(true);
     try {
       await deleteUserTag(tagDeleteConfirm.id);
-      if (selectedTagFilterId === tagDeleteConfirm.id) setSelectedTagFilterId(null);
+      setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagDeleteConfirm.id));
       await refreshTagsAfterPinChange();
       if (!suppressToastRef.current) {
         toast.show(`Etiqueta «${tagDeleteConfirm.name}» eliminada`, { type: "success", replaceVisible: true });
@@ -2403,7 +2554,7 @@ export function MapScreenVNext() {
     } finally {
       setTagDeleteBusy(false);
     }
-  }, [tagDeleteConfirm, selectedTagFilterId, refreshTagsAfterPinChange, toast]);
+  }, [tagDeleteConfirm, selectedTagFilterIds, refreshTagsAfterPinChange, toast]);
 
   useEffect(() => {
     if (!searchV2.isOpen) {
@@ -3490,6 +3641,9 @@ export function MapScreenVNext() {
       ) {
         setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnapshot.state));
         setCountriesSheetListView(countriesSnapshot.listView);
+        setExplorePlacesCountryFilter(
+          countriesSnapshot.countryFilter ?? countriesSnapshot.listView ?? null,
+        );
         setCountriesSheetOpen(true);
       }
     }
@@ -3586,9 +3740,7 @@ export function MapScreenVNext() {
     countriesFilterForActiveCounter,
   );
   const [countriesSheetOpen, setCountriesSheetOpen] = useState(false);
-  const [countriesSheetListView, setCountriesSheetListView] = useState<CountriesSheetListDetail | null>(
-    null,
-  );
+  const [explorePlacesFiltersOpen, setExplorePlacesFiltersOpen] = useState(false);
   const [countriesMapSnapshot, setCountriesMapSnapshot] = useState<string | null>(null);
   const [isCountriesShareInFlight, setIsCountriesShareInFlight] = useState(false);
   const [showFilteredResultsOnEmpty, setShowFilteredResultsOnEmpty] = useState(false);
@@ -3620,6 +3772,8 @@ export function MapScreenVNext() {
   countriesSheetStateRef.current = countriesSheetState;
   const countriesSheetListViewRef = useRef(countriesSheetListView);
   countriesSheetListViewRef.current = countriesSheetListView;
+  const explorePlacesCountryFilterRef = useRef(explorePlacesCountryFilter);
+  explorePlacesCountryFilterRef.current = explorePlacesCountryFilter;
   captureCountriesBeforeSpotFnRef.current = () => {
     if (pinFilter !== "saved" && pinFilter !== "visited") {
       countriesSheetBeforeSpotSheetRef.current = null;
@@ -3633,6 +3787,7 @@ export function MapScreenVNext() {
       wasOpen: true,
       state: countriesSheetStateRef.current,
       listView: countriesSheetListViewRef.current,
+      countryFilter: explorePlacesCountryFilterRef.current,
     };
   };
   const [welcomeSheetState, setWelcomeSheetState] = useState<ExploreWelcomeSheetState>("medium");
@@ -3698,22 +3853,38 @@ export function MapScreenVNext() {
     [spots, countriesOverlayFilter],
   );
 
+  /** Países en modal Filtros: con etiqueta(s) activa(s), solo buckets que tengan spots que cumplan OR de etiquetas. */
+  const countryBucketsForPlacesFiltersModal = useMemo(() => {
+    if (selectedTagFilterIds.length === 0) return countriesBucketsForOverlay;
+    const taggedSpots = filterExploreSearchItemsByTag(
+      countriesSheetOverlaySpotsPool,
+      selectedTagFilterIds,
+      pinTagIndex,
+    );
+    return buildCountryBuckets(taggedSpots);
+  }, [
+    selectedTagFilterIds,
+    countriesBucketsForOverlay,
+    countriesSheetOverlaySpotsPool,
+    pinTagIndex,
+  ]);
+
   const countriesSheetDetailBaseSpots = useMemo(() => {
-    if (!countriesSheetListView) return [];
-    if (countriesSheetListView.kind === "all_places") {
+    if (!placesScopeForData) return [];
+    if (placesScopeForData.kind === "all_places") {
       return countriesSheetOverlaySpotsPool;
     }
     return countriesSheetOverlaySpotsPool.filter((spot) => {
       const resolved = resolveCountryForSpot(spot);
-      return resolved?.key === countriesSheetListView.key;
+      return resolved?.key === placesScopeForData.key;
     });
-  }, [countriesSheetListView, countriesSheetOverlaySpotsPool]);
+  }, [placesScopeForData, countriesSheetOverlaySpotsPool]);
 
   const countriesSheetDetailSpotSections = useMemo(() => {
     if (!countriesSheetListView) return null;
     const filtered = filterExploreSearchItemsByTag(
       countriesSheetDetailBaseSpots,
-      selectedTagFilterId,
+      selectedTagFilterIds,
       pinTagIndex,
     );
     if (filtered.length === 0) return [];
@@ -3737,7 +3908,7 @@ export function MapScreenVNext() {
   }, [
     countriesSheetListView,
     countriesSheetDetailBaseSpots,
-    selectedTagFilterId,
+    selectedTagFilterIds,
     pinTagIndex,
     mapInstance,
     userCoords,
@@ -3750,39 +3921,75 @@ export function MapScreenVNext() {
   );
 
   const countriesSheetDetailTagSpotIds = useMemo(() => {
-    if (!countriesSheetListView) return new Set<string>();
+    if (!placesScopeForData) return new Set<string>();
     return new Set(countriesSheetDetailBaseSpots.map((s) => s.id));
-  }, [countriesSheetListView, countriesSheetDetailBaseSpots]);
+  }, [placesScopeForData, countriesSheetDetailBaseSpots]);
 
   const countriesSheetDetailTagFilterOptions = useMemo(() => {
-    if (!isAuthUser || !countriesSheetListView) return [];
+    if (!isAuthUser || !placesScopeForData) return [];
     return countTagsInSpotIds(userTags, countriesSheetDetailTagSpotIds, pinTagIndex).map((tc) => ({
       id: tc.tag.id,
       name: tc.tag.name,
       count: tc.count,
     }));
-  }, [isAuthUser, countriesSheetListView, userTags, countriesSheetDetailTagSpotIds, pinTagIndex]);
+  }, [isAuthUser, placesScopeForData, userTags, countriesSheetDetailTagSpotIds, pinTagIndex]);
 
   useEffect(() => {
-    if (!isAuthUser || countriesSheetListView == null) return;
-    if (selectedTagFilterId == null) return;
-    const stillValid = countriesSheetDetailTagFilterOptions.some((o) => o.id === selectedTagFilterId);
-    if (!stillValid) setSelectedTagFilterId(null);
+    if (!isAuthUser || !userTagsCatalogReady || placesScopeForData == null) return;
+    if (selectedTagFilterIds.length === 0) return;
+    const valid = new Set(countriesSheetDetailTagFilterOptions.map((o) => o.id));
+    const next = selectedTagFilterIds.filter((id) => valid.has(id));
+    if (next.length !== selectedTagFilterIds.length) {
+      setSelectedTagFilterIds(next);
+      if (next.length === 0) setTagFilterEditMode(false);
+    }
   }, [
     isAuthUser,
-    countriesSheetListView,
+    userTagsCatalogReady,
+    placesScopeForData,
     countriesSheetDetailTagFilterOptions,
-    selectedTagFilterId,
+    selectedTagFilterIds,
   ]);
 
   /** Desktop ≥1080: ancho de columna países; más ancho solo en listado de lugares (no en KPI de países). */
   const countriesDesktopSidebarPanelWidth = useMemo(
     () =>
-      countriesSheetListView != null
+      countriesSheetListView != null || explorePlacesCountryFilter != null
         ? WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH
         : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
-    [countriesSheetListView],
+    [countriesSheetListView, explorePlacesCountryFilter],
   );
+
+  /** Paridad con `CountriesSheet` (`filterMode` + panel países) para chips de la barra de filtros. */
+  const placesListFiltersBarColors = useMemo(() => {
+    const base = Colors[countriesOverlayScheme];
+    const panelOverrides =
+      countriesOverlayFilter === "saved"
+        ? {
+            background: base.countriesPanelToVisitBackground,
+            backgroundElevated: base.countriesPanelToVisitBackgroundElevated,
+            border: base.countriesPanelToVisitBorder,
+            borderSubtle: base.countriesPanelToVisitBorderSubtle,
+          }
+        : {
+            background: base.countriesPanelVisitedBackground,
+            backgroundElevated: base.countriesPanelVisitedBackgroundElevated,
+            border: base.countriesPanelVisitedBorder,
+            borderSubtle: base.countriesPanelVisitedBorderSubtle,
+          };
+    return {
+      text: base.text,
+      textSecondary: base.textSecondary,
+      borderSubtle: panelOverrides.borderSubtle,
+      background: panelOverrides.background,
+      surfaceOnMap: base.surfaceOnMap,
+      /** País/ubicación: café/tierra `explorePlacesCountryChip*` (distinto de `tint` etiqueta y `location.primary` mapa). */
+      countryChipBackground: base.explorePlacesCountryChipBackground,
+      countryChipBorder: base.explorePlacesCountryChipBorder,
+      /** Etiqueta: `tint` primario. */
+      tagChipBackground: base.tint,
+    };
+  }, [countriesOverlayScheme, countriesOverlayFilter]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -3860,7 +4067,8 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (showCountriesCounter || countriesSheetForcedFilterRef.current != null) return;
     setCountriesSheetOpen(false);
-    setCountriesSheetListView(null);
+    /** No borrar `countriesSheetListView`: el alcance país + etiquetas debe persistir en mapa, sheet y buscador
+     * (p. ej. al abrir búsqueda el contador se oculta y antes esto reseteaba filtros). */
     setCountriesSheetHeight(0);
     setCountriesDrilldown(null);
   }, [showCountriesCounter]);
@@ -3970,7 +4178,11 @@ export function MapScreenVNext() {
           ? (exploreLowerSheetSnapRef.current as CountriesSheetState)
           : snap.state;
       setCountriesSheetState(coerceCountriesSheetInitialState(nextStateRaw));
-      /** Con sheet abierto, Por visitar ↔ Visitados: mantener listado (todos / país); el dataset viene de `countriesOverlayFilter`. */
+      /**
+       * Si no reabrimos el sheet, solo resetear la ruta UI (KPI/listado), no el alcance país en mapa/chips:
+       * al cambiar Por visitar ↔ Visitados con sheet cerrado, `shouldShowCountriesSheet` puede ser false y antes
+       * se borraba `explorePlacesCountryFilter` y desaparecía el chip de país (las etiquetas no usan este bloque).
+       */
       if (!shouldShowCountriesSheet) {
         setCountriesSheetListView(null);
         setCountriesSheetHeight(0);
@@ -3978,6 +4190,7 @@ export function MapScreenVNext() {
     } else {
       setCountriesSheetOpen(false);
       setCountriesSheetListView(null);
+      setExplorePlacesCountryFilter(null);
       setCountriesSheetHeight(0);
     }
   }, [pinFilter, pinCounts.saved, pinCounts.visited]);
@@ -4006,7 +4219,7 @@ export function MapScreenVNext() {
       coerceCountriesSheetInitialState(countriesSheetPersistRef.current[persistKey].state),
     );
     setCountriesSheetOpen(true);
-    setCountriesSheetListView(null);
+    /** Conservar `countriesSheetListView` si ya había alcance (p. ej. país / todos los lugares) para no borrar chips al reabrir. */
   }, [countriesOverlayMounted, countriesFilterForActiveCounter, poiTapped, selectedSpot, setSheetState]);
 
   const handleCountriesCounterPress = useCallback(() => {
@@ -4032,7 +4245,7 @@ export function MapScreenVNext() {
   const handleCountriesSheetClose = useCallback(() => {
     countriesSheetForcedFilterRef.current = null;
     countriesSheetBeforeSpotSheetRef.current = null;
-    setCountriesSheetListView(null);
+    /** No anular `countriesSheetListView`: país + alcance lugares deben seguir en mapa y chips al volver al mapa. */
     setCountriesSheetOpen(false);
     const snapshot = countriesSheetPrevSelectionRef.current;
     countriesSheetPrevSelectionRef.current = null;
@@ -4057,11 +4270,12 @@ export function MapScreenVNext() {
       wasOpen: countriesSheetOpen,
       state: countriesSheetState,
       listView: countriesSheetListView,
+      countryFilter: explorePlacesCountryFilter,
     };
     countriesSheetBeforeSpotSheetRef.current = null;
     countriesSheetPrevSelectionRef.current = null;
     if (countriesSheetOpen) setCountriesSheetOpen(false);
-    setCountriesSheetListView(null);
+    /** Mantener `countriesSheetListView` para que pins/listados y barra de filtros sigan alineados al cerrar búsqueda. */
     prevSelectedSpotRef.current = selectedSpot;
     prevSheetStateRef.current = sheetState;
     blurActiveElement();
@@ -4070,6 +4284,7 @@ export function MapScreenVNext() {
     createSpotNameOverlayOpen,
     countriesSheetOpen,
     countriesSheetListView,
+    explorePlacesCountryFilter,
     countriesSheetState,
     selectedSpot,
     sheetState,
@@ -4089,6 +4304,11 @@ export function MapScreenVNext() {
     if (!countriesSheetOpen) {
       openCountriesSheetForFilter(countriesOverlayFilter, { requireMounted: true });
     }
+    /**
+     * Solo ruta UI del sheet → listado «Lugares» (KPI). No resetear `explorePlacesCountryFilter`:
+     * antes se igualaba a `all_places` en cada tap (flujo antiguo «entrar al listado = quitar país del dropdown»)
+     * y borraba chip/modal al reabrir. El alcance país sigue en mapa/chips/modal; quitar país = chip o «Todos» en filtros.
+     */
     setCountriesSheetListView({ kind: "all_places" });
     setCountriesSheetState("expanded");
   }, [
@@ -4137,7 +4357,13 @@ export function MapScreenVNext() {
   const handleCountryBucketPress = useCallback(
     (country: CountryBucket) => {
       setCountriesDrilldown(null);
-      setCountriesSheetListView({ kind: "country", key: country.key, label: country.label });
+      const next: CountriesSheetListDetail = {
+        kind: "country",
+        key: country.key,
+        label: country.label,
+      };
+      setCountriesSheetListView(next);
+      setExplorePlacesCountryFilter(next);
       setCountriesSheetState("expanded");
     },
     [setCountriesSheetState],
@@ -4275,8 +4501,8 @@ export function MapScreenVNext() {
 
   /** Spots filtrados por chip de etiqueta cuando la query corta no dispara la estrategia (searchV2.results vacío). */
   const searchDisplayResultsWithTag = useMemo(
-    () => filterExploreSearchItemsByTag(searchDisplayResults, selectedTagFilterId, pinTagIndex),
-    [searchDisplayResults, selectedTagFilterId, pinTagIndex],
+    () => filterExploreSearchItemsByTag(searchDisplayResults, selectedTagFilterIds, pinTagIndex),
+    [searchDisplayResults, selectedTagFilterIds, pinTagIndex],
   );
 
   const tagLabelById = useMemo(() => {
@@ -4284,6 +4510,85 @@ export function MapScreenVNext() {
     for (const t of userTags) m.set(t.id, t.name);
     return m;
   }, [userTags]);
+
+  const placesListActiveTags = useMemo(() => {
+    if (!isAuthUser || selectedTagFilterIds.length === 0) return [];
+    return selectedTagFilterIds.map((id) => {
+      const fromOpt = countriesSheetDetailTagFilterOptions.find((o) => o.id === id);
+      return {
+        id,
+        label: fromOpt?.name ?? tagLabelById.get(id) ?? "Etiqueta",
+      };
+    });
+  }, [isAuthUser, selectedTagFilterIds, countriesSheetDetailTagFilterOptions, tagLabelById]);
+
+  /** Un solo sitio para «quitar país» en mapa + sheet + modal (ambos estados de alcance). */
+  const applyPlacesScopeAllPlaces = useCallback(() => {
+    setExplorePlacesCountryFilter({ kind: "all_places" });
+    setCountriesSheetListView({ kind: "all_places" });
+  }, []);
+
+  const placesListFilterBarEl = useMemo(() => {
+    if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
+    const countryForBar = placesScopeForData ?? { kind: "all_places" as const };
+    return (
+      <ExplorePlacesActiveFiltersBar
+        colors={placesListFiltersBarColors}
+        countryDetail={countryForBar}
+        onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
+        onClearCountryScope={applyPlacesScopeAllPlaces}
+        activeTags={placesListActiveTags}
+        onClearTagFilter={(tagId) => {
+          setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
+        }}
+        showTagChips={isAuthUser}
+      />
+    );
+  }, [
+    isAuthUser,
+    pinFilter,
+    placesScopeForData,
+    placesListFiltersBarColors,
+    placesListActiveTags,
+    applyPlacesScopeAllPlaces,
+  ]);
+
+  /** Misma fila que el sheet Lugares, pero visible aunque `countriesSheetListView` sea null (solo búsqueda). */
+  const placesSearchActiveTags = useMemo(() => {
+    if (!isAuthUser || selectedTagFilterIds.length === 0) return [];
+    return selectedTagFilterIds.map((id) => {
+      const fromOpt = countriesSheetDetailTagFilterOptions.find((o) => o.id === id);
+      return {
+        id,
+        label: fromOpt?.name ?? tagLabelById.get(id) ?? "Etiqueta",
+      };
+    });
+  }, [isAuthUser, selectedTagFilterIds, countriesSheetDetailTagFilterOptions, tagLabelById]);
+
+  const placesSearchFilterBarEl = useMemo(() => {
+    if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
+    const countryForBar = placesScopeForData ?? { kind: "all_places" as const };
+    return (
+      <ExplorePlacesActiveFiltersBar
+        colors={placesListFiltersBarColors}
+        countryDetail={countryForBar}
+        onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
+        onClearCountryScope={applyPlacesScopeAllPlaces}
+        activeTags={placesSearchActiveTags}
+        onClearTagFilter={(tagId) => {
+          setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
+        }}
+        showTagChips={isAuthUser}
+      />
+    );
+  }, [
+    isAuthUser,
+    pinFilter,
+    placesListFiltersBarColors,
+    placesScopeForData,
+    placesSearchActiveTags,
+    applyPlacesScopeAllPlaces,
+  ]);
 
   const renderCountryDetailItem = useCallback(
     (row: SearchResultCardProps["spot"]) => {
@@ -4436,36 +4741,42 @@ export function MapScreenVNext() {
     }));
   }, [isAuthUser, userTags, spotIdsForTagFilterCounts, pinTagIndex]);
 
-  /** Si el chip activo deja de tener ≥1 spot en el pool (p. ej. quitaste la etiqueta al último spot), limpiar filtro para no dejar lista vacía sin fila de chips. */
+  /** Si algún id seleccionado deja de existir en el pool de chips, recortar selección. */
   useEffect(() => {
-    if (!isAuthUser) return;
-    if (selectedTagFilterId == null) return;
-    const stillValid = spotTagFilterOptions.some((o) => o.id === selectedTagFilterId);
-    if (!stillValid) {
-      setSelectedTagFilterId(null);
+    if (!isAuthUser || !userTagsCatalogReady) return;
+    if (selectedTagFilterIds.length === 0) return;
+    const valid = new Set(spotTagFilterOptions.map((o) => o.id));
+    const next = selectedTagFilterIds.filter((id) => valid.has(id));
+    if (next.length !== selectedTagFilterIds.length) {
+      setSelectedTagFilterIds(next);
       setTagFilterEditMode(false);
     }
-  }, [isAuthUser, spotTagFilterOptions, selectedTagFilterId]);
+  }, [isAuthUser, userTagsCatalogReady, spotTagFilterOptions, selectedTagFilterIds]);
 
-  /** Pastilla en mapa: etiqueta activa cuando pin guardados/visitados también filtra pines. */
-  const mapPinTagFilterBannerLabel = useMemo(() => {
+  /** Chips de etiqueta en banda del mapa (mismos ids que el filtro OR). */
+  const mapPinFilterActiveTags = useMemo(() => {
     if (
       !isAuthUser ||
-      selectedTagFilterId == null ||
+      selectedTagFilterIds.length === 0 ||
       (pinFilter !== "saved" && pinFilter !== "visited")
     ) {
-      return null;
+      return [];
     }
-    const fromChip = spotTagFilterOptions.find((o) => o.id === selectedTagFilterId);
-    return fromChip?.name ?? tagLabelById.get(selectedTagFilterId) ?? "Etiqueta";
-  }, [isAuthUser, selectedTagFilterId, pinFilter, spotTagFilterOptions, tagLabelById]);
+    return selectedTagFilterIds.map((id) => ({
+      id,
+      label:
+        spotTagFilterOptions.find((o) => o.id === id)?.name ??
+        tagLabelById.get(id) ??
+        "Etiqueta",
+    }));
+  }, [isAuthUser, selectedTagFilterIds, pinFilter, spotTagFilterOptions, tagLabelById]);
 
   const kpiSpotsSearchResults = useMemo<(Spot | PlaceResult)[]>(() => {
     if (!showFilteredResultsOnEmpty) return searchDisplayResultsWithTag;
     if (!searchV2.isOpen || searchV2.query.trim().length > 0) return searchDisplayResultsWithTag;
     if (pinFilter !== "saved" && pinFilter !== "visited") return searchDisplayResultsWithTag;
     if (!mapInstance || filteredSpots.length <= 1) {
-      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterId, pinTagIndex);
+      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterIds, pinTagIndex);
     }
     try {
       const center = mapInstance.getCenter();
@@ -4474,9 +4785,9 @@ export function MapScreenVNext() {
           distanceKm(center.lat, center.lng, a.latitude, a.longitude) -
           distanceKm(center.lat, center.lng, b.latitude, b.longitude),
       );
-      return filterExploreSearchItemsByTag(sorted, selectedTagFilterId, pinTagIndex);
+      return filterExploreSearchItemsByTag(sorted, selectedTagFilterIds, pinTagIndex);
     } catch {
-      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterId, pinTagIndex);
+      return filterExploreSearchItemsByTag(filteredSpots, selectedTagFilterIds, pinTagIndex);
     }
   }, [
     showFilteredResultsOnEmpty,
@@ -4486,7 +4797,7 @@ export function MapScreenVNext() {
     pinFilter,
     mapInstance,
     filteredSpots,
-    selectedTagFilterId,
+    selectedTagFilterIds,
     pinTagIndex,
   ]);
   const searchResultSections = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
@@ -4547,15 +4858,16 @@ export function MapScreenVNext() {
     setSearchQuery(searchQuery);
   }, [pinFilter, searchIsOpen, searchQuery, setSearchQuery]);
 
-  /** Mismo guardrail al cambiar filtro por tag. */
+  /** Mismo guardrail al cambiar filtro por tag(s). */
   useEffect(() => {
-    if (searchTagFilterRefreshRef.current === selectedTagFilterId) return;
-    searchTagFilterRefreshRef.current = selectedTagFilterId;
+    const sig = [...selectedTagFilterIds].sort().join("|");
+    if (searchTagFilterRefreshRef.current === sig) return;
+    searchTagFilterRefreshRef.current = sig;
     if (!searchIsOpen) return;
     const q = searchQuery.trim();
     if (q.length < 3) return;
     setSearchQuery(searchQuery);
-  }, [selectedTagFilterId, searchIsOpen, searchQuery, setSearchQuery]);
+  }, [selectedTagFilterIds, searchIsOpen, searchQuery, setSearchQuery]);
 
   useEffect(() => {
     if (!searchV2.isOpen) return;
@@ -4920,7 +5232,8 @@ export function MapScreenVNext() {
     welcomeSheetHeight,
     welcomeSheetState,
     welcomeSidebarDismissed,
-    countriesSheetListViewPresent: countriesSheetListView != null,
+    countriesSheetListViewPresent:
+      countriesSheetListView != null || explorePlacesCountryFilter != null,
   });
   const {
     webConstrainedFlowyaLayout,
@@ -5314,6 +5627,15 @@ export function MapScreenVNext() {
     countriesSheetOpen &&
     !showExploreWelcomeSheet;
 
+  /**
+   * Barra etiqueta/país en CountriesSheet: en medium/expanded ya está visible en el sheet;
+   * en peek no, así que los chips bajo filtros del mapa solo en ese caso (evita duplicar).
+   */
+  const showExplorePlacesActiveFilterChipsOnMap =
+    countriesSheetListView == null ||
+    !countriesSheetOpen ||
+    countriesSheetState === "peek";
+
   const spotSheetChromeVisible =
     (selectedSpot != null || poiTapped != null) &&
     !searchV2.isOpen &&
@@ -5523,6 +5845,7 @@ export function MapScreenVNext() {
         ) {
           setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
           setCountriesSheetListView(countriesSnap.listView);
+          setExplorePlacesCountryFilter(countriesSnap.countryFilter ?? countriesSnap.listView ?? null);
           setCountriesSheetOpen(true);
         }
       }}
@@ -5735,48 +6058,31 @@ export function MapScreenVNext() {
                 availableWidth={effectiveMapFilterWidth}
               />
             </View>
-            {mapPinTagFilterBannerLabel != null ? (
-              <Pressable
-                onPress={() => {
-                  setSelectedTagFilterId(null);
-                  setTagFilterEditMode(false);
+            {(mapPinFilterActiveTags.length > 0 || placesScopeForData?.kind === "country") &&
+            showExplorePlacesActiveFilterChipsOnMap ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                style={{ alignSelf: "center", maxWidth: effectiveMapFilterWidth }}
+                contentContainerStyle={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: Spacing.sm,
+                  justifyContent: "center",
                 }}
-                hitSlop={10}
-                accessibilityRole="button"
-                accessibilityLabel={`Quitar filtro de etiqueta ${mapPinTagFilterBannerLabel}`}
-                style={({ pressed }) => [
-                  styles.mapPinTagFilterBanner,
-                  {
-                    backgroundColor: Colors[colorScheme ?? "light"].tint,
-                    borderColor: Colors[colorScheme ?? "light"].tint,
-                    opacity: pressed ? 0.88 : 1,
-                  },
-                  Platform.OS === "web" ? ({ cursor: "pointer" } as const) : null,
-                ]}
               >
-                <Tag
-                  size={12}
-                  color={Colors[colorScheme ?? "light"].surfaceOnMap}
-                  strokeWidth={2.2}
-                  accessibilityElementsHidden
-                  importantForAccessibility="no"
+                <ExplorePlacesActiveFilterChips
+                  colors={placesListFiltersBarColors}
+                  countryDetail={placesScopeForData}
+                  activeTags={mapPinFilterActiveTags}
+                  showTagChips={mapPinFilterActiveTags.length > 0}
+                  onClearTagFilter={(tagId) => {
+                    setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
+                  }}
+                  onClearCountryScope={applyPlacesScopeAllPlaces}
                 />
-                <Text
-                  style={[
-                    styles.mapPinTagFilterBannerText,
-                    { color: Colors[colorScheme ?? "light"].surfaceOnMap },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {mapPinTagFilterBannerLabel}
-                </Text>
-                <ClearIconCircleDecoration
-                  variant="onPrimary"
-                  size={22}
-                  iconPx={11}
-                  iconColor={Colors[colorScheme ?? "light"].surfaceOnMap}
-                />
-              </Pressable>
+              </ScrollView>
             ) : null}
           </View>
         </Animated.View>
@@ -5922,32 +6228,14 @@ export function MapScreenVNext() {
           countryDetailSpots={countriesSheetDetailSpots}
           countryDetailSpotSections={countriesSheetDetailSpotSections}
           renderCountryDetailItem={renderCountryDetailItem}
-          countryDetailTagFilterOptions={
-            isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+          placesListFilterBar={placesListFilterBarEl}
+          countryDetailTagFilterSignature={
+            countriesSheetListView != null
+              ? selectedTagFilterIds.length === 0
+                ? "none"
+                : [...selectedTagFilterIds].sort().join("|")
+              : null
           }
-          selectedCountryDetailTagFilterId={
-            isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
-          }
-          onCountryDetailTagFilterChange={
-            isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
-          }
-          countryDetailTagFilterEditMode={
-            isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
-          }
-          onCountryDetailTagFilterEnterEditMode={
-            isAuthUser && countriesSheetListView != null
-              ? () => setTagFilterEditMode(true)
-              : undefined
-          }
-          onCountryDetailTagFilterExitEditMode={
-            isAuthUser && countriesSheetListView != null
-              ? () => setTagFilterEditMode(false)
-              : undefined
-          }
-          onCountryDetailRequestDeleteUserTag={
-            isAuthUser && countriesSheetListView != null ? handleRequestDeleteUserTag : undefined
-          }
-          onPlacesListScopeChange={setCountriesSheetListView}
           webDesktopSidebar={false}
         />
       ) : null}
@@ -6142,6 +6430,28 @@ export function MapScreenVNext() {
         visible={showBetaModal}
         onClose={() => setShowBetaModal(false)}
       />
+      <ExplorePlacesFiltersModal
+        visible={explorePlacesFiltersOpen}
+        onClose={() => setExplorePlacesFiltersOpen(false)}
+        countryItems={countryBucketsForPlacesFiltersModal}
+        countryDetail={placesScopeForData}
+        onSelectAllPlaces={() => {
+          applyPlacesScopeAllPlaces();
+          setExplorePlacesFiltersOpen(false);
+        }}
+        onSelectCountry={(item) => {
+          handleCountryBucketPress(item);
+          setExplorePlacesFiltersOpen(false);
+        }}
+        tagFilterOptions={countriesSheetDetailTagFilterOptions}
+        selectedTagFilterIds={selectedTagFilterIds}
+        onTagFilterChange={setSelectedTagFilterIds}
+        tagFilterEditMode={tagFilterEditMode}
+        onTagFilterEnterEditMode={isAuthUser ? () => setTagFilterEditMode(true) : undefined}
+        onTagFilterExitEditMode={isAuthUser ? () => setTagFilterEditMode(false) : undefined}
+        onRequestDeleteUserTag={isAuthUser ? handleRequestDeleteUserTag : undefined}
+        showTagsSection={isAuthUser}
+      />
       <CreateSpotNameOverlay
         visible={createSpotNameOverlayOpen}
         initialName={createSpotInitialName}
@@ -6196,34 +6506,14 @@ export function MapScreenVNext() {
                 countryDetailSpots={countriesSheetDetailSpots}
                 countryDetailSpotSections={countriesSheetDetailSpotSections}
                 renderCountryDetailItem={renderCountryDetailItem}
-                countryDetailTagFilterOptions={
-                  isAuthUser ? countriesSheetDetailTagFilterOptions : undefined
+                placesListFilterBar={placesListFilterBarEl}
+                countryDetailTagFilterSignature={
+                  countriesSheetListView != null
+                    ? selectedTagFilterIds.length === 0
+                      ? "none"
+                      : [...selectedTagFilterIds].sort().join("|")
+                    : null
                 }
-                selectedCountryDetailTagFilterId={
-                  isAuthUser && countriesSheetListView != null ? selectedTagFilterId : null
-                }
-                onCountryDetailTagFilterChange={
-                  isAuthUser && countriesSheetListView != null ? setSelectedTagFilterId : undefined
-                }
-                countryDetailTagFilterEditMode={
-                  isAuthUser && countriesSheetListView != null ? tagFilterEditMode : false
-                }
-                onCountryDetailTagFilterEnterEditMode={
-                  isAuthUser && countriesSheetListView != null
-                    ? () => setTagFilterEditMode(true)
-                    : undefined
-                }
-                onCountryDetailTagFilterExitEditMode={
-                  isAuthUser && countriesSheetListView != null
-                    ? () => setTagFilterEditMode(false)
-                    : undefined
-                }
-                onCountryDetailRequestDeleteUserTag={
-                  isAuthUser && countriesSheetListView != null
-                    ? handleRequestDeleteUserTag
-                    : undefined
-                }
-                onPlacesListScopeChange={setCountriesSheetListView}
                 webDesktopSidebar
                 webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
               />
@@ -6267,14 +6557,14 @@ export function MapScreenVNext() {
             ? spotTagFilterOptions
             : undefined
         }
-        selectedTagFilterId={
+        selectedTagFilterIds={
           isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
-            ? selectedTagFilterId
+            ? selectedTagFilterIds
             : undefined
         }
         onTagFilterChange={
           isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
-            ? setSelectedTagFilterId
+            ? setSelectedTagFilterIds
             : undefined
         }
         tagFilterEditMode={
@@ -6295,6 +6585,7 @@ export function MapScreenVNext() {
             ? handleRequestDeleteUserTag
             : undefined
         }
+        placesFiltersBar={placesSearchFilterBarEl}
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
         resultsSummaryLabel={
@@ -6753,30 +7044,6 @@ const styles = StyleSheet.create({
     position: "relative",
     zIndex: 30,
     ...Platform.select({ android: { elevation: 14 } }),
-  },
-  mapPinTagFilterBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    maxWidth: "100%",
-    alignSelf: "center",
-    paddingLeft: 8,
-    paddingRight: 8,
-    paddingVertical: 4,
-    minHeight: 28,
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    ...Platform.select({
-      web: { boxShadow: "0 1px 2px rgba(0,0,0,0.06)" },
-      default: { elevation: 2 },
-    }),
-  },
-  mapPinTagFilterBannerText: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 12,
-    fontWeight: "600",
-    letterSpacing: -0.1,
   },
   bottomActionRowOverlay: {
     position: "absolute",
