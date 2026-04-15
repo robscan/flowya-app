@@ -649,39 +649,41 @@ export function CountriesSheet({
         <>
           {showPlacesScopeDropdown ? (
             <View style={styles.placesScopeFiltersBand}>
-              <View style={styles.placesScopeAnchor}>
-                <Pressable
-                  style={[
-                    styles.placesScopeTrigger,
-                    {
-                      backgroundColor: colors.background,
-                      borderColor: colors.borderSubtle,
-                    },
-                  ]}
-                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                  onPress={() => setPlacesScopeMenuOpen((o) => !o)}
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    countryDetail?.kind === "country"
-                      ? `Ámbito: ${countryDetail.label}. Abrir para elegir país o todos`
-                      : "Ámbito: todos los países. Abrir para filtrar por un país"
-                  }
-                  accessibilityState={{ expanded: placesScopeMenuOpen }}
-                >
-                  <Text
-                    style={[styles.placesScopeTriggerValue, { color: colors.text }]}
-                    numberOfLines={1}
+              <View style={styles.placesScopeDropdownMount}>
+                <View style={styles.placesScopeAnchor}>
+                  <Pressable
+                    style={[
+                      styles.placesScopeTrigger,
+                      {
+                        backgroundColor: colors.background,
+                        borderColor: colors.borderSubtle,
+                      },
+                    ]}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+                    onPress={() => setPlacesScopeMenuOpen((o) => !o)}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      countryDetail?.kind === "country"
+                        ? `Ámbito: ${countryDetail.label}. Abrir para elegir país o todos`
+                        : "Ámbito: todos los países. Abrir para filtrar por un país"
+                    }
+                    accessibilityState={{ expanded: placesScopeMenuOpen }}
                   >
-                    {countryDetail?.kind === "country" ? countryDetail.label : "Todos los países"}
-                  </Text>
-                  <View
-                    style={{
-                      transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
-                    }}
-                  >
-                    <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.2} />
-                  </View>
-                </Pressable>
+                    <Text
+                      style={[styles.placesScopeTriggerValue, { color: colors.text }]}
+                      numberOfLines={1}
+                    >
+                      {countryDetail?.kind === "country" ? countryDetail.label : "Todos los países"}
+                    </Text>
+                    <View
+                      style={{
+                        transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
+                      }}
+                    >
+                      <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.2} />
+                    </View>
+                  </Pressable>
+                </View>
                 {placesScopeMenuOpen ? (
                   <Animated.View
                     style={[
@@ -1144,7 +1146,16 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
     zIndex: EXPLORE_LAYER_Z.SHEET_HEADER_DROPDOWN,
   },
-  /** Ancla del menú: ancho intrínseco (chip), no full-bleed. */
+  /**
+   * Contenedor de posicionamiento: ancho de la banda del sheet.
+   * El menú `absolute` usa left/right respecto a este nodo (lista ancha), no al chip.
+   */
+  placesScopeDropdownMount: {
+    position: "relative",
+    alignSelf: "stretch",
+    width: "100%",
+  },
+  /** Chip de ámbito: ancho limitado; el dropdown no hereda este ancho. */
   placesScopeAnchor: {
     position: "relative",
     alignSelf: "flex-start",
