@@ -662,6 +662,7 @@ export function MapScreenVNext() {
   );
   const [, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
   const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
@@ -1012,6 +1013,7 @@ export function MapScreenVNext() {
       }
       exploreAuthUserIdRef.current = nextId;
       setIsAuthUser(ok);
+      setAuthUserId(nextId);
     };
     void supabase.auth.getSession().then(({ data }) => applySession(data.session));
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -1023,7 +1025,7 @@ export function MapScreenVNext() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthUser) {
+    if (!isAuthUser || !authUserId) {
       setMyProfileAvatarPublicUrl(null);
       setUserTags([]);
       setPinTagIndex({});
@@ -1037,6 +1039,13 @@ export function MapScreenVNext() {
       setTagAssignSaving(false);
       return;
     }
+    // Cambio de uid autenticado: no conservar estado previo en memoria para evitar fuga entre cuentas.
+    setUserTags([]);
+    setPinTagIndex({});
+    setSelectedTagFilterIds([]);
+    setExplorePlacesCountryFilter(null);
+    setCountriesSheetListView(null);
+    setTagFilterEditMode(false);
     setUserTagsCatalogReady(false);
     let cancelled = false;
     void (async () => {
@@ -1055,7 +1064,7 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthUser]);
+  }, [isAuthUser, authUserId]);
 
   /** Hidratar filtros Lugares desde disco tras catálogo de etiquetas (web: antes de paint; nativo: async). */
   useLayoutEffect(() => {
