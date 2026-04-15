@@ -52,7 +52,7 @@ export function SearchOverlayWeb<T>({
   pinCounts,
   onPinFilterChange,
   tagFilterOptions = [],
-  selectedTagFilterId = null,
+  selectedTagFilterIds = [],
   onTagFilterChange,
   tagFilterEditMode = false,
   onTagFilterEnterEditMode,
@@ -61,6 +61,7 @@ export function SearchOverlayWeb<T>({
   placeSuggestions = [],
   onCreateFromPlace,
   searchInputAutoFocus = true,
+  placesFiltersBar,
 }: SearchFloatingProps<T>) {
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
@@ -185,7 +186,7 @@ export function SearchOverlayWeb<T>({
       pinCounts={pinCounts}
       onPinFilterChange={onPinFilterChange}
       tagFilterOptions={tagFilterOptions}
-      selectedTagFilterId={selectedTagFilterId}
+      selectedTagFilterIds={selectedTagFilterIds}
       onTagFilterChange={onTagFilterChange}
       tagFilterEditMode={tagFilterEditMode}
       onTagFilterEnterEditMode={onTagFilterEnterEditMode}
@@ -199,6 +200,7 @@ export function SearchOverlayWeb<T>({
       onInputFocus={() => setIsInputFocused(true)}
       onInputBlur={() => setIsInputFocused(false)}
       searchInputAutoFocus={searchInputAutoFocus}
+      placesFiltersBar={placesFiltersBar}
     />
   );
 

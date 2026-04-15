@@ -1,4 +1,3 @@
-import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
 import { CountriesMapPreview } from "@/components/design-system/countries-map-preview";
 import { CountriesSheetCountryList } from "@/components/design-system/countries-sheet-country-list";
 import { CountriesSheetKpiRow } from "@/components/design-system/countries-sheet-kpi-row";
@@ -13,11 +12,10 @@ import { SearchLauncherField } from "@/components/design-system/search-launcher-
 import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
-import { ChevronDown, Trash2 } from "lucide-react-native";
-import { Colors, Elevation, Radius, Spacing } from "@/constants/theme";
+import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Dimensions,
   FlatList,
@@ -30,7 +28,6 @@ import {
   useWindowDimensions,
   View,
   type LayoutChangeEvent,
-  type ViewStyle,
 } from "react-native";
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
@@ -90,16 +87,11 @@ type CountriesSheetProps = {
   /** Si el host la define, mismo criterio que el buscador (zona vs mapa o bloque único). */
   countryDetailSpotSections?: { id: string; title: string; items: SearchResultCardProps["spot"][] }[] | null;
   renderCountryDetailItem?: (spot: SearchResultCardProps["spot"]) => React.ReactNode;
-  countryDetailTagFilterOptions?: { id: string; name: string; count: number }[];
-  selectedCountryDetailTagFilterId?: string | null;
-  onCountryDetailTagFilterChange?: (tagId: string | null) => void;
-  /** Mismo contrato que SearchSurface: long press en un chip de etiqueta entra en modo edición (renombrar/eliminar vía flujo del host). */
-  countryDetailTagFilterEditMode?: boolean;
-  onCountryDetailTagFilterEnterEditMode?: () => void;
-  onCountryDetailTagFilterExitEditMode?: () => void;
-  onCountryDetailRequestDeleteUserTag?: (tagId: string, tagName: string) => void;
-  /** Listado de lugares: selector de ámbito (todos / país) bajo el título «Lugares». */
-  onPlacesListScopeChange?: (next: CountriesSheetListDetail) => void;
+  /** Barra «Filtros» + chips activos; el panel completo lo monta el host (`ExplorePlacesFiltersModal`). */
+  placesListFilterBar?: React.ReactNode;
+  /** Para animación de entrada de lista (sincronizado con filtro de etiqueta en el host). */
+  /** Firma estable del filtro de etiquetas (p. ej. ids ordenados) para animación de lista. */
+  countryDetailTagFilterSignature?: string | null;
   /** Web ≥1080: panel en columna izquierda; el host lo coloca MapScreen. */
   webDesktopSidebar?: boolean;
   /** Ancho máx. del panel en sidebar desktop (p. ej. más ancho solo en listado de lugares). */
@@ -121,18 +113,11 @@ const MAP_PREVIEW_HEIGHT = 176;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 const PROGRESS_BLOCK_HEIGHT = 62;
-const DETAIL_TAG_ROW_HEIGHT = 52;
+/** Fila chips + gap + botón «Filtros y etiquetas» bajo el buscador (sheet lugares). */
+const DETAIL_TAG_ROW_HEIGHT = 96;
 const DETAIL_LIST_MIN_HEIGHT = 240;
-const PLACES_SCOPE_MENU_MAX_HEIGHT = 380;
-const PLACES_SCOPE_MENU_ENTRANCE_MS = 280;
 /** Entrada de listas (países / lugares) en medium o expanded: fade + slide suave. */
 const LIST_ENTRANCE_MS = 300;
-
-/** Web: evita selección de texto en chips (alineado a SearchSurface). */
-const webTagChipNoSelect =
-  Platform.OS === "web"
-    ? ({ userSelect: "none", WebkitUserSelect: "none" } as const)
-    : null;
 
 export function CountriesSheet({
   visible,
@@ -161,14 +146,8 @@ export function CountriesSheet({
   countryDetailSpots = [],
   countryDetailSpotSections = null,
   renderCountryDetailItem,
-  countryDetailTagFilterOptions = [],
-  selectedCountryDetailTagFilterId = null,
-  onCountryDetailTagFilterChange,
-  countryDetailTagFilterEditMode = false,
-  onCountryDetailTagFilterEnterEditMode,
-  onCountryDetailTagFilterExitEditMode,
-  onCountryDetailRequestDeleteUserTag,
-  onPlacesListScopeChange,
+  placesListFilterBar,
+  countryDetailTagFilterSignature = null,
   webDesktopSidebar = false,
   webDesktopSidebarPanelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
 }: CountriesSheetProps) {
@@ -182,22 +161,6 @@ export function CountriesSheet({
     }
     return title;
   }, [countryDetail, title]);
-
-  const showPlacesScopeDropdown =
-    countryDetail?.kind === "all_places" || countryDetail?.kind === "country";
-
-  const handlePlacesScopeSelectTodos = useCallback(() => {
-    onPlacesListScopeChange?.({ kind: "all_places" });
-    setPlacesScopeMenuOpen(false);
-  }, [onPlacesListScopeChange]);
-
-  const handlePlacesScopeSelectCountry = useCallback(
-    (item: CountrySheetItem) => {
-      onItemPress(item);
-      setPlacesScopeMenuOpen(false);
-    },
-    [onItemPress],
-  );
 
   const colors = useMemo(() => {
     const base = Colors[activeScheme];
@@ -231,42 +194,11 @@ export function CountriesSheet({
   const [dragAreaHeight, setDragAreaHeight] = useState(0);
   const [summaryHeight, setSummaryHeight] = useState(0);
   const [showLevelsModal, setShowLevelsModal] = useState(false);
-  const [placesScopeMenuOpen, setPlacesScopeMenuOpen] = useState(false);
-
   const isCountryDetailMode = countryDetail != null;
-  const showDetailTagRow =
-    isCountryDetailMode &&
-    countryDetailTagFilterOptions.length > 0 &&
-    onCountryDetailTagFilterChange != null;
 
   useEffect(() => {
     if (countryDetail != null) setSummaryHeight(0);
   }, [countryDetail]);
-
-  useEffect(() => {
-    if (!visible || countryDetail == null) {
-      setPlacesScopeMenuOpen(false);
-    }
-  }, [visible, countryDetail]);
-
-  const placesScopeMenuEntrance = useSharedValue(0);
-  const placesScopeMenuEntranceAnimatedStyle = useAnimatedStyle(() => {
-    const t = placesScopeMenuEntrance.value;
-    return {
-      opacity: t,
-      transform: [{ translateY: (1 - t) * -12 }],
-    };
-  });
-
-  useEffect(() => {
-    if (showPlacesScopeDropdown && placesScopeMenuOpen) {
-      placesScopeMenuEntrance.value = 0;
-      placesScopeMenuEntrance.value = withTiming(1, {
-        duration: PLACES_SCOPE_MENU_ENTRANCE_MS,
-        easing: Easing.out(Easing.cubic),
-      });
-    }
-  }, [showPlacesScopeDropdown, placesScopeMenuOpen, placesScopeMenuEntrance]);
 
   const collapsedFromMeasure =
     dragAreaHeight > 0
@@ -286,7 +218,7 @@ export function CountriesSheet({
     CONTAINER_PADDING_BOTTOM;
   const countryDetailMediumBaseline =
     collapsedAnchor +
-    (showDetailTagRow ? DETAIL_TAG_ROW_HEIGHT : 0) +
+    (placesListFilterBar != null ? DETAIL_TAG_ROW_HEIGHT : 0) +
     DETAIL_LIST_MIN_HEIGHT +
     CONTAINER_PADDING_BOTTOM;
   const mediumBaselineHeight = isCountryDetailMode ? countryDetailMediumBaseline : listMediumBaseline;
@@ -468,7 +400,7 @@ export function CountriesSheet({
     if (!visible || (st !== "medium" && st !== "expanded")) return "";
     if (isCountryDetailMode) {
       if (countryDetail == null) return "";
-      const tagSeg = selectedCountryDetailTagFilterId ?? "none";
+      const tagSeg = countryDetailTagFilterSignature ?? "none";
       const base =
         countryDetail.kind === "country" ? `d:c:${countryDetail.key}` : "d:all";
       /** `filterMode`: misma animación al recargar por visitar ↔ visitados. Tag: chips. */
@@ -482,7 +414,7 @@ export function CountriesSheet({
     countryDetail,
     filterMode,
     items.length,
-    selectedCountryDetailTagFilterId,
+    countryDetailTagFilterSignature,
     webDesktopSidebar,
   ]);
 
@@ -525,7 +457,7 @@ export function CountriesSheet({
     expandedVisible,
   );
   const tagDetailGap =
-    isCountryDetailMode && showDetailTagRow ? DETAIL_TAG_ROW_HEIGHT + Spacing.sm : 0;
+    isCountryDetailMode && placesListFilterBar != null ? DETAIL_TAG_ROW_HEIGHT + Spacing.sm : 0;
   const maxBodyHeight = isCountryDetailMode
     ? Math.max(
         0,
@@ -577,14 +509,6 @@ export function CountriesSheet({
         webDesktopSidebar ? null : animatedContainerStyle,
       ]}
     >
-      {showPlacesScopeDropdown && placesScopeMenuOpen ? (
-        <Pressable
-          style={styles.placesScopeBackdrop}
-          onPress={() => setPlacesScopeMenuOpen(false)}
-          accessibilityLabel="Cerrar menú de lugares"
-          accessibilityRole="button"
-        />
-      ) : null}
       <View style={isCountryDetailMode ? styles.placesScopeHeaderWrap : undefined}>
         {webDesktopSidebar ? (
           <SpotSheetHeader
@@ -647,264 +571,7 @@ export function CountriesSheet({
 
       {isCountryDetailMode ? (
         <>
-          {showPlacesScopeDropdown ? (
-            <View style={styles.placesScopeFiltersBand}>
-              <View style={styles.placesScopeDropdownMount}>
-                <View style={styles.placesScopeAnchor}>
-                  <Pressable
-                    style={[
-                      styles.placesScopeTrigger,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.borderSubtle,
-                      },
-                    ]}
-                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    onPress={() => setPlacesScopeMenuOpen((o) => !o)}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      countryDetail?.kind === "country"
-                        ? `Ámbito: ${countryDetail.label}. Abrir para elegir país o todos`
-                        : "Ámbito: todos los países. Abrir para filtrar por un país"
-                    }
-                    accessibilityState={{ expanded: placesScopeMenuOpen }}
-                  >
-                    <Text
-                      style={[styles.placesScopeTriggerValue, { color: colors.text }]}
-                      numberOfLines={1}
-                    >
-                      {countryDetail?.kind === "country" ? countryDetail.label : "Todos los países"}
-                    </Text>
-                    <View
-                      style={{
-                        transform: [{ rotate: placesScopeMenuOpen ? "180deg" : "0deg" }],
-                      }}
-                    >
-                      <ChevronDown size={16} color={colors.textSecondary} strokeWidth={2.2} />
-                    </View>
-                  </Pressable>
-                </View>
-                {placesScopeMenuOpen ? (
-                  <Animated.View
-                    style={[
-                      styles.placesScopeMenuDropWrap,
-                      Elevation.card,
-                      placesScopeMenuEntranceAnimatedStyle,
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.placesScopeMenuDropSurface,
-                        {
-                          borderColor: colors.borderSubtle,
-                          backgroundColor: colors.backgroundElevated,
-                        },
-                      ]}
-                    >
-                      <ScrollView
-                        keyboardShouldPersistTaps="handled"
-                        nestedScrollEnabled
-                        showsVerticalScrollIndicator
-                        style={{ maxHeight: PLACES_SCOPE_MENU_MAX_HEIGHT }}
-                      >
-                        <Pressable
-                          onPress={handlePlacesScopeSelectTodos}
-                          style={({ pressed }) => [
-                            styles.placesScopeMenuRow,
-                            pressed && styles.placesScopeMenuRowPressed,
-                          ]}
-                          accessibilityRole="button"
-                          accessibilityLabel="Todos los lugares"
-                          accessibilityState={{ selected: countryDetail?.kind === "all_places" }}
-                        >
-                          <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>Todos</Text>
-                          {countryDetail?.kind === "all_places" ? (
-                            <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
-                          ) : (
-                            <View style={styles.placesScopeMenuCheckSpacer} />
-                          )}
-                        </Pressable>
-                        {items.map((item) => {
-                          const countrySelected =
-                            countryDetail?.kind === "country" && countryDetail.key === item.key;
-                          return (
-                            <Pressable
-                              key={item.key}
-                              onPress={() => handlePlacesScopeSelectCountry(item)}
-                              style={({ pressed }) => [
-                                styles.placesScopeMenuRow,
-                                pressed && styles.placesScopeMenuRowPressed,
-                              ]}
-                              accessibilityRole="button"
-                              accessibilityLabel={`${item.label}, ${item.count} lugares`}
-                              accessibilityState={{ selected: countrySelected }}
-                            >
-                              <Text style={[styles.placesScopeMenuLabel, { color: colors.text }]}>{item.label}</Text>
-                              <View style={styles.placesScopeMenuRowEnd}>
-                                <Text style={[styles.placesScopeMenuCount, { color: colors.textSecondary }]}>
-                                  {item.count} lugares
-                                </Text>
-                                {countrySelected ? (
-                                  <Text style={[styles.placesScopeMenuCheck, { color: colors.primary }]}>✓</Text>
-                                ) : (
-                                  <View style={styles.placesScopeMenuCheckSpacer} />
-                                )}
-                              </View>
-                            </Pressable>
-                          );
-                        })}
-                      </ScrollView>
-                    </View>
-                  </Animated.View>
-                ) : null}
-              </View>
-            </View>
-          ) : null}
-          {showDetailTagRow ? (
-            <View
-              style={[
-                styles.tagFilterRow,
-                showPlacesScopeDropdown ? styles.tagFilterRowTightTop : null,
-              ]}
-            >
-              <View style={styles.tagFilterScrollWrap}>
-                <ScrollView
-                  key={countryDetailTagFilterEditMode ? "tag-filter-edit" : "tag-filter-browse"}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                  removeClippedSubviews={false}
-                  style={[
-                    styles.tagFilterScroll,
-                    Platform.OS === "web" ? ({ touchAction: "pan-x" } as ViewStyle) : null,
-                  ]}
-                  contentContainerStyle={styles.tagFilterScrollContent}
-                >
-                  {!countryDetailTagFilterEditMode ? (
-                    <Pressable
-                      onPress={() => {
-                        onCountryDetailTagFilterChange?.(null);
-                      }}
-                      style={[
-                        styles.tagFilterChip,
-                        webTagChipNoSelect,
-                        {
-                          backgroundColor:
-                            selectedCountryDetailTagFilterId == null ? colors.tint : colors.background,
-                          borderColor: colors.borderSubtle,
-                        },
-                      ]}
-                      accessibilityLabel="Sin filtrar por etiqueta"
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: selectedCountryDetailTagFilterId == null }}
-                    >
-                      <Text
-                        style={[
-                          styles.tagFilterChipLabel,
-                          webTagChipNoSelect,
-                          {
-                            color:
-                              selectedCountryDetailTagFilterId == null ? colors.background : colors.text,
-                          },
-                        ]}
-                        numberOfLines={1}
-                      >
-                        Cualquiera
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {countryDetailTagFilterOptions.map((opt) => {
-                    const selected = selectedCountryDetailTagFilterId === opt.id;
-                    const chipEditSelected = countryDetailTagFilterEditMode && selected;
-                    const chipColors: ViewStyle = {
-                      backgroundColor: chipEditSelected
-                        ? colors.stateError
-                        : selected
-                          ? colors.tint
-                          : colors.background,
-                      borderColor: chipEditSelected ? colors.stateError : colors.borderSubtle,
-                    };
-                    const chipLabelColor = chipEditSelected
-                      ? colors.surfaceOnMap
-                      : selected
-                        ? colors.background
-                        : colors.text;
-                    const trashIconColor = chipEditSelected
-                      ? colors.surfaceOnMap
-                      : countryDetailTagFilterEditMode
-                        ? colors.stateError
-                        : colors.textSecondary;
-                    return (
-                      <View
-                        key={opt.id}
-                        style={[styles.tagFilterChip, styles.tagFilterChipInner, chipColors, webTagChipNoSelect]}
-                      >
-                        <Pressable
-                          onPress={() => {
-                            if (countryDetailTagFilterEditMode) return;
-                            onCountryDetailTagFilterChange?.(selected ? null : opt.id);
-                          }}
-                          onLongPress={
-                            onCountryDetailTagFilterEnterEditMode != null
-                              ? () => {
-                                  onCountryDetailTagFilterEnterEditMode();
-                                }
-                              : undefined
-                          }
-                          delayLongPress={450}
-                          style={styles.tagFilterChipMainPress}
-                          accessibilityLabel={`Filtrar por ${opt.name}`}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected }}
-                        >
-                          <ExploreTagIconLabel
-                            name={opt.name}
-                            suffix={opt.count > 0 ? ` (${opt.count})` : ""}
-                            color={chipLabelColor}
-                            iconSize={12}
-                            textStyle={[
-                              styles.tagFilterChipLabel,
-                              webTagChipNoSelect,
-                              { color: chipLabelColor },
-                            ]}
-                            containerStyle={styles.countriesTagFilterIconLabelFill}
-                          />
-                        </Pressable>
-                        {countryDetailTagFilterEditMode && onCountryDetailRequestDeleteUserTag != null ? (
-                          <Pressable
-                            onPress={() => onCountryDetailRequestDeleteUserTag(opt.id, opt.name)}
-                            hitSlop={10}
-                            style={styles.tagFilterChipRemove}
-                            accessibilityLabel={`Eliminar etiqueta ${opt.name}`}
-                            accessibilityRole="button"
-                          >
-                            <Trash2 size={14} color={trashIconColor} strokeWidth={2.5} />
-                          </Pressable>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-              {countryDetailTagFilterEditMode && onCountryDetailTagFilterExitEditMode != null ? (
-                <Pressable
-                  onPress={onCountryDetailTagFilterExitEditMode}
-                  style={({ pressed }) => [
-                    styles.tagFilterDoneBtn,
-                    {
-                      backgroundColor: colors.tint,
-                      borderColor: colors.tint,
-                      opacity: pressed ? 0.9 : 1,
-                    },
-                  ]}
-                  accessibilityLabel="Salir del modo edición de etiquetas"
-                  accessibilityRole="button"
-                >
-                  <Text style={[styles.tagFilterDoneBtnLabel, { color: colors.surfaceOnMap }]}>Listo</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
+          {placesListFilterBar}
           {!showPlacesList ? null : (
             <Animated.View
               style={[
@@ -962,6 +629,11 @@ export function CountriesSheet({
         </>
       ) : (
         <>
+          {placesListFilterBar != null ? (
+            <View style={styles.placesFilterBarKpiWrap} pointerEvents="box-none">
+              {placesListFilterBar}
+            </View>
+          ) : null}
           <CountriesSheetKpiRow
             filterMode={filterMode}
             summaryCountriesCount={summaryCountriesCount}
@@ -1195,6 +867,13 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
     marginBottom: Spacing.md,
     paddingHorizontal: 0,
+  },
+  /** Misma barra de filtros que en listado Lugares; bajo buscador en vista KPI. */
+  placesFilterBarKpiWrap: {
+    alignSelf: "stretch",
+    width: "100%",
+    paddingHorizontal: 0,
+    marginBottom: Spacing.xs,
   },
   placesScopeMenuDropWrap: {
     position: "absolute",

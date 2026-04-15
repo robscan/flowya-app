@@ -43,8 +43,9 @@ export type SearchFloatingProps<T> = {
   onPinFilterChange?: (value: MapPinFilterValue) => void;
   /** OL-EXPLORE-TAGS-001: chips de filtro por tag (solo owner); opcional. */
   tagFilterOptions?: { id: string; name: string; count: number }[];
-  selectedTagFilterId?: string | null;
-  onTagFilterChange?: (tagId: string | null) => void;
+  /** Vacío = sin filtro. Varios ids = OR (al menos una etiqueta). */
+  selectedTagFilterIds?: readonly string[];
+  onTagFilterChange?: (tagIds: string[]) => void;
   /** Modo edición: long-press en chip # muestra X para borrar etiqueta global. */
   tagFilterEditMode?: boolean;
   onTagFilterEnterEditMode?: () => void;
@@ -59,4 +60,10 @@ export type SearchFloatingProps<T> = {
    * Ej.: entrada desde chip de etiqueta en la ficha del lugar.
    */
   searchInputAutoFocus?: boolean;
+  /**
+   * Paridad con sheet Lugares: bajo el campo de búsqueda, chips activos (si hay) + botón «Filtros y etiquetas».
+   * Si se pasa, no se pinta la fila inline `ExploreTagFilterChipRow` en `SearchSurface` (edición en modal).
+   * Runtime: `ExplorePlacesActiveFiltersBar` desde `MapScreen`.
+   */
+  placesFiltersBar?: ReactNode;
 };

@@ -138,7 +138,7 @@ export function SearchSurfaceShowcase() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
   const [pinFilter, setPinFilter] = useState<MapPinFilterValue>('all');
-  const [selectedTagFilterId, setSelectedTagFilterId] = useState<string | null>(null);
+  const [selectedTagFilterIds, setSelectedTagFilterIds] = useState<string[]>([]);
   const [tagEditMode, setTagEditMode] = useState(false);
 
   const controller = useSearchControllerV2<DemoSpot>({
@@ -154,9 +154,10 @@ export function SearchSurfaceShowcase() {
   }, [pinFilter]);
 
   const filterByTag = useCallback((items: DemoSpot[]) => {
-    if (selectedTagFilterId == null) return items;
-    return items.filter((s) => s.tagIds.includes(selectedTagFilterId));
-  }, [selectedTagFilterId]);
+    if (selectedTagFilterIds.length === 0) return items;
+    const wanted = new Set(selectedTagFilterIds);
+    return items.filter((s) => s.tagIds.some((id) => wanted.has(id)));
+  }, [selectedTagFilterIds]);
 
   const defaultItemSections = useMemo((): SearchSection<DemoSpot>[] => {
     const byId = Object.fromEntries(DEMO_SPOTS.map((s) => [s.id, s]));
@@ -249,8 +250,8 @@ export function SearchSurfaceShowcase() {
             pinCounts={{ saved: 3, visited: 2 }}
             onPinFilterChange={setPinFilter}
             tagFilterOptions={tagFilterOptions}
-            selectedTagFilterId={selectedTagFilterId}
-            onTagFilterChange={setSelectedTagFilterId}
+            selectedTagFilterIds={selectedTagFilterIds}
+            onTagFilterChange={setSelectedTagFilterIds}
             tagFilterEditMode={tagEditMode}
             onTagFilterEnterEditMode={() => setTagEditMode(true)}
             onTagFilterExitEditMode={() => setTagEditMode(false)}

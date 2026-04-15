@@ -489,8 +489,7 @@ export default function AccountScreenWeb() {
           <View
             style={[styles.desktopRest, { backgroundColor: 'transparent' }]}
             pointerEvents="none"
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
+            aria-hidden={true}
           />
         </>
       ) : (

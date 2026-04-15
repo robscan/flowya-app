@@ -44,6 +44,7 @@ import {
   MapPinsShowcase,
   type MapPinFilterValue,
   SearchListCard,
+  ExploreFilterChipsShowcase,
   SearchSurfaceShowcase,
   ShareCountriesCardShowcase,
   SheetHandle,
@@ -1226,13 +1227,25 @@ export default function DesignSystemScreen() {
         </DesignSystemSection>
 
         <DesignSystemSection
+          id="ds-run-explore-filter-chips"
+          title="Explore — chips de etiquetas (OR) y país"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Contrato DS: `ExploreTagFilterChipRow` (varias etiquetas = OR) y `ExploreCountryFilterChipRow` (un país o todos; tokens café/tierra). Mismos hints que el modal de filtros y la superficie de búsqueda. Import: @/components/design-system/explore-filter-chips-showcase."
+        >
+          <ExploreFilterChipsShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
           id="ds-run-surface"
           title="Superficie de búsqueda (SearchSurface)"
           titleColor={titleMuted}
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Orquesta buscador, MapPinFilterInline, fila de chips de etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Import vitrina: @/components/design-system/search-surface-showcase."
+          description="Orquesta buscador, MapPinFilterInline, hint OR + fila de chips de etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Chips aislados: sección **ds-run-explore-filter-chips**. Import vitrina: @/components/design-system/search-surface-showcase."
         >
           <SearchSurfaceShowcase />
         </DesignSystemSection>

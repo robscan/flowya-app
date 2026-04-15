@@ -5,6 +5,7 @@
 import { Tag } from "lucide-react-native";
 import React from "react";
 import {
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -41,8 +42,12 @@ export function ExploreTagIconLabel({
       <View
         pointerEvents="none"
         style={styles.iconWrap}
-        accessibilityElementsHidden
-        importantForAccessibility="no"
+        {...(Platform.OS === "web"
+          ? ({ "aria-hidden": true } as const)
+          : {
+              accessibilityElementsHidden: true,
+              importantForAccessibility: "no" as const,
+            })}
       >
         <Tag size={iconSize} color={color} strokeWidth={2.2} />
       </View>

@@ -125,8 +125,12 @@ export function ClearIconCircleDecoration({
   return (
     <View
       pointerEvents="none"
-      accessibilityElementsHidden
-      importantForAccessibility="no"
+      {...(Platform.OS === "web"
+        ? ({ "aria-hidden": true } as const)
+        : {
+            accessibilityElementsHidden: true,
+            importantForAccessibility: "no" as const,
+          })}
       style={[
         styles.decorationWrap,
         {

@@ -58,7 +58,7 @@ export function SearchSurface<T>({
   pinCounts,
   onPinFilterChange,
   tagFilterOptions = [],
-  selectedTagFilterId = null,
+  selectedTagFilterIds = [],
   onTagFilterChange,
   tagFilterEditMode = false,
   onTagFilterEnterEditMode,
@@ -72,6 +72,7 @@ export function SearchSurface<T>({
   onInputFocus,
   onInputBlur,
   searchInputAutoFocus = true,
+  placesFiltersBar,
 }: SearchSurfaceProps<T>) {
   const [searchInputFocused, setSearchInputFocused] = useState(false);
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
@@ -121,7 +122,8 @@ export function SearchSurface<T>({
       }
     : {};
 
-  const showTagFilterRow = tagFilterOptions.length > 0 && onTagFilterChange != null;
+  const showLegacyInlineTagFilter =
+    placesFiltersBar == null && tagFilterOptions.length > 0 && onTagFilterChange != null;
 
   return (
     <View style={styles.contentWrap}>
@@ -147,7 +149,10 @@ export function SearchSurface<T>({
       <View
         style={[
           styles.searchRow,
-          { marginBottom: showTagFilterRow ? Spacing.sm : Spacing.md },
+          {
+            marginBottom:
+              placesFiltersBar != null || showLegacyInlineTagFilter ? Spacing.xs : Spacing.md,
+          },
         ]}
       >
         <View
@@ -188,17 +193,24 @@ export function SearchSurface<T>({
           />
         </View>
       </View>
-      {showTagFilterRow ? (
-        <ExploreTagFilterChipRow
-          variant="search"
-          tagFilterOptions={tagFilterOptions}
-          selectedTagFilterId={selectedTagFilterId ?? null}
-          onTagFilterChange={onTagFilterChange!}
-          tagFilterEditMode={tagFilterEditMode}
-          onTagFilterEnterEditMode={onTagFilterEnterEditMode}
-          onTagFilterExitEditMode={onTagFilterExitEditMode}
-          onRequestDeleteUserTag={onRequestDeleteUserTag}
-        />
+      {placesFiltersBar != null ? placesFiltersBar : null}
+      {showLegacyInlineTagFilter ? (
+        <>
+          <Text style={[styles.tagFilterOrHint, { color: colors.textSecondary }]}>
+            Se muestran lugares que tengan <Text style={{ fontWeight: '700' }}>cualquiera</Text> de las
+            etiquetas seleccionadas.
+          </Text>
+          <ExploreTagFilterChipRow
+            variant="search"
+            tagFilterOptions={tagFilterOptions}
+            selectedTagFilterIds={selectedTagFilterIds}
+            onTagFilterChange={onTagFilterChange!}
+            tagFilterEditMode={tagFilterEditMode}
+            onTagFilterEnterEditMode={onTagFilterEnterEditMode}
+            onTagFilterExitEditMode={onTagFilterExitEditMode}
+            onRequestDeleteUserTag={onRequestDeleteUserTag}
+          />
+        </>
       ) : null}
       <View style={styles.resultsArea}>
         {!shouldRenderResultsOnEmpty &&
@@ -463,6 +475,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     marginBottom: Spacing.xs,
+  },
+  /** Misma tipografía que `explore-places-filters-modal` (`sectionHint`). */
+  tagFilterOrHint: {
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
   },
   suggestionsSection: { marginBottom: Spacing.base },
   cardsList: { gap: Spacing.sm },

@@ -54,7 +54,7 @@ export function SearchFloatingNative<T>({
   pinCounts,
   onPinFilterChange,
   tagFilterOptions = [],
-  selectedTagFilterId = null,
+  selectedTagFilterIds = [],
   onTagFilterChange,
   tagFilterEditMode = false,
   onTagFilterEnterEditMode,
@@ -63,6 +63,7 @@ export function SearchFloatingNative<T>({
   placeSuggestions = [],
   onCreateFromPlace,
   searchInputAutoFocus = true,
+  placesFiltersBar,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -193,7 +194,7 @@ export function SearchFloatingNative<T>({
                     pinCounts={pinCounts}
                     onPinFilterChange={onPinFilterChange}
                     tagFilterOptions={tagFilterOptions}
-                    selectedTagFilterId={selectedTagFilterId}
+                    selectedTagFilterIds={selectedTagFilterIds}
                     onTagFilterChange={onTagFilterChange}
                     tagFilterEditMode={tagFilterEditMode}
                     onTagFilterEnterEditMode={onTagFilterEnterEditMode}
@@ -204,6 +205,7 @@ export function SearchFloatingNative<T>({
                     onClosePress={requestClose}
                     scrollViewKeyboardDismissMode="on-drag"
                     searchInputAutoFocus={searchInputAutoFocus}
+                    placesFiltersBar={placesFiltersBar}
                 />
               </KeyboardAvoidingView>
             </View>

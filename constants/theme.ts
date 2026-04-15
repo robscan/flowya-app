@@ -106,6 +106,14 @@ const pinPlannedDark = '#e6862b';
 const pinVisitedDark = '#34c759';
 const pinOutlineDark = '#ffffff';
 const locationPrimaryDark = '#0a84ff';
+/**
+ * Chip filtro país/ubicación en Explorar: café / tierra (distinto de `tint` etiqueta y azul `location.primary` mapa).
+ * Contraste con `surfaceOnMap`: fondo suficientemente oscuro en claro y oscuro.
+ */
+const explorePlacesCountryChipBgLight = '#6b4e3d';
+const explorePlacesCountryChipBorderLight = '#543c30';
+const explorePlacesCountryChipBgDark = '#7d604c';
+const explorePlacesCountryChipBorderDark = '#5f4839';
 const mapPinSpotDefaultFillDark = '#6D8FAF';
 const mapPinSpotDefaultStrokeDark = '#0E1520';
 const mapPinSpotDefaultLabelTextDark = '#C8D9EA';
@@ -153,6 +161,8 @@ export const Colors = {
     countriesCounterToVisitBorder: countriesCounterToVisitBorderLight,
     countriesCounterVisitedBorder: countriesCounterVisitedBorderLight,
     searchPanelAllBackground: searchPanelAllBackgroundLight,
+    explorePlacesCountryChipBackground: explorePlacesCountryChipBgLight,
+    explorePlacesCountryChipBorder: explorePlacesCountryChipBorderLight,
     tint: primaryLight,
     icon: textSecondaryLight,
     tabIconDefault: textSecondaryLight,
@@ -259,6 +269,8 @@ export const Colors = {
     countriesCounterToVisitBorder: countriesCounterToVisitBorderDark,
     countriesCounterVisitedBorder: countriesCounterVisitedBorderDark,
     searchPanelAllBackground: searchPanelAllBackgroundDark,
+    explorePlacesCountryChipBackground: explorePlacesCountryChipBgDark,
+    explorePlacesCountryChipBorder: explorePlacesCountryChipBorderDark,
     tint: primaryDark,
     icon: textSecondaryDark,
     tabIconDefault: textSecondaryDark,

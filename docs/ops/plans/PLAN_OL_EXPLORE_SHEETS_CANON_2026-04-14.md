@@ -17,6 +17,7 @@
 - Matriz operativa: [`docs/contracts/EXPLORE_SHEETS_BEHAVIOR_MATRIX.md`](../../contracts/EXPLORE_SHEETS_BEHAVIOR_MATRIX.md).
 - Chrome shell: [`docs/contracts/EXPLORE_CHROME_SHELL.md`](../../contracts/EXPLORE_CHROME_SHELL.md).
 - Filtros / restore: [`docs/contracts/explore/FILTER_RUNTIME_RULES.md`](../../contracts/explore/FILTER_RUNTIME_RULES.md).
+- Implementación reciente (persistencia país+etiquetas, precedencia filtro mapa vs ruta `CountriesSheet`, QA KPI Lugares): bitácora [`359`](../bitacora/2026/04/359-explore-lugares-filtros-persistencia-pais-etiquetas-a11y-web-2026-04-14.md).
 
 ## 3. Fases de ejecución (orden blindado)
 
