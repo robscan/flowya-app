@@ -195,15 +195,23 @@ export default function AccountScreenWeb() {
   const onRemoveAvatar = useCallback(async () => {
     if (!sessionReady || avatarBusy || !profile?.avatar_storage_path) return;
     setAvatarBusy(true);
+    const previousAvatarPath = profile.avatar_storage_path;
     try {
-      await deleteMyProfileAvatarObject(profile.avatar_storage_path);
+      // Primero persistimos en DB que ya no hay avatar. Si este paso falla, no borramos
+      // el archivo para evitar pérdida irreversible de la imagen anterior.
       const { data, error } = await updateMyProfile({ avatar_storage_path: null });
       if (error) {
         toast.show(error.message, { type: 'error' });
-        setAvatarBusy(false);
         return;
       }
       setProfile(data);
+      const deleted = await deleteMyProfileAvatarObject(previousAvatarPath);
+      if (!deleted) {
+        toast.show('Foto quitada del perfil, pero no se pudo limpiar el archivo anterior.', {
+          type: 'default',
+        });
+        return;
+      }
       toast.show('Foto eliminada', { type: 'success' });
     } finally {
       setAvatarBusy(false);
