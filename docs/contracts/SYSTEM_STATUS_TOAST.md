@@ -22,10 +22,10 @@ Documentación histórica de implementación base: bitácora `233` (`OL-P1-003`)
 
 ### 1.1 Tipos de mensaje (`options.type`)
 
-- `default` — **Paleta neutra invertida** (`resolveToastNeutralPalette`): máximo contraste respecto al tema de la app.
+- `default` — **Paleta neutra invertida** (`resolveToastNeutralPalette`): máximo contraste respecto al tema de la app. Uso canónico para **feedback de UI** que no es guardado ni creación (p. ej. **cambio de filtro de pins** en Explore, copiar enlace, resumen al portapapeles, descarga de imagen de compartir).
   - **Dark UI** → fondo blanco semitransparente, texto negro.
   - **Light UI** → fondo oscuro semitransparente, texto blanco.
-- `success` — Fondo **`Colors[state].stateSuccess`**, texto blanco, borde sutil; icono `CheckCircle2` decorativo (oculto para VoiceOver).
+- `success` — Fondo **`Colors[state].stateSuccess`**, texto blanco, borde sutil; icono `CheckCircle2` decorativo (oculto para VoiceOver). Reservado a **persistencia exitosa** o **creación** de contenido (guardar spot/estado pin, imagen o descripción en ficha, crear o eliminar etiqueta de usuario, etc.).
 - `error` — Fondo **`Colors[state].stateError`**, texto blanco, borde sutil; icono `AlertCircle` decorativo.
 - **Varios mensajes visibles:** cada fila usa la paleta de **su** `type` (no se mezclan colores en un solo bloque).
 
