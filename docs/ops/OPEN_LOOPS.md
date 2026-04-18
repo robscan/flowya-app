@@ -1,5 +1,7 @@
 # OPEN_LOOPS — Flowya (alcance activo)
 
+**Sincronización 2026-04-18:** **`OL-EXPLORE-WEB-ZOOM-GUARD-001` retirado** del backlog operativo; nuevos OL de QA (Explore + toast) en § **Backlog QA Explore + toast (2026-04-18)**. Evidencia: bitácora `360`.
+
 **Fecha:** 2026-04-14 — **`OL-PROFILE-001` cerrado** (2026-04-12: cuenta web, perfil DB, avatar Storage, email + actividad; **paridad nativa diferida** — [`354`](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md)). **Avance Explore documentado:** bitácora [`358`](../bitacora/2026/04/358-explore-tags-map-countries-kpi-search-ux-2026-04-14.md) (etiquetas en mapa, Countries KPI/búsqueda, listados/buscador); bitácora [`359`](../bitacora/2026/04/359-explore-lugares-filtros-persistencia-pais-etiquetas-a11y-web-2026-04-14.md) (persistencia país+etiquetas, precedencia filtro vs ruta sheet, fin reset KPI Lugares, hidratación por uid, a11y web, orden chips). Loop ejecutivo activo: **`OL-CONTENT-001`**. **Siguiente en cola (1.º):** **`OL-EXPLORE-SHEETS-CANON-001`**. *(Cierres previos: `OL-SECURITY-VALIDATION-001` — [`353`](../bitacora/2026/04/353-ol-security-validation-001-cierre.md); `OL-PRIVACY-001` — [`350`](../bitacora/2026/04/350-ol-privacy-001-politica-y-ruta-privacidad.md); `OL-CONTENT-002` — [`347`](../bitacora/2026/04/347-ol-content-002-cierre-web-galeria-paridad-deferida.md); `OL-WEB-RESPONSIVE-001` — [`345`](../bitacora/2026/04/345-ol-web-responsive-cierre-sidebar-mapa-paises-docs.md).)*
 
 > Fuente operativa diaria del alcance activo.
@@ -26,6 +28,20 @@
 
 ---
 
+## Backlog QA Explore + toast (2026-04-18)
+
+Origen: revisión QA producto. **No** están en la cola «En espera» hasta priorización explícita; orden de trabajo sugerido:
+
+1. **P1** `OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001` — Coherencia de filtros en UI: **chips activos siempre en orden etiquetas → país** en todas las superficies (`MapScreenVNext`, barra lugares, búsqueda, vitrinas DS si aplica). **Contadores alineados:** mismo criterio numérico en botón KPI del mapa, listado **Lugares** y resultados de **búsqueda**; documentar contrato (qué cuenta: viewport vs query vs filtros OR país+tags) antes de implementar.
+2. **P1** `OL-SYSTEM-TOAST-SEMANTIC-STABLE-001` — **Estabilidad:** analizar saltos/recalculo de posición (`setAnchor` / reflows); fijar reglas canónicas en [`SYSTEM_STATUS_TOAST.md`](../contracts/SYSTEM_STATUS_TOAST.md). **Semántica visual:** error/success usando tokens existentes `stateError` / `stateSuccess` en [`theme.ts`](../../constants/theme.ts) + contraste WCAG; no solo color (icono / live region). Ampliar vitrina **ds-comp-toast** en [`app/design-system.web.tsx`](../../app/design-system.web.tsx).
+3. **P2** `OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001` — Entrada a filtros: botón **primario**, copy **«Etiquetas y filtros»**, **una sola línea** buscador + acceso (texto truncado). Declarar alcance web vs nativo al abrir el OL.
+4. **P3** `OL-EXPLORE-FILTERS-MODAL-SIDEBAR-001` — Modal filtros: **hints** que expliquen por qué aparecen bloques de etiquetas y de países; **botón edición de etiquetas**; variante **sidebar** desktop. Dependencia *suave* con `OL-EXPLORE-SHEETS-CANON-001` si comparten medición/shell.
+5. **P3** `OL-EXPLORE-COUNTRIES-SHEET-LAYOUT-001` — Sheet países **con mapa:** quitar buscador y filtros de esa variante (mantenerlos en sheet **lugares**). Spike UX: medium mapa primero, extended lista con **scroll en todo el contenido** y listado sin corte inferior. Puede coordinarse con `OL-EXPLORE-SHEETS-CANON-001`.
+
+**Riesgos:** contadores sin definición medible; orden chips puede afectar overflow horizontal en móvil; toast con color global implica revisar todos los `show(..., type)`.
+
+---
+
 ## Alcances nuevos (2026-04-12) — inventario
 
 | OL | Alcance | Plan / contrato |
@@ -37,6 +53,11 @@
 | **OL-PROFILE-001** (**cerrado** 2026-04-12, **web-first**; paridad nativa cuenta diferida) | `profiles`, `/account` web, Storage avatares, email + actividad | [PLAN_OL_PROFILE…](plans/PLAN_OL_PROFILE_001_ROBUST_USER_PROFILE_2026-03-28.md), [PROFILE_AUTH_CONTRACT_CURRENT.md](../contracts/PROFILE_AUTH_CONTRACT_CURRENT.md), bitácora [`354`](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md) |
 | **OL-CONTENT-CLIMATE-UNITS-001** | Normales climáticas por estación en Supabase; tap °C↔°F y km↔mi | [PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md](plans/PLAN_OL_CLIMATE_SEASONAL_AND_UNITS_V1.md) |
 | **OL-I18N-EN-001** | EN en Explore + auth + flujos spot + mapa + DS (preview); locale unificado | [APP_LOCALE_AND_MAP_LANGUAGE.md](../contracts/APP_LOCALE_AND_MAP_LANGUAGE.md), [PLAN_EXECUTION_POST_WR001…](plans/PLAN_EXECUTION_POST_WR001_2026-04-12.md) |
+| **OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001** (2026-04-18) | Orden chips etiquetas→país; contadores KPI mapa + lugares + búsqueda; contrato numérico | § *Backlog QA Explore + toast*; código: `explore-places-active-filters-bar`, `MapScreenVNext`, `SearchSurface` |
+| **OL-SYSTEM-TOAST-SEMANTIC-STABLE-001** (2026-04-18) | Ancla estable + variantes success/error + DS | [`SYSTEM_STATUS_TOAST.md`](../contracts/SYSTEM_STATUS_TOAST.md), `system-status-bar.tsx`, § *Backlog QA* |
+| **OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001** (2026-04-18) | Botón primario, copy, fila única con buscador | § *Backlog QA* |
+| **OL-EXPLORE-FILTERS-MODAL-SIDEBAR-001** (2026-04-18) | Hints, edición etiquetas, sidebar | § *Backlog QA*; `explore-places-filters-modal` |
+| **OL-EXPLORE-COUNTRIES-SHEET-LAYOUT-001** (2026-04-18) | Sheet países+mapa: chrome, scroll, layout medium/extended | § *Backlog QA*; `CountriesSheet`, matriz sheets |
 
 ---
 
