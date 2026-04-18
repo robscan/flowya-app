@@ -157,10 +157,11 @@ export function CountriesSheet({
   /** Vista resumen de países: título del host. Listado de lugares: título fijo «Lugares»; el ámbito país/Todos va en la fila inferior. */
   const listViewHeaderTitle = useMemo(() => {
     if (countryDetail?.kind === "all_places" || countryDetail?.kind === "country") {
-      return "Lugares";
+      const n = countryDetailSpots.length;
+      return n > 0 ? `Lugares (${n})` : "Lugares";
     }
     return title;
-  }, [countryDetail, title]);
+  }, [countryDetail, title, countryDetailSpots.length]);
 
   const colors = useMemo(() => {
     const base = Colors[activeScheme];

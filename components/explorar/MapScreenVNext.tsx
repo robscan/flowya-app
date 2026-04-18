@@ -3878,6 +3878,29 @@ export function MapScreenVNext() {
     [spots, countriesOverlayFilter],
   );
 
+  /**
+   * Contador «lugares» del KPI (burbuja mapa + sheet) alineado con OR de etiquetas y alcance país en listado.
+   * Sin etiquetas y sin alcance país por lista coincide con la suma de buckets (`countriesPlacesCountForOverlay`).
+   */
+  const exploreMapKpiPlacesCount = useMemo(() => {
+    if (pinFilter !== "saved" && pinFilter !== "visited") {
+      return countriesPlacesCountForOverlay;
+    }
+    let pool = countriesSheetOverlaySpotsPool;
+    if (placesScopeForData?.kind === "country") {
+      const key = placesScopeForData.key;
+      pool = pool.filter((spot) => resolveCountryForSpot(spot)?.key === key);
+    }
+    return filterExploreSearchItemsByTag(pool, selectedTagFilterIds, pinTagIndex).length;
+  }, [
+    pinFilter,
+    countriesSheetOverlaySpotsPool,
+    placesScopeForData,
+    selectedTagFilterIds,
+    pinTagIndex,
+    countriesPlacesCountForOverlay,
+  ]);
+
   /** Países en modal Filtros: con etiqueta(s) activa(s), solo buckets que tengan spots que cumplan OR de etiquetas. */
   const countryBucketsForPlacesFiltersModal = useMemo(() => {
     if (selectedTagFilterIds.length === 0) return countriesBucketsForOverlay;
@@ -4423,7 +4446,7 @@ export function MapScreenVNext() {
       const result = await shareCountriesCard({
         title,
         countriesCount: countriesCountForOverlay,
-        spotsCount: countriesPlacesCountForOverlay,
+        spotsCount: exploreMapKpiPlacesCount,
         worldPercentage: countriesWorldPercentageForOverlay,
         accentColor,
         mapSnapshotDataUrl: countriesMapSnapshot,
@@ -4456,7 +4479,7 @@ export function MapScreenVNext() {
     countriesBucketsForOverlay,
     countriesCountForOverlay,
     countriesMapSnapshot,
-    countriesPlacesCountForOverlay,
+    exploreMapKpiPlacesCount,
     countriesWorldPercentageForOverlay,
     colorScheme,
     toast,
@@ -6236,7 +6259,7 @@ export function MapScreenVNext() {
           items={countriesBucketsForOverlay}
           worldPercentage={countriesWorldPercentageForOverlay}
           summaryCountriesCount={countriesCountForOverlay}
-          summaryPlacesCount={countriesPlacesCountForOverlay}
+          summaryPlacesCount={exploreMapKpiPlacesCount}
           onCountriesKpiPress={handleCountriesKpiPress}
           onSpotsKpiPress={handleCountriesSpotsKpiPress}
           onSearchPress={openSearchPreservingCountriesSheet}
@@ -6347,7 +6370,7 @@ export function MapScreenVNext() {
                   },
                 ]}
               >
-                {String(countriesPlacesCountForOverlay)}
+                {String(exploreMapKpiPlacesCount)}
               </Text>
               <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
                 lugares
@@ -6514,7 +6537,7 @@ export function MapScreenVNext() {
                 items={countriesBucketsForOverlay}
                 worldPercentage={countriesWorldPercentageForOverlay}
                 summaryCountriesCount={countriesCountForOverlay}
-                summaryPlacesCount={countriesPlacesCountForOverlay}
+                summaryPlacesCount={exploreMapKpiPlacesCount}
                 onCountriesKpiPress={handleCountriesKpiPress}
                 onSpotsKpiPress={handleCountriesSpotsKpiPress}
                 onSearchPress={openSearchPreservingCountriesSheet}
@@ -6614,8 +6637,10 @@ export function MapScreenVNext() {
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
         resultsSummaryLabel={
-          searchV2.query.trim().length >= 3 && kpiSpotsSearchResults.length > 0
-            ? `${kpiSpotsSearchResults.length} resultados de «${searchV2.query.trim()}»`
+          kpiSpotsSearchResults.length > 0
+            ? searchV2.query.trim().length >= 3
+              ? `${kpiSpotsSearchResults.length} resultados de «${searchV2.query.trim()}»`
+              : `${kpiSpotsSearchResults.length} lugares`
             : undefined
         }
         showResultsOnEmpty={showFilteredResultsOnEmpty}
