@@ -67,6 +67,7 @@ import {
   type CountriesSheetListDetail,
   type CountriesSheetState,
 } from "@/components/explorar/CountriesSheet";
+import type { CountrySheetItem } from "@/components/design-system/countries-sheet-types";
 import {
   ExplorePlacesActiveFilterChips,
   ExplorePlacesActiveFiltersBar,
@@ -5761,6 +5762,48 @@ export function MapScreenVNext() {
     ? sidebarPresenceSnapshotRef.current.panelKey
     : exploreSidebarPanelKey;
 
+  /** Filtros Lugares en columna desktop (sin Modal fullscreen) cuando el panel países está visible y Search no tapa. */
+  const embedExplorePlacesFiltersInDesktopSidebar =
+    Platform.OS === "web" &&
+    webDesktopExploreSplitLayout &&
+    countriesForDesktopSidebarPanel &&
+    !searchV2.isOpen;
+
+  const explorePlacesFiltersModalProps = useMemo(
+    () => ({
+      onClose: () => setExplorePlacesFiltersOpen(false),
+      countryItems: countryBucketsForPlacesFiltersModal,
+      countryDetail: placesScopeForData,
+      onSelectAllPlaces: () => {
+        applyPlacesScopeAllPlaces();
+        setExplorePlacesFiltersOpen(false);
+      },
+      onSelectCountry: (item: CountrySheetItem) => {
+        handleCountryBucketPress(item);
+        setExplorePlacesFiltersOpen(false);
+      },
+      tagFilterOptions: countriesSheetDetailTagFilterOptions,
+      selectedTagFilterIds,
+      onTagFilterChange: setSelectedTagFilterIds,
+      tagFilterEditMode,
+      onTagFilterEnterEditMode: isAuthUser ? () => setTagFilterEditMode(true) : undefined,
+      onTagFilterExitEditMode: isAuthUser ? () => setTagFilterEditMode(false) : undefined,
+      onRequestDeleteUserTag: isAuthUser ? handleRequestDeleteUserTag : undefined,
+      showTagsSection: isAuthUser,
+    }),
+    [
+      countryBucketsForPlacesFiltersModal,
+      placesScopeForData,
+      applyPlacesScopeAllPlaces,
+      handleCountryBucketPress,
+      countriesSheetDetailTagFilterOptions,
+      selectedTagFilterIds,
+      tagFilterEditMode,
+      isAuthUser,
+      handleRequestDeleteUserTag,
+    ],
+  );
+
   /** Mapa a ancho completo: el hueco del sidebar es padding de Mapbox (centro lógico), sin `resize()` por animación de ancho. */
   useEffect(() => {
     if (!mapInstance) return;
@@ -6489,26 +6532,9 @@ export function MapScreenVNext() {
         onClose={() => setShowBetaModal(false)}
       />
       <ExplorePlacesFiltersModal
-        visible={explorePlacesFiltersOpen}
-        onClose={() => setExplorePlacesFiltersOpen(false)}
-        countryItems={countryBucketsForPlacesFiltersModal}
-        countryDetail={placesScopeForData}
-        onSelectAllPlaces={() => {
-          applyPlacesScopeAllPlaces();
-          setExplorePlacesFiltersOpen(false);
-        }}
-        onSelectCountry={(item) => {
-          handleCountryBucketPress(item);
-          setExplorePlacesFiltersOpen(false);
-        }}
-        tagFilterOptions={countriesSheetDetailTagFilterOptions}
-        selectedTagFilterIds={selectedTagFilterIds}
-        onTagFilterChange={setSelectedTagFilterIds}
-        tagFilterEditMode={tagFilterEditMode}
-        onTagFilterEnterEditMode={isAuthUser ? () => setTagFilterEditMode(true) : undefined}
-        onTagFilterExitEditMode={isAuthUser ? () => setTagFilterEditMode(false) : undefined}
-        onRequestDeleteUserTag={isAuthUser ? handleRequestDeleteUserTag : undefined}
-        showTagsSection={isAuthUser}
+        presentation="modal"
+        visible={explorePlacesFiltersOpen && !embedExplorePlacesFiltersInDesktopSidebar}
+        {...explorePlacesFiltersModalProps}
       />
       <CreateSpotNameOverlay
         visible={createSpotNameOverlayOpen}
@@ -6538,46 +6564,63 @@ export function MapScreenVNext() {
             {spotForDesktopSidebarPanel ? (
               renderExploreSpotSheet(true)
             ) : countriesForDesktopSidebarPanel ? (
-              <CountriesSheet
-                visible={countriesSheetOpen}
-                title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
-                filterMode={countriesOverlayFilter}
-                state={countriesSheetState}
-                forceColorScheme={countriesOverlayScheme}
-                items={countriesBucketsForOverlay}
-                worldPercentage={countriesWorldPercentageForOverlay}
-                summaryCountriesCount={countriesCountForOverlay}
-                summaryPlacesCount={exploreMapKpiPlacesCount}
-                onCountriesKpiPress={handleCountriesKpiPress}
-                onSpotsKpiPress={handleCountriesSpotsKpiPress}
-                onSearchPress={openSearchPreservingCountriesSheet}
-                onStateChange={setCountriesSheetState}
-                onClose={handleCountriesSheetClose}
-                onShare={handleCountriesSheetShare}
-                shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
-                onItemPress={handleCountryBucketPress}
-                onSheetHeightChange={setCountriesSheetHeight}
-                onMapSnapshotChange={setCountriesMapSnapshot}
-                onMapCountryPress={handleCountriesMapCountryPress}
-                countryDetail={countriesSheetListView}
-                onCountryDetailBack={handleCountryDetailBack}
-                countryDetailSpots={countriesSheetDetailSpots}
-                countryDetailSpotSections={countriesSheetDetailSpotSections}
-                renderCountryDetailItem={renderCountryDetailItem}
-                placesListFilterBar={placesListFilterBarEl}
-                placesListFilterBarEmbedsSheetSearch={
-                  isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
-                }
-                countryDetailTagFilterSignature={
-                  countriesSheetListView != null
-                    ? selectedTagFilterIds.length === 0
-                      ? "none"
-                      : [...selectedTagFilterIds].sort().join("|")
-                    : null
-                }
-                webDesktopSidebar
-                webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
-              />
+              <View style={styles.exploreSidebarCountriesHost}>
+                <CountriesSheet
+                  visible={countriesSheetOpen}
+                  title={countriesOverlayFilter === "saved" ? "Países por visitar" : "Países visitados"}
+                  filterMode={countriesOverlayFilter}
+                  state={countriesSheetState}
+                  forceColorScheme={countriesOverlayScheme}
+                  items={countriesBucketsForOverlay}
+                  worldPercentage={countriesWorldPercentageForOverlay}
+                  summaryCountriesCount={countriesCountForOverlay}
+                  summaryPlacesCount={exploreMapKpiPlacesCount}
+                  onCountriesKpiPress={handleCountriesKpiPress}
+                  onSpotsKpiPress={handleCountriesSpotsKpiPress}
+                  onSearchPress={openSearchPreservingCountriesSheet}
+                  onStateChange={setCountriesSheetState}
+                  onClose={handleCountriesSheetClose}
+                  onShare={handleCountriesSheetShare}
+                  shareDisabled={isCountriesShareInFlight || !countriesMapSnapshot}
+                  onItemPress={handleCountryBucketPress}
+                  onSheetHeightChange={setCountriesSheetHeight}
+                  onMapSnapshotChange={setCountriesMapSnapshot}
+                  onMapCountryPress={handleCountriesMapCountryPress}
+                  countryDetail={countriesSheetListView}
+                  onCountryDetailBack={handleCountryDetailBack}
+                  countryDetailSpots={countriesSheetDetailSpots}
+                  countryDetailSpotSections={countriesSheetDetailSpotSections}
+                  renderCountryDetailItem={renderCountryDetailItem}
+                  placesListFilterBar={placesListFilterBarEl}
+                  placesListFilterBarEmbedsSheetSearch={
+                    isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+                  }
+                  countryDetailTagFilterSignature={
+                    countriesSheetListView != null
+                      ? selectedTagFilterIds.length === 0
+                        ? "none"
+                        : [...selectedTagFilterIds].sort().join("|")
+                      : null
+                  }
+                  webDesktopSidebar
+                  webDesktopSidebarPanelWidth={countriesDesktopSidebarPanelWidth}
+                />
+                {explorePlacesFiltersOpen && embedExplorePlacesFiltersInDesktopSidebar ? (
+                  <View
+                    style={[
+                      styles.exploreSidebarFiltersOverlay,
+                      { backgroundColor: exploreSidebarPalette.backgroundElevated },
+                    ]}
+                    pointerEvents="auto"
+                  >
+                    <ExplorePlacesFiltersModal
+                      presentation="sidebarPanel"
+                      visible
+                      {...explorePlacesFiltersModalProps}
+                    />
+                  </View>
+                ) : null}
+              </View>
             ) : (
               <ExploreWelcomeSheet
                 webExploreLayout="desktopSidebar"
@@ -7082,6 +7125,16 @@ const styles = StyleSheet.create({
     minHeight: 0,
     /** Web flex: evita clip horizontal raro al cambiar ancho sidebar (400↔720). */
     minWidth: 0,
+  },
+  exploreSidebarCountriesHost: {
+    flex: 1,
+    minHeight: 0,
+    minWidth: 0,
+    position: "relative",
+  },
+  exploreSidebarFiltersOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
   },
   map: {
     flex: 1,

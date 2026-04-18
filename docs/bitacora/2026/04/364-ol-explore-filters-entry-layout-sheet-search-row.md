@@ -18,9 +18,9 @@ Cerrar **`OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001`**: en la ventana Lugares, orden v
 
 En **Por visitar / Visitados** con barra de filtros Lugares: **fila** buscador + CTA, luego chips si hay. En el overlay **Search** (`SearchSurface` + `placesFiltersBar` como función), **misma fila**: pastilla `SearchInputV2` + CTA, chips debajo — paridad con el sheet (sin buscador ancho completo duplicado encima del CTA).
 
-## Deuda — microcopy CTA vs modal
+## Microcopy CTA vs modal (resuelto en `365`)
 
-No había un ítem posterior en cola solo para el texto del botón: **`OL-EXPLORE-FILTERS-MODAL-SIDEBAR-001`** (cola §4) es el sitio natural para **unificar copy** entre la entrada sheet (**«Etiquetas y filtros»**, provisional) y el título del modal [`ExplorePlacesFiltersModal`](../../../components/explorar/explore-places-filters-modal.tsx) (**«Filtros»** hoy). Queda explícito en `OPEN_LOOPS` §4.
+La alineación del título del modal con el CTA sheet quedó en **`OL-EXPLORE-FILTERS-MODAL-SIDEBAR-001`** — bitácora [`365`](365-ol-explore-filters-modal-sidebar-hints-embedded.md) (`Etiquetas y filtros` en ambos).
 
 ## Referencia operativa
 
