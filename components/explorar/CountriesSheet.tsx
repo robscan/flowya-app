@@ -463,12 +463,11 @@ export function CountriesSheet({
     mediumVisible,
     expandedVisible,
   );
-  const tagDetailGap =
-    isCountryDetailMode && placesListFilterBar != null ? DETAIL_TAG_ROW_HEIGHT + Spacing.sm : 0;
   const maxBodyHeight = isCountryDetailMode
     ? Math.max(
         0,
-        visibleHeightForState - collapsedAnchor - tagDetailGap - CONTAINER_PADDING_BOTTOM,
+        /** Buscador + barra filtros van en `ListHeaderComponent` del listado (scroll único con filas). */
+        visibleHeightForState - collapsedAnchor - CONTAINER_PADDING_BOTTOM,
       )
     : Math.max(
         0,
@@ -485,6 +484,11 @@ export function CountriesSheet({
   const showCountryListSection = webDesktopSidebar || state === "expanded";
   const kpiCountryListUsesParentScroll = showCountryListSection && !isCountryDetailMode;
   const expandedListMaxHeight = Math.max(120, maxListHeight);
+  /** Aire bajo la última fila del listado (fila ~44px + home / gesto); evita que quede «media cortada» como en expanded móvil. */
+  const kpiScrollContentBottomPad = Math.max(
+    Spacing.xxxl + Spacing.lg,
+    CONTAINER_PADDING_BOTTOM + insets.bottom + Spacing.xxl,
+  );
   const bottomOffset = layoutState === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
   const previewCountryCodes = items
     .map((item) => item.key.match(/^iso:([A-Z]{2})$/)?.[1] ?? null)
@@ -508,6 +512,37 @@ export function CountriesSheet({
     isCountryDetailMode &&
     onSearchPress != null &&
     !(placesListFilterBarEmbedsSheetSearch && placesListFilterBar != null);
+
+  const renderPlacesDetailListHeader = useCallback(
+    () => (
+      <>
+        {showStandaloneCountriesSearch ? (
+          <View style={styles.countriesSearchLauncherWrap} pointerEvents="box-none">
+            <SearchLauncherField
+              variant="sheet"
+              onPress={onSearchPress}
+              placeholder="Busca: países, regiones o lugares"
+              accessibilityLabel="Abrir búsqueda"
+            />
+          </View>
+        ) : null}
+        {placesListFilterBar}
+      </>
+    ),
+    [onSearchPress, placesListFilterBar, showStandaloneCountriesSearch],
+  );
+
+  const placesDetailListEmpty = useMemo(
+    () => (
+      <View style={styles.emptyWrap}>
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          No hay lugares con este criterio. Prueba a quitar el filtro de etiqueta.
+        </Text>
+      </View>
+    ),
+    [colors.textSecondary],
+  );
+
   const sheetAnimated = (
     <Animated.View
       style={[
@@ -572,7 +607,7 @@ export function CountriesSheet({
           </GestureDetector>
         )}
 
-        {showStandaloneCountriesSearch ? (
+        {!isCountryDetailMode && showStandaloneCountriesSearch ? (
           <View style={styles.countriesSearchLauncherWrap} pointerEvents="box-none">
             <SearchLauncherField
               variant="sheet"
@@ -585,75 +620,86 @@ export function CountriesSheet({
       </View>
 
       {isCountryDetailMode ? (
-        <>
-          {placesListFilterBar}
-          {!showPlacesList ? null : (
+        <View style={styles.placesDetailBodyRoot}>
+          {!showPlacesList || renderCountryDetailItem == null ? null : (
             <Animated.View
               style={[
+                styles.placesDetailListOuter,
                 styles.listEntranceWrap,
                 webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
-                { maxHeight: expandedListMaxHeight },
+                styles.listEntranceWrapPlacesDetail,
                 listEntranceAnimatedStyle,
               ]}
             >
               {countryDetailSpots.length === 0 ? (
-                <View style={styles.emptyWrap}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-                    No hay lugares con este criterio. Prueba a quitar el filtro de etiqueta.
-                  </Text>
-                </View>
-              ) : renderCountryDetailItem != null ? (
-                countryDetailSpotSections != null &&
+                <FlatList
+                  data={[]}
+                  keyExtractor={(_, i) => `e-${i}`}
+                  renderItem={() => <View />}
+                  ListHeaderComponent={renderPlacesDetailListHeader}
+                  ListEmptyComponent={placesDetailListEmpty}
+                  contentContainerStyle={[
+                    styles.placesDetailListContent,
+                    { paddingBottom: kpiScrollContentBottomPad },
+                  ]}
+                  style={styles.detailPlacesVirtualized}
+                  keyboardShouldPersistTaps="handled"
+                />
+              ) : countryDetailSpotSections != null &&
                 countryDetailSpotSections.some((s) => s.items.length > 0) ? (
-                  <SectionList
-                    sections={countryDetailSpotSections
-                      .filter((s) => s.items.length > 0)
-                      .map((s) => ({ title: s.title, data: s.items }))}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
-                    )}
-                    renderSectionHeader={({ section: { title } }) => (
-                      <Text
-                        style={[styles.placesSectionHeader, { color: colors.textSecondary }]}
-                        accessibilityRole="header"
-                      >
-                        {title}
-                      </Text>
-                    )}
-                    style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
-                    keyboardShouldPersistTaps="handled"
-                    stickySectionHeadersEnabled={false}
-                    windowSize={8}
-                  />
-                ) : (
-                  <FlatList
-                    data={countryDetailSpots}
-                    keyExtractor={(item) => item.id}
-                    renderItem={({ item }) => (
-                      <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
-                    )}
-                    style={[styles.detailPlacesFlatList, { maxHeight: expandedListMaxHeight }]}
-                    keyboardShouldPersistTaps="handled"
-                    windowSize={8}
-                  />
-                )
-              ) : null}
+                <SectionList
+                  sections={countryDetailSpotSections
+                    .filter((s) => s.items.length > 0)
+                    .map((s) => ({ title: s.title, data: s.items }))}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
+                  )}
+                  renderSectionHeader={({ section: { title } }) => (
+                    <Text
+                      style={[styles.placesSectionHeader, { color: colors.textSecondary }]}
+                      accessibilityRole="header"
+                    >
+                      {title}
+                    </Text>
+                  )}
+                  ListHeaderComponent={renderPlacesDetailListHeader}
+                  contentContainerStyle={[
+                    styles.placesDetailListContent,
+                    { paddingBottom: kpiScrollContentBottomPad },
+                  ]}
+                  style={styles.detailPlacesVirtualized}
+                  keyboardShouldPersistTaps="handled"
+                  stickySectionHeadersEnabled={false}
+                  windowSize={8}
+                />
+              ) : (
+                <FlatList
+                  data={countryDetailSpots}
+                  keyExtractor={(item) => item.id}
+                  renderItem={({ item }) => (
+                    <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
+                  )}
+                  ListHeaderComponent={renderPlacesDetailListHeader}
+                  contentContainerStyle={[
+                    styles.placesDetailListContent,
+                    { paddingBottom: kpiScrollContentBottomPad },
+                  ]}
+                  style={styles.detailPlacesVirtualized}
+                  keyboardShouldPersistTaps="handled"
+                  windowSize={8}
+                />
+              )}
             </Animated.View>
           )}
-        </>
+        </View>
       ) : (
         <View style={styles.kpiBodyRoot}>
           <ScrollView
             style={styles.kpiBodyScroll}
             contentContainerStyle={[
-              styles.kpiBodyScrollContent,
-              {
-                paddingBottom: Math.max(
-                  Spacing.xl,
-                  CONTAINER_PADDING_BOTTOM + insets.bottom + Spacing.md,
-                ),
-              },
+              !showCountryListSection ? styles.kpiBodyScrollContentFill : null,
+              { paddingBottom: kpiScrollContentBottomPad },
             ]}
             showsVerticalScrollIndicator
             keyboardShouldPersistTaps="handled"
@@ -692,7 +738,7 @@ export function CountriesSheet({
             </View>
             {!webDesktopSidebar && !isCountryDetailMode && !showCountryListSection ? (
               <Text style={[styles.countriesMapHint, { color: colors.textSecondary }]} accessibilityRole="text">
-                Toca el mapa para acercarte volar hasta ahí
+                Toca la imagen del mapa para volar hasta ahí
               </Text>
             ) : null}
             {filterMode === "visited" ? (
@@ -918,8 +964,30 @@ const styles = StyleSheet.create({
   kpiBodyScroll: {
     flex: 1,
   },
-  kpiBodyScrollContent: {
+  /** Solo sin lista larga: el scroll KPI rellena el hueco bajo el mapa sin forzar altura mínima cuando hay listado (evita clip de última fila). */
+  kpiBodyScrollContentFill: {
     flexGrow: 1,
+  },
+  /** Modo Lugares: cuerpo bajo cabecera fija (lista virtualizada + header de scroll). */
+  placesDetailBodyRoot: {
+    flex: 1,
+    minHeight: 0,
+    alignSelf: "stretch",
+  },
+  placesDetailListOuter: {
+    flex: 1,
+    minHeight: 0,
+    width: "100%",
+  },
+  placesDetailListContent: {
+    flexGrow: 1,
+  },
+  detailPlacesVirtualized: {
+    flex: 1,
+    width: "100%",
+  },
+  listEntranceWrapPlacesDetail: {
+    overflow: "visible",
   },
   placesScopeMenuDropWrap: {
     position: "absolute",

@@ -129,13 +129,18 @@ export function placeResultFromSpotForCamera(
 /**
  * Encuadre unificado: fitBounds cuando el bbox aplica; si no, flyTo con zoom de área o SPOT_FOCUS_ZOOM.
  */
+type FitBoundsPadding =
+  | number
+  | { top: number; right: number; bottom: number; left: number };
+
 export function applyExploreCameraForPlace(
   map: MapboxMap | null,
   place: PlaceResult,
   flyTo: (center: { lng: number; lat: number }, options?: { zoom?: number; duration?: number }) => void,
-  options?: { duration?: number },
+  options?: { duration?: number; fitBoundsPadding?: FitBoundsPadding },
 ): void {
   const duration = options?.duration ?? FIT_BOUNDS_DURATION_MS;
+  const fitPadding = options?.fitBoundsPadding ?? FIT_BOUNDS_PADDING;
   if (map && shouldFitBoundsForPlace(place) && place.bbox) {
     const { west, south, east, north } = place.bbox;
     try {
@@ -144,7 +149,7 @@ export function applyExploreCameraForPlace(
           [west, south],
           [east, north],
         ],
-        { padding: FIT_BOUNDS_PADDING, duration },
+        { padding: fitPadding, duration },
       );
       return;
     } catch {

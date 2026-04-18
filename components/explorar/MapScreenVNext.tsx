@@ -630,6 +630,8 @@ export function MapScreenVNext() {
     sidebarCountries: false,
     fitBoundsLeftPad: 0,
   });
+  /** Mismo `padLeft` que `map.setPadding` en split web (bienvenida / países / spot). */
+  const exploreMapStageLeftInsetRef = useRef(0);
   /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
   const exploreAuthUserIdRef = useRef<string | null>(null);
   /**
@@ -719,6 +721,8 @@ export function MapScreenVNext() {
   userTagsRef.current = userTags;
   const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
   const [selectedTagFilterIds, setSelectedTagFilterIds] = useState<string[]>([]);
+  const selectedTagFilterIdsRef = useRef<string[]>(selectedTagFilterIds);
+  selectedTagFilterIdsRef.current = selectedTagFilterIds;
   /**
    * Ruta del sheet Países/Lugares: `null` = vista KPI (lista de países); no null = listado Lugares.
    * Independiente del alcance de filtro en mapa — ver `explorePlacesCountryFilter`.
@@ -1753,6 +1757,16 @@ export function MapScreenVNext() {
     (spot: Spot) => {
       if (!mapInstance) return;
       suspendFilterUntilCameraSettles();
+      const leftInset = exploreMapStageLeftInsetRef.current;
+      const fitBoundsPadding =
+        leftInset > 0
+          ? {
+              top: FIT_BOUNDS_PADDING,
+              right: FIT_BOUNDS_PADDING,
+              bottom: FIT_BOUNDS_PADDING,
+              left: FIT_BOUNDS_PADDING + leftInset,
+            }
+          : FIT_BOUNDS_PADDING;
       applyExploreCameraForPlace(
         mapInstance,
         placeResultFromSpotForCamera(spot, {
@@ -1761,6 +1775,7 @@ export function MapScreenVNext() {
           maki: spot.linked_maki ?? null,
         }),
         flyToUnlessActMode,
+        { fitBoundsPadding },
       );
     },
     [mapInstance, flyToUnlessActMode, suspendFilterUntilCameraSettles],
@@ -1951,6 +1966,23 @@ export function MapScreenVNext() {
       setTagFilterEditMode,
       clearExplorePlacesFiltersSnapshot,
     ],
+  );
+
+  /** Etiquetas en mapa (modal / buscador): toast al activar nuevas (OR); quitar etiqueta no dispara aquí. */
+  const handleMapExploreTagFilterChange = useCallback(
+    (next: string[]) => {
+      const prev = selectedTagFilterIdsRef.current;
+      const added = next.filter((id) => !prev.includes(id));
+      setSelectedTagFilterIds(next);
+      if (suppressToastRef.current || added.length === 0) return;
+      const labels = added.map((id) => userTags.find((t) => t.id === id)?.name ?? "Etiqueta");
+      const body =
+        labels.length === 1
+          ? `Filtro por etiqueta: ${labels[0]}.`
+          : `Filtro por ${labels.length} etiquetas: ${labels.slice(0, 3).join(", ")}${labels.length > 3 ? "…" : "."}`;
+      toast.show(body, { type: "default", replaceVisible: true });
+    },
+    [toast, userTags],
   );
 
   const defaultSpots = useMemo(() => {
@@ -2548,12 +2580,13 @@ export function MapScreenVNext() {
     (tagId: string) => {
       const spot = selectedSpot;
       suppressSearchInputAutofocusRef.current = true;
-      setPinFilter(spot?.visited === true ? "visited" : "saved");
-      setSelectedTagFilterIds([tagId]);
+      const mode = spot?.visited === true ? "visited" : "saved";
+      handlePinFilterChange(mode, { reframe: false });
+      handleMapExploreTagFilterChange([tagId]);
       setTagFilterEditMode(false);
       searchV2.setOpen(true);
     },
-    [setPinFilter, searchV2, selectedSpot],
+    [handleMapExploreTagFilterChange, handlePinFilterChange, searchV2, selectedSpot],
   );
 
   const handleSheetEtiquetarFromSheet = useCallback(() => {
@@ -2937,21 +2970,7 @@ export function MapScreenVNext() {
           toFilter: pinFilter,
         });
         setSheetState("medium");
-        suspendFilterUntilCameraSettles();
-        applyExploreCameraForPlace(
-          mapInstance,
-          {
-            id: existingSpot.id,
-            name: existingSpot.title,
-            lat: existingSpot.latitude,
-            lng: existingSpot.longitude,
-            bbox: existingSpot.mapbox_bbox ?? undefined,
-            source: "mapbox",
-            maki: existingSpot.linked_maki ?? undefined,
-            featureType: existingSpot.mapbox_feature_type ?? undefined,
-          },
-          flyToUnlessActMode,
-        );
+        focusCameraOnSpot(existingSpot);
         return;
       }
       captureCountriesBeforeSpotFnRef.current();
@@ -2978,13 +2997,24 @@ export function MapScreenVNext() {
       });
       setSheetState("medium");
       suspendFilterUntilCameraSettles();
-      applyExploreCameraForPlace(mapInstance, targetPlace, flyToUnlessActMode);
+      const leftInset = exploreMapStageLeftInsetRef.current;
+      const fitBoundsPadding =
+        leftInset > 0
+          ? {
+              top: FIT_BOUNDS_PADDING,
+              right: FIT_BOUNDS_PADDING,
+              bottom: FIT_BOUNDS_PADDING,
+              left: FIT_BOUNDS_PADDING + leftInset,
+            }
+          : FIT_BOUNDS_PADDING;
+      applyExploreCameraForPlace(mapInstance, targetPlace, flyToUnlessActMode, { fitBoundsPadding });
     },
     [
       deactivateSearchColdStartBootstrap,
       searchV2,
       spots,
       flyToUnlessActMode,
+      focusCameraOnSpot,
       setSheetState,
       pinFilter,
       mapInstance,
@@ -4448,7 +4478,15 @@ export function MapScreenVNext() {
       });
       setSheetState("medium");
       pushRecentViewedSpotId(spot.id);
-      focusCameraOnSpot(spot);
+      /** Tras cerrar panel/sidebar, un frame para `setPadding` + ref antes de encuadre (desktop split). */
+      const runFocus = () => focusCameraOnSpot(spot);
+      if (Platform.OS === "web") {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(runFocus);
+        });
+      } else {
+        requestAnimationFrame(runFocus);
+      }
     },
     [
       deactivateSearchColdStartBootstrap,
@@ -4467,9 +4505,16 @@ export function MapScreenVNext() {
         key: country.key,
         label: country.label,
       };
+      const prevCountry = explorePlacesCountryFilterRef.current;
       setCountriesSheetListView(next);
       setExplorePlacesCountryFilter(next);
       setCountriesSheetState("expanded");
+      if (
+        !suppressToastRef.current &&
+        (prevCountry?.kind !== "country" || prevCountry.key !== next.key)
+      ) {
+        toast.show(`Mostrando solo ${next.label}.`, { type: "default", replaceVisible: true });
+      }
       const layout = exploreCountriesDesktopLayoutRef.current;
       const forCountry = countriesSheetOverlaySpotsPool.filter(
         (spot) => resolveCountryForSpot(spot)?.key === country.key,
@@ -4496,6 +4541,7 @@ export function MapScreenVNext() {
       mapInstance,
       setCountriesSheetState,
       suspendFilterUntilCameraSettles,
+      toast,
     ],
   );
   const handleCountriesSheetShare = useCallback(async () => {
@@ -4662,9 +4708,13 @@ export function MapScreenVNext() {
 
   /** Un solo sitio para «quitar país» en mapa + sheet + modal (ambos estados de alcance). */
   const applyPlacesScopeAllPlaces = useCallback(() => {
+    const prev = explorePlacesCountryFilterRef.current;
     setExplorePlacesCountryFilter({ kind: "all_places" });
     setCountriesSheetListView({ kind: "all_places" });
-  }, []);
+    if (!suppressToastRef.current && prev?.kind === "country") {
+      toast.show("Filtro de país desactivado.", { type: "default", replaceVisible: true });
+    }
+  }, [toast]);
 
   const placesListFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
@@ -5855,6 +5905,11 @@ export function MapScreenVNext() {
     sidebarCountries: countriesInSidebarDesktop,
     fitBoundsLeftPad: countriesInSidebarDesktop ? exploreDesktopSidebarPanelWidthForRender : 0,
   };
+  exploreMapStageLeftInsetRef.current =
+    webDesktopExploreSplitLayout &&
+    (hasDesktopSidebarPanel || sidebarPresencePhase === "exiting")
+      ? exploreDesktopSidebarPanelWidthForRender
+      : 0;
 
   /** Filtros Lugares en columna desktop (sin Modal fullscreen) cuando el panel países está visible y Search no tapa. */
   const embedExplorePlacesFiltersInDesktopSidebar =
@@ -5878,7 +5933,7 @@ export function MapScreenVNext() {
       },
       tagFilterOptions: countriesSheetDetailTagFilterOptions,
       selectedTagFilterIds,
-      onTagFilterChange: setSelectedTagFilterIds,
+      onTagFilterChange: handleMapExploreTagFilterChange,
       tagFilterEditMode,
       onTagFilterEnterEditMode: isAuthUser ? () => setTagFilterEditMode(true) : undefined,
       onTagFilterExitEditMode: isAuthUser ? () => setTagFilterEditMode(false) : undefined,
@@ -5895,6 +5950,7 @@ export function MapScreenVNext() {
       tagFilterEditMode,
       isAuthUser,
       handleRequestDeleteUserTag,
+      handleMapExploreTagFilterChange,
     ],
   );
 
@@ -5906,6 +5962,7 @@ export function MapScreenVNext() {
       (hasDesktopSidebarPanel || sidebarPresencePhase === "exiting")
         ? exploreDesktopSidebarPanelWidthForRender
         : 0;
+    exploreMapStageLeftInsetRef.current = padLeft;
     try {
       mapInstance.setPadding({ top: 0, right: 0, bottom: 0, left: padLeft });
     } catch {
@@ -6762,7 +6819,7 @@ export function MapScreenVNext() {
         }
         onTagFilterChange={
           isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
-            ? setSelectedTagFilterIds
+            ? handleMapExploreTagFilterChange
             : undefined
         }
         tagFilterEditMode={

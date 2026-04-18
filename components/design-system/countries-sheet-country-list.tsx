@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
   },
   /** Misma separación vertical que `listScroll` + `listContent` sin duplicar `marginTop`. */
   embeddedRoot: {
-    paddingBottom: Spacing.lg,
+    paddingBottom: Spacing.xxl,
   },
   item: {
     minHeight: 44,
