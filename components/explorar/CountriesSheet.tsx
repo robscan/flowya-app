@@ -717,7 +717,14 @@ export function CountriesSheet({
                 background: colors.background,
                 backgroundElevated: colors.backgroundElevated,
               }}
-              onCountriesKpiPress={showCountryListSection ? undefined : onCountriesKpiPress}
+              countriesKpiExpanded={!webDesktopSidebar && state === 'expanded'}
+              countriesKpiExpandedAccentColor={previewLineCountryColor}
+              /**
+               * En móvil, con sheet `expanded` el listado de países ya es visible pero el KPI debe seguir
+               * recibiendo taps para plegar a `medium` (toggle). En sidebar desktop el host suele usar otros
+               * entry points; ahí no exponemos el press en el KPI para no duplicar comportamiento.
+               */
+              onCountriesKpiPress={webDesktopSidebar ? undefined : onCountriesKpiPress}
               onSpotsKpiPress={onSpotsKpiPress}
               onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
             />
@@ -734,7 +741,7 @@ export function CountriesSheet({
                 onCountryPress={onMapCountryPress}
               />
             </View>
-            {!webDesktopSidebar && !isCountryDetailMode && !showCountryListSection ? (
+            {!webDesktopSidebar && !isCountryDetailMode ? (
               <Text style={[styles.countriesMapHint, { color: colors.textSecondary }]} accessibilityRole="text">
                 Toca la imagen del mapa para volar hasta ahí
               </Text>

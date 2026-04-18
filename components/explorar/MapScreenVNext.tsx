@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { ChevronRight, X } from "lucide-react-native";
 import {
   Fragment,
   useCallback,
@@ -4482,7 +4482,6 @@ export function MapScreenVNext() {
   const handleCountriesKpiPress = useCallback(() => {
     if (createSpotNameOverlayOpen) return;
     const listView = countriesSheetListView;
-    const sheetState = countriesSheetState;
     if (!countriesSheetOpen) {
       openCountriesSheetForFilter(countriesOverlayFilter, { requireMounted: true });
       setCountriesSheetListView(null);
@@ -4494,8 +4493,23 @@ export function MapScreenVNext() {
       return;
     }
     const sidebarCountries = exploreCountriesDesktopLayoutRef.current.sidebarCountries;
-    if (!sidebarCountries && sheetState === "medium") {
-      setCountriesSheetState("expanded");
+    /**
+     * Toggle UX (vista «Países», solo fuera de sidebar desktop):
+     * - `medium` → `expanded` (listado países completo).
+     * - segundo tap en `expanded` → `medium` (plegar).
+     *
+     * En desktop con panel países, no alternar expand/collapse con este KPI (panel estable).
+     */
+    if (!sidebarCountries) {
+      if (countriesSheetState === "medium") {
+        setCountriesSheetState("expanded");
+        return;
+      }
+      if (countriesSheetState === "expanded") {
+        setCountriesSheetState("medium");
+        return;
+      }
+    } else if (countriesSheetState === "expanded") {
       return;
     }
     setCountriesSheetState("medium");
@@ -6622,19 +6636,26 @@ export function MapScreenVNext() {
                   : "Abrir sheet de países visitados"
               }
             >
-              <Text
-                style={[
-                  styles.countriesValue,
-                  {
-                    color:
-                      countriesOverlayFilter === "saved"
-                        ? countriesOverlayColors.stateToVisit
-                        : countriesOverlayColors.stateSuccess,
-                  },
-                ]}
-              >
-                {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
-              </Text>
+              <View style={styles.countriesKpiValueRow}>
+                <Text
+                  style={[
+                    styles.countriesValue,
+                    {
+                      color:
+                        countriesOverlayFilter === "saved"
+                          ? countriesOverlayColors.stateToVisit
+                          : countriesOverlayColors.stateSuccess,
+                    },
+                  ]}
+                >
+                  {countriesCountForOverlay == null ? "—" : String(countriesCountForOverlay)}
+                </Text>
+                <ChevronRight
+                  size={14}
+                  color={countriesOverlayColors.primary}
+                  strokeWidth={2.2}
+                />
+              </View>
               <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
                 Países
               </Text>
@@ -6643,7 +6664,6 @@ export function MapScreenVNext() {
               onPress={handleCountriesSpotsKpiPress}
               style={({ pressed }) => [
                 styles.countriesCircle,
-                styles.countriesSpotsCircle,
                 {
                   backgroundColor: countriesCounterBackgroundColor,
                   borderColor: countriesCounterBorderColor,
@@ -6653,19 +6673,26 @@ export function MapScreenVNext() {
               accessibilityRole="button"
               accessibilityLabel="Ver todos los lugares del filtro en el sheet"
             >
-              <Text
-                style={[
-                  styles.countriesValue,
-                  {
-                    color:
-                      countriesOverlayFilter === "saved"
-                        ? countriesOverlayColors.stateToVisit
-                        : countriesOverlayColors.stateSuccess,
-                  },
-                ]}
-              >
-                {String(exploreMapKpiPlacesCount)}
-              </Text>
+              <View style={styles.countriesKpiValueRow}>
+                <Text
+                  style={[
+                    styles.countriesValue,
+                    {
+                      color:
+                        countriesOverlayFilter === "saved"
+                          ? countriesOverlayColors.stateToVisit
+                          : countriesOverlayColors.stateSuccess,
+                    },
+                  ]}
+                >
+                  {String(exploreMapKpiPlacesCount)}
+                </Text>
+                <ChevronRight
+                  size={14}
+                  color={countriesOverlayColors.primary}
+                  strokeWidth={2.2}
+                />
+              </View>
               <Text style={[styles.countriesLabel, { color: countriesOverlayColors.textSecondary }]}>
                 lugares
               </Text>
@@ -7482,8 +7509,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   countriesCircle: {
-    width: 64,
+    minWidth: 64,
     height: 64,
+    paddingHorizontal: 6,
     borderRadius: 32,
     borderWidth: 1,
     alignItems: "center",
@@ -7498,10 +7526,18 @@ const styles = StyleSheet.create({
   countriesCirclePressed: {
     opacity: 0.86,
   },
+  /** Número + chevron (paridad visual con `CountriesSheetKpiRow`). */
+  countriesKpiValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 0,
+  },
   countriesValue: {
     fontSize: 18,
     fontWeight: "700",
     lineHeight: 20,
+    flexShrink: 1,
   },
   countriesLabel: {
     fontSize: 10,
@@ -7510,10 +7546,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
     marginTop: 2,
-  },
-  countriesSpotsCircle: {
-    width: 64,
-    height: 64,
   },
   exploreWelcomeReopenTitle: {
     fontSize: 12,

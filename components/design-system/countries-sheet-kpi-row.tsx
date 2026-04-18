@@ -2,11 +2,11 @@
  * Fila KPI del sheet de países: países · lugares · flows (CountriesSheet).
  */
 
-import { ChevronRight } from 'lucide-react-native';
+import { ChevronDown, ChevronRight, List } from 'lucide-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
-import { Elevation, Radius, Spacing } from '@/constants/theme';
+import { Shadow, Spacing } from '@/constants/theme';
 
 export type CountriesSheetKpiRowColors = {
   text: string;
@@ -29,6 +29,13 @@ export type CountriesSheetKpiRowProps = {
   onCountriesKpiPress?: () => void;
   onSpotsKpiPress?: () => void;
   onLayout?: (e: LayoutChangeEvent) => void;
+  /**
+   * Sheet móvil en `expanded`: mismo tap que en `medium`, pero aspecto de “plegar”
+   * (borde + icono en color de línea / acento).
+   */
+  countriesKpiExpanded?: boolean;
+  /** Borde e icono del KPI países en modo expandido (p. ej. línea del mapa preview o `border` del panel). */
+  countriesKpiExpandedAccentColor?: string;
 };
 
 export function CountriesSheetKpiRow({
@@ -40,36 +47,51 @@ export function CountriesSheetKpiRow({
   onCountriesKpiPress,
   onSpotsKpiPress,
   onLayout,
+  countriesKpiExpanded = false,
+  countriesKpiExpandedAccentColor,
 }: CountriesSheetKpiRowProps) {
   const countriesIsButton = onCountriesKpiPress != null;
   const placesIsButton = onSpotsKpiPress != null;
   const chipBorder = colors.borderInteractive ?? colors.borderSubtle;
+  const countriesExpandedAccent =
+    countriesKpiExpandedAccentColor ?? colors.borderInteractive ?? colors.primary;
+  const countriesCircleBorder = countriesKpiExpanded && countriesIsButton ? countriesExpandedAccent : chipBorder;
   return (
     <View style={styles.summaryWrap} onLayout={onLayout}>
       <Pressable
         onPress={onCountriesKpiPress}
         disabled={onCountriesKpiPress == null}
         style={({ pressed }) => [
-          styles.summaryChip,
-          countriesIsButton ? styles.summaryChipButton : null,
+          styles.kpiCircle,
           countriesIsButton
             ? {
-                borderColor: chipBorder,
-                backgroundColor: pressed ? colors.background : colors.backgroundElevated,
-                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Elevation.subtle } as const) : null),
+                borderColor: countriesCircleBorder,
+                backgroundColor: colors.backgroundElevated,
+                opacity: pressed ? 0.86 : 1,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Shadow.subtle } as const) : null),
               }
             : null,
         ]}
         accessibilityRole={onCountriesKpiPress ? 'button' : undefined}
-        accessibilityLabel={onCountriesKpiPress ? 'Ver lista completa de países' : undefined}
+        accessibilityLabel={
+          onCountriesKpiPress
+            ? countriesKpiExpanded
+              ? 'Plegar lista de países'
+              : 'Ver lista completa de países'
+            : undefined
+        }
       >
         <View style={styles.kpiValueRow}>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
           {countriesIsButton ? (
-            <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+            countriesKpiExpanded ? (
+              <ChevronDown size={14} color={countriesExpandedAccent} strokeWidth={2.2} />
+            ) : (
+              <List size={14} color={colors.primary} strokeWidth={2.2} />
+            )
           ) : null}
         </View>
-        <Text style={[styles.summaryLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
+        <Text style={[styles.kpiLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
           países
         </Text>
       </Pressable>
@@ -77,13 +99,13 @@ export function CountriesSheetKpiRow({
         onPress={onSpotsKpiPress}
         disabled={onSpotsKpiPress == null}
         style={({ pressed }) => [
-          styles.summaryChip,
-          placesIsButton ? styles.summaryChipButton : null,
+          styles.kpiCircle,
           placesIsButton
             ? {
                 borderColor: chipBorder,
-                backgroundColor: pressed ? colors.background : colors.backgroundElevated,
-                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Elevation.subtle } as const) : null),
+                backgroundColor: colors.backgroundElevated,
+                opacity: pressed ? 0.86 : 1,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Shadow.subtle } as const) : null),
               }
             : null,
         ]}
@@ -91,12 +113,12 @@ export function CountriesSheetKpiRow({
         accessibilityLabel={onSpotsKpiPress ? 'Ver listado de lugares en el sheet' : undefined}
       >
         <View style={styles.kpiValueRow}>
-          <Text style={[styles.summaryValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
+          <Text style={[styles.kpiValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
           {placesIsButton ? (
             <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
           ) : null}
         </View>
-        <Text style={[styles.summaryLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
+        <Text style={[styles.kpiLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
           lugares
         </Text>
       </Pressable>
@@ -125,17 +147,16 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     paddingHorizontal: Spacing.base,
   },
-  summaryChip: {
+  kpiCircle: {
     flex: 1,
-    minHeight: 40,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: 5,
+    minWidth: 64,
+    height: 64,
+    paddingHorizontal: 6,
+    borderRadius: 32,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  summaryChipButton: {
-    borderWidth: 1,
-    borderRadius: Radius.searchSurfacePill,
+    ...Shadow.subtle,
   },
   kpiValueRow: {
     flexDirection: 'row',
@@ -146,6 +167,27 @@ const styles = StyleSheet.create({
   kpiLabelBelow: {
     marginTop: 1,
     textAlign: 'center',
+  },
+  kpiValue: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    lineHeight: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  summaryChip: {
+    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   summaryValue: {
     fontSize: 16,
