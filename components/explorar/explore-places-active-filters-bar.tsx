@@ -1,6 +1,8 @@
 /**
- * Barra: chips activos (fila superior) + botón «Filtros y etiquetas» debajo, bajo el buscador del sheet.
- * Orden de chips activos: **etiquetas primero, país después** (OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001 / QA).
+ * Barra: chips activos (fila superior) + entrada **Etiquetas y filtros** (OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001).
+ * Con `filtersSearchInline`, misma fila que el launcher de búsqueda del sheet (truncado en placeholder).
+ * Sin inline (p. ej. overlay Search): solo botón primario debajo de chips.
+ * Orden de chips: **etiquetas primero, país después** (OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001).
  * El panel completo de edición vive en `ExplorePlacesFiltersModal`.
  *
  * Contraste (referencia WCAG 2.1 AA, texto UI):
@@ -11,6 +13,7 @@
 
 import { ClearIconCircleDecoration } from "@/components/design-system/clear-icon-circle";
 import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
+import { SearchLauncherField } from "@/components/design-system/search-launcher-field";
 import type { CountriesSheetListDetail } from "@/components/design-system/countries-sheet-types";
 import { Radius, Spacing } from "@/constants/theme";
 import { Globe, SlidersHorizontal } from "lucide-react-native";
@@ -24,7 +27,7 @@ export type ExplorePlacesActiveFiltersBarColors = {
   text: string;
   textSecondary: string;
   borderSubtle: string;
-  /** Entrada «Filtros y etiquetas» (borde sutil). */
+  /** Superficie secundaria (launcher buscador en fila compuesta). */
   background: string;
   /** Texto/icono sobre chips de acento (mismo contraste que en mapa). */
   surfaceOnMap: string;
@@ -148,6 +151,14 @@ export function ExplorePlacesActiveFilterChips({
   );
 }
 
+const FILTERS_ENTRY_LABEL = "Etiquetas y filtros";
+
+export type ExplorePlacesFiltersSearchInline = {
+  onPress: () => void;
+  placeholder: string;
+  accessibilityLabel?: string;
+};
+
 export type ExplorePlacesActiveFiltersBarProps = {
   colors: ExplorePlacesActiveFiltersBarColors;
   countryDetail: CountriesSheetListDetail | null;
@@ -156,6 +167,8 @@ export type ExplorePlacesActiveFiltersBarProps = {
   activeTags: { id: string; label: string }[];
   onClearTagFilter: (tagId: string) => void;
   showTagChips: boolean;
+  /** Misma fila que el launcher de búsqueda (sheet Lugares); el host oculta el buscador duplicado arriba. */
+  filtersSearchInline?: ExplorePlacesFiltersSearchInline;
 };
 
 export function ExplorePlacesActiveFiltersBar({
@@ -166,6 +179,7 @@ export function ExplorePlacesActiveFiltersBar({
   activeTags,
   onClearTagFilter,
   showTagChips,
+  filtersSearchInline,
 }: ExplorePlacesActiveFiltersBarProps) {
   const hasActiveChips =
     (showTagChips && activeTags.length > 0) ||
@@ -192,23 +206,54 @@ export function ExplorePlacesActiveFiltersBar({
         </ScrollView>
       ) : null}
 
-      <Pressable
-        onPress={onOpenFiltersPanel}
-        style={({ pressed }) => [
-          styles.filtersEntry,
-          webNoSelect,
-          {
-            borderColor: colors.borderSubtle,
-            backgroundColor: colors.background,
-            opacity: pressed ? 0.88 : 1,
-          },
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel="Abrir filtros y etiquetas de lugares"
-      >
-        <SlidersHorizontal size={16} color={colors.textSecondary} strokeWidth={2.2} />
-        <Text style={[styles.filtersEntryLabel, { color: colors.text }]}>Filtros y etiquetas</Text>
-      </Pressable>
+      {filtersSearchInline != null ? (
+        <View style={[styles.entrySearchRow, webNoSelect]}>
+          <Pressable
+            onPress={onOpenFiltersPanel}
+            style={({ pressed }) => [
+              styles.filtersEntryPrimary,
+              {
+                backgroundColor: colors.tagChipBackground,
+                borderColor: colors.tagChipBackground,
+                opacity: pressed ? 0.9 : 1,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir etiquetas y filtros de lugares"
+          >
+            <SlidersHorizontal size={16} color={colors.surfaceOnMap} strokeWidth={2.2} />
+            <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]} numberOfLines={1}>
+              {FILTERS_ENTRY_LABEL}
+            </Text>
+          </Pressable>
+          <View style={styles.inlineSearchWrap}>
+            <SearchLauncherField
+              variant="sheet"
+              onPress={filtersSearchInline.onPress}
+              placeholder={filtersSearchInline.placeholder}
+              accessibilityLabel={filtersSearchInline.accessibilityLabel}
+            />
+          </View>
+        </View>
+      ) : (
+        <Pressable
+          onPress={onOpenFiltersPanel}
+          style={({ pressed }) => [
+            styles.filtersEntryPrimarySolo,
+            webNoSelect,
+            {
+              backgroundColor: colors.tagChipBackground,
+              borderColor: colors.tagChipBackground,
+              opacity: pressed ? 0.9 : 1,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir etiquetas y filtros de lugares"
+        >
+          <SlidersHorizontal size={16} color={colors.surfaceOnMap} strokeWidth={2.2} />
+          <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]}>{FILTERS_ENTRY_LABEL}</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -231,12 +276,36 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     paddingRight: Spacing.xs,
   },
-  filtersEntry: {
-    alignSelf: "flex-start",
+  entrySearchRow: {
+    flexDirection: "row",
+    alignItems: "stretch",
+    alignSelf: "stretch",
+    gap: Spacing.sm,
+    minWidth: 0,
+  },
+  inlineSearchWrap: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+  },
+  filtersEntryPrimary: {
+    flexShrink: 0,
+    maxWidth: "46%",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.searchSurfacePill,
+    borderWidth: 1,
+  },
+  filtersEntryPrimarySolo: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
     paddingHorizontal: Spacing.sm,
     borderRadius: Radius.md,
     borderWidth: 1,

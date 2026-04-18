@@ -89,6 +89,11 @@ type CountriesSheetProps = {
   renderCountryDetailItem?: (spot: SearchResultCardProps["spot"]) => React.ReactNode;
   /** Barra «Filtros» + chips activos; el panel completo lo monta el host (`ExplorePlacesFiltersModal`). */
   placesListFilterBar?: React.ReactNode;
+  /**
+   * Si es true y hay `placesListFilterBar`, el buscador del header del sheet va **dentro** de esa barra
+   * (fila única con truncado); no se renderiza el `SearchLauncherField` suelto arriba.
+   */
+  placesListFilterBarEmbedsSheetSearch?: boolean;
   /** Para animación de entrada de lista (sincronizado con filtro de etiqueta en el host). */
   /** Firma estable del filtro de etiquetas (p. ej. ids ordenados) para animación de lista. */
   countryDetailTagFilterSignature?: string | null;
@@ -113,8 +118,8 @@ const MAP_PREVIEW_HEIGHT = 176;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 const PROGRESS_BLOCK_HEIGHT = 62;
-/** Fila chips + gap + botón «Filtros y etiquetas» bajo el buscador (sheet lugares). */
-const DETAIL_TAG_ROW_HEIGHT = 96;
+/** Fila chips + gap + fila entrada (botón primario ± buscador inline) en sheet lugares. */
+const DETAIL_TAG_ROW_HEIGHT = 108;
 const DETAIL_LIST_MIN_HEIGHT = 240;
 /** Entrada de listas (países / lugares) en medium o expanded: fade + slide suave. */
 const LIST_ENTRANCE_MS = 300;
@@ -147,6 +152,7 @@ export function CountriesSheet({
   countryDetailSpotSections = null,
   renderCountryDetailItem,
   placesListFilterBar,
+  placesListFilterBarEmbedsSheetSearch = false,
   countryDetailTagFilterSignature = null,
   webDesktopSidebar = false,
   webDesktopSidebarPanelWidth = WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
@@ -494,6 +500,9 @@ export function CountriesSheet({
   const currentTravelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
   const currentTravelerLevel = resolveTravelerLevelByPoints(currentTravelerPoints);
   const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
+  const showStandaloneCountriesSearch =
+    onSearchPress != null &&
+    !(placesListFilterBarEmbedsSheetSearch && placesListFilterBar != null);
   const sheetAnimated = (
     <Animated.View
       style={[
@@ -558,7 +567,7 @@ export function CountriesSheet({
           </GestureDetector>
         )}
 
-        {onSearchPress ? (
+        {showStandaloneCountriesSearch ? (
           <View style={styles.countriesSearchLauncherWrap} pointerEvents="box-none">
             <SearchLauncherField
               variant="sheet"

@@ -4590,6 +4590,11 @@ export function MapScreenVNext() {
           setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
         }}
         showTagChips={isAuthUser}
+        filtersSearchInline={{
+          onPress: openSearchPreservingCountriesSheet,
+          placeholder: "Busca: países, regiones o lugares",
+          accessibilityLabel: "Abrir búsqueda",
+        }}
       />
     );
   }, [
@@ -4599,6 +4604,7 @@ export function MapScreenVNext() {
     placesListFiltersBarColors,
     placesListActiveTags,
     applyPlacesScopeAllPlaces,
+    openSearchPreservingCountriesSheet,
   ]);
 
   /** Misma fila que el sheet Lugares, pero visible aunque `countriesSheetListView` sea null (solo búsqueda). */
@@ -6277,6 +6283,9 @@ export function MapScreenVNext() {
           countryDetailSpotSections={countriesSheetDetailSpotSections}
           renderCountryDetailItem={renderCountryDetailItem}
           placesListFilterBar={placesListFilterBarEl}
+          placesListFilterBarEmbedsSheetSearch={
+            isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+          }
           countryDetailTagFilterSignature={
             countriesSheetListView != null
               ? selectedTagFilterIds.length === 0
@@ -6555,6 +6564,9 @@ export function MapScreenVNext() {
                 countryDetailSpotSections={countriesSheetDetailSpotSections}
                 renderCountryDetailItem={renderCountryDetailItem}
                 placesListFilterBar={placesListFilterBarEl}
+                placesListFilterBarEmbedsSheetSearch={
+                  isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
+                }
                 countryDetailTagFilterSignature={
                   countriesSheetListView != null
                     ? selectedTagFilterIds.length === 0
