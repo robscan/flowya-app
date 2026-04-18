@@ -6,13 +6,15 @@ import { ChevronRight } from 'lucide-react-native';
 import React from 'react';
 import { Platform, Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 
-import { Spacing } from '@/constants/theme';
+import { Elevation, Radius, Spacing } from '@/constants/theme';
 
 export type CountriesSheetKpiRowColors = {
   text: string;
   textSecondary: string;
   primary: string;
   borderSubtle: string;
+  /** Borde chips accionables; por defecto se usa `borderSubtle`. */
+  borderInteractive?: string;
   background: string;
   backgroundElevated: string;
 };
@@ -41,6 +43,7 @@ export function CountriesSheetKpiRow({
 }: CountriesSheetKpiRowProps) {
   const countriesIsButton = onCountriesKpiPress != null;
   const placesIsButton = onSpotsKpiPress != null;
+  const chipBorder = colors.borderInteractive ?? colors.borderSubtle;
   return (
     <View style={styles.summaryWrap} onLayout={onLayout}>
       <Pressable
@@ -51,9 +54,9 @@ export function CountriesSheetKpiRow({
           countriesIsButton ? styles.summaryChipButton : null,
           countriesIsButton
             ? {
-                borderColor: colors.borderSubtle,
-                backgroundColor: pressed ? colors.backgroundElevated : colors.background,
-                ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null),
+                borderColor: chipBorder,
+                backgroundColor: pressed ? colors.background : colors.backgroundElevated,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Elevation.subtle } as const) : null),
               }
             : null,
         ]}
@@ -78,9 +81,9 @@ export function CountriesSheetKpiRow({
           placesIsButton ? styles.summaryChipButton : null,
           placesIsButton
             ? {
-                borderColor: colors.borderSubtle,
-                backgroundColor: pressed ? colors.backgroundElevated : colors.background,
-                ...(Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null),
+                borderColor: chipBorder,
+                backgroundColor: pressed ? colors.background : colors.backgroundElevated,
+                ...(Platform.OS === 'web' ? ({ cursor: 'pointer', ...Elevation.subtle } as const) : null),
               }
             : null,
         ]}
@@ -132,7 +135,7 @@ const styles = StyleSheet.create({
   },
   summaryChipButton: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: Radius.searchSurfacePill,
   },
   kpiValueRow: {
     flexDirection: 'row',

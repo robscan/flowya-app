@@ -21,3 +21,7 @@ KPI **Por visitar / Visitados**: cabecera + KPI + mapa (+ progreso visitados); b
 ## Referencia operativa
 
 - [`docs/ops/OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md) — cola §5 cerrada; siguiente §6 `OL-EXPLORE-SHEETS-CANON-001`.
+
+## Fase 2 (2026-04-18)
+
+Seguimiento en bitácora [`367`](367-ol-explore-countries-sheet-fase-2-mobile-scroll-flyto-desktop.md): lista países solo `expanded` en móvil, scroll único con lista embebida, hint bajo mapa, KPI→expand, fly-to al elegir país y encuadre desktop con padding lateral.

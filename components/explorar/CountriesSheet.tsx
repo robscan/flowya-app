@@ -481,6 +481,9 @@ export function CountriesSheet({
         maxBodyHeight - MAP_PREVIEW_BLOCK_HEIGHT - (filterMode === "visited" ? PROGRESS_BLOCK_HEIGHT : 0),
       );
   const showPlacesList = layoutState === "medium" || layoutState === "expanded";
+  /** Lista de países: solo `expanded` en móvil; en sidebar desktop sigue visible en medium+ (layout forzado a expanded). */
+  const showCountryListSection = webDesktopSidebar || state === "expanded";
+  const kpiCountryListUsesParentScroll = showCountryListSection && !isCountryDetailMode;
   const expandedListMaxHeight = Math.max(120, maxListHeight);
   const bottomOffset = layoutState === "expanded" ? 0 : Math.max(Spacing.md, insets.bottom);
   const previewCountryCodes = items
@@ -658,10 +661,11 @@ export function CountriesSheet({
                 textSecondary: colors.textSecondary,
                 primary: colors.primary,
                 borderSubtle: colors.borderSubtle,
+                borderInteractive: colors.border,
                 background: colors.background,
                 backgroundElevated: colors.backgroundElevated,
               }}
-              onCountriesKpiPress={showPlacesList ? undefined : onCountriesKpiPress}
+              onCountriesKpiPress={showCountryListSection ? undefined : onCountriesKpiPress}
               onSpotsKpiPress={onSpotsKpiPress}
               onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
             />
@@ -678,6 +682,11 @@ export function CountriesSheet({
                 onCountryPress={onMapCountryPress}
               />
             </View>
+            {!webDesktopSidebar && !isCountryDetailMode && !showCountryListSection ? (
+              <Text style={[styles.countriesMapHint, { color: colors.textSecondary }]} accessibilityRole="text">
+                Toca el mapa para acercarte a un país, o despliega el sheet para ver la lista de lugares.
+              </Text>
+            ) : null}
             {filterMode === "visited" ? (
               <CountriesSheetVisitedProgress
                 worldPercentage={normalizedWorldPercentage}
@@ -695,12 +704,12 @@ export function CountriesSheet({
               />
             ) : null}
 
-            {!showPlacesList ? null : (
+            {!showCountryListSection ? null : (
               <Animated.View
                 style={[
                   styles.listEntranceWrap,
                   webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
-                  { maxHeight: expandedListMaxHeight },
+                  kpiCountryListUsesParentScroll ? null : { maxHeight: expandedListMaxHeight },
                   listEntranceAnimatedStyle,
                 ]}
               >
@@ -712,7 +721,8 @@ export function CountriesSheet({
                   <CountriesSheetCountryList
                     items={items}
                     onItemPress={onItemPress}
-                    maxHeight={expandedListMaxHeight}
+                    embeddedInParentScroll={kpiCountryListUsesParentScroll}
+                    maxHeight={kpiCountryListUsesParentScroll ? undefined : expandedListMaxHeight}
                     colors={{
                       text: colors.text,
                       textSecondary: colors.textSecondary,
@@ -820,6 +830,13 @@ const styles = StyleSheet.create({
     marginHorizontal: 0,
     marginTop: MAP_PREVIEW_TOP_GAP,
     overflow: "hidden",
+  },
+  countriesMapHint: {
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.base,
+    textAlign: "center",
   },
   emptyText: {
     fontSize: 14,

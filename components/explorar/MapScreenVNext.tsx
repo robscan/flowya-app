@@ -470,6 +470,43 @@ function buildCountryBuckets(spots: Spot[]): CountryBucket[] {
   });
 }
 
+const COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG = 0.04;
+
+/** Unión de bbox Mapbox o puntos lat/lng de spots para `fitBounds` al elegir un país. */
+function computeLngLatBoundsFromSpots(spots: Spot[]): [[number, number], [number, number]] | null {
+  let west = Infinity;
+  let south = Infinity;
+  let east = -Infinity;
+  let north = -Infinity;
+  for (const spot of spots) {
+    const bb = spot.mapbox_bbox;
+    if (
+      bb != null &&
+      Number.isFinite(bb.west) &&
+      Number.isFinite(bb.south) &&
+      Number.isFinite(bb.east) &&
+      Number.isFinite(bb.north)
+    ) {
+      west = Math.min(west, bb.west);
+      south = Math.min(south, bb.south);
+      east = Math.max(east, bb.east);
+      north = Math.max(north, bb.north);
+    } else if (Number.isFinite(spot.longitude) && Number.isFinite(spot.latitude)) {
+      west = Math.min(west, spot.longitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      south = Math.min(south, spot.latitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      east = Math.max(east, spot.longitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      north = Math.max(north, spot.latitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+    }
+  }
+  if (!Number.isFinite(west)) return null;
+  const padLng = Math.max((east - west) * 0.08, 0.008);
+  const padLat = Math.max((north - south) * 0.08, 0.008);
+  return [
+    [west - padLng, south - padLat],
+    [east + padLng, north + padLat],
+  ];
+}
+
 function isLinkedUnsavedSpot(spot: Spot): boolean {
   // Guardrail Fase D: si falta linked_place_id, no ocultar para evitar desaparición de lugar.
   return (
@@ -585,6 +622,14 @@ export function MapScreenVNext() {
   );
   /** Supresión puntual de toasts en handlers (p. ej. `toastMessage: ""`); se resetea a false cada render. */
   const suppressToastRef = useRef(false);
+  /**
+   * Panel países desktop + padding izquierdo del mapa: los callbacks de encuadre viven antes que esos `const`;
+   * se actualiza cada render tras resolver ancho sidebar (fitBounds alineado a `setPadding`).
+   */
+  const exploreCountriesDesktopLayoutRef = useRef({
+    sidebarCountries: false,
+    fitBoundsLeftPad: 0,
+  });
   /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
   const exploreAuthUserIdRef = useRef<string | null>(null);
   /**
@@ -4342,9 +4387,20 @@ export function MapScreenVNext() {
 
   const handleCountriesKpiPress = useCallback(() => {
     if (!countriesSheetOpen) return;
+    const listView = countriesSheetListView;
+    const sheetState = countriesSheetState;
     setCountriesSheetListView(null);
+    if (listView != null) {
+      setCountriesSheetState("medium");
+      return;
+    }
+    const sidebarCountries = exploreCountriesDesktopLayoutRef.current.sidebarCountries;
+    if (!sidebarCountries && sheetState === "medium") {
+      setCountriesSheetState("expanded");
+      return;
+    }
     setCountriesSheetState("medium");
-  }, [countriesSheetOpen]);
+  }, [countriesSheetOpen, countriesSheetListView, countriesSheetState]);
 
   const handleCountriesSpotsKpiPress = useCallback(() => {
     if (createSpotNameOverlayOpen) return;
@@ -4414,8 +4470,33 @@ export function MapScreenVNext() {
       setCountriesSheetListView(next);
       setExplorePlacesCountryFilter(next);
       setCountriesSheetState("expanded");
+      const layout = exploreCountriesDesktopLayoutRef.current;
+      const forCountry = countriesSheetOverlaySpotsPool.filter(
+        (spot) => resolveCountryForSpot(spot)?.key === country.key,
+      );
+      const bounds = computeLngLatBoundsFromSpots(forCountry);
+      if (bounds == null || !mapInstance) return;
+      try {
+        suspendFilterUntilCameraSettles();
+        mapInstance.fitBounds(bounds, {
+          padding: {
+            top: FIT_BOUNDS_PADDING,
+            right: FIT_BOUNDS_PADDING,
+            bottom: FIT_BOUNDS_PADDING,
+            left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
+          },
+          duration: FIT_BOUNDS_DURATION_MS,
+        });
+      } catch {
+        // noop
+      }
     },
-    [setCountriesSheetState],
+    [
+      countriesSheetOverlaySpotsPool,
+      mapInstance,
+      setCountriesSheetState,
+      suspendFilterUntilCameraSettles,
+    ],
   );
   const handleCountriesSheetShare = useCallback(async () => {
     if (countriesShareConsumedRef.current) return;
@@ -4489,18 +4570,26 @@ export function MapScreenVNext() {
   const handleCountriesMapCountryPress = useCallback(
     (_countryCode: string, bounds: [[number, number], [number, number]]) => {
       if (!mapInstance) return;
-      setCountriesSheetState("peek");
+      const layout = exploreCountriesDesktopLayoutRef.current;
+      if (!layout.sidebarCountries) {
+        setCountriesSheetState("peek");
+      }
       try {
         suspendFilterUntilCameraSettles();
         mapInstance.fitBounds(bounds, {
-          padding: FIT_BOUNDS_PADDING,
+          padding: {
+            top: FIT_BOUNDS_PADDING,
+            right: FIT_BOUNDS_PADDING,
+            bottom: FIT_BOUNDS_PADDING,
+            left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
+          },
           duration: FIT_BOUNDS_DURATION_MS,
         });
       } catch {
         // noop
       }
     },
-    [mapInstance, suspendFilterUntilCameraSettles],
+    [mapInstance, setCountriesSheetState, suspendFilterUntilCameraSettles],
   );
 
   /** OL-WOW-F2-001-SEARCH: Todos y Por visitar/Visitados → merge spots (filtrados por estrategia) + Mapbox como en Todos. */
@@ -5761,6 +5850,11 @@ export function MapScreenVNext() {
   const exploreSidebarPanelKeyForRender = sidebarExitActive
     ? sidebarPresenceSnapshotRef.current.panelKey
     : exploreSidebarPanelKey;
+
+  exploreCountriesDesktopLayoutRef.current = {
+    sidebarCountries: countriesInSidebarDesktop,
+    fitBoundsLeftPad: countriesInSidebarDesktop ? exploreDesktopSidebarPanelWidthForRender : 0,
+  };
 
   /** Filtros Lugares en columna desktop (sin Modal fullscreen) cuando el panel países está visible y Search no tapa. */
   const embedExplorePlacesFiltersInDesktopSidebar =
