@@ -500,7 +500,9 @@ export function CountriesSheet({
   const currentTravelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
   const currentTravelerLevel = resolveTravelerLevelByPoints(currentTravelerPoints);
   const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
+  /** Solo en vista **Lugares** (detalle): en KPI países+mapa el buscador vive en mapa/KPI (OL-EXPLORE-COUNTRIES-SHEET-LAYOUT-001). */
   const showStandaloneCountriesSearch =
+    isCountryDetailMode &&
     onSearchPress != null &&
     !(placesListFilterBarEmbedsSheetSearch && placesListFilterBar != null);
   const sheetAnimated = (
@@ -638,87 +640,90 @@ export function CountriesSheet({
           )}
         </>
       ) : (
-        <>
-          {placesListFilterBar != null ? (
-            <View style={styles.placesFilterBarKpiWrap} pointerEvents="box-none">
-              {placesListFilterBar}
-            </View>
-          ) : null}
-          <CountriesSheetKpiRow
-            filterMode={filterMode}
-            summaryCountriesCount={summaryCountriesCount}
-            summaryPlacesCount={summaryPlacesCount}
-            pointsLabel={pointsLabel}
-            colors={{
-              text: colors.text,
-              textSecondary: colors.textSecondary,
-              primary: colors.primary,
-              borderSubtle: colors.borderSubtle,
-              background: colors.background,
-              backgroundElevated: colors.backgroundElevated,
-            }}
-            onCountriesKpiPress={showPlacesList ? undefined : onCountriesKpiPress}
-            onSpotsKpiPress={onSpotsKpiPress}
-            onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
-          />
-
-          <View style={styles.mapPreviewWrap}>
-            <CountriesMapPreview
-              countryCodes={previewCountryCodes}
-              height={MAP_PREVIEW_HEIGHT}
-              highlightColor={previewHighlightColor}
-              forceColorScheme={activeScheme}
-              baseCountryColor={previewBaseCountryColor}
-              lineCountryColor={previewLineCountryColor}
-              onSnapshotChange={onMapSnapshotChange}
-              onCountryPress={onMapCountryPress}
-            />
-          </View>
-          {filterMode === "visited" ? (
-            <CountriesSheetVisitedProgress
-              worldPercentage={normalizedWorldPercentage}
-              levelLabel={currentTravelerLevel.label}
-              levelIndex={currentTravelerLevel.level}
-              currentTravelerPoints={currentTravelerPoints}
+        <View style={styles.kpiBodyRoot}>
+          <ScrollView
+            style={styles.kpiBodyScroll}
+            contentContainerStyle={styles.kpiBodyScrollContent}
+            showsVerticalScrollIndicator
+            keyboardShouldPersistTaps="handled"
+            nestedScrollEnabled
+          >
+            <CountriesSheetKpiRow
+              filterMode={filterMode}
+              summaryCountriesCount={summaryCountriesCount}
+              summaryPlacesCount={summaryPlacesCount}
+              pointsLabel={pointsLabel}
               colors={{
                 text: colors.text,
                 textSecondary: colors.textSecondary,
                 primary: colors.primary,
                 borderSubtle: colors.borderSubtle,
-                stateSuccess: colors.stateSuccess,
+                background: colors.background,
+                backgroundElevated: colors.backgroundElevated,
               }}
-              onPressLevels={() => setShowLevelsModal(true)}
+              onCountriesKpiPress={showPlacesList ? undefined : onCountriesKpiPress}
+              onSpotsKpiPress={onSpotsKpiPress}
+              onLayout={(event) => setSummaryHeight(Math.round(event.nativeEvent.layout.height))}
             />
-          ) : null}
 
-          {!showPlacesList ? null : (
-            <Animated.View
-              style={[
-                styles.listEntranceWrap,
-                webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
-                { maxHeight: expandedListMaxHeight },
-                listEntranceAnimatedStyle,
-              ]}
-            >
-              {items.length === 0 ? (
-                <View style={styles.emptyWrap}>
-                  <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyLabel}</Text>
-                </View>
-              ) : (
-                <CountriesSheetCountryList
-                  items={items}
-                  onItemPress={onItemPress}
-                  maxHeight={expandedListMaxHeight}
-                  colors={{
-                    text: colors.text,
-                    textSecondary: colors.textSecondary,
-                    primary: colors.primary,
-                  }}
-                />
-              )}
-            </Animated.View>
-          )}
-        </>
+            <View style={styles.mapPreviewWrap}>
+              <CountriesMapPreview
+                countryCodes={previewCountryCodes}
+                height={MAP_PREVIEW_HEIGHT}
+                highlightColor={previewHighlightColor}
+                forceColorScheme={activeScheme}
+                baseCountryColor={previewBaseCountryColor}
+                lineCountryColor={previewLineCountryColor}
+                onSnapshotChange={onMapSnapshotChange}
+                onCountryPress={onMapCountryPress}
+              />
+            </View>
+            {filterMode === "visited" ? (
+              <CountriesSheetVisitedProgress
+                worldPercentage={normalizedWorldPercentage}
+                levelLabel={currentTravelerLevel.label}
+                levelIndex={currentTravelerLevel.level}
+                currentTravelerPoints={currentTravelerPoints}
+                colors={{
+                  text: colors.text,
+                  textSecondary: colors.textSecondary,
+                  primary: colors.primary,
+                  borderSubtle: colors.borderSubtle,
+                  stateSuccess: colors.stateSuccess,
+                }}
+                onPressLevels={() => setShowLevelsModal(true)}
+              />
+            ) : null}
+
+            {!showPlacesList ? null : (
+              <Animated.View
+                style={[
+                  styles.listEntranceWrap,
+                  webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
+                  { maxHeight: expandedListMaxHeight },
+                  listEntranceAnimatedStyle,
+                ]}
+              >
+                {items.length === 0 ? (
+                  <View style={styles.emptyWrap}>
+                    <Text style={[styles.emptyText, { color: colors.textSecondary }]}>{emptyLabel}</Text>
+                  </View>
+                ) : (
+                  <CountriesSheetCountryList
+                    items={items}
+                    onItemPress={onItemPress}
+                    maxHeight={expandedListMaxHeight}
+                    colors={{
+                      text: colors.text,
+                      textSecondary: colors.textSecondary,
+                      primary: colors.primary,
+                    }}
+                  />
+                )}
+              </Animated.View>
+            )}
+          </ScrollView>
+        </View>
       )}
 
       <TravelerLevelsModal
@@ -878,12 +883,18 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     paddingHorizontal: 0,
   },
-  /** Misma barra de filtros que en listado Lugares; bajo buscador en vista KPI. */
-  placesFilterBarKpiWrap: {
+  /** Vista resumen países + mapa: scroll único para peek/medium/extended (OL-EXPLORE-COUNTRIES-SHEET-LAYOUT-001). */
+  kpiBodyRoot: {
+    flex: 1,
+    minHeight: 0,
     alignSelf: "stretch",
-    width: "100%",
-    paddingHorizontal: 0,
-    marginBottom: Spacing.xs,
+  },
+  kpiBodyScroll: {
+    flex: 1,
+  },
+  kpiBodyScrollContent: {
+    flexGrow: 1,
+    paddingBottom: Spacing.sm,
   },
   placesScopeMenuDropWrap: {
     position: "absolute",
