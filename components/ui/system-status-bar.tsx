@@ -1,8 +1,8 @@
+import { Colors, Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { AlertCircle, CheckCircle2 } from 'lucide-react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-
-import { Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 
 /** Tiempo por defecto para leer el mensaje; tap en el toast lo cierra antes. */
 const SYSTEM_STATUS_DURATION_MS = 4800;
@@ -72,15 +72,17 @@ export function useSystemStatus(): SystemStatusContextValue {
   return ctx;
 }
 
-/**
- * Máximo contraste: invertido respecto al tema de la app.
- * Dark mode UI → toast blanco / texto negro. Light mode UI → toast oscuro / texto blanco.
- */
-function resolveToastPalette(mode: 'light' | 'dark'): {
+type ToastVisualTokens = {
   textColor: string;
   backgroundColor: string;
   borderColor: string;
-} {
+};
+
+/**
+ * Máximo contraste: invertido respecto al tema de la app (`type: 'default'`).
+ * Dark mode UI → toast blanco / texto negro. Light mode UI → toast oscuro / texto blanco.
+ */
+function resolveToastNeutralPalette(mode: 'light' | 'dark'): ToastVisualTokens {
   if (mode === 'dark') {
     return {
       textColor: '#000000',
@@ -95,6 +97,24 @@ function resolveToastPalette(mode: 'light' | 'dark'): {
   };
 }
 
+/** Success / error: tokens `Colors.*.stateSuccess` / `stateError` + texto blanco (WCAG sobre verde/rojo iOS-like). */
+function resolveToastSemanticPalette(type: SystemStatusType, mode: 'light' | 'dark'): ToastVisualTokens {
+  if (type === 'default') return resolveToastNeutralPalette(mode);
+  const c = Colors[mode];
+  if (type === 'success') {
+    return {
+      textColor: '#ffffff',
+      backgroundColor: c.stateSuccess,
+      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.14)',
+    };
+  }
+  return {
+    textColor: '#ffffff',
+    backgroundColor: c.stateError,
+    borderColor: mode === 'dark' ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.14)',
+  };
+}
+
 export function SystemStatusProvider({ children }: { children: React.ReactNode }) {
   const colorScheme = useColorScheme();
   const [messages, setMessages] = useState<SystemStatusMessage[]>([]);
@@ -105,6 +125,8 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
     }),
   );
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRafRef = useRef<number | null>(null);
+  const pendingAnchorRef = useRef<SystemStatusAnchor | null>(null);
   const idRef = useRef(1);
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -116,6 +138,16 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
   }, []);
 
   useEffect(() => clearTimer, [clearTimer]);
+
+  useEffect(
+    () => () => {
+      if (anchorRafRef.current != null) {
+        cancelAnimationFrame(anchorRafRef.current);
+        anchorRafRef.current = null;
+      }
+    },
+    [],
+  );
 
   const dismiss = useCallback(() => {
     clearTimer();
@@ -159,9 +191,21 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
     [clearTimer, dismiss, opacity],
   );
 
+  /**
+   * Coalescencia por frame: varios `setAnchor` seguidos (layout sheet/map) aplican solo el último valor,
+   * reduciendo micro-saltos visibles del toast.
+   */
   const setAnchor = useCallback((nextAnchor: SystemStatusAnchor) => {
     const next = roundAnchorPx(nextAnchor);
-    setAnchorState((prev) => (anchorsEqual(prev, next) ? prev : next));
+    pendingAnchorRef.current = next;
+    if (anchorRafRef.current != null) return;
+    anchorRafRef.current = requestAnimationFrame(() => {
+      anchorRafRef.current = null;
+      const pending = pendingAnchorRef.current;
+      pendingAnchorRef.current = null;
+      if (pending == null) return;
+      setAnchorState((prev) => (anchorsEqual(prev, pending) ? prev : pending));
+    });
   }, []);
 
   const resetAnchor = useCallback(() => {
@@ -178,7 +222,7 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
     [show, setAnchor, resetAnchor, messages.length],
   );
   const resolvedMode: 'light' | 'dark' = colorScheme === 'dark' ? 'dark' : 'light';
-  const activePalette = resolveToastPalette(resolvedMode);
+  const hasErrorMessage = messages.some((m) => m.type === 'error');
 
   /**
    * Web + bottom-left: `fixed` respecto al viewport. Si es `absolute` dentro del flex raíz,
@@ -218,25 +262,52 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
               style={({ pressed }) => [
                 styles.stack,
                 WebTouchManipulation,
-                {
-                  backgroundColor: activePalette.backgroundColor,
-                  borderColor: activePalette.borderColor,
-                  opacity: pressed ? 0.92 : 1,
-                },
+                styles.stackTransparent,
+                { opacity: pressed ? 0.92 : 1 },
                 anchor.placement === 'bottom-left' ? styles.stackBottomLeft : styles.stackTopCenter,
                 Platform.OS === 'web' && { cursor: 'pointer' as const },
               ]}
             >
-              <View accessibilityLiveRegion="polite">
-                {messages.map((message) => (
-                  <Text
-                    key={message.id}
-                    style={[styles.textSubtitle, { color: activePalette.textColor }]}
-                    numberOfLines={5}
-                  >
-                    {message.text}
-                  </Text>
-                ))}
+              <View accessibilityLiveRegion={hasErrorMessage ? 'assertive' : 'polite'}>
+                {messages.map((message, index) => {
+                  const palette = resolveToastSemanticPalette(message.type, resolvedMode);
+                  const isLast = index === messages.length - 1;
+                  return (
+                    <View
+                      key={message.id}
+                      style={[
+                        styles.messageBlock,
+                        !isLast ? styles.messageBlockSpacing : null,
+                        {
+                          backgroundColor: palette.backgroundColor,
+                          borderColor: palette.borderColor,
+                        },
+                      ]}
+                    >
+                      {message.type === 'success' ? (
+                        <CheckCircle2
+                          size={18}
+                          color={palette.textColor}
+                          strokeWidth={2.2}
+                          accessibilityElementsHidden
+                        />
+                      ) : message.type === 'error' ? (
+                        <AlertCircle
+                          size={18}
+                          color={palette.textColor}
+                          strokeWidth={2.2}
+                          accessibilityElementsHidden
+                        />
+                      ) : null}
+                      <Text
+                        style={[styles.textSubtitle, { color: palette.textColor, flex: 1 }]}
+                        numberOfLines={5}
+                      >
+                        {message.text}
+                      </Text>
+                    </View>
+                  );
+                })}
               </View>
             </Pressable>
           </Animated.View>
@@ -255,11 +326,28 @@ const styles = StyleSheet.create({
     zIndex: 12,
   },
   stack: {
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radius.md,
+    borderWidth: 0,
+  },
+  stackTransparent: {
+    backgroundColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  messageBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.base,
     borderRadius: Radius.md,
     borderWidth: 1,
     ...Shadow.card,
+  },
+  messageBlockSpacing: {
+    marginBottom: Spacing.sm,
   },
   stackTopCenter: {
     maxWidth: 440,

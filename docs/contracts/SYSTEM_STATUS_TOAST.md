@@ -22,13 +22,16 @@ Documentación histórica de implementación base: bitácora `233` (`OL-P1-003`)
 
 ### 1.1 Tipos de mensaje (`options.type`)
 
-- `success` | `default` | `error` — **no afectan al color** en la implementación actual.
-- **Paleta visual:** máximo contraste **invertido** respecto al tema de la app (`resolveToastPalette`):
+- `default` — **Paleta neutra invertida** (`resolveToastNeutralPalette`): máximo contraste respecto al tema de la app.
   - **Dark UI** → fondo blanco semitransparente, texto negro.
   - **Light UI** → fondo oscuro semitransparente, texto blanco.
-- Borde sutil: `rgba` según tema.
+- `success` — Fondo **`Colors[state].stateSuccess`**, texto blanco, borde sutil; icono `CheckCircle2` decorativo (oculto para VoiceOver).
+- `error` — Fondo **`Colors[state].stateError`**, texto blanco, borde sutil; icono `AlertCircle` decorativo.
+- **Varios mensajes visibles:** cada fila usa la paleta de **su** `type` (no se mezclan colores en un solo bloque).
 
-**Replicación nativa (iOS/Android):** misma lógica de contraste invertido; no usar colores semánticos verde/rojo para el fondo del toast salvo decisión de producto futura.
+**Accesibilidad:** si **algún** mensaje visible es `error`, el contenedor de mensajes usa `accessibilityLiveRegion="assertive"`; en caso contrario `polite`. El cierre sigue siendo el `Pressable` exterior.
+
+**Replicación nativa (iOS/Android):** mismos tokens y reglas; `success`/`error` priorizan reconocimiento cromático + icono, sin sustituir el mensaje textual.
 
 ### 1.2 Opciones `show(message, options?)`
 
@@ -63,7 +66,12 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 
 **Cleanup:** al cambiar dependencias o desmontar, `resetAnchor()` restaura top-center por defecto.
 
-### 2.3 Política **sheet `expanded`** + toasts (2026-04, Explore)
+### 2.3 Coalescencia de `setAnchor` (2026-04)
+
+- `setAnchor` agrupa actualizaciones en un **`requestAnimationFrame`**: varias llamadas seguidas en el mismo frame de pintura aplican solo el **último** ancla redondeada (`roundAnchorPx`), reduciendo micro-movimientos del toast cuando layout/sheet cambian en cascada.
+- Sigue aplicándose `anchorsEqual` para no re-renderizar si el valor efectivo no cambia.
+
+### 2.4 Política **sheet `expanded`** + toasts (2026-04, Explore)
 
 **Contexto (histórico en producto):** en un momento se evitaban el toast de **cambio de filtro** y parte del feedback de **pin** cuando algún sheet (Spot, países o bienvenida) estaba en `expanded`, para reducir ruido visual.
 
@@ -77,7 +85,7 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 
 **Implementación de referencia:** `components/explorar/MapScreenVNext.tsx` — `useEffect` de `toast.setAnchor` (`anyExploreSheetExpanded`) y llamadas a `toast.show` sin ref de supresión por expanded.
 
-### 2.4 Reset
+### 2.5 Reset
 
 - `resetAnchor()` → vuelve a `top-center` con `top` por plataforma.
 
@@ -90,7 +98,7 @@ El mapa llama a `toast.setAnchor` en un `useEffect` para reflejar **controles in
 3. **Duración** y **replaceVisible** con la misma semántica.
 4. **Explore:** al abrir búsqueda a pantalla completa, **recalcular** anclaje inferior sin altura del SpotSheet; al cerrar búsqueda, restaurar lógica con sheet.
 5. **Explore + sheet `expanded`:** replicar la tabla del §2.2: con sheet expandido, **no** subir el toast sumando `sheetHeight` / `countriesSheetHeight`; anclar al **borde inferior de pantalla** (misma fórmula que web). **No** reintroducir supresión de toasts de filtro/pin solo porque el sheet esté expandido.
-6. **Contraste:** paleta invertida; texto 16/600 semibold, línea ~21, máximo 2 líneas (`numberOfLines={2}`).
+6. **Contraste:** `default` = paleta invertida; `success`/`error` = tokens de tema + texto blanco; texto 16/600 semibold (`numberOfLines` hasta 5 en runtime).
 7. **Touch:** el toast debe ser tocable para cerrar; el contenedor no debe interceptar interacciones del mapa (`pointerEvents` acorde).
 8. **Safe area:** `insets` deben incluirse en `bottom`/`left`/`right` como en web.
 
