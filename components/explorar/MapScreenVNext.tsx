@@ -1846,17 +1846,17 @@ export function MapScreenVNext() {
         if (uid) clearExplorePlacesFiltersSnapshot(uid);
       }
       const fromAll = currentFilter === "all";
-      /** Neutro (`default`): el chip ya indica el modo; aquí solo hint breve sin repetir el nombre del filtro. */
+      /** Neutro (`default`). Copy corto: cambio de resultados + para qué + empuje, sin nombre del chip. */
       const filterToast: Record<MapPinFilterValue, string> = fromAll
         ? {
-            all: "Descubre y planea tu próximo viaje.",
-            saved: "Tip: marca sitios para armar tu ruta.",
-            visited: "Tip: cada visita suma a tu mapa.",
+            all: "Explora el mapa y arma tu próximo plan.",
+            saved: "Solo pendientes: planifica y suma lugares.",
+            visited: "Solo visitados: revisa y completa tu mapa.",
           }
         : {
-            all: "Mapa completo otra vez.",
-            saved: "Tip: combina con etiquetas para acotar.",
-            visited: "Tip: abre países si quieres ver tu progreso.",
+            all: "Mapa completo: más resultados visibles.",
+            saved: "Solo pendientes: prioriza tu próxima salida.",
+            visited: "Solo visitados: revisa tu huella.",
           };
       if (!suppressToastRef.current) {
         const toastBody =
