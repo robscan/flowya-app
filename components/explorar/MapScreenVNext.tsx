@@ -1846,22 +1846,23 @@ export function MapScreenVNext() {
         if (uid) clearExplorePlacesFiltersSnapshot(uid);
       }
       const fromAll = currentFilter === "all";
+      /** Neutro (`default`): el chip ya indica el modo; aquí solo hint breve sin repetir el nombre del filtro. */
       const filterToast: Record<MapPinFilterValue, string> = fromAll
         ? {
             all: "Descubre y planea tu próximo viaje.",
-            saved: "Empieza marcando lugares para tu próxima ruta.",
-            visited: "Registra tus memorias y construye tu mapa personal.",
+            saved: "Tip: marca sitios para armar tu ruta.",
+            visited: "Tip: cada visita suma a tu mapa.",
           }
         : {
-            all: "Volviste a Todos.",
-            saved: "Sigues en Por visitar: organiza y prepara tus lugares.",
-            visited: "Sigues en Visitados: registra tus memorias.",
+            all: "Mapa completo otra vez.",
+            saved: "Tip: combina con etiquetas para acotar.",
+            visited: "Tip: abre países si quieres ver tu progreso.",
           };
       if (!suppressToastRef.current) {
         const toastBody =
           options?.toastMessage !== undefined ? options.toastMessage : filterToast[nextFilter];
         if (toastBody.length > 0) {
-          toast.show(toastBody, { type: "success", replaceVisible: true });
+          toast.show(toastBody, { type: "default", replaceVisible: true });
         }
       }
       if (pendingForTarget && nextFilter !== "all") {
@@ -2534,7 +2535,6 @@ export function MapScreenVNext() {
     if (!tagAssignSpot) return;
     const name = tagAssignInput.trim();
     if (!name) return;
-    const spotTitle = tagAssignSpot.title;
     const spotId = tagAssignSpot.id;
     setTagAssignSaving(true);
     try {
@@ -2545,7 +2545,7 @@ export function MapScreenVNext() {
       setTagAssignSpot(null);
       setTagAssignInput("");
       if (!suppressToastRef.current) {
-        toast.show(`Etiqueta creada en «${spotTitle}»`, { type: "success", replaceVisible: true });
+        toast.show("Etiqueta guardada.", { type: "success", replaceVisible: true });
       }
     } catch {
       if (!suppressToastRef.current) {
@@ -2568,7 +2568,7 @@ export function MapScreenVNext() {
       setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagDeleteConfirm.id));
       await refreshTagsAfterPinChange();
       if (!suppressToastRef.current) {
-        toast.show(`Etiqueta «${tagDeleteConfirm.name}» eliminada`, { type: "success", replaceVisible: true });
+        toast.show("Etiqueta eliminada.", { type: "success", replaceVisible: true });
       }
       setTagDeleteConfirm(null);
       setTagFilterEditMode(false);
@@ -3374,7 +3374,7 @@ export function MapScreenVNext() {
           return;
         }
         const result = await shareSpot(newId, poi.name);
-        if (result.copied) if (!suppressToastRef.current) toast.show("Enlace copiado", { type: "success" });
+        if (result.copied) if (!suppressToastRef.current) toast.show("Enlace copiado", { type: "default" });
         const pinMap = await getPinsForSpots([newId]);
         const state = pinMap.get(newId);
         const created: Spot = {
@@ -4455,12 +4455,12 @@ export function MapScreenVNext() {
       if (result.shared) return;
       if (result.downloaded) {
         if (!suppressToastRef.current) {
-          toast.show("Imagen guardada en tu computadora.", { type: "success", replaceVisible: true });
+          toast.show("Imagen guardada en tu computadora.", { type: "default", replaceVisible: true });
         }
         return;
       }
       if (result.copied) {
-        if (!suppressToastRef.current) toast.show("Resumen copiado al portapapeles.", { type: "success", replaceVisible: true });
+        if (!suppressToastRef.current) toast.show("Resumen copiado al portapapeles.", { type: "default", replaceVisible: true });
         return;
       }
       if (!suppressToastRef.current) toast.show("No se pudo compartir en este dispositivo.", {
@@ -4991,7 +4991,7 @@ export function MapScreenVNext() {
     async (spot: Spot) => {
       if (spot.id.startsWith("draft_")) return;
       const result = await shareSpot(spot.id, spot.title);
-      if (result.copied) if (!suppressToastRef.current) toast.show("Link copiado", { type: "success" });
+      if (result.copied) if (!suppressToastRef.current) toast.show("Link copiado", { type: "default" });
     },
     [toast],
   );
@@ -5009,7 +5009,7 @@ export function MapScreenVNext() {
   const handleWelcomeSidebarShare = useCallback(async () => {
     const result = await shareExploreMap();
     if (result.copied && !suppressToastRef.current) {
-      toast.show("Link copiado", { type: "success" });
+      toast.show("Link copiado", { type: "default" });
     }
   }, [toast]);
 
@@ -5221,10 +5221,10 @@ export function MapScreenVNext() {
         if (!suppressToastRef.current) {
           const toastText =
             outcome === "visited"
-              ? "Marcado como visitado."
+              ? "Guardado como visitado."
               : outcome === "saved"
-                ? "Agregado a Por visitar."
-                : "Estado actualizado.";
+                ? "Guardado para tu ruta."
+                : "Cambios guardados.";
           toast.show(toastText, { type: "success", replaceVisible: true });
         }
       } catch {
