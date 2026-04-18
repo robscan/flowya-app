@@ -678,8 +678,11 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Anclaje inferior lo fija MapScreen; ver SYSTEM_STATUS_TOAST."
+          description="Default = neutro invertido; success/error = tokens stateSuccess/stateError + icono. Anclaje inferior en Explore: SYSTEM_STATUS_TOAST §2. setAnchor coalescido por rAF (§2.3)."
         >
+          <Text style={{ color: colors.textSecondary, marginBottom: Spacing.md, fontSize: 13, lineHeight: 18 }}>
+            Los botones disparan el toast real del provider (arriba o según ancla). Variantes alineadas con OL-SYSTEM-TOAST-SEMANTIC-STABLE-001.
+          </Text>
           <View style={{ flexDirection: 'row', gap: Spacing.md, flexWrap: 'wrap' }}>
             <Pressable
               style={({ pressed }) => ({
@@ -698,12 +701,12 @@ export default function DesignSystemScreen() {
                 paddingVertical: Spacing.md,
                 paddingHorizontal: Spacing.lg,
                 borderRadius: Radius.md,
-                backgroundColor: colors.text,
+                backgroundColor: colors.stateSuccess,
                 opacity: pressed ? 0.88 : 1,
               })}
               onPress={() => toast.show('Acción correcta', { type: 'success', replaceVisible: true })}
             >
-              <Text style={{ color: colors.background, fontWeight: '600' }}>Success + replace</Text>
+              <Text style={{ color: '#fff', fontWeight: '600' }}>Success + replace</Text>
             </Pressable>
             <Pressable
               style={({ pressed }) => ({
