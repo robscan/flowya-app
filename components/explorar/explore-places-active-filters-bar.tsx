@@ -168,6 +168,11 @@ export type ExplorePlacesActiveFiltersBarProps = {
   showTagChips: boolean;
   /** Misma fila que el launcher de búsqueda (sheet Lugares); el host oculta el buscador duplicado arriba. */
   filtersSearchInline?: ExplorePlacesFiltersSearchInline;
+  /**
+   * Misma fila que `filtersSearchInline`, pero el slot izquierdo lo provee el host (p. ej. `SearchSurface`
+   * con `SearchInputV2` embebido). No combinar con `filtersSearchInline`.
+   */
+  filtersEntryLeading?: React.ReactNode;
 };
 
 export function ExplorePlacesActiveFiltersBar({
@@ -179,14 +184,41 @@ export function ExplorePlacesActiveFiltersBar({
   onClearTagFilter,
   showTagChips,
   filtersSearchInline,
+  filtersEntryLeading,
 }: ExplorePlacesActiveFiltersBarProps) {
   const hasActiveChips =
     (showTagChips && activeTags.length > 0) ||
     (countryDetail != null && countryDetail.kind === "country");
 
+  const filtersCtaPrimary = (
+    <Pressable
+      onPress={onOpenFiltersPanel}
+      style={({ pressed }) => [
+        styles.filtersEntryPrimary,
+        {
+          backgroundColor: colors.tagChipBackground,
+          borderColor: colors.tagChipBackground,
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}
+      accessibilityRole="button"
+      accessibilityLabel="Abrir etiquetas y filtros de lugares"
+    >
+      <SlidersHorizontal size={16} color={colors.surfaceOnMap} strokeWidth={2.2} />
+      <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]} numberOfLines={1}>
+        {FILTERS_ENTRY_LABEL}
+      </Text>
+    </Pressable>
+  );
+
   return (
     <View style={styles.column}>
-      {filtersSearchInline != null ? (
+      {filtersEntryLeading != null ? (
+        <View style={[styles.entrySearchRow, webNoSelect]}>
+          <View style={styles.inlineSearchWrap}>{filtersEntryLeading}</View>
+          {filtersCtaPrimary}
+        </View>
+      ) : filtersSearchInline != null ? (
         <View style={[styles.entrySearchRow, webNoSelect]}>
           <View style={styles.inlineSearchWrap}>
             <SearchLauncherField
@@ -196,24 +228,7 @@ export function ExplorePlacesActiveFiltersBar({
               accessibilityLabel={filtersSearchInline.accessibilityLabel}
             />
           </View>
-          <Pressable
-            onPress={onOpenFiltersPanel}
-            style={({ pressed }) => [
-              styles.filtersEntryPrimary,
-              {
-                backgroundColor: colors.tagChipBackground,
-                borderColor: colors.tagChipBackground,
-                opacity: pressed ? 0.9 : 1,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir etiquetas y filtros de lugares"
-          >
-            <SlidersHorizontal size={16} color={colors.surfaceOnMap} strokeWidth={2.2} />
-            <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]} numberOfLines={1}>
-              {FILTERS_ENTRY_LABEL}
-            </Text>
-          </Pressable>
+          {filtersCtaPrimary}
         </View>
       ) : (
         <Pressable
@@ -290,8 +305,10 @@ const styles = StyleSheet.create({
   filtersEntryPrimary: {
     flexShrink: 0,
     maxWidth: "48%",
+    alignSelf: "stretch",
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 10,
     paddingHorizontal: Spacing.sm,

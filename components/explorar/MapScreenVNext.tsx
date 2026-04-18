@@ -76,7 +76,7 @@ import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
-import type { SearchSection } from "@/components/search";
+import type { PlacesFiltersBarRenderProps, SearchSection } from "@/components/search/types";
 import { ImageFullscreenModal } from "@/components/design-system/image-fullscreen-modal";
 import { ConfirmModal } from "@/components/ui/confirm-modal";
 import { DuplicateSpotModal } from "@/components/ui/duplicate-spot-modal";
@@ -4622,7 +4622,7 @@ export function MapScreenVNext() {
   const placesSearchFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
     const countryForBar = placesScopeForData ?? { kind: "all_places" as const };
-    return (
+    return ({ searchField }: PlacesFiltersBarRenderProps) => (
       <ExplorePlacesActiveFiltersBar
         colors={placesListFiltersBarColors}
         countryDetail={countryForBar}
@@ -4633,6 +4633,7 @@ export function MapScreenVNext() {
           setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
         }}
         showTagChips={isAuthUser}
+        filtersEntryLeading={searchField}
       />
     );
   }, [

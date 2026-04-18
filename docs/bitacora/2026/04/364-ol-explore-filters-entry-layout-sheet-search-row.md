@@ -11,11 +11,12 @@ Cerrar **`OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001`**: en la ventana Lugares, orden v
 
 - [`components/explorar/explore-places-active-filters-bar.tsx`](../../../components/explorar/explore-places-active-filters-bar.tsx): prop opcional `filtersSearchInline`; fila entrada **buscador luego CTA**; chips debajo; CTA primario (`tagChipBackground` + `surfaceOnMap`); label provisional **Etiquetas y filtros** (ver § deuda copy).
 - [`components/explorar/CountriesSheet.tsx`](../../../components/explorar/CountriesSheet.tsx): prop `placesListFilterBarEmbedsSheetSearch`; si el host compone buscador en la barra, se omite el `SearchLauncherField` suelto del header; `DETAIL_TAG_ROW_HEIGHT` ajustado a **108** para baseline de lista.
-- [`components/explorar/MapScreenVNext.tsx`](../../../components/explorar/MapScreenVNext.tsx): pasa `filtersSearchInline` (mismo `openSearchPreservingCountriesSheet` y placeholder que el sheet) y `placesListFilterBarEmbedsSheetSearch` en sheet móvil y sidebar desktop.
+- [`components/explorar/MapScreenVNext.tsx`](../../../components/explorar/MapScreenVNext.tsx): pasa `filtersSearchInline` en sheet; `placesSearchFilterBarEl` como **función** que monta `filtersEntryLeading={searchField}` para el overlay Search.
+- [`components/search/types.ts`](../../../components/search/types.ts), [`SearchSurface.tsx`](../../../components/search/SearchSurface.tsx): `placesFiltersBar` admite render `( { searchField } ) => …` para componer fila buscador + barra.
 
 ## Resultado
 
-En **Por visitar / Visitados** con barra de filtros Lugares: **fila** buscador + CTA, luego chips si hay. En el overlay **Search**, el input global va arriba; en la barra de filtros solo el **CTA** y debajo los chips (sin segunda pastilla de búsqueda).
+En **Por visitar / Visitados** con barra de filtros Lugares: **fila** buscador + CTA, luego chips si hay. En el overlay **Search** (`SearchSurface` + `placesFiltersBar` como función), **misma fila**: pastilla `SearchInputV2` + CTA, chips debajo — paridad con el sheet (sin buscador ancho completo duplicado encima del CTA).
 
 ## Deuda — microcopy CTA vs modal
 

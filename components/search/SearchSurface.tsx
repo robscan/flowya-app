@@ -10,7 +10,7 @@ import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-in
 import { SearchListCard } from '@/components/design-system/search-list-card';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useState } from 'react';
+import React, { useState, type ReactNode } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -26,7 +26,7 @@ import { ExploreTagFilterChipRow } from '@/components/design-system/explore-tag-
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import { ListView } from './SearchResultsListV2';
-import type { SearchFloatingProps } from './types';
+import type { PlacesFiltersBarRenderProps, SearchFloatingProps } from './types';
 
 const HEADER_ROW_HEIGHT = 44;
 
@@ -125,6 +125,53 @@ export function SearchSurface<T>({
   const showLegacyInlineTagFilter =
     placesFiltersBar == null && tagFilterOptions.length > 0 && onTagFilterChange != null;
 
+  const searchFieldEl = (
+    <View
+      style={[
+        styles.searchPill,
+        {
+          backgroundColor: colors.background,
+          borderColor: searchInputFocused ? colors.tint : colors.border,
+          borderWidth: searchInputFocused ? 2 : 1,
+        },
+      ]}
+      accessibilityRole="search"
+    >
+      <Search size={20} color={colors.textSecondary} strokeWidth={2} />
+      <SearchInputV2
+        value={controller.query}
+        onChangeText={controller.setQuery}
+        onClear={controller.clear}
+        placeholder={searchPlaceholder}
+        placeholderTextColor={searchPlaceholderColor}
+        autoFocus={searchInputAutoFocus}
+        embedded
+        accessibilityLabel={
+          pinFilter === 'saved'
+            ? 'Buscar en tus lugares por visitar'
+            : pinFilter === 'visited'
+              ? 'Buscar en tus lugares visitados'
+              : 'Buscar en el mapa'
+        }
+        onFocus={() => {
+          setSearchInputFocused(true);
+          onInputFocus?.();
+        }}
+        onBlur={() => {
+          setSearchInputFocused(false);
+          onInputBlur?.();
+        }}
+      />
+    </View>
+  );
+
+  const placesFiltersBarCompose: ReactNode | null =
+    typeof placesFiltersBar === 'function'
+      ? (placesFiltersBar as (p: PlacesFiltersBarRenderProps) => ReactNode)({
+          searchField: searchFieldEl,
+        })
+      : null;
+
   return (
     <View style={styles.contentWrap}>
       <View style={styles.topRow}>
@@ -146,54 +193,34 @@ export function SearchSurface<T>({
           <X size={24} color={colors.text} strokeWidth={2} />
         </IconButton>
       </View>
-      <View
-        style={[
-          styles.searchRow,
-          {
-            marginBottom:
-              placesFiltersBar != null || showLegacyInlineTagFilter ? Spacing.xs : Spacing.md,
-          },
-        ]}
-      >
+      {placesFiltersBarCompose != null ? (
         <View
           style={[
-            styles.searchPill,
+            styles.searchRow,
             {
-              backgroundColor: colors.background,
-              borderColor: searchInputFocused ? colors.tint : colors.border,
-              borderWidth: searchInputFocused ? 2 : 1,
+              marginBottom:
+                placesFiltersBar != null || showLegacyInlineTagFilter ? Spacing.xs : Spacing.md,
             },
           ]}
-          accessibilityRole="search"
         >
-          <Search size={20} color={colors.textSecondary} strokeWidth={2} />
-          <SearchInputV2
-            value={controller.query}
-            onChangeText={controller.setQuery}
-            onClear={controller.clear}
-            placeholder={searchPlaceholder}
-            placeholderTextColor={searchPlaceholderColor}
-            autoFocus={searchInputAutoFocus}
-            embedded
-            accessibilityLabel={
-              pinFilter === 'saved'
-                ? 'Buscar en tus lugares por visitar'
-                : pinFilter === 'visited'
-                  ? 'Buscar en tus lugares visitados'
-                  : 'Buscar en el mapa'
-            }
-            onFocus={() => {
-              setSearchInputFocused(true);
-              onInputFocus?.();
-            }}
-            onBlur={() => {
-              setSearchInputFocused(false);
-              onInputBlur?.();
-            }}
-          />
+          {placesFiltersBarCompose}
         </View>
-      </View>
-      {placesFiltersBar != null ? placesFiltersBar : null}
+      ) : (
+        <>
+          <View
+            style={[
+              styles.searchRow,
+              {
+                marginBottom:
+                  placesFiltersBar != null || showLegacyInlineTagFilter ? Spacing.xs : Spacing.md,
+              },
+            ]}
+          >
+            {searchFieldEl}
+          </View>
+          {placesFiltersBar != null ? placesFiltersBar : null}
+        </>
+      )}
       {showLegacyInlineTagFilter ? (
         <>
           <Text style={[styles.tagFilterOrHint, { color: colors.textSecondary }]}>

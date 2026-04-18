@@ -4,6 +4,13 @@ import type { PlaceResult } from '@/lib/places/searchPlaces';
 import type { ReactNode } from 'react';
 import type { SearchSection } from './SearchResultsListV2';
 
+export type { SearchSection };
+
+/** Arg para `placesFiltersBar` en forma función (misma fila buscador + CTA que sheet Lugares). */
+export type PlacesFiltersBarRenderProps = {
+  searchField: ReactNode;
+};
+
 export type SearchFloatingProps<T> = {
   /** Controller de Search V2 (useSearchControllerV2); el padre configura setOnSelect/setOnCreate. */
   controller: UseSearchControllerV2Return<T>;
@@ -61,9 +68,10 @@ export type SearchFloatingProps<T> = {
    */
   searchInputAutoFocus?: boolean;
   /**
-   * Paridad con sheet Lugares: bajo el campo de búsqueda, chips activos (si hay) + botón «Filtros y etiquetas».
+   * Paridad con sheet Lugares: fila **buscador | CTA** + chips debajo (vía `filtersEntryLeading` en el bar).
+   * Puede ser un `ReactNode` (legado: buscador ancho completo arriba + bar debajo) o una **función**
+   * `( { searchField } ) => …` que recibe el pastillón del input para componer la misma fila que el sheet.
    * Si se pasa, no se pinta la fila inline `ExploreTagFilterChipRow` en `SearchSurface` (edición en modal).
-   * Runtime: `ExplorePlacesActiveFiltersBar` desde `MapScreen`.
    */
-  placesFiltersBar?: ReactNode;
+  placesFiltersBar?: ReactNode | ((props: PlacesFiltersBarRenderProps) => ReactNode);
 };
