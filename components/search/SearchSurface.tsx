@@ -10,7 +10,7 @@ import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-in
 import { SearchListCard } from '@/components/design-system/search-list-card';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useState, type ReactNode } from 'react';
+import React, { useCallback, useState, type ReactNode } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -25,7 +25,6 @@ import {
 import { ExploreTagFilterChipRow } from '@/components/design-system/explore-tag-filter-chip-row';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
-import { ListView } from './SearchResultsListV2';
 import type { PlacesFiltersBarRenderProps, SearchFloatingProps } from './types';
 
 const HEADER_ROW_HEIGHT = 44;
@@ -114,13 +113,33 @@ export function SearchSurface<T>({
     keyboardShouldPersistTaps: 'handled' as const,
     ...(scrollViewKeyboardDismissMode === 'on-drag' ? { keyboardDismissMode: 'on-drag' as const } : {}),
   };
-  const scrollEventProps = onScrollDismissKeyboard
-    ? {
-        onScroll: (e: NativeSyntheticEvent<NativeScrollEvent>) =>
-          onScrollDismissKeyboard(e.nativeEvent.contentOffset.y),
-        scrollEventThrottle: 100,
+
+  /** Un solo scroll: evita desmontar el buscador al cruzar ≥3 caracteres (antes: ScrollView pre-búsqueda → ListView). */
+  const showEmptyDefaults =
+    !shouldRenderResultsOnEmpty &&
+    isEmpty &&
+    (defaultItemSections.some((s) => s.items.length > 0) || defaultItems.length > 0);
+  const showPreSearchBlock = isPreSearch && (recentQueries.length > 0 || recentViewedItems.length > 0);
+
+  const handleUnifiedScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const ne = e.nativeEvent;
+      onScrollDismissKeyboard?.(ne.contentOffset.y);
+      if (!shouldRenderResultsList || !controller.hasMore || controller.isLoading) return;
+      const { layoutMeasurement, contentOffset, contentSize } = ne;
+      const padding = 80;
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - padding) {
+        controller.fetchMore();
       }
-    : {};
+    },
+    [
+      controller.fetchMore,
+      controller.hasMore,
+      controller.isLoading,
+      onScrollDismissKeyboard,
+      shouldRenderResultsList,
+    ],
+  );
 
   const showLegacyInlineTagFilter =
     placesFiltersBar == null && tagFilterOptions.length > 0 && onTagFilterChange != null;
@@ -249,18 +268,36 @@ export function SearchSurface<T>({
         </IconButton>
       </View>
       <View style={styles.resultsArea}>
-        {!shouldRenderResultsOnEmpty &&
-        isEmpty &&
-        (defaultItemSections.some((s) => s.items.length > 0) || defaultItems.length > 0) && (
-          <ScrollView
-            style={styles.resultsScroll}
-            contentContainerStyle={styles.resultsContent}
-            showsVerticalScrollIndicator
-            {...scrollProps}
-            {...scrollEventProps}
-          >
-            {scrollableSearchHeaderEl}
-            {defaultItemSections.some((s) => s.items.length > 0) ? (
+        <ScrollView
+          style={styles.resultsScroll}
+          contentContainerStyle={styles.resultsContent}
+          showsVerticalScrollIndicator
+          {...scrollProps}
+          onScroll={handleUnifiedScroll}
+          scrollEventThrottle={onScrollDismissKeyboard ? 100 : 200}
+        >
+          {scrollableSearchHeaderEl}
+          {shouldRenderResultsList ? (
+            <>
+              {showGlobalPinExpandHint ? (
+                <Text
+                  style={[styles.globalPinExpandHint, { color: colors.textSecondary }]}
+                  accessibilityRole="text"
+                >
+                  {pinFilter === 'saved'
+                    ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
+                    : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
+                </Text>
+              ) : null}
+              {resultsSummaryLabel ? (
+                <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                  {resultsSummaryLabel}
+                </Text>
+              ) : null}
+            </>
+          ) : null}
+          {showEmptyDefaults ? (
+            defaultItemSections.some((s) => s.items.length > 0) ? (
               defaultItemSections.map((section) =>
                 section.items.length > 0 ? (
                   <View key={section.id} style={styles.sectionWithGap}>
@@ -288,88 +325,69 @@ export function SearchSurface<T>({
                   </View>
                 ))}
               </>
-            )}
-          </ScrollView>
-        )}
-        {isPreSearch && (recentQueries.length > 0 || recentViewedItems.length > 0) && (
-          <ScrollView
-            style={styles.resultsScroll}
-            contentContainerStyle={styles.resultsContent}
-            showsVerticalScrollIndicator
-            {...scrollProps}
-            {...scrollEventProps}
-          >
-            {scrollableSearchHeaderEl}
-            {recentQueries.length > 0 && (
-              <View style={styles.resultItemWrap}>
-                <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                  Búsquedas recientes
-                </Text>
-                {recentQueries.slice(0, 5).map((queryItem) => (
-                  <Pressable
-                    key={queryItem}
-                    style={styles.historyItem}
-                    onPress={() => controller.setQuery(queryItem)}
-                  >
-                    <Text style={{ color: colors.text }}>{queryItem}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            )}
-            {recentViewedItems.length > 0 && (
-              <View style={styles.resultItemWrap}>
-                <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                  Vistos recientemente
-                </Text>
-                <View style={styles.recentListWrap}>
-                  {recentViewedItems.slice(0, 10).map((item, idx) => (
-                    <View key={keyFor(item, idx)}>{renderItem(item)}</View>
+            )
+          ) : null}
+          {showPreSearchBlock ? (
+            <>
+              {recentQueries.length > 0 ? (
+                <View style={styles.resultItemWrap}>
+                  <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                    Búsquedas recientes
+                  </Text>
+                  {recentQueries.slice(0, 5).map((queryItem) => (
+                    <Pressable
+                      key={queryItem}
+                      style={styles.historyItem}
+                      onPress={() => controller.setQuery(queryItem)}
+                    >
+                      <Text style={{ color: colors.text }}>{queryItem}</Text>
+                    </Pressable>
                   ))}
                 </View>
-              </View>
-            )}
-          </ScrollView>
-        )}
-        {shouldRenderResultsList && (
-          <View style={styles.resultsListWrap}>
-            <ListView
-            header={
-              <>
-                {scrollableSearchHeaderEl}
-                {showGlobalPinExpandHint ? (
-                  <Text
-                    style={[styles.globalPinExpandHint, { color: colors.textSecondary }]}
-                    accessibilityRole="text"
-                  >
-                    {pinFilter === 'saved'
-                      ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
-                      : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
-                  </Text>
-                ) : null}
-                {resultsSummaryLabel ? (
+              ) : null}
+              {recentViewedItems.length > 0 ? (
+                <View style={styles.resultItemWrap}>
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                    {resultsSummaryLabel}
+                    Vistos recientemente
                   </Text>
-                ) : null}
-              </>
-            }
-            sections={resultSections}
-            results={displayResults}
-            renderItem={renderItem}
-            renderSectionHeader={(section) =>
-              isFilteredPinSearch ? (
-                <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                  {section.title}
-                </Text>
-              ) : null
-            }
-            onEndReached={controller.fetchMore}
-            hasMore={controller.hasMore}
-            isLoading={controller.isLoading}
-            keyboardDismissMode={scrollViewKeyboardDismissMode === 'on-drag' ? 'on-drag' : 'none'}
-            onScrollDismissKeyboard={onScrollDismissKeyboard}
-            footer={
-              showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
+                  <View style={styles.recentListWrap}>
+                    {recentViewedItems.slice(0, 10).map((item, idx) => (
+                      <View key={keyFor(item, idx)}>{renderItem(item)}</View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+            </>
+          ) : null}
+          {shouldRenderResultsList ? (
+            <>
+              {resultSections.length > 0
+                ? resultSections
+                    .filter((s) => s.items.length > 0)
+                    .map((section) => (
+                      <View key={section.id} style={styles.sectionWithGap}>
+                        {isFilteredPinSearch ? (
+                          <Text
+                            style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}
+                          >
+                            {section.title}
+                          </Text>
+                        ) : (
+                          <View style={styles.sectionHeaderPlaceholder} />
+                        )}
+                        {section.items.map((item, idx) => (
+                          <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
+                            {renderItem(item)}
+                          </View>
+                        ))}
+                      </View>
+                    ))
+                : displayResults.map((item, idx) => (
+                    <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
+                      {renderItem(item)}
+                    </View>
+                  ))}
+              {showPlaceRecommendations && placeSuggestions.length > 0 && onCreateFromPlace ? (
                 <View style={styles.suggestionsSection}>
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                     Recomendaciones
@@ -386,21 +404,11 @@ export function SearchSurface<T>({
                     ))}
                   </View>
                 </View>
-              ) : null
-            }
-          />
-          </View>
-        )}
-        {isNoResults && (
-          <View style={styles.noResultsWrap}>
-            <ScrollView
-              style={styles.noResultsScroll}
-              contentContainerStyle={styles.resultsContent}
-              showsVerticalScrollIndicator
-              {...scrollProps}
-              {...scrollEventProps}
-            >
-              {scrollableSearchHeaderEl}
+              ) : null}
+            </>
+          ) : null}
+          {isNoResults ? (
+            <>
               {(() => {
                 const showNoSpotsMessage =
                   isFilteredPinSearch || (isNoResults && placeSuggestions.length === 0);
@@ -447,9 +455,9 @@ export function SearchSurface<T>({
                   </Pressable>
                 </View>
               ) : null}
-            </ScrollView>
-          </View>
-        )}
+            </>
+          ) : null}
+        </ScrollView>
       </View>
     </View>
   );
@@ -490,16 +498,9 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 0,
   },
-  resultsListWrap: {
-    flex: 1,
-    minHeight: 0,
-    gap: Spacing.sm,
+  sectionHeaderPlaceholder: {
+    minHeight: 24,
   },
-  noResultsWrap: {
-    flex: 1,
-    minHeight: 0,
-  },
-  noResultsScroll: {},
   resultsScroll: { flex: 1, minHeight: 0 },
   resultsContent: { paddingTop: Spacing.sm, paddingBottom: Spacing.sm, gap: Spacing.sm },
   sectionWithGap: { width: '100%', gap: Spacing.sm },
