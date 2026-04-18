@@ -1,8 +1,7 @@
 /**
- * Barra: chips activos (fila superior) + entrada **Etiquetas y filtros** (OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001).
- * Con `filtersSearchInline`, misma fila que el launcher de búsqueda del sheet (truncado en placeholder).
- * Sin inline (p. ej. overlay Search): solo botón primario debajo de chips.
- * Orden de chips: **etiquetas primero, país después** (OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001).
+ * Barra Lugares (sheet / host): **buscador** (si `filtersSearchInline`) → **CTA** «Etiquetas y filtros» → **chips**
+ * activos debajo (OL-EXPLORE-FILTERS-ENTRY-LAYOUT-001). Orden de chips: **etiquetas primero, país después**
+ * (OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001). Sin inline (p. ej. overlay Search): CTA primero, chips debajo.
  * El panel completo de edición vive en `ExplorePlacesFiltersModal`.
  *
  * Contraste (referencia WCAG 2.1 AA, texto UI):
@@ -187,27 +186,16 @@ export function ExplorePlacesActiveFiltersBar({
 
   return (
     <View style={styles.column}>
-      {hasActiveChips ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.chipsScrollContent}
-          style={styles.chipsScroll}
-        >
-          <ExplorePlacesActiveFilterChips
-            colors={colors}
-            countryDetail={countryDetail}
-            activeTags={activeTags}
-            showTagChips={showTagChips}
-            onClearCountryScope={onClearCountryScope}
-            onClearTagFilter={onClearTagFilter}
-          />
-        </ScrollView>
-      ) : null}
-
       {filtersSearchInline != null ? (
         <View style={[styles.entrySearchRow, webNoSelect]}>
+          <View style={styles.inlineSearchWrap}>
+            <SearchLauncherField
+              variant="sheet"
+              onPress={filtersSearchInline.onPress}
+              placeholder={filtersSearchInline.placeholder}
+              accessibilityLabel={filtersSearchInline.accessibilityLabel}
+            />
+          </View>
           <Pressable
             onPress={onOpenFiltersPanel}
             style={({ pressed }) => [
@@ -226,14 +214,6 @@ export function ExplorePlacesActiveFiltersBar({
               {FILTERS_ENTRY_LABEL}
             </Text>
           </Pressable>
-          <View style={styles.inlineSearchWrap}>
-            <SearchLauncherField
-              variant="sheet"
-              onPress={filtersSearchInline.onPress}
-              placeholder={filtersSearchInline.placeholder}
-              accessibilityLabel={filtersSearchInline.accessibilityLabel}
-            />
-          </View>
         </View>
       ) : (
         <Pressable
@@ -254,6 +234,25 @@ export function ExplorePlacesActiveFiltersBar({
           <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]}>{FILTERS_ENTRY_LABEL}</Text>
         </Pressable>
       )}
+
+      {hasActiveChips ? (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.chipsScrollContent}
+          style={styles.chipsScroll}
+        >
+          <ExplorePlacesActiveFilterChips
+            colors={colors}
+            countryDetail={countryDetail}
+            activeTags={activeTags}
+            showTagChips={showTagChips}
+            onClearCountryScope={onClearCountryScope}
+            onClearTagFilter={onClearTagFilter}
+          />
+        </ScrollView>
+      ) : null}
     </View>
   );
 }
@@ -290,7 +289,7 @@ const styles = StyleSheet.create({
   },
   filtersEntryPrimary: {
     flexShrink: 0,
-    maxWidth: "46%",
+    maxWidth: "48%",
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
