@@ -646,7 +646,15 @@ export function CountriesSheet({
         <View style={styles.kpiBodyRoot}>
           <ScrollView
             style={styles.kpiBodyScroll}
-            contentContainerStyle={styles.kpiBodyScrollContent}
+            contentContainerStyle={[
+              styles.kpiBodyScrollContent,
+              {
+                paddingBottom: Math.max(
+                  Spacing.xl,
+                  CONTAINER_PADDING_BOTTOM + insets.bottom + Spacing.md,
+                ),
+              },
+            ]}
             showsVerticalScrollIndicator
             keyboardShouldPersistTaps="handled"
             nestedScrollEnabled
@@ -684,7 +692,7 @@ export function CountriesSheet({
             </View>
             {!webDesktopSidebar && !isCountryDetailMode && !showCountryListSection ? (
               <Text style={[styles.countriesMapHint, { color: colors.textSecondary }]} accessibilityRole="text">
-                Toca el mapa para acercarte a un país, o despliega el sheet para ver la lista de lugares.
+                Toca el mapa para acercarte volar hasta ahí
               </Text>
             ) : null}
             {filterMode === "visited" ? (
@@ -709,6 +717,7 @@ export function CountriesSheet({
                 style={[
                   styles.listEntranceWrap,
                   webDesktopSidebar && styles.listEntranceWrapDesktopSidebar,
+                  kpiCountryListUsesParentScroll && styles.listEntranceWrapKpiEmbed,
                   kpiCountryListUsesParentScroll ? null : { maxHeight: expandedListMaxHeight },
                   listEntranceAnimatedStyle,
                 ]}
@@ -911,7 +920,6 @@ const styles = StyleSheet.create({
   },
   kpiBodyScrollContent: {
     flexGrow: 1,
-    paddingBottom: Spacing.sm,
   },
   placesScopeMenuDropWrap: {
     position: "absolute",
@@ -974,6 +982,10 @@ const styles = StyleSheet.create({
   },
   /** Desktop sidebar: mismo motivo que `containerDesktopSidebar.overflow` — evitar clip al cambiar ancho/panel. */
   listEntranceWrapDesktopSidebar: {
+    overflow: "visible",
+  },
+  /** Lista embebida en el `ScrollView` KPI: `overflow: hidden` recortaba la última fila al animar / desplazar. */
+  listEntranceWrapKpiEmbed: {
     overflow: "visible",
   },
   detailPlacesFlatList: {
