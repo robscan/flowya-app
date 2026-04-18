@@ -662,6 +662,8 @@ export function MapScreenVNext() {
   );
   const [, setPinFilterPulseNonce] = useState(0);
   const [isAuthUser, setIsAuthUser] = useState(false);
+  /** UID autenticado actual; cambia también en switch de cuenta sin pasar por anónimo. */
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
   const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
@@ -1011,6 +1013,7 @@ export function MapScreenVNext() {
         explorePlacesFiltersHydratedForUserRef.current = null;
       }
       exploreAuthUserIdRef.current = nextId;
+      setAuthUserId(nextId);
       setIsAuthUser(ok);
     };
     void supabase.auth.getSession().then(({ data }) => applySession(data.session));
@@ -1023,7 +1026,7 @@ export function MapScreenVNext() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthUser) {
+    if (!isAuthUser || !authUserId) {
       setMyProfileAvatarPublicUrl(null);
       setUserTags([]);
       setPinTagIndex({});
@@ -1035,8 +1038,24 @@ export function MapScreenVNext() {
       setTagAssignSpot(null);
       setTagAssignInput("");
       setTagAssignSaving(false);
+      setSpots((prev) =>
+        prev.map((s) => ({ ...s, saved: false, visited: false, pinStatus: "default" as SpotPinStatus })),
+      );
       return;
     }
+    setMyProfileAvatarPublicUrl(null);
+    setUserTags([]);
+    setPinTagIndex({});
+    setSelectedTagFilterIds([]);
+    setExplorePlacesCountryFilter(null);
+    setCountriesSheetListView(null);
+    setTagAssignSpot(null);
+    setTagAssignInput("");
+    setTagAssignSaving(false);
+    setSpots((prev) =>
+      prev.map((s) => ({ ...s, saved: false, visited: false, pinStatus: "default" as SpotPinStatus })),
+    );
+    explorePlacesFiltersHydratedForUserRef.current = null;
     setUserTagsCatalogReady(false);
     let cancelled = false;
     void (async () => {
@@ -1055,7 +1074,7 @@ export function MapScreenVNext() {
     return () => {
       cancelled = true;
     };
-  }, [isAuthUser]);
+  }, [isAuthUser, authUserId]);
 
   /** Hidratar filtros Lugares desde disco tras catálogo de etiquetas (web: antes de paint; nativo: async). */
   useLayoutEffect(() => {
@@ -1213,6 +1232,12 @@ export function MapScreenVNext() {
       setSpotsLoadSettled(true);
     }
   }, [selectedSpot, setSheetState]);
+
+  /** Switch de cuenta autenticada: refrescar pins del mapa con el nuevo uid. */
+  useEffect(() => {
+    if (!isAuthUser || !authUserId) return;
+    void refetchSpots();
+  }, [isAuthUser, authUserId, refetchSpots]);
 
   /** Una fila + pins: actualiza lista y selección sin refetch masivo (rendimiento tras ediciones). */
   const mergeSpotFromDbById = useCallback(async (spotId: string): Promise<"merged" | "missing" | "error" | "skipped"> => {
