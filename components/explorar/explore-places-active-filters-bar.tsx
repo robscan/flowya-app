@@ -1,5 +1,6 @@
 /**
  * Barra: chips activos (fila superior) + botón «Filtros y etiquetas» debajo, bajo el buscador del sheet.
+ * Orden de chips activos: **etiquetas primero, país después** (OL-EXPLORE-FILTERS-CHIPS-COUNTERS-001 / QA).
  * El panel completo de edición vive en `ExplorePlacesFiltersModal`.
  *
  * Contraste (referencia WCAG 2.1 AA, texto UI):
@@ -35,7 +36,7 @@ export type ExplorePlacesActiveFiltersBarColors = {
 export type ExplorePlacesActiveFilterChipsProps = {
   colors: ExplorePlacesActiveFiltersBarColors;
   countryDetail: CountriesSheetListDetail | null;
-  /** Etiquetas en OR; el chip país va primero en la fila para no quedar fuera del scroll horizontal. */
+  /** Etiquetas en OR; el chip país va después de las etiquetas (scroll horizontal). */
   activeTags: { id: string; label: string }[];
   showTagChips: boolean;
   onClearCountryScope: () => void;
@@ -44,7 +45,7 @@ export type ExplorePlacesActiveFilterChipsProps = {
 };
 
 /**
- * Solo chips activos (país → etiquetas en la fila, para scroll). Misma píldora que la banda superior del mapa.
+ * Solo chips activos (etiquetas → país en la fila). Misma píldora que la banda superior del mapa.
  */
 export function ExplorePlacesActiveFilterChips({
   colors,
@@ -141,8 +142,8 @@ export function ExplorePlacesActiveFilterChips({
 
   return (
     <>
-      {countryBlock}
       {tagBlocks}
+      {countryBlock}
     </>
   );
 }
