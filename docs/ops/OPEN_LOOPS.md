@@ -23,7 +23,6 @@
   4. **Auth** — social login (investigación / activación).
   5. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`; incluye **`profiles.last_activity_at`** (dato ya guardado; no UI de cuenta).
   6. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
-  7. **`OL-EXPLORE-WEB-ZOOM-GUARD-001`** — postergado al final de cola: intento previo no se reflejó como esperado en sitio; el comportamiento nativo de zoom/navegador es aceptable para usuarios. Retry solo con prioridad explícita (diagnosticar deploy/cache/viewport si se retoma).
 
 ---
 
@@ -103,7 +102,7 @@
 - **OL-CONTENT-002:** cerrado 2026-04-12 (**alcance web** galería multi-foto; paridad nativa no incluida). Bitácora `347`.
 - **OL-SPOTSHEET-EXPANDED-AUTH-GATE-001:** proyecto eliminado por completo. Tendencia: todo dentro de auth; por ahora anon permitido para testing. Política vigente: auth en mutaciones.
 - **OL-EXPLORE-GLOBE-ENTRY-MOTION-001:** cerrado con QA en prod.
-- **`OL-EXPLORE-WEB-ZOOM-GUARD-001`:** postergado al final de cola operativa; intento previo no se reflejó como esperado en sitio; comportamiento nativo de navegador aceptable. Retry solo con prioridad explícita.
+- **`OL-EXPLORE-WEB-ZOOM-GUARD-001`:** **retirado del backlog (2026-04-18).** Fuera de cola operativa; zoom/navegador web nativo aceptado como comportamiento del producto. No se planean reintentos salvo decisión explícita de producto (nuevo OL).
 - **`OL-CONTENT-001`:** dejó de estar postergado al cerrarse `OL-PROFILE-001`; ver **Loop activo único** y bitácora [`354`](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md) (siguiente foco).
 - **OL-SEARCHV2-001:** cerrado; abordado con ajustes recientes (landmarks visibles + fallback).
 - **OL-SEARCHV2-EMPTY-VIEWPORT-001:** postergado (sustituido por OL-SEARCHV2-EMPTY-FLOWYA-POPULAR-001). Plan viewport/zoom descartado: preferir datos Flowya propios vs viewport sin intención de búsqueda.
@@ -252,4 +251,4 @@
 7. Web-first: `OL-EXPLORE-RESTRUCTURE-001` y **`OL-WEB-RESPONSIVE-001` cerrados**; **`OL-CONTENT-002` cerrado** (galería web); **`OL-PRIVACY-001` cerrado**; **`OL-SECURITY-VALIDATION-001` cerrado**; **`OL-PROFILE-001` cerrado** (cuenta web); siguiente foco: **`OL-CONTENT-001`** → …
 8. No mover `Auth` social login antes de cerrar **`OL-SECURITY-VALIDATION-001`** (hecho 2026-04-12); base de perfil **`OL-PROFILE-001` cerrada** (2026-04-12, bitácora `354`).
 9. **OL-WEB-RESPONSIVE-001** — **cerrado**; plan: [PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md](plans/PLAN_OL_WEB_RESPONSIVE_COMPONENTS_001_2026-03-28.md).
-10. Orden de cola vigente: ver sección **Loop activo único** y lista **En espera** → … → OL-SEARCHV2-002 → **`OL-EXPLORE-WEB-ZOOM-GUARD-001` al final** (postergado).
+10. Orden de cola vigente: ver sección **Loop activo único** y lista **En espera** (termina en **OL-SEARCHV2-002**). `OL-EXPLORE-WEB-ZOOM-GUARD-001` retirado — ver **Cierres y postergados**.
