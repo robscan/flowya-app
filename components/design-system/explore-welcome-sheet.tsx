@@ -101,6 +101,8 @@ export type ExploreWelcomeSheetProps = {
   onSidebarShare?: () => void;
   /** Título en la cabecera del sidebar (junto a compartir/cerrar). */
   sidebarHeaderTitle?: string;
+  /** Web: hover en fila de spot → seleccionar pin correspondiente en mapa. */
+  onHoverChangeSpotId?: (spotId: string | null) => void;
 };
 
 export function ExploreWelcomeSheet({
@@ -120,6 +122,7 @@ export function ExploreWelcomeSheet({
   onSidebarClose,
   onSidebarShare,
   sidebarHeaderTitle = "Explorar",
+  onHoverChangeSpotId,
 }: ExploreWelcomeSheetProps) {
   const insets = useSafeAreaInsets();
   const deviceScheme = useColorScheme();
@@ -374,6 +377,11 @@ export function ExploreWelcomeSheet({
               spot={spot as SearchResultCardProps["spot"]}
               onPress={() => onBrowseItemPress(item)}
               distanceText={distanceText}
+              onHoverChange={
+                Platform.OS === 'web'
+                  ? (hovered) => onHoverChangeSpotId?.(hovered ? spot.id : null)
+                  : undefined
+              }
             />
           </View>
         );

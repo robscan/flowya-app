@@ -453,8 +453,6 @@ export function CountriesSheet({
     transform: [{ translateY: listEntranceTranslateY.value }],
   }));
 
-  if (!visible) return null;
-
   const layoutState = webDesktopSidebar ? "expanded" : state;
 
   const visibleHeightForState = getSheetHeightForState(
@@ -805,6 +803,9 @@ export function CountriesSheet({
       />
     </Animated.View>
   );
+
+  // Importante: no retornar antes de llamar hooks (Rules of Hooks).
+  if (!visible) return null;
 
   if (webDesktopSidebar) {
     return (

@@ -201,7 +201,8 @@ export const Colors = {
         toVisitStroke: 'rgba(255,255,255,1)',
         visitedStroke: 'rgba(255,255,255,1)',
         plusTextSize: 16,
-        makiIconSize: 2.0,
+        /** Por visitar/visitado: escala sprite; alineado visual con default · reposo (radio 8). */
+        makiIconSize: 1.45,
         labelSizeDelta: 1,
         labelOffsetY: 1.08,
       },
@@ -209,7 +210,7 @@ export const Colors = {
         radius: 8,
         strokeWidth: 1.5,
         plusTextSize: 14,
-        makiIconSize: 1.7,
+        makiIconSize: 0.95,
         labelOffsetY: 0.94,
       },
       cluster: {
@@ -309,7 +310,7 @@ export const Colors = {
         toVisitStroke: 'rgba(255,255,255,0.9)',
         visitedStroke: 'rgba(255,255,255,0.9)',
         plusTextSize: 16,
-        makiIconSize: 2.0,
+        makiIconSize: 1.45,
         labelSizeDelta: 1,
         labelOffsetY: 1.08,
       },
@@ -317,7 +318,7 @@ export const Colors = {
         radius: 8,
         strokeWidth: 1.5,
         plusTextSize: 14,
-        makiIconSize: 1.7,
+        makiIconSize: 0.95,
         labelOffsetY: 0.94,
       },
       cluster: {

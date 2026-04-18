@@ -18,18 +18,27 @@ import {
 
 export const FLOWYA_PIN_TO_VISIT = 'flowya-pin-to-visit';
 export const FLOWYA_PIN_VISITED = 'flowya-pin-visited';
+/** Variante reposo: disco sin icono (más discreto). */
+export const FLOWYA_PIN_TO_VISIT_DOT = 'flowya-pin-to-visit-dot';
+/** Variante reposo: disco sin icono (más discreto). */
+export const FLOWYA_PIN_VISITED_DOT = 'flowya-pin-visited-dot';
 
 const ICON_WHITE = '#ffffff';
 
 function createComposedSvg(
   circleFill: string,
   haloStroke: string,
-  iconType: 'pin' | 'check'
+  iconType: 'pin' | 'check' | 'none'
 ): string {
   const size = MAP_PIN_COMPOSITE_IMAGE_PX;
   const cx = size / 2;
   const cy = size / 2;
   const radius = getCompositeAssetFillRadiusPx();
+  if (iconType === 'none') {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+  <circle cx="${cx}" cy="${cy}" r="${radius}" fill="${circleFill}" stroke="${haloStroke}" stroke-width="${MAP_PIN_COMPOSITE_HALO_STROKE_PX}"/>
+</svg>`;
+  }
   if (iconType === 'pin') {
     const scale = 0.65;
     const tx = cx - 12 * scale;
@@ -54,7 +63,7 @@ function createComposedSvg(
 function createComposedPinImageDataFallback(
   circleFill: string,
   haloStroke: string,
-  iconType: 'pin' | 'check'
+  iconType: 'pin' | 'check' | 'none'
 ): ImageData | null {
   if (typeof document === 'undefined') return null;
   const size = MAP_PIN_COMPOSITE_IMAGE_PX;
@@ -77,6 +86,10 @@ function createComposedPinImageDataFallback(
   ctx.save();
   ctx.translate(cx, cy);
   ctx.strokeStyle = ICON_WHITE;
+  if (iconType === 'none') {
+    ctx.restore();
+    return ctx.getImageData(0, 0, size, size);
+  }
   ctx.lineWidth = iconType === 'pin' ? 2 : 2.2;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -107,12 +120,19 @@ export function addPinStatusImage(map: MapboxMap, id: string, palette: MapPinSpo
   } catch {
     /* ignore */
   }
-  const iconType = id === FLOWYA_PIN_TO_VISIT ? 'pin' : 'check';
-  const fill = id === FLOWYA_PIN_TO_VISIT ? palette.toVisit.fill : palette.visited.fill;
-  const haloStroke = id === FLOWYA_PIN_TO_VISIT ? palette.toVisit.stroke : palette.visited.stroke;
+  const isToVisit = id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_TO_VISIT_DOT;
+  const isVisited = id === FLOWYA_PIN_VISITED || id === FLOWYA_PIN_VISITED_DOT;
+  const iconType: 'pin' | 'check' | 'none' =
+    id === FLOWYA_PIN_TO_VISIT
+      ? 'pin'
+      : id === FLOWYA_PIN_VISITED
+        ? 'check'
+        : 'none';
+  const fill = isToVisit ? palette.toVisit.fill : palette.visited.fill;
+  const haloStroke = isToVisit ? palette.toVisit.stroke : palette.visited.stroke;
 
-  if (iconType === 'check') {
-    const imageData = createComposedPinImageDataFallback(fill, haloStroke, 'check');
+  if (iconType === 'check' || iconType === 'none') {
+    const imageData = createComposedPinImageDataFallback(fill, haloStroke, iconType);
     if (imageData) {
       try {
         map.addImage(id, imageData, { pixelRatio: MAP_PIN_COMPOSITE_PIXEL_RATIO });
@@ -152,4 +172,6 @@ export function preloadPinStatusImages(map: MapboxMap, palette: MapPinSpotPalett
   if (typeof document === 'undefined') return;
   addPinStatusImage(map, FLOWYA_PIN_TO_VISIT, palette);
   addPinStatusImage(map, FLOWYA_PIN_VISITED, palette);
+  addPinStatusImage(map, FLOWYA_PIN_TO_VISIT_DOT, palette);
+  addPinStatusImage(map, FLOWYA_PIN_VISITED_DOT, palette);
 }

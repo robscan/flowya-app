@@ -15,6 +15,8 @@ export type SearchSection<T> = {
 };
 
 export type SearchResultsListV2Props<T> = {
+  /** Contenido opcional antes de la lista (mismo scroll). */
+  header?: React.ReactNode;
   sections: SearchSection<T>[];
   /** Lista plana cuando no se usan secciones (mismo orden que results del controller). */
   results: T[];
@@ -35,6 +37,7 @@ export type SearchResultsListV2Props<T> = {
 export type ListViewProps<T> = SearchResultsListV2Props<T>;
 
 export function SearchResultsListV2<T>({
+  header,
   sections,
   results,
   renderItem,
@@ -69,6 +72,7 @@ export function SearchResultsListV2<T>({
       scrollEventThrottle={200}
       showsVerticalScrollIndicator
     >
+      {header ? <View style={styles.headerWrap}>{header}</View> : null}
       {showSections &&
         sections.map((section) => (
           <View key={section.id} style={styles.section}>
@@ -118,6 +122,9 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   footerWrap: {
+    width: '100%',
+  },
+  headerWrap: {
     width: '100%',
   },
 });

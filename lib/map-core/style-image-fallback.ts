@@ -9,6 +9,8 @@ import {
   addPinStatusImage,
   FLOWYA_PIN_TO_VISIT,
   FLOWYA_PIN_VISITED,
+  FLOWYA_PIN_TO_VISIT_DOT,
+  FLOWYA_PIN_VISITED_DOT,
 } from './pin-status-images';
 
 const FLOWYA_FALLBACK_ICON_RE = /^flowya-fallback-[a-z0-9-]+$/i;
@@ -30,7 +32,13 @@ function getMakiSvg(makiId: string): string | null {
 function shouldProvideFallbackImage(id: string): boolean {
   if (!id) return false;
   if (id === 'marker-15') return true;
-  if (id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_VISITED) return true;
+  if (
+    id === FLOWYA_PIN_TO_VISIT ||
+    id === FLOWYA_PIN_VISITED ||
+    id === FLOWYA_PIN_TO_VISIT_DOT ||
+    id === FLOWYA_PIN_VISITED_DOT
+  )
+    return true;
   if (FLOWYA_FALLBACK_ICON_RE.test(id)) return true;
   if (MAKI_SPRITE_ID_RE.test(id)) return true;
   return false;
@@ -115,7 +123,12 @@ function createGenericFallbackImage(id: string, sizePx = 32): ImageData | null {
 /** Añade icono Maki real (park, museum, etc.) o fallback genérico. */
 function addFallbackImage(map: MapboxMap, id: string, mapPinPalette: MapPinSpotPalette): void {
   try {
-    if (id === FLOWYA_PIN_TO_VISIT || id === FLOWYA_PIN_VISITED) {
+    if (
+      id === FLOWYA_PIN_TO_VISIT ||
+      id === FLOWYA_PIN_VISITED ||
+      id === FLOWYA_PIN_TO_VISIT_DOT ||
+      id === FLOWYA_PIN_VISITED_DOT
+    ) {
       addPinStatusImage(map, id, mapPinPalette);
       return;
     }
@@ -159,6 +172,8 @@ const FALLBACK_IDS_TO_PRELOAD = [
   'flowya-fallback-monument',
   FLOWYA_PIN_TO_VISIT,
   FLOWYA_PIN_VISITED,
+  FLOWYA_PIN_TO_VISIT_DOT,
+  FLOWYA_PIN_VISITED_DOT,
 ];
 
 export function installStyleImageFallback(
@@ -175,7 +190,14 @@ export function installStyleImageFallback(
     const id = typeof e?.id === 'string' ? e.id : '';
     if (!shouldProvideFallbackImage(id)) return;
     try {
-      if (id !== FLOWYA_PIN_TO_VISIT && id !== FLOWYA_PIN_VISITED && map.hasImage(id)) return;
+      if (
+        id !== FLOWYA_PIN_TO_VISIT &&
+        id !== FLOWYA_PIN_VISITED &&
+        id !== FLOWYA_PIN_TO_VISIT_DOT &&
+        id !== FLOWYA_PIN_VISITED_DOT &&
+        map.hasImage(id)
+      )
+        return;
       addFallbackImage(map, id, mapPinPalette);
     } catch {
       /* ignore */

@@ -15,7 +15,12 @@ import {
   MAPBOX_LABEL_STYLE_DARK,
   MAPBOX_LABEL_STYLE_LIGHT,
 } from './constants';
-import { FLOWYA_PIN_TO_VISIT, FLOWYA_PIN_VISITED } from './pin-status-images';
+import {
+  FLOWYA_PIN_TO_VISIT,
+  FLOWYA_PIN_VISITED,
+  FLOWYA_PIN_TO_VISIT_DOT,
+  FLOWYA_PIN_VISITED_DOT,
+} from './pin-status-images';
 
 export type SpotForLayer = {
   id: string;
@@ -126,7 +131,9 @@ function resolveMakiIcon(maki?: string | null, availableImageIds?: Set<string>):
 function spotsToGeoJSON(
   spots: SpotForLayer[],
   selectedSpotId: string | null,
-  availableImageIds?: Set<string>
+  availableImageIds: Set<string> | undefined,
+  /** Desktop: hover en fila de listado → mismo estilo que seleccionado en el pin. */
+  listHoverSpotId: string | null
 ): GeoJSON.FeatureCollection<
   GeoJSON.Point,
     {
@@ -156,7 +163,9 @@ function spotsToGeoJSON(
           id: s.id,
           title: s.title ?? '',
           pinStatus: status,
-          selected: s.id === selectedSpotId,
+          selected:
+            s.id === selectedSpotId ||
+            (listHoverSpotId != null && s.id === listHoverSpotId),
           isUnlinkedDefault: status === 'default' && !s.linkedPlaceId,
           makiIcon,
           hasLinkedMaki,
@@ -266,14 +275,25 @@ export function setupSpotsLayer(
   showMakiIcon: boolean,
   showLabels: boolean,
   pinFilter: PinFilterValue,
-  onPinClickBySpotId: (spotId: string) => void
+  onPinClickBySpotId: (spotId: string) => void,
+  listHoverSpotId: string | null = null
 ): void {
   try {
     const availableImageIds = new Set(map.listImages());
     const clusterableSpots = spots.filter((s) => isClusterable(s.pinStatus ?? 'default'));
     const defaultSpots = spots.filter((s) => !isClusterable(s.pinStatus ?? 'default'));
-    const dataCluster = spotsToGeoJSON(clusterableSpots, selectedSpotId, availableImageIds);
-    const dataDefault = spotsToGeoJSON(defaultSpots, selectedSpotId, availableImageIds);
+    const dataCluster = spotsToGeoJSON(
+      clusterableSpots,
+      selectedSpotId,
+      availableImageIds,
+      listHoverSpotId
+    );
+    const dataDefault = spotsToGeoJSON(
+      defaultSpots,
+      selectedSpotId,
+      availableImageIds,
+      listHoverSpotId
+    );
     const beforeId = getPoiLayerBeforeId(map);
     const palette = isDark ? Colors.dark.mapPinSpot : Colors.light.mapPinSpot;
 
@@ -508,11 +528,22 @@ export function setupSpotsLayer(
           filter: andNonCluster(filterSavedVisited()),
           layout: {
             'icon-image': [
-              'match',
-              ['get', 'pinStatus'],
-              'visited',
-              FLOWYA_PIN_VISITED,
-              FLOWYA_PIN_TO_VISIT,
+              'case',
+              ['get', 'selected'],
+              [
+                'match',
+                ['get', 'pinStatus'],
+                'visited',
+                FLOWYA_PIN_VISITED,
+                FLOWYA_PIN_TO_VISIT,
+              ],
+              [
+                'match',
+                ['get', 'pinStatus'],
+                'visited',
+                FLOWYA_PIN_VISITED_DOT,
+                FLOWYA_PIN_TO_VISIT_DOT,
+              ],
             ],
             'icon-size': [
               'case',
@@ -541,6 +572,12 @@ export function setupSpotsLayer(
     }
     if (map.getLayer(PINS_SAVED_VISITED_LAYER_ID)) {
       map.setFilter(PINS_SAVED_VISITED_LAYER_ID, andNonCluster(filterSavedVisited()));
+      map.setLayoutProperty(PINS_SAVED_VISITED_LAYER_ID, 'icon-image', [
+        'case',
+        ['get', 'selected'],
+        ['match', ['get', 'pinStatus'], 'visited', FLOWYA_PIN_VISITED, FLOWYA_PIN_TO_VISIT],
+        ['match', ['get', 'pinStatus'], 'visited', FLOWYA_PIN_VISITED_DOT, FLOWYA_PIN_TO_VISIT_DOT],
+      ]);
       map.setLayoutProperty(PINS_SAVED_VISITED_LAYER_ID, 'icon-size', [
         'case',
         ['get', 'selected'],
@@ -687,7 +724,8 @@ export function updateSpotsLayerData(
   spots: SpotForLayer[],
   selectedSpotId: string | null,
   _zoom: number,
-  showLabels: boolean
+  showLabels: boolean,
+  listHoverSpotId: string | null = null
 ): void {
   try {
     const availableImageIds = new Set(map.listImages());
@@ -695,11 +733,15 @@ export function updateSpotsLayerData(
     const defaultSpots = spots.filter((s) => !isClusterable(s.pinStatus ?? 'default'));
     const sourceCluster = map.getSource(SOURCE_ID) as GeoJSONSource | undefined;
     if (sourceCluster) {
-      sourceCluster.setData(spotsToGeoJSON(clusterableSpots, selectedSpotId, availableImageIds));
+      sourceCluster.setData(
+        spotsToGeoJSON(clusterableSpots, selectedSpotId, availableImageIds, listHoverSpotId)
+      );
     }
     const sourceDefault = map.getSource(SOURCE_DEFAULT_ID) as GeoJSONSource | undefined;
     if (sourceDefault) {
-      sourceDefault.setData(spotsToGeoJSON(defaultSpots, selectedSpotId, availableImageIds));
+      sourceDefault.setData(
+        spotsToGeoJSON(defaultSpots, selectedSpotId, availableImageIds, listHoverSpotId)
+      );
     }
     for (const layerId of LABEL_LAYER_IDS) {
       if (map.getLayer(layerId)) {

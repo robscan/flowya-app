@@ -28,6 +28,7 @@ export type SearchResultCardProps = {
     accessibilityLabel?: string;
   }[];
   tagChips?: { id: string; label: string }[];
+  onHoverChange?: (hovered: boolean) => void;
 };
 
 export function SearchResultCard({
@@ -37,6 +38,7 @@ export function SearchResultCard({
   subtitleOverride,
   quickActions = [],
   tagChips,
+  onHoverChange,
 }: SearchResultCardProps) {
   const resolvedSubtitle =
     subtitleOverride !== undefined ? subtitleOverride : (spot.address ?? null);
@@ -53,6 +55,7 @@ export function SearchResultCard({
         tagChips={tagChips}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
+        onHoverChange={onHoverChange}
       />
     </View>
   );

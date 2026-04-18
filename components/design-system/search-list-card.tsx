@@ -48,6 +48,8 @@ export type SearchListCardProps = {
     onPress: () => void;
     accessibilityLabel?: string;
   }[];
+  /** Web: hover en la fila (p. ej. sincronizar pin del mapa en desktop). */
+  onHoverChange?: (hovered: boolean) => void;
 };
 /** Alias canónico DS para item visual de listados. */
 export type ResultRowProps = SearchListCardProps;
@@ -67,6 +69,7 @@ export function SearchListCard({
   maki = null,
   tagChips = [],
   quickActions = [],
+  onHoverChange,
 }: SearchListCardProps) {
   const INLINE_ACTION_SUPPRESS_MS = 650;
   const colorScheme = useColorScheme();
@@ -152,8 +155,14 @@ export function SearchListCard({
         focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
       ]}
       onPress={handleCardPress}
-      onHoverIn={() => setHovered(true)}
-      onHoverOut={() => setHovered(false)}
+      onHoverIn={() => {
+        setHovered(true);
+        onHoverChange?.(true);
+      }}
+      onHoverOut={() => {
+        setHovered(false);
+        onHoverChange?.(false);
+      }}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       disabled={disabled}

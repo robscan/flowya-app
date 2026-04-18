@@ -172,27 +172,12 @@ export function SearchSurface<T>({
         })
       : null;
 
-  return (
-    <View style={styles.contentWrap}>
-      <View style={styles.topRow}>
-        <View style={styles.filterRow}>
-          {pinFilter != null && onPinFilterChange != null ? (
-            <MapPinFilterInline
-              value={pinFilter}
-              onChange={onPinFilterChange}
-              counts={pinCounts}
-            />
-          ) : null}
-        </View>
-        <IconButton
-          variant="default"
-          selected
-          onPress={onClosePress}
-          accessibilityLabel="Cerrar búsqueda"
-        >
-          <X size={24} color={colors.text} strokeWidth={2} />
-        </IconButton>
-      </View>
+  /**
+   * En la ventana de buscador, solo el header (filtros + cerrar) queda fijo.
+   * Todo el contenido restante (buscador, chips, resultados) debe vivir dentro del scroll.
+   */
+  const scrollableSearchHeaderEl = (
+    <>
       {placesFiltersBarCompose != null ? (
         <View
           style={[
@@ -239,6 +224,30 @@ export function SearchSurface<T>({
           />
         </>
       ) : null}
+    </>
+  );
+
+  return (
+    <View style={styles.contentWrap}>
+      <View style={styles.topRow}>
+        <View style={styles.filterRow}>
+          {pinFilter != null && onPinFilterChange != null ? (
+            <MapPinFilterInline
+              value={pinFilter}
+              onChange={onPinFilterChange}
+              counts={pinCounts}
+            />
+          ) : null}
+        </View>
+        <IconButton
+          variant="default"
+          selected
+          onPress={onClosePress}
+          accessibilityLabel="Cerrar búsqueda"
+        >
+          <X size={24} color={colors.text} strokeWidth={2} />
+        </IconButton>
+      </View>
       <View style={styles.resultsArea}>
         {!shouldRenderResultsOnEmpty &&
         isEmpty &&
@@ -250,6 +259,7 @@ export function SearchSurface<T>({
             {...scrollProps}
             {...scrollEventProps}
           >
+            {scrollableSearchHeaderEl}
             {defaultItemSections.some((s) => s.items.length > 0) ? (
               defaultItemSections.map((section) =>
                 section.items.length > 0 ? (
@@ -289,6 +299,7 @@ export function SearchSurface<T>({
             {...scrollProps}
             {...scrollEventProps}
           >
+            {scrollableSearchHeaderEl}
             {recentQueries.length > 0 && (
               <View style={styles.resultItemWrap}>
                 <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
@@ -321,22 +332,27 @@ export function SearchSurface<T>({
         )}
         {shouldRenderResultsList && (
           <View style={styles.resultsListWrap}>
-            {showGlobalPinExpandHint ? (
-              <Text
-                style={[styles.globalPinExpandHint, { color: colors.textSecondary }]}
-                accessibilityRole="text"
-              >
-                {pinFilter === 'saved'
-                  ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
-                  : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
-              </Text>
-            ) : null}
-            {resultsSummaryLabel ? (
-              <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                {resultsSummaryLabel}
-              </Text>
-            ) : null}
             <ListView
+            header={
+              <>
+                {scrollableSearchHeaderEl}
+                {showGlobalPinExpandHint ? (
+                  <Text
+                    style={[styles.globalPinExpandHint, { color: colors.textSecondary }]}
+                    accessibilityRole="text"
+                  >
+                    {pinFilter === 'saved'
+                      ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
+                      : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
+                  </Text>
+                ) : null}
+                {resultsSummaryLabel ? (
+                  <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                    {resultsSummaryLabel}
+                  </Text>
+                ) : null}
+              </>
+            }
             sections={resultSections}
             results={displayResults}
             renderItem={renderItem}
@@ -384,6 +400,7 @@ export function SearchSurface<T>({
               {...scrollProps}
               {...scrollEventProps}
             >
+              {scrollableSearchHeaderEl}
               {(() => {
                 const showNoSpotsMessage =
                   isFilteredPinSearch || (isNoResults && placeSuggestions.length === 0);

@@ -69,6 +69,11 @@ export type UseMapCoreOptions = {
   pinFilter?: 'all' | 'saved' | 'visited';
   /** Bbox/tipo Mapbox persistidos en el spot para encuadre como en búsqueda (país/región vs zoom 17). */
   selectedSpotCameraFraming?: SpotCameraFraming | null;
+  /**
+   * Web desktop: id de spot bajo hover en listado de búsqueda → pin en mapa con estilo seleccionado.
+   * No sustituye `selectedSpotId` si ya hay selección explícita (ambos pueden coincidir).
+   */
+  mapListHoverSpotId?: string | null;
 };
 
 export type MapLocateResult =
@@ -141,6 +146,7 @@ export function useMapCore(
     showSpotLabels = true,
     pinFilter = 'all',
     selectedSpotCameraFraming = null,
+    mapListHoverSpotId = null,
   } = options;
 
   const spotsRef = useRef<SpotForLayer[]>(spots);
@@ -300,8 +306,15 @@ export function useMapCore(
       hasSpotsSource = false;
     }
     if (!hasSpotsSource) return;
-    updateSpotsLayerData(map, spots, selectedSpotId, zoom, showSpotLabels);
-  }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels]);
+    updateSpotsLayerData(
+      map,
+      spots,
+      selectedSpotId,
+      zoom,
+      showSpotLabels,
+      mapListHoverSpotId
+    );
+  }, [mapInstance, spots, selectedSpotId, zoom, showSpotLabels, mapListHoverSpotId]);
 
   const handleLocate = useCallback(async (): Promise<MapLocateResult> => {
     if (!mapInstance) return { status: 'unsupported' };

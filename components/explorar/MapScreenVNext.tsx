@@ -474,31 +474,63 @@ const COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG = 0.04;
 
 /** Unión de bbox Mapbox o puntos lat/lng de spots para `fitBounds` al elegir un país. */
 function computeLngLatBoundsFromSpots(spots: Spot[]): [[number, number], [number, number]] | null {
-  let west = Infinity;
-  let south = Infinity;
-  let east = -Infinity;
-  let north = -Infinity;
+  // Baseline: siempre partir de puntos (estable) para evitar bbox "envenenados" que se vayan al océano.
+  let pWest = Infinity;
+  let pSouth = Infinity;
+  let pEast = -Infinity;
+  let pNorth = -Infinity;
+  const bboxCandidates: NonNullable<Spot["mapbox_bbox"]>[] = [];
   for (const spot of spots) {
+    if (Number.isFinite(spot.longitude) && Number.isFinite(spot.latitude)) {
+      pWest = Math.min(pWest, spot.longitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      pSouth = Math.min(pSouth, spot.latitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      pEast = Math.max(pEast, spot.longitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      pNorth = Math.max(pNorth, spot.latitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+    }
     const bb = spot.mapbox_bbox;
     if (
       bb != null &&
       Number.isFinite(bb.west) &&
       Number.isFinite(bb.south) &&
       Number.isFinite(bb.east) &&
-      Number.isFinite(bb.north)
+      Number.isFinite(bb.north) &&
+      bb.east > bb.west &&
+      bb.north > bb.south
     ) {
-      west = Math.min(west, bb.west);
-      south = Math.min(south, bb.south);
-      east = Math.max(east, bb.east);
-      north = Math.max(north, bb.north);
-    } else if (Number.isFinite(spot.longitude) && Number.isFinite(spot.latitude)) {
-      west = Math.min(west, spot.longitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
-      south = Math.min(south, spot.latitude - COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
-      east = Math.max(east, spot.longitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
-      north = Math.max(north, spot.latitude + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG);
+      bboxCandidates.push(bb);
     }
   }
-  if (!Number.isFinite(west)) return null;
+  if (!Number.isFinite(pWest)) return null;
+
+  let west = pWest;
+  let south = pSouth;
+  let east = pEast;
+  let north = pNorth;
+
+  const pointSpanLng = Math.max(0.001, pEast - pWest);
+  const pointSpanLat = Math.max(0.001, pNorth - pSouth);
+  // Heurística: bbox no puede ser "muchísimo" mayor que el envelope de puntos, o suele incluir mar/región.
+  const MAX_BBOX_FACTOR = 6;
+  const MAX_ABS_SPAN_DEG = 18;
+  const padGateLng = pointSpanLng * 0.5 + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG;
+  const padGateLat = pointSpanLat * 0.5 + COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG;
+
+  for (const bb of bboxCandidates) {
+    const spanLng = bb.east - bb.west;
+    const spanLat = bb.north - bb.south;
+    if (spanLng > MAX_ABS_SPAN_DEG || spanLat > MAX_ABS_SPAN_DEG) continue;
+    if (spanLng > pointSpanLng * MAX_BBOX_FACTOR || spanLat > pointSpanLat * MAX_BBOX_FACTOR) continue;
+    // Debe tocar el envelope de puntos (con una holgura) para evitar bbox de entidades no relacionadas.
+    if (bb.east < pWest - padGateLng) continue;
+    if (bb.west > pEast + padGateLng) continue;
+    if (bb.north < pSouth - padGateLat) continue;
+    if (bb.south > pNorth + padGateLat) continue;
+    west = Math.min(west, bb.west);
+    south = Math.min(south, bb.south);
+    east = Math.max(east, bb.east);
+    north = Math.max(north, bb.north);
+  }
+
   const padLng = Math.max((east - west) * 0.08, 0.008);
   const padLat = Math.max((north - south) * 0.08, 0.008);
   return [
@@ -609,6 +641,9 @@ export function MapScreenVNext() {
   const pathname = usePathname();
   const colorScheme = useColorScheme();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const webDesktopExploreSplitLayout =
+    Platform.OS === "web" && webExploreUsesDesktopSidebar(windowWidth);
   const { openAuthModal } = useAuthModal();
   const toast = useSystemStatus();
   const toastResetAnchorRef = useRef(toast.resetAnchor);
@@ -630,6 +665,7 @@ export function MapScreenVNext() {
     sidebarCountries: false,
     fitBoundsLeftPad: 0,
   });
+  const pendingCountryFitBoundsRef = useRef<[[number, number], [number, number]] | null>(null);
   /** Mismo `padLeft` que `map.setPadding` en split web (bienvenida / países / spot). */
   const exploreMapStageLeftInsetRef = useRef(0);
   /** Id usuario autenticado (no anónimo); evita `await getUser()` en cada tap de pin. */
@@ -1553,6 +1589,7 @@ export function MapScreenVNext() {
   );
   // Mantener labels de spots Flowya al seleccionar un spot para evitar "apagón" visual del resto.
   const shouldShowFlowyaSpotLabels = !hasActivePoiSelection;
+  const [mapSearchListHoverSpotId, setMapSearchListHoverSpotId] = useState<string | null>(null);
   const resolveEffectivePinStatus = useCallback(
     (status: SpotPinStatus | undefined): SpotPinStatus => {
       return status ?? "default";
@@ -1606,6 +1643,7 @@ export function MapScreenVNext() {
           maki: selectedSpot.linked_maki ?? null,
         }
       : null,
+    mapListHoverSpotId: Platform.OS === "web" ? mapSearchListHoverSpotId : null,
   });
   const {
     mapInstance,
@@ -1799,6 +1837,28 @@ export function MapScreenVNext() {
     pendingDeepLinkFocusRef.current = null;
   }, [mapInstance, focusCameraOnSpot]);
 
+  useEffect(() => {
+    if (!mapInstance) return;
+    const bounds = pendingCountryFitBoundsRef.current;
+    if (!bounds) return;
+    pendingCountryFitBoundsRef.current = null;
+    const layout = exploreCountriesDesktopLayoutRef.current;
+    try {
+      suspendFilterUntilCameraSettles();
+      mapInstance.fitBounds(bounds, {
+        padding: {
+          top: FIT_BOUNDS_PADDING,
+          right: FIT_BOUNDS_PADDING,
+          bottom: FIT_BOUNDS_PADDING,
+          left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
+        },
+        duration: FIT_BOUNDS_DURATION_MS,
+      });
+    } catch {
+      // noop
+    }
+  }, [mapInstance, suspendFilterUntilCameraSettles]);
+
   const contextualSelection = useMemo<{ id: string } | null>(() => {
     if (selectedSpot) return { id: selectedSpot.id };
     if (!poiTapped) return null;
@@ -1916,7 +1976,7 @@ export function MapScreenVNext() {
           }
         : {
             all: "Mapa completo: más resultados visibles.",
-            saved: "Solo pendientes: prioriza tu próxima salida.",
+            saved: "Solo pendientes: Planea tu siguiente aventura.",
             visited: "Solo visitados: revisa tu huella.",
           };
       if (!suppressToastRef.current) {
@@ -2152,6 +2212,10 @@ export function MapScreenVNext() {
       tagIds: selectedTagFilterIds,
     }),
   });
+
+  useEffect(() => {
+    if (!searchV2.isOpen) setMapSearchListHoverSpotId(null);
+  }, [searchV2.isOpen]);
 
   /**
    * Contrato teclado/foco:
@@ -4078,10 +4142,10 @@ export function MapScreenVNext() {
   /** Desktop ≥1080: ancho de columna países; más ancho solo en listado de lugares (no en KPI de países). */
   const countriesDesktopSidebarPanelWidth = useMemo(
     () =>
-      countriesSheetListView != null || explorePlacesCountryFilter != null
+      countriesSheetListView != null
         ? WEB_EXPLORE_SIDEBAR_PLACES_LIST_PANEL_WIDTH
         : WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
-    [countriesSheetListView, explorePlacesCountryFilter],
+    [countriesSheetListView],
   );
 
   /** Paridad con `CountriesSheet` (`filterMode` + panel países) para chips de la barra de filtros. */
@@ -4416,9 +4480,14 @@ export function MapScreenVNext() {
   ]);
 
   const handleCountriesKpiPress = useCallback(() => {
-    if (!countriesSheetOpen) return;
+    if (createSpotNameOverlayOpen) return;
     const listView = countriesSheetListView;
     const sheetState = countriesSheetState;
+    if (!countriesSheetOpen) {
+      openCountriesSheetForFilter(countriesOverlayFilter, { requireMounted: true });
+      setCountriesSheetListView(null);
+      return;
+    }
     setCountriesSheetListView(null);
     if (listView != null) {
       setCountriesSheetState("medium");
@@ -4430,7 +4499,14 @@ export function MapScreenVNext() {
       return;
     }
     setCountriesSheetState("medium");
-  }, [countriesSheetOpen, countriesSheetListView, countriesSheetState]);
+  }, [
+    createSpotNameOverlayOpen,
+    countriesOverlayFilter,
+    countriesSheetOpen,
+    countriesSheetListView,
+    countriesSheetState,
+    openCountriesSheetForFilter,
+  ]);
 
   const handleCountriesSpotsKpiPress = useCallback(() => {
     if (createSpotNameOverlayOpen) return;
@@ -4520,20 +4596,32 @@ export function MapScreenVNext() {
         (spot) => resolveCountryForSpot(spot)?.key === country.key,
       );
       const bounds = computeLngLatBoundsFromSpots(forCountry);
-      if (bounds == null || !mapInstance) return;
-      try {
-        suspendFilterUntilCameraSettles();
-        mapInstance.fitBounds(bounds, {
-          padding: {
-            top: FIT_BOUNDS_PADDING,
-            right: FIT_BOUNDS_PADDING,
-            bottom: FIT_BOUNDS_PADDING,
-            left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
-          },
-          duration: FIT_BOUNDS_DURATION_MS,
-        });
-      } catch {
-        // noop
+      if (bounds == null) return;
+      const runFit = (map: NonNullable<typeof mapInstance>) => {
+        try {
+          suspendFilterUntilCameraSettles();
+          map.fitBounds(bounds, {
+            padding: {
+              top: FIT_BOUNDS_PADDING,
+              right: FIT_BOUNDS_PADDING,
+              bottom: FIT_BOUNDS_PADDING,
+              left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
+            },
+            duration: FIT_BOUNDS_DURATION_MS,
+          });
+        } catch {
+          // noop
+        }
+      };
+      if (!mapInstance) {
+        pendingCountryFitBoundsRef.current = bounds;
+        return;
+      }
+      pendingCountryFitBoundsRef.current = null;
+      if (Platform.OS === "web") {
+        requestAnimationFrame(() => requestAnimationFrame(() => runFit(mapInstance)));
+      } else {
+        requestAnimationFrame(() => runFit(mapInstance));
       }
     },
     [
@@ -4853,6 +4941,11 @@ export function MapScreenVNext() {
           subtitleOverride={isVisitedFilter ? (hasDescriptionShort ? descriptionShort : null) : undefined}
           quickActions={quickActions}
           tagChips={isAuthUser && tagChips.length > 0 ? tagChips : undefined}
+          onHoverChange={
+            Platform.OS === "web"
+              ? (hovered) => setMapSearchListHoverSpotId(hovered ? spot.id : null)
+              : undefined
+          }
         />
       );
     },
@@ -5403,10 +5496,6 @@ export function MapScreenVNext() {
     }, [mapInstance, flushMapResizeForSidebar]),
   );
 
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  /** Web ancho ≥1080: layout fila estable siempre; evita alternar absolute vs relative al montar sidebar (glitch Todos↔filtros). */
-  const webDesktopExploreSplitLayout =
-    Platform.OS === "web" && webExploreUsesDesktopSidebar(windowWidth);
   const dockBottomOffset = 12;
   const chromeLayout = computeExploreMapChromeLayout({
     windowWidth,
@@ -5428,7 +5517,7 @@ export function MapScreenVNext() {
     welcomeSheetState,
     welcomeSidebarDismissed,
     countriesSheetListViewPresent:
-      countriesSheetListView != null || explorePlacesCountryFilter != null,
+      countriesSheetListView != null,
   });
   const {
     webConstrainedFlowyaLayout,
@@ -6443,6 +6532,7 @@ export function MapScreenVNext() {
               browseSectionTitle={welcomeSheetBrowseSectionTitle}
               browseItems={welcomeExploreListItems}
               onBrowseItemPress={handleWelcomeBrowseItemPress}
+              onHoverChangeSpotId={Platform.OS === "web" ? setMapSearchListHoverSpotId : undefined}
               userCoords={userCoords}
               bottomOffset={dockBottomOffset + insets.bottom}
               forceColorScheme={countriesOverlayScheme}
@@ -6784,6 +6874,7 @@ export function MapScreenVNext() {
                 browseSectionTitle={welcomeSheetBrowseSectionTitle}
                 browseItems={welcomeExploreListItems}
                 onBrowseItemPress={handleWelcomeBrowseItemPress}
+                onHoverChangeSpotId={Platform.OS === "web" ? setMapSearchListHoverSpotId : undefined}
                 userCoords={userCoords}
                 bottomOffset={dockBottomOffset + insets.bottom}
                 forceColorScheme={countriesOverlayScheme}
@@ -6932,6 +7023,12 @@ export function MapScreenVNext() {
                 }
                 quickActions={quickActions}
                 tagChips={isAuthUser && tagChips.length > 0 ? tagChips : undefined}
+                onHoverChange={
+                  Platform.OS === "web"
+                    ? (hovered) =>
+                        setMapSearchListHoverSpotId(hovered ? spot.id : null)
+                    : undefined
+                }
               />
             );
           }

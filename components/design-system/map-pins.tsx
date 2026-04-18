@@ -279,7 +279,7 @@ export function MapPinSpot({
               { borderColor: haloColor, backgroundColor: fill },
             ]}
           >
-            {hasStatusIcon ? (
+            {hasStatusIcon && selected ? (
               <Animated.View style={[styles.spotPinIconWrap, compositeIconScaleStyle]}>
                 {status === 'visited' ? (
                   <Check

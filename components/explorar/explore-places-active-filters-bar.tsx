@@ -150,7 +150,7 @@ export function ExplorePlacesActiveFilterChips({
   );
 }
 
-const FILTERS_ENTRY_LABEL = "Etiquetas y filtros";
+const FILTERS_ENTRY_LABEL = "Filtrar";
 
 export type ExplorePlacesFiltersSearchInline = {
   onPress: () => void;
