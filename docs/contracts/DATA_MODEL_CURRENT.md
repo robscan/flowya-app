@@ -1,7 +1,7 @@
 # DATA_MODEL_CURRENT
 
 **Estado:** CURRENT (verificado por introspección SQL)
-**Última verificación:** 2026-02-25
+**Última verificación:** 2026-02-25 (introspección §1); **ampliación 2026-04-19** — ver §1.4 (sin re-ejecutar SQL aquí).
 **Fuente de verdad:** `docs/definitions/contracts/DATA_MODEL_CURRENT.md`
 
 ## Evidencia (SQL introspección — Supabase SQL Editor)
@@ -100,6 +100,21 @@ Se obtuvo metadata desde `information_schema` (solo lectura):
 **Constraints**
 
 - PRIMARY KEY: `feedback_pkey` (`id`)
+
+---
+
+### 1.4 Ampliación operativa (2026-04-19, merge PR #157)
+
+Las secciones **1.1–1.3** siguen basadas en la introspección **2026-02-25** (solo `spots`, `pins`, `feedback`). Desde **PR #157** el producto usa además, entre otras:
+
+| Área | Dónde documentar / evidencia |
+|------|------------------------------|
+| `profiles.share_photos_with_world` + RLS/perfil | [`PROFILE_AUTH_CONTRACT_CURRENT.md`](PROFILE_AUTH_CONTRACT_CURRENT.md) |
+| Consentimiento one-shot y semántica ON/OFF fotos | [`PHOTO_SHARING_CONSENT.md`](PHOTO_SHARING_CONSENT.md) |
+| Tabla `spot_personal_images`, visibilidad y Storage `spot-personal` | Migraciones `031_spot_personal_images_private.sql`, `032_storage_spot_personal_private.sql` + contrato fotos arriba |
+| Preferencia en DB | `030_profiles_photo_sharing_pref.sql` |
+
+> **Pendiente de rigor:** repetir introspección `information_schema` o leer migraciones y fusionar campos nuevos dentro de §1.1+ como filas canónicas (evitar duplicar `profiles` aquí mientras `PROFILE_AUTH_CONTRACT_CURRENT` sea la fuente de perfil).
 
 ---
 

@@ -1,6 +1,8 @@
 # 372 — Perfil web: sidebar Explore embebido (desktop), a11y foco / aria-hidden, share visitados (WebKit)
 
 **Fecha:** 2026-04-19  
+**Merge:** [PR #157](https://github.com/robscan/flowya-app/pull/157) — rama `ol/explore-profile-account-372` → `main`.
+
 **OL asociados (cierre documental en esta entrega):**
 
 | OL | Estado | Notas |
@@ -70,15 +72,15 @@ Implementación: `components/account/AccountShell.tsx` — `handleClose`. El mod
 
 - [ ] Web ≥1080: abrir perfil → panel en columna izquierda; mapa pan/zoom/taps en la franja derecha.
 - [ ] Web ≥1080: subpantallas y **X** / **Atrás** limpian `?account=` o vuelven a `profile`.
-- [ ] Web estrecha o móvil: `/account` sigue en stack con comportamiento previo.
+- [ ] Web estrecha o móvil: `/account` en stack; en **subpantalla**, **X** sale a Explorar (`replace('/')`), **atrás** vuelve al home de perfil.
 - [ ] Consola: sin warning «Blocked aria-hidden…» al navegar menú perfil (web).
 - [ ] iOS/Safari: compartir tarjeta visitados → una sola imagen en el sheet.
 
 ---
 
-## 4) Inventario ampliado del mismo commit (working tree al cerrar)
+## 4) Inventario ampliado del mismo commit (PR #157)
 
-Además de lo anterior, el commit agrupa cambios ya presentes en el repositorio de trabajo en torno a **perfil vNext**, **KPI**, **Explore**, **spot sheet / imágenes**, **contratos** y **migraciones**, entre otros:
+Esta sección es **trazabilidad por archivos** (no sustituye contratos): agrupa el resto del merge en torno a **perfil vNext**, **KPI**, **Explore**, **spot sheet / imágenes**, **contratos** y **migraciones**. Comportamiento normativo: contratos enlazados en §5 y en `docs/contracts/INDEX.md`.
 
 - **App / layout:** `app/_layout.tsx`, `app/design-system.web.tsx`, `app/spot/edit/[id].web.tsx`, rutas `app/account/*` (`.tsx` / `.web.tsx`).
 - **Componentes:** `components/account/*`, `components/explorar/MapScreenVNext.tsx`, `CountriesSheet.tsx`, `SpotSheet.tsx`, `components/design-system/*` (KPI countries, search cards, add-image-cta, explore-map-profile-button, index DS), `components/ui/system-status-bar.tsx`, `components/ui/share-photos-consent-modal.tsx`.
