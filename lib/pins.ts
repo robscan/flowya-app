@@ -22,10 +22,7 @@ export function deriveLegacyPinStatus(state: PinState | null | undefined): PinSt
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user?.id ?? null;
+  return getCurrentUserIdFromSession();
 }
 
 /**
@@ -55,22 +52,27 @@ export async function getPinState(spotId: string): Promise<PinState | null> {
   return { saved: Boolean(data.saved), visited: Boolean(data.visited) };
 }
 
-/** Carga saved/visited para varios spots. Map<spotId, PinState>. */
+const PINS_FOR_SPOTS_CHUNK = 200;
+
+/** Carga saved/visited para varios spots. Map<spotId, PinState>. Consultas por chunks (límite URL / IN). */
 export async function getPinsForSpots(spotIds: string[]): Promise<Map<string, PinState>> {
   const userId = await getCurrentUserId();
   const map = new Map<string, PinState>();
   if (!userId || spotIds.length === 0) return map;
-  const { data, error } = await supabase
-    .from('pins')
-    .select('spot_id, saved, visited')
-    .eq('user_id', userId)
-    .in('spot_id', spotIds);
-  if (error || !data) return map;
-  for (const row of data) {
-    map.set(row.spot_id, {
-      saved: Boolean(row.saved),
-      visited: Boolean(row.visited),
-    });
+  for (let i = 0; i < spotIds.length; i += PINS_FOR_SPOTS_CHUNK) {
+    const chunk = spotIds.slice(i, i + PINS_FOR_SPOTS_CHUNK);
+    const { data, error } = await supabase
+      .from('pins')
+      .select('spot_id, saved, visited')
+      .eq('user_id', userId)
+      .in('spot_id', chunk);
+    if (error || !data) continue;
+    for (const row of data) {
+      map.set(row.spot_id, {
+        saved: Boolean(row.saved),
+        visited: Boolean(row.visited),
+      });
+    }
   }
   return map;
 }

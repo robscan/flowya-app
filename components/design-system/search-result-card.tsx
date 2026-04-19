@@ -25,6 +25,7 @@ export type SearchResultCardProps = {
     label: string;
     kind: 'add_image' | 'edit_description' | 'add_tag';
     onPress: () => void;
+    busy?: boolean;
     accessibilityLabel?: string;
   }[];
   tagChips?: { id: string; label: string }[];

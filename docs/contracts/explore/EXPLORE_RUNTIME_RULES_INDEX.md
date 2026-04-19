@@ -30,6 +30,8 @@
 
 ## Referencias base
 
+- `docs/contracts/PROFILE_KPI_STALE_WHILE_REVALIDATE.md` — paridad KPI mapa ↔ perfil, fetch deduplicado de spots+pins
+- `docs/contracts/VISITED_COUNTRIES_SHARE_FLOW.md` — compartir PNG «Países visitados» (`shareVisitedCountriesProgress`, caché warm opcional)
 - `docs/contracts/SEARCH_V2.md`
 - `docs/contracts/MAP_PINS_CONTRACT.md`
 - `docs/contracts/SPOT_SELECTION_SHEET_SIZING.md`

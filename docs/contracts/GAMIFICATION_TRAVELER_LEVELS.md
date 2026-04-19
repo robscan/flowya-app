@@ -40,6 +40,7 @@ Constantes:
 - `CountriesSheet`:
   - Orden canónico KPI (izquierda -> derecha): `países`, `spots`, `flows`.
   - `visitados`: tercera KPI etiquetada como `flows`.
+  - Barra verde bajo el mapa (solo `visitados`): **progreso de nivel** (`computeTravelerLevelBarFillPercent` en `lib/traveler-levels.ts`), alineada con `X/12` y flows del tramo — **no** el % de países del mundo (ese dato sigue en KPI «países» y en la tarjeta compartida).
   - `por visitar`: tercera KPI etiquetada como `flows por obtener`.
 - `MapScreen`:
   - chip flotante sobre perfil con total de flows.

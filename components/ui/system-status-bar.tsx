@@ -289,14 +289,24 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
                           size={18}
                           color={palette.textColor}
                           strokeWidth={2.2}
-                          accessibilityElementsHidden
+                          {...(Platform.OS === 'web'
+                            ? ({ 'aria-hidden': true } as const)
+                            : ({
+                                accessibilityElementsHidden: true,
+                                importantForAccessibility: 'no' as const,
+                              }))}
                         />
                       ) : message.type === 'error' ? (
                         <AlertCircle
                           size={18}
                           color={palette.textColor}
                           strokeWidth={2.2}
-                          accessibilityElementsHidden
+                          {...(Platform.OS === 'web'
+                            ? ({ 'aria-hidden': true } as const)
+                            : ({
+                                accessibilityElementsHidden: true,
+                                importantForAccessibility: 'no' as const,
+                              }))}
                         />
                       ) : null}
                       <Text

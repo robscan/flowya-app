@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { Colors } from "@/constants/theme";
 import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
+import { resolveShareCardProfileForCurrentUser } from "@/lib/share-countries-card-profile";
 
 type CountriesCardItem = {
   key: string;
@@ -16,6 +17,10 @@ export type ShareCountriesCardInput = {
   accentColor?: string;
   mapSnapshotDataUrl?: string | null;
   items: CountriesCardItem[];
+  /** Pie de tarjeta: nombre (p. ej. display_name o email). */
+  shareCardDisplayName?: string | null;
+  /** Avatar en data URL para el canvas (evita CORS al pintar). */
+  shareCardAvatarDataUrl?: string | null;
 };
 
 export type ShareCountriesCardResult = {
@@ -24,10 +29,42 @@ export type ShareCountriesCardResult = {
   downloaded: boolean;
 };
 
+/** Firma compatible con `useSystemStatus().show` para feedback post-compartir. */
+export type ShareCountriesToastShow = (
+  message: string,
+  options?: { type?: "success" | "default" | "error"; replaceVisible?: boolean },
+) => void;
+
+/** Misma copia que usa `MapScreenVNext` tras `shareCountriesCard` (evita divergencias con Perfil). */
+export function notifyShareCountriesCardOutcome(
+  result: ShareCountriesCardResult,
+  show: ShareCountriesToastShow,
+  opts?: { suppress?: boolean },
+): void {
+  if (opts?.suppress) return;
+  if (result.shared) return;
+  if (result.downloaded) {
+    show("Imagen guardada en tu computadora.", { type: "default", replaceVisible: true });
+    return;
+  }
+  if (result.copied) {
+    show("Resumen copiado al portapapeles.", { type: "default", replaceVisible: true });
+    return;
+  }
+  show("No se pudo compartir en este dispositivo.", { type: "default", replaceVisible: true });
+}
+
 let shareCountriesInFlight = false;
 let shareCountriesLastAt = 0;
 let shareCountriesPromise: Promise<ShareCountriesCardResult> | null = null;
 const SHARE_COOLDOWN_MS = 1200;
+
+/**
+ * Rectángulo del mapa en la composición «Países visitados» (`drawCard`, diseño 1600×2000, márgenes `side=52`).
+ * La captura offscreen (`visited-countries-share/capture-map.web`) debe respetar **width/height** para que
+ * `drawImageContain` rellene el mismo hueco que un snapshot generado en el preview del sheet.
+ */
+export const SHARE_COUNTRIES_VISITED_MAP_SLOT = { width: 1496, height: 830 } as const;
 
 function drawRoundedClip(
   ctx: CanvasRenderingContext2D,
@@ -72,6 +109,50 @@ function drawImageContain(
   ctx.drawImage(image, dx, dy, drawW, drawH);
 }
 
+/** Rellena el círculo (recorte tipo `cover` / `resizeMode="cover"`). */
+function drawImageInCircle(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  cx: number,
+  cy: number,
+  r: number,
+) {
+  const srcW = image.naturalWidth || image.width;
+  const srcH = image.naturalHeight || image.height;
+  if (!srcW || !srcH) return;
+  const box = r * 2;
+  const scale = Math.max(box / srcW, box / srcH);
+  const drawW = Math.round(srcW * scale);
+  const drawH = Math.round(srcH * scale);
+  const dx = cx - drawW / 2;
+  const dy = cy - drawH / 2;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.clip();
+  ctx.drawImage(image, dx, dy, drawW, drawH);
+  ctx.restore();
+}
+
+function fillTextTruncatedLine(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+) {
+  let t = text;
+  if (ctx.measureText(t).width <= maxWidth) {
+    ctx.fillText(t, x, y);
+    return;
+  }
+  const ellipsis = "…";
+  while (t.length > 1 && ctx.measureText(`${t}${ellipsis}`).width > maxWidth) {
+    t = t.slice(0, -1);
+  }
+  ctx.fillText(`${t}${ellipsis}`, x, y);
+}
+
 function truncateLabel(input: string, max = 26): string {
   const text = input.trim();
   if (text.length <= max) return text;
@@ -107,6 +188,7 @@ function drawCard(
   ctx: CanvasRenderingContext2D,
   input: ShareCountriesCardInput,
   mapImage: HTMLImageElement | null,
+  profileAvatarImage: HTMLImageElement | null,
 ) {
   const DESIGN_WIDTH = 1600;
   const DESIGN_HEIGHT = 2000;
@@ -118,8 +200,8 @@ function drawCard(
   const isToVisit = /por visitar/i.test(input.title);
   const side = 52;
   const mapTop = 430;
-  const mapWidth = logicalWidth - side * 2;
-  const mapHeight = 830;
+  const mapWidth = SHARE_COUNTRIES_VISITED_MAP_SLOT.width;
+  const mapHeight = SHARE_COUNTRIES_VISITED_MAP_SLOT.height;
   const mapRadius = 34;
   const kpiTop = 230;
   const kpiGap = 36;
@@ -247,12 +329,71 @@ function drawCard(
     listBottomY = listTop + 60;
   }
 
-  const brandY = Math.min(logicalHeight - 86, listBottomY + 176);
-  ctx.textAlign = "center";
-  ctx.font = "700 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
-  ctx.fillStyle = "rgba(255,255,255,0.90)";
-  ctx.fillText("flowya.app", logicalWidth / 2, brandY);
+  const displayName = input.shareCardDisplayName?.trim() ?? "";
+  const hasProfileFooter = Boolean(profileAvatarImage) || displayName.length > 0;
+
+  if (hasProfileFooter) {
+    const avatarR = 38;
+    const rowCenterY = Math.min(logicalHeight - 52, listBottomY + 150);
+    const avatarCx = side + avatarR + 4;
+    const avatarCy = rowCenterY;
+    const nameGap = 14;
+    const flowyaReserve = 300;
+    const nameStartX = profileAvatarImage ? avatarCx + avatarR + nameGap : side;
+    const nameMaxW = Math.max(160, logicalWidth - side - flowyaReserve - nameStartX);
+
+    if (profileAvatarImage) {
+      drawImageInCircle(ctx, profileAvatarImage, avatarCx, avatarCy, avatarR);
+      ctx.strokeStyle = "rgba(255,255,255,0.22)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(avatarCx, avatarCy, avatarR, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    if (displayName) {
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255,255,255,0.88)";
+      ctx.font = "600 32px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+      fillTextTruncatedLine(ctx, displayName, nameStartX, rowCenterY, nameMaxW);
+      ctx.textBaseline = "alphabetic";
+    }
+
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.font = "700 52px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.90)";
+    ctx.fillText("flowya.app", logicalWidth - side, rowCenterY);
+    ctx.textBaseline = "alphabetic";
+  } else {
+    const brandY = Math.min(logicalHeight - 86, listBottomY + 176);
+    ctx.textAlign = "center";
+    ctx.font = "700 60px system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.90)";
+    ctx.fillText("flowya.app", logicalWidth / 2, brandY);
+  }
   ctx.restore();
+}
+
+async function loadShareCountriesDrawAssets(input: ShareCountriesCardInput): Promise<{
+  merged: ShareCountriesCardInput;
+  mapImage: HTMLImageElement | null;
+  profileAvatarImage: HTMLImageElement | null;
+}> {
+  const resolved = await resolveShareCardProfileForCurrentUser();
+  const merged: ShareCountriesCardInput = {
+    ...input,
+    shareCardDisplayName: input.shareCardDisplayName ?? resolved.shareCardDisplayName,
+    shareCardAvatarDataUrl: input.shareCardAvatarDataUrl ?? resolved.shareCardAvatarDataUrl,
+  };
+  const mapImage = merged.mapSnapshotDataUrl?.trim()
+    ? await loadImageFromDataUrl(merged.mapSnapshotDataUrl)
+    : null;
+  const profileAvatarImage = merged.shareCardAvatarDataUrl?.trim()
+    ? await loadImageFromDataUrl(merged.shareCardAvatarDataUrl)
+    : null;
+  return { merged, mapImage, profileAvatarImage };
 }
 
 async function downloadBlob(blob: Blob, filename: string): Promise<boolean> {
@@ -303,11 +444,8 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
       return { shared: false, copied, downloaded: false };
     }
 
-    const mapImage = input.mapSnapshotDataUrl
-      ? await loadImageFromDataUrl(input.mapSnapshotDataUrl)
-      : null;
-
-    drawCard(context, input, mapImage);
+    const { merged, mapImage, profileAvatarImage } = await loadShareCountriesDrawAssets(input);
+    drawCard(context, merged, mapImage, profileAvatarImage);
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((value) => resolve(value), "image/png"),
@@ -325,10 +463,11 @@ export async function shareCountriesCard(input: ShareCountriesCardInput): Promis
 
     if (canShareFile) {
       try {
-        await navigator.share({
-          title: shareTitle,
-          files: [file],
-        });
+        /**
+         * Solo `files`: en iOS/WebKit, añadir `title` (o `text`) junto a `files` puede duplicar
+         * entradas en el sheet («2 Images») en lugar de un único PNG.
+         */
+        await navigator.share({ files: [file] });
         return { shared: true, copied: false, downloaded: false };
       } catch {
         // user cancel/error, fallback below
@@ -387,7 +526,7 @@ export async function getShareCountriesCardPreviewDataUrl(
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  const mapImage = input.mapSnapshotDataUrl ? await loadImageFromDataUrl(input.mapSnapshotDataUrl) : null;
-  drawCard(ctx, input, mapImage);
+  const { merged, mapImage, profileAvatarImage } = await loadShareCountriesDrawAssets(input);
+  drawCard(ctx, merged, mapImage, profileAvatarImage);
   return canvas.toDataURL("image/png");
 }

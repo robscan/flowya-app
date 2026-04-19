@@ -28,7 +28,6 @@ type CountriesSheetTemplateDemoProps = {
   items?: CountrySheetItem[];
   summaryCountriesCount?: number;
   summaryPlacesCount?: number;
-  worldPercentage?: number;
 };
 
 export function CountriesSheetTemplateDemo({
@@ -36,7 +35,6 @@ export function CountriesSheetTemplateDemo({
   items = DS_MOCK_COUNTRY_ITEMS,
   summaryCountriesCount = 12,
   summaryPlacesCount = 48,
-  worldPercentage = 18,
 }: CountriesSheetTemplateDemoProps) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -66,8 +64,6 @@ export function CountriesSheetTemplateDemo({
   const travelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
   const pointsLabel = new Intl.NumberFormat('es-MX').format(travelerPoints);
   const currentLevel = resolveTravelerLevelByPoints(travelerPoints);
-  const normalizedWorld = Math.max(0, Math.min(100, Math.round(worldPercentage)));
-
   const previewCodes = items
     .map((item) => item.key.match(/^iso:([A-Z]{2})$/)?.[1] ?? null)
     .filter((c): c is string => c != null);
@@ -146,7 +142,6 @@ export function CountriesSheetTemplateDemo({
 
       {filterMode === 'visited' ? (
         <CountriesSheetVisitedProgress
-          worldPercentage={normalizedWorld}
           levelLabel={currentLevel.label}
           levelIndex={currentLevel.level}
           currentTravelerPoints={travelerPoints}

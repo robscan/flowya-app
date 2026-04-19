@@ -7,6 +7,33 @@ import { supabase } from '@/lib/supabase';
 
 export const MAX_SPOT_GALLERY_IMAGES = 12;
 
+type SpotImagesCacheEntry = {
+  at: number;
+  rows: SpotImageRow[];
+  inflight?: Promise<SpotImageRow[]>;
+};
+
+const CACHE_TTL_MS = 15_000;
+const spotImagesCache = new Map<string, SpotImagesCacheEntry>();
+
+export function invalidateSpotImagesCache(spotId: string): void {
+  spotImagesCache.delete(spotId);
+}
+
+function setSpotImagesCache(spotId: string, rows: SpotImageRow[]): void {
+  spotImagesCache.set(spotId, { at: Date.now(), rows });
+}
+
+function getSpotImagesCache(spotId: string): SpotImagesCacheEntry | null {
+  const entry = spotImagesCache.get(spotId);
+  if (!entry) return null;
+  if (Date.now() - entry.at > CACHE_TTL_MS) {
+    spotImagesCache.delete(spotId);
+    return null;
+  }
+  return entry;
+}
+
 export type SpotImageRow = {
   id: string;
   spot_id: string;
@@ -27,17 +54,37 @@ function rowFromDb(r: Record<string, unknown>): SpotImageRow {
 
 /** Lista imágenes del spot por `sort_order` (primera = portada en mapa tras sincronizar). */
 export async function listSpotImages(spotId: string): Promise<SpotImageRow[]> {
-  const { data, error } = await supabase
+  const cached = getSpotImagesCache(spotId);
+  if (cached?.rows) return cached.rows;
+  if (cached?.inflight) return await cached.inflight;
+
+  const run = (async () => {
+    const { data, error } = await supabase
     .from('spot_images')
     .select('id, spot_id, url, sort_order, created_at')
     .eq('spot_id', spotId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
 
-  if (error || !data) {
-    return [];
+    if (error || !data) {
+      setSpotImagesCache(spotId, []);
+      return [];
+    }
+    const rows = data.map((x) => rowFromDb(x as Record<string, unknown>));
+    setSpotImagesCache(spotId, rows);
+    return rows;
+  })();
+
+  spotImagesCache.set(spotId, { at: Date.now(), rows: [], inflight: run });
+  try {
+    return await run;
+  } finally {
+    const latest = spotImagesCache.get(spotId);
+    if (latest?.inflight === run) {
+      // inflight se limpia cuando run completa (rows ya fueron seteadas).
+      spotImagesCache.set(spotId, { at: Date.now(), rows: latest.rows });
+    }
   }
-  return data.map((x) => rowFromDb(x as Record<string, unknown>));
 }
 
 /** Cuenta filas actuales (límite antes de insertar). */
@@ -75,6 +122,7 @@ export async function ensureGallerySeedFromCover(
     url,
     sort_order: 0,
   });
+  if (!error) invalidateSpotImagesCache(spotId);
   return !error;
 }
 
@@ -117,6 +165,7 @@ export async function addSpotImageRow(
   if (error || !data) {
     return { row: null, error: 'db' };
   }
+  invalidateSpotImagesCache(spotId);
   return { row: rowFromDb(data as Record<string, unknown>), error: null };
 }
 
@@ -124,7 +173,7 @@ export async function addSpotImageRow(
 export async function removeSpotImage(imageId: string): Promise<boolean> {
   const { data: row, error: fetchErr } = await supabase
     .from('spot_images')
-    .select('id, url')
+    .select('id, url, spot_id')
     .eq('id', imageId)
     .maybeSingle();
 
@@ -134,12 +183,17 @@ export async function removeSpotImage(imageId: string): Promise<boolean> {
 
   const url = String((row as { url: string }).url);
   const storagePath = extractStoragePathFromPublicUrl(url);
-  if (storagePath) {
-    await supabase.storage.from('spot-covers').remove([storagePath]);
-  }
-
+  // Primero eliminar la fila DB (rápido) para que la UI pueda actualizar sin esperar a Storage.
+  // Luego, intentar limpiar el objeto en Storage en background (no bloquear).
   const { error } = await supabase.from('spot_images').delete().eq('id', imageId);
-  return !error;
+  if (error) return false;
+  const spotId = String((row as { spot_id?: string }).spot_id ?? '');
+  if (spotId) invalidateSpotImagesCache(spotId);
+
+  if (storagePath) {
+    void supabase.storage.from('spot-covers').remove([storagePath]);
+  }
+  return true;
 }
 
 /**
@@ -160,6 +214,7 @@ export async function reorderSpotImages(spotId: string, orderedIds: string[]): P
       return false;
     }
   }
+  invalidateSpotImagesCache(spotId);
   return true;
 }
 

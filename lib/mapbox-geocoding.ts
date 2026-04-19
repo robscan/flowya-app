@@ -7,6 +7,7 @@
 
 import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
+import { mapboxCacheKey, mapboxCached } from '@/lib/mapbox-request-cache';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const REVERSE_URL = 'https://api.mapbox.com/search/geocode/v6/reverse';
@@ -82,39 +83,48 @@ export async function resolveAddress(
     return fetch(`${REVERSE_URL}?${params.toString()}`);
   };
 
-  try {
-    const res = await fetchReverse('place,region,country', true);
-    if (!res.ok) return null;
-    const data = (await res.json()) as ReverseResponse;
-    const features = data?.features ?? [];
+  const key = mapboxCacheKey([
+    'geocode/v6/reverse',
+    latitude,
+    longitude,
+    langParam,
+  ]);
 
-    const pickLocalized = (f: ReverseFeature): string | null => {
-      const p = f?.properties;
-      if (!p) return null;
-      const placeFormatted = p.place_formatted?.trim();
-      const name = p.name?.trim();
-      if (placeFormatted && isLatinScript(placeFormatted)) return placeFormatted;
-      if (name && isLatinScript(name)) return name;
-      return placeFormatted || name || null;
-    };
+  return await mapboxCached(key, async () => {
+    try {
+      const res = await fetchReverse('place,region,country', true);
+      if (!res.ok) return null;
+      const data = (await res.json()) as ReverseResponse;
+      const features = data?.features ?? [];
 
-    for (const f of features) {
-      const addr = pickLocalized(f);
-      if (addr) return addr;
+      const pickLocalized = (f: ReverseFeature): string | null => {
+        const p = f?.properties;
+        if (!p) return null;
+        const placeFormatted = p.place_formatted?.trim();
+        const name = p.name?.trim();
+        if (placeFormatted && isLatinScript(placeFormatted)) return placeFormatted;
+        if (name && isLatinScript(name)) return name;
+        return placeFormatted || name || null;
+      };
+
+      for (const f of features) {
+        const addr = pickLocalized(f);
+        if (addr) return addr;
+      }
+
+      const res2 = await fetchReverse();
+      if (!res2.ok) return null;
+      const data2 = (await res2.json()) as ReverseResponse;
+      const feature = data2?.features?.[0];
+      if (!feature?.properties) return null;
+      const { place_formatted, full_address, name } = feature.properties;
+
+      const fallback = full_address?.trim() || place_formatted?.trim() || name?.trim();
+      return fallback || null;
+    } catch {
+      return null;
     }
-
-    const res2 = await fetchReverse();
-    if (!res2.ok) return null;
-    const data2 = (await res2.json()) as ReverseResponse;
-    const feature = data2?.features?.[0];
-    if (!feature?.properties) return null;
-    const { place_formatted, full_address, name } = feature.properties;
-
-    const fallback = full_address?.trim() || place_formatted?.trim() || name?.trim();
-    return fallback || null;
-  } catch {
-    return null;
-  }
+  });
 }
 
 /** Alias para Scope A (Create Spot). Misma lógica: una llamada, string humano o null. */
@@ -130,7 +140,6 @@ export async function resolvePlaceNameAtCoords(
   longitude: number
 ): Promise<string | null> {
   if (!MAPBOX_TOKEN) return null;
-  recordMapboxApiCall('geocode/v6/reverse', 'resolvePlaceNameAtCoords');
   const params = new URLSearchParams({
     longitude: String(longitude),
     latitude: String(latitude),
@@ -139,12 +148,20 @@ export async function resolvePlaceNameAtCoords(
   });
   const lang = getCurrentLanguage();
   if (lang) params.set('language', lang === 'en' ? 'en' : `${lang},en`);
-  try {
-    const res = await fetch(`${REVERSE_URL}?${params.toString()}`);
-    if (!res.ok) return null;
-    const data = (await res.json()) as ReverseResponse;
-    const feature = data?.features?.[0];
-    const context = feature?.properties?.context;
+  const key = mapboxCacheKey([
+    'geocode/v6/reverse:name',
+    latitude,
+    longitude,
+    params.get('language') ?? '',
+  ]);
+  return await mapboxCached(key, async () => {
+    recordMapboxApiCall('geocode/v6/reverse', 'resolvePlaceNameAtCoords');
+    try {
+      const res = await fetch(`${REVERSE_URL}?${params.toString()}`);
+      if (!res.ok) return null;
+      const data = (await res.json()) as ReverseResponse;
+      const feature = data?.features?.[0];
+      const context = feature?.properties?.context;
 
     const pickName = (item?: ReverseContextItem): string | null => {
       if (!item) return null;
@@ -155,17 +172,18 @@ export async function resolvePlaceNameAtCoords(
       return byLang || byEn || byName || null;
     };
 
-    const levels: (keyof ReverseContext)[] = ['place', 'region', 'country'];
-    for (const level of levels) {
-      const name = pickName(context?.[level]);
-      if (name) return name;
-    }
+      const levels: (keyof ReverseContext)[] = ['place', 'region', 'country'];
+      for (const level of levels) {
+        const name = pickName(context?.[level]);
+        if (name) return name;
+      }
 
-    const name = feature?.properties?.name?.trim();
-    return name || null;
-  } catch {
-    return null;
-  }
+      const name = feature?.properties?.name?.trim();
+      return name || null;
+    } catch {
+      return null;
+    }
+  });
 }
 
 /** B2-MS4: Forward geocoding (query → lugar). Solo en Search; sin retries ni persistencia. */

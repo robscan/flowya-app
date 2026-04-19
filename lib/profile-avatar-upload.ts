@@ -18,6 +18,44 @@ export function getProfileAvatarPublicUrl(
   return data?.publicUrl ?? null;
 }
 
+/**
+ * Evita anexar `profiles.updated_at` a la URL del avatar: cualquier UPDATE en `profiles`
+ * (p. ej. `last_activity_at` vía trigger `updated_at`) forzaría recargas constantes en `<Image />`.
+ * Solo se añade query `v` cuando el cliente invalida explícitamente (subida / borrado / cambio de sesión).
+ */
+let profileAvatarDisplayBust = 0;
+const profileAvatarDisplayBustListeners = new Set<() => void>();
+
+export function subscribeProfileAvatarDisplayBust(onChange: () => void): () => void {
+  profileAvatarDisplayBustListeners.add(onChange);
+  return () => profileAvatarDisplayBustListeners.delete(onChange);
+}
+
+export function getProfileAvatarDisplayBustSnapshot(): number {
+  return profileAvatarDisplayBust;
+}
+
+export function bumpProfileAvatarDisplayBust(): void {
+  profileAvatarDisplayBust += 1;
+  profileAvatarDisplayBustListeners.forEach((cb) => cb());
+}
+
+export function resetProfileAvatarDisplayBust(): void {
+  profileAvatarDisplayBust = 0;
+  profileAvatarDisplayBustListeners.forEach((cb) => cb());
+}
+
+export function buildProfileAvatarDisplayUrl(
+  storagePath: string | null | undefined,
+  bust: number,
+): string | null {
+  const base = getProfileAvatarPublicUrl(storagePath);
+  if (!base) return null;
+  if (bust <= 0) return base;
+  const sep = base.includes("?") ? "&" : "?";
+  return `${base}${sep}v=${bust}`;
+}
+
 function profileAvatarObjectPath(userId: string): string {
   return `${userId}/avatar.jpg`;
 }
@@ -29,8 +67,9 @@ export async function uploadMyProfileAvatar(
   imageBlob: Blob,
 ): Promise<{ storagePath: string; publicUrl: string } | null> {
   const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    data: { session },
+  } = await supabase.auth.getSession();
+  const user = session?.user ?? null;
   if (!user?.id || user.is_anonymous) return null;
 
   const optimized = await optimizeSpotImage(imageBlob);
@@ -66,39 +105,69 @@ export async function pickProfileImageBlob(): Promise<Blob | null> {
       const input = document.createElement("input");
       input.type = "file";
       input.accept = "image/*";
+      input.multiple = false;
       input.style.position = "fixed";
       input.style.left = "-9999px";
       let settled = false;
       let focusListenerActive = false;
+      let fallbackTimer: number | null = null;
+      /** `focus` suele dispararse antes que `change`; con 0 ms se resolvía cancelación y se perdía el archivo. */
+      let focusCancelTimer: number | null = null;
+
+      const clearFocusCancelTimer = () => {
+        if (focusCancelTimer != null) {
+          window.clearTimeout(focusCancelTimer);
+          focusCancelTimer = null;
+        }
+      };
+
       const finalize = (blob: Blob | null) => {
         if (settled) return;
         settled = true;
+        clearFocusCancelTimer();
+        if (fallbackTimer != null) {
+          window.clearTimeout(fallbackTimer);
+          fallbackTimer = null;
+        }
         if (focusListenerActive) {
           window.removeEventListener("focus", onWindowFocus);
           focusListenerActive = false;
         }
-        input.onchange = null;
+        input.removeEventListener("change", onChange);
+        input.removeEventListener("cancel", onCancel);
         input.remove();
         resolve(blob);
       };
-      const onWindowFocus = () => {
-        // Al cerrar el diálogo del picker el foco vuelve a la ventana.
-        // Si no hubo selección (no se disparó `change`), resolvemos como cancelación.
-        window.setTimeout(() => {
-          const hasFile = (input.files?.length ?? 0) > 0;
-          if (!settled && !hasFile) finalize(null);
-        }, 0);
-      };
-      input.onchange = () => {
+
+      const onChange = () => {
+        clearFocusCancelTimer();
         const file = input.files?.[0];
         finalize(file instanceof Blob ? file : null);
       };
+
+      const onCancel = () => {
+        finalize(null);
+      };
+
+      const onWindowFocus = () => {
+        clearFocusCancelTimer();
+        focusCancelTimer = window.setTimeout(() => {
+          focusCancelTimer = null;
+          if (settled) return;
+          if ((input.files?.length ?? 0) > 0) return;
+          finalize(null);
+        }, 500);
+      };
+
+      input.addEventListener("change", onChange);
+      input.addEventListener("cancel", onCancel);
       document.body.appendChild(input);
       window.addEventListener("focus", onWindowFocus);
       focusListenerActive = true;
       input.click();
       // Último recurso (si el navegador no dispara focus/change por alguna razón).
-      window.setTimeout(() => finalize(null), 2000);
+      // Nota: no usar timeout corto; en móvil web el selector puede tardar.
+      fallbackTimer = window.setTimeout(() => finalize(null), 60_000);
     });
   }
 

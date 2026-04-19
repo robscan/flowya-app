@@ -60,6 +60,8 @@ export type ExploreMapChromeLayoutInput = {
    * Debe coincidir con `countriesSheetListView != null` en MapScreen.
    */
   countriesSheetListViewPresent?: boolean;
+  /** Perfil embebido en columna Explore (`?account=`) en desktop web. */
+  accountDesktopExploreOpen?: boolean;
 };
 
 export type ExploreMapChromeLayoutResult = {
@@ -126,6 +128,7 @@ export function computeExploreMapChromeLayout(
     welcomeSheetState,
     welcomeSidebarDismissed = false,
     countriesSheetListViewPresent = false,
+    accountDesktopExploreOpen = false,
   } = input;
 
   const webConstrainedFlowyaLayout =
@@ -158,7 +161,8 @@ export function computeExploreMapChromeLayout(
   const exploreDesktopSidebarActive =
     Platform.OS === "web" &&
     webExploreUsesDesktopSidebar(windowWidth) &&
-    (showExploreWelcomeSheet ||
+    (Boolean(accountDesktopExploreOpen) ||
+      showExploreWelcomeSheet ||
       (isCountriesSheetVisible && (pinFilter === "saved" || pinFilter === "visited")) ||
       spotSheetAnchoredInSidebar);
 
