@@ -9,6 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css";
 
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, usePathname, useRouter } from "expo-router";
+import { consumeExploreEntryIntentOnce } from "@/lib/explore/entry-intents";
 import { ChevronRight, X } from "lucide-react-native";
 import {
   Fragment,
@@ -19,6 +20,7 @@ import {
   useReducer,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import {
     ActivityIndicator,
@@ -74,6 +76,7 @@ import {
 } from "@/components/explorar/explore-places-active-filters-bar";
 import { ExplorePlacesFiltersModal } from "@/components/explorar/explore-places-filters-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
+import { AccountExploreDesktopPanel } from "@/components/account/AccountExploreDesktopPanel";
 import { MapCoreView } from "@/components/explorar/MapCoreView";
 import { SHEET_PEEK_HEIGHT, SpotSheet } from "@/components/explorar/SpotSheet";
 import { SearchFloating } from "@/components/search";
@@ -84,6 +87,7 @@ import { DuplicateSpotModal } from "@/components/ui/duplicate-spot-modal";
 import { FlowyaBetaModal } from "@/components/ui/flowya-beta-modal";
 import { CreateSpotConfirmModal } from "@/components/ui/create-spot-confirm-modal";
 import { useSystemStatus } from "@/components/ui/system-status-bar";
+import { SharePhotosConsentModal } from "@/components/ui/share-photos-consent-modal";
 import { AUTH_MODAL_MESSAGES, useAuthModal } from "@/contexts/auth-modal";
 import { useSearchControllerV2, type UseSearchControllerV2Return } from "@/hooks/search/useSearchControllerV2";
 import { useSearchHistory } from "@/hooks/search/useSearchHistory";
@@ -94,9 +98,16 @@ import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
 import {
+  buildCountryBuckets,
+  normalizeCountryToken,
+  resolveCountryForSpot,
+  type CountryBucket,
+} from "@/lib/explore/country-bucket-metrics";
+import {
   computeExploreMapChromeLayout,
   EXPLORE_MAP_LAYOUT,
 } from "@/lib/explore-map-chrome-layout";
+import { parseAccountDesktopPanel } from "@/lib/explore/account-desktop-query";
 import {
   getWelcomeSidebarDismissedSync,
   loadWelcomeSidebarDismissedAsync,
@@ -165,11 +176,34 @@ import {
   validateExploreRuntimeState,
 } from "@/core/explore/runtime";
 import { fetchMyProfile, touchMyProfileLastActivity } from "@/lib/profile";
-import { getProfileAvatarPublicUrl } from "@/lib/profile-avatar-upload";
+import {
+  buildProfileAvatarDisplayUrl,
+  getProfileAvatarDisplayBustSnapshot,
+  resetProfileAvatarDisplayBust,
+  subscribeProfileAvatarDisplayBust,
+} from "@/lib/profile-avatar-upload";
 import { shareSpot } from "@/lib/share-spot";
 import { checkDuplicateSpot, DEFAULT_DUPLICATE_RADIUS_METERS } from "@/lib/spot-duplicate-check";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
-import { uploadSpotCover } from "@/lib/spot-image-upload";
+import { uploadSpotCover, uploadSpotGalleryImage } from "@/lib/spot-image-upload";
+import {
+  addSpotPersonalImageRow,
+  createSpotPersonalImageSignedUrl,
+  listSpotPersonalImages,
+} from "@/lib/spot-personal-images";
+import { uploadSpotPersonalGalleryImage } from "@/lib/spot-personal-image-upload";
+import {
+  fetchMyPhotoSharingPreference,
+  persistMyPhotoSharingPreference,
+} from "@/lib/photo-sharing/consent";
+import {
+  MAX_SPOT_GALLERY_IMAGES,
+  addSpotImageRow,
+  ensureGallerySeedFromCover,
+  listSpotImages,
+  publicImageUrlWithoutQuery,
+  syncCoverFromGallery,
+} from "@/lib/spot-images";
 import {
   classifyTappedFeatureKind,
   dedupeExternalPlacesAgainstSpots,
@@ -209,7 +243,17 @@ import {
   recordExploreDecisionStarted,
   recordExploreSelectionChanged,
 } from "@/lib/explore/decision-metrics";
-import { shareCountriesCard } from "@/lib/share-countries-card";
+import { fetchVisibleSpotsWithPinsDeduped } from "@/lib/explore/fetch-visible-spots-with-pins";
+import {
+  clearProfileKpiWarmSnapshot,
+  commitProfileKpiWarmSnapshotFromExploreSpots,
+} from "@/lib/explore/profile-kpi-warm-cache";
+import { SPOT_SELECT_FOR_MAP } from "@/lib/explore/spots-map-select";
+import {
+  clearCountriesShareVisitedSession,
+  shareVisitedCountriesProgress,
+} from "@/lib/explore/visited-countries-share";
+import { notifyShareCountriesCardOutcome, shareCountriesCard } from "@/lib/share-countries-card";
 import { SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import {
     addRecentViewedSpotId,
@@ -325,149 +369,12 @@ async function resolveFramingForMapTapPoi(poi: TappedMapFeature): Promise<{
   return { bbox: null, featureType: poi.featureType ?? null };
 }
 
-type CountryBucket = {
-  key: string;
-  label: string;
-  count: number;
-};
-
-/** Columnas al cargar un spot para mapa + encuadre (fitBounds con mapbox_bbox). */
-const SPOT_SELECT_FOR_MAP =
-  "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type";
-
 function isNoRowsPostgrestError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const maybeError = error as { code?: string; details?: string; message?: string };
   if (maybeError.code === "PGRST116") return true;
   const text = `${maybeError.details ?? ""} ${maybeError.message ?? ""}`.toLowerCase();
   return text.includes("0 rows") || text.includes("no rows");
-}
-
-const COUNTRY_ALIAS_OVERRIDES: Record<string, string> = {
-  "united states of america": "US",
-  "ee uu": "US",
-  "u s a": "US",
-  uk: "GB",
-  "united kingdom": "GB",
-};
-const cachedCountryAliasIndexByLocale = new Map<string, Map<string, string>>();
-const cachedRegionDisplayByLocale = new Map<string, Intl.DisplayNames | null>();
-
-function normalizeCountryLabel(raw: string): string {
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) return "";
-  const normalized = trimmed
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-  return normalized
-    .split(" ")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function normalizeCountryToken(raw: string): string {
-  return raw
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[.'’`]/g, "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
-}
-
-function getRegionDisplay(locale: string): Intl.DisplayNames | null {
-  const cached = cachedRegionDisplayByLocale.get(locale);
-  if (cached !== undefined) return cached;
-  try {
-    const display = new Intl.DisplayNames([locale], { type: "region" });
-    cachedRegionDisplayByLocale.set(locale, display);
-    return display;
-  } catch {
-    cachedRegionDisplayByLocale.set(locale, null);
-    return null;
-  }
-}
-
-function buildCountryAliasIndex(locale: string): Map<string, string> {
-  const cached = cachedCountryAliasIndexByLocale.get(locale);
-  if (cached) return cached;
-  const alias = new Map<string, string>();
-  const indexLocales = [locale, "en"];
-  for (let i = 65; i <= 90; i += 1) {
-    for (let j = 65; j <= 90; j += 1) {
-      const code = `${String.fromCharCode(i)}${String.fromCharCode(j)}`;
-      for (const indexLocale of indexLocales) {
-        const display = getRegionDisplay(indexLocale);
-        if (!display) continue;
-        const label = display.of(code);
-        if (!label) continue;
-        const normalized = normalizeCountryToken(label);
-        if (!normalized || normalized === normalizeCountryToken(code)) continue;
-        if (normalized.includes("unknown region") || normalized.includes("region desconocida")) continue;
-        if (!alias.has(normalized)) alias.set(normalized, code);
-      }
-    }
-  }
-  for (const [token, code] of Object.entries(COUNTRY_ALIAS_OVERRIDES)) {
-    alias.set(normalizeCountryToken(token), code);
-  }
-  cachedCountryAliasIndexByLocale.set(locale, alias);
-  return alias;
-}
-
-function resolveCountryFromToken(raw: string): { key: string; label: string } {
-  const normalizedToken = normalizeCountryToken(raw);
-  if (!normalizedToken) return { key: "name:unknown", label: normalizeCountryLabel(raw) };
-  const locale = getCurrentLanguage();
-  const code = buildCountryAliasIndex(locale).get(normalizedToken);
-  if (code) {
-    const display = getRegionDisplay(getCurrentLocale()) ?? getRegionDisplay(locale);
-    const localized = display?.of(code);
-    if (localized && normalizeCountryToken(localized) !== normalizeCountryToken(code)) {
-      return { key: `iso:${code}`, label: localized };
-    }
-  }
-  return { key: `name:${normalizedToken}`, label: normalizeCountryLabel(raw) };
-}
-
-function extractCountryFromSpotAddress(address: string | null | undefined): string | null {
-  if (!address) return null;
-  const parts = address
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return null;
-  const candidate = normalizeCountryLabel(parts[parts.length - 1] ?? "");
-  if (candidate.length < 2) return null;
-  if (/\d/.test(candidate)) return null;
-  return candidate;
-}
-
-function resolveCountryForSpot(spot: Spot): { key: string; label: string } | null {
-  const token = extractCountryFromSpotAddress(spot.address);
-  if (!token) return null;
-  return resolveCountryFromToken(token);
-}
-
-function buildCountryBuckets(spots: Spot[]): CountryBucket[] {
-  const buckets = new Map<string, CountryBucket>();
-  for (const spot of spots) {
-    const resolved = resolveCountryForSpot(spot);
-    if (!resolved) continue;
-    const key = resolved.key;
-    const previous = buckets.get(key);
-    if (previous) {
-      previous.count += 1;
-      continue;
-    }
-    buckets.set(key, { key, label: resolved.label, count: 1 });
-  }
-  return [...buckets.values()].sort((a, b) => {
-    if (b.count !== a.count) return b.count - a.count;
-    return a.label.localeCompare(b.label, "es");
-  });
 }
 
 const COUNTRY_BUCKET_FIT_POINT_BUFFER_DEG = 0.04;
@@ -600,6 +507,19 @@ const STATUS_AVOID_CONTROLS_RIGHT = 64;
 const COUNTRIES_OVERLAY_ENTRY_DELAY_MS = 320;
 const MAP_CONTROLS_OVERLAY_ENTRY_DELAY_MS = 80;
 const FLOWYA_SLOGAN_ENTRY_DELAY_MS = 780;
+
+// Splash de entrada: se muestra en carga “fría” de Explorar.
+// Para evitar que se repita al volver desde otras rutas (perfil/detalle), usamos un flag one-shot en sessionStorage.
+const EXPLORE_SUPPRESS_SPLASH_ONCE_KEY = "flowya_explore_suppress_splash_once";
+
+function markSuppressExploreSplashOnceForNextMount() {
+  if (Platform.OS !== "web" || typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(EXPLORE_SUPPRESS_SPLASH_ONCE_KEY, "1");
+  } catch {
+    // ignore
+  }
+}
 const FLOWYA_SLOGAN_FADE_IN_MS = 1450;
 const FLOWYA_SLOGAN_HOLD_MS = 2400;
 const FLOWYA_SLOGAN_FADE_OUT_MS = 980;
@@ -646,6 +566,21 @@ export function MapScreenVNext() {
     Platform.OS === "web" && webExploreUsesDesktopSidebar(windowWidth);
   const { openAuthModal } = useAuthModal();
   const toast = useSystemStatus();
+  const [photoShareConsentOpen, setPhotoShareConsentOpen] = useState(false);
+  const [photoShareConsentBusy, setPhotoShareConsentBusy] = useState(false);
+  const pendingPhotoShareResolverRef = useRef<((choice: boolean | null) => void) | null>(
+    null,
+  );
+
+  const resolvePhotoSharingOrAskOnce = useCallback(async (): Promise<boolean | null> => {
+    const { pref } = await fetchMyPhotoSharingPreference();
+    if (pref === true || pref === false) return pref;
+
+    return await new Promise<boolean | null>((resolve) => {
+      pendingPhotoShareResolverRef.current = resolve;
+      setPhotoShareConsentOpen(true);
+    });
+  }, []);
   const toastResetAnchorRef = useRef(toast.resetAnchor);
   toastResetAnchorRef.current = toast.resetAnchor;
   /** Solo al desmontar Explorar: restaura ancla del toast (no en cada cambio de deps del efecto de ancla). */
@@ -686,6 +621,76 @@ export function MapScreenVNext() {
       ? selectedSpot.id
       : null;
   const { galleryUris } = useSpotGalleryUris(gallerySpotId);
+  const [optimisticHeroUrisBySpotId, setOptimisticHeroUrisBySpotId] = useState<
+    Record<string, string[]>
+  >({});
+  const [heroUrisOverrideBySpotId, setHeroUrisOverrideBySpotId] = useState<
+    Record<string, string[]>
+  >({});
+  const revokeOptimisticHeroUris = useCallback((spotId: string) => {
+    if (Platform.OS !== "web") return;
+    const uris = optimisticHeroUrisBySpotId[spotId];
+    if (!uris || uris.length === 0) return;
+    for (const uri of uris) {
+      if (typeof uri === "string" && uri.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(uri);
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }, [optimisticHeroUrisBySpotId]);
+  const setOptimisticHeroUrisForSpot = useCallback(
+    (spotId: string, nextUris: string[]) => {
+      setOptimisticHeroUrisBySpotId((prev) => {
+        const existing = prev[spotId];
+        if (Platform.OS === "web" && existing) {
+          for (const uri of existing) {
+            if (typeof uri === "string" && uri.startsWith("blob:")) {
+              try {
+                URL.revokeObjectURL(uri);
+              } catch {
+                /* ignore */
+              }
+            }
+          }
+        }
+        return { ...prev, [spotId]: nextUris };
+      });
+    },
+    [],
+  );
+  const clearOptimisticHeroUrisForSpot = useCallback((spotId: string) => {
+    revokeOptimisticHeroUris(spotId);
+    setOptimisticHeroUrisBySpotId((prev) => {
+      if (!(spotId in prev)) return prev;
+      const next = { ...prev };
+      delete next[spotId];
+      return next;
+    });
+  }, [revokeOptimisticHeroUris]);
+
+  const setHeroOverrideUrisForSpot = useCallback((spotId: string, uris: string[]) => {
+    setHeroUrisOverrideBySpotId((prev) => ({ ...prev, [spotId]: uris }));
+  }, []);
+
+  const clearHeroOverrideUrisForSpot = useCallback((spotId: string) => {
+    setHeroUrisOverrideBySpotId((prev) => {
+      if (!(spotId in prev)) return prev;
+      const next = { ...prev };
+      delete next[spotId];
+      return next;
+    });
+  }, []);
+
+  // Cuando el hook ya trae galería real, soltamos el override.
+  useEffect(() => {
+    if (!gallerySpotId) return;
+    if (galleryUris.length === 0) return;
+    if (!heroUrisOverrideBySpotId[gallerySpotId]) return;
+    clearHeroOverrideUrisForSpot(gallerySpotId);
+  }, [gallerySpotId, galleryUris, heroUrisOverrideBySpotId, clearHeroOverrideUrisForSpot]);
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
     exploreRuntimeReducer,
     INITIAL_EXPLORE_RUNTIME_STATE,
@@ -748,8 +753,28 @@ export function MapScreenVNext() {
   const [isAuthUser, setIsAuthUser] = useState(false);
   /** UID autenticado actual; cambia también en switch de cuenta sin pasar por anónimo. */
   const [authUserId, setAuthUserId] = useState<string | null>(null);
-  /** URL pública del avatar (Storage); se refresca al enfocar Explorar tras editar /account. */
-  const [myProfileAvatarPublicUrl, setMyProfileAvatarPublicUrl] = useState<string | null>(null);
+  /** Ruta en Storage; la URL se arma con bust estable (no `profiles.updated_at`). */
+  const [profileAvatarStoragePath, setProfileAvatarStoragePath] = useState<string | null>(null);
+  const profileAvatarUriBust = useSyncExternalStore(
+    subscribeProfileAvatarDisplayBust,
+    getProfileAvatarDisplayBustSnapshot,
+    getProfileAvatarDisplayBustSnapshot,
+  );
+  const myProfileAvatarPublicUrl = useMemo(
+    () => buildProfileAvatarDisplayUrl(profileAvatarStoragePath, profileAvatarUriBust),
+    [profileAvatarStoragePath, profileAvatarUriBust],
+  );
+  const [profileNavBusy, setProfileNavBusy] = useState(false);
+  /**
+   * Protege contra “late arrivals”: si el usuario dispara varias acciones rápidas (guardar/crear),
+   * una respuesta lenta no debe re-seleccionar un spot anterior ni reabrir su sheet.
+   */
+  const lastUserMutationTokenRef = useRef(0);
+  /**
+   * Evita borrar `visited-countries-share` warm cache en el primer render (auth aún no hidratada).
+   * Sin esto, al remontar Explorar se limpiaba la sesión y “Compartir mi avance” en Perfil fallaba.
+   */
+  const countriesShareVisitedAuthRef = useRef<string | null | undefined>(undefined);
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
   /** Catálogo de etiquetas cargado al menos una vez; evita prune con pool vacío por carrera con hidratación. */
   const [userTagsCatalogReady, setUserTagsCatalogReady] = useState(false);
@@ -783,6 +808,19 @@ export function MapScreenVNext() {
   const sloganEntryOpacity = useRef(new Animated.Value(0)).current;
   const sloganEntryTranslateY = useRef(new Animated.Value(FLOWYA_SLOGAN_RISE_IN_PX)).current;
   const sloganEntryAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
+  const [suppressSplashOnce] = useState(() => {
+    if (Platform.OS !== "web" || typeof sessionStorage === "undefined") return false;
+    try {
+      const v = sessionStorage.getItem(EXPLORE_SUPPRESS_SPLASH_ONCE_KEY);
+      if (v === "1") {
+        sessionStorage.removeItem(EXPLORE_SUPPRESS_SPLASH_ONCE_KEY);
+        return true;
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
   const [showEntrySlogan, setShowEntrySlogan] = useState(true);
   const filterOverlayHasAnimatedInRef = useRef(false);
   const [isFilterWaitingForCamera, setIsFilterWaitingForCamera] = useState(true);
@@ -794,6 +832,10 @@ export function MapScreenVNext() {
   const [isGlobeEntryMotionSettled, setIsGlobeEntryMotionSettled] = useState(false);
 
   useEffect(() => {
+    if (suppressSplashOnce) {
+      setShowEntrySlogan(false);
+      return;
+    }
     sloganEntryAnimationRef.current?.stop();
     sloganEntryOpacity.setValue(0);
     sloganEntryTranslateY.setValue(FLOWYA_SLOGAN_RISE_IN_PX);
@@ -1063,7 +1105,13 @@ export function MapScreenVNext() {
     }
   }, [runtimeInvariant]);
 
-  const params = useLocalSearchParams<{ spotId?: string; sheet?: string; created?: string }>();
+  const params = useLocalSearchParams<{ spotId?: string; sheet?: string; created?: string; account?: string }>();
+  const accountDesktopPanel = useMemo(
+    () => parseAccountDesktopPanel(params.account),
+    [params.account],
+  );
+  const accountDesktopExploreOpen =
+    webDesktopExploreSplitLayout && accountDesktopPanel != null;
   const deepLinkCenterLockRef = useRef(
     Boolean(
       params.spotId ||
@@ -1112,8 +1160,21 @@ export function MapScreenVNext() {
   }, []);
 
   useEffect(() => {
+    const nextAuthKey = isAuthUser && authUserId ? authUserId : null;
+    const prevAuthKey = countriesShareVisitedAuthRef.current;
+    if (prevAuthKey !== undefined) {
+      if (prevAuthKey != null && nextAuthKey == null) {
+        clearCountriesShareVisitedSession();
+      }
+      if (prevAuthKey != null && nextAuthKey != null && prevAuthKey !== nextAuthKey) {
+        clearCountriesShareVisitedSession();
+      }
+    }
+    countriesShareVisitedAuthRef.current = nextAuthKey;
+
     if (!isAuthUser || !authUserId) {
-      setMyProfileAvatarPublicUrl(null);
+      resetProfileAvatarDisplayBust();
+      setProfileAvatarStoragePath(null);
       setUserTags([]);
       setPinTagIndex({});
       setSelectedTagFilterIds([]);
@@ -1129,7 +1190,7 @@ export function MapScreenVNext() {
       );
       return;
     }
-    setMyProfileAvatarPublicUrl(null);
+    setProfileAvatarStoragePath(null);
     setUserTags([]);
     setPinTagIndex({});
     setSelectedTagFilterIds([]);
@@ -1231,8 +1292,9 @@ export function MapScreenVNext() {
 
   useFocusEffect(
     useCallback(() => {
+      setProfileNavBusy(false);
       if (!isAuthUser) {
-        setMyProfileAvatarPublicUrl(null);
+        setProfileAvatarStoragePath(null);
         return;
       }
       let cancelled = false;
@@ -1240,7 +1302,7 @@ export function MapScreenVNext() {
         void touchMyProfileLastActivity();
         const { data } = await fetchMyProfile();
         if (cancelled) return;
-        setMyProfileAvatarPublicUrl(getProfileAvatarPublicUrl(data?.avatar_storage_path ?? null));
+        setProfileAvatarStoragePath(data?.avatar_storage_path ?? null);
       })();
       return () => {
         cancelled = true;
@@ -1248,36 +1310,20 @@ export function MapScreenVNext() {
     }, [isAuthUser]),
   );
 
+  // (intents de entrada se manejan más abajo, tras declarar handlers)
+
   const invalidateSpotIdRef = useRef<((spotId: string) => void) | null>(null);
 
   const refetchSpots = useCallback(async () => {
     try {
-      const { data } = await supabase
-        .from("spots")
-        .select(SPOT_SELECT_FOR_MAP)
-        .eq("is_hidden", false);
-      const list = (data ?? []) as Omit<
-        Spot,
-        "saved" | "visited" | "pinStatus"
-      >[];
-      const pinMap = await getPinsForSpots(list.map((s) => s.id));
-      const withPins: Spot[] = list.map((s) => {
-        const state = pinMap.get(s.id);
-        const saved = state?.saved ?? false;
-        const visited = state?.visited ?? false;
-        return {
-          ...s,
-          saved,
-          visited,
-          pinStatus: visited
-            ? "visited"
-            : saved
-              ? "to_visit"
-              : ("default" as SpotPinStatus),
-        };
-      });
-
-      const visible = onlyVisible(withPins as (Spot & { isHidden?: boolean })[]);
+      const uid =
+        exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+      if (!uid) {
+        prevSpotIdsRef.current = new Set();
+        setSpots([]);
+        return [];
+      }
+      const visible = (await fetchVisibleSpotsWithPinsDeduped(uid)) as Spot[];
       const nextIds = new Set(visible.map((s) => s.id));
       const prevIds = prevSpotIdsRef.current;
       const disappeared = [...prevIds].filter((id) => !nextIds.has(id));
@@ -1301,9 +1347,13 @@ export function MapScreenVNext() {
 
       void (async () => {
         try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user || user.is_anonymous) return;
-          const [tags, index] = await Promise.all([listUserTags(), fetchPinTagsIndexForSession()]);
+          // Evitar `auth.getUser()` (locks) durante refetch: basta con saber si hay uid autenticado.
+          const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+          if (!uid) return;
+          const [tags, index] = await Promise.all([
+            listUserTags(),
+            fetchPinTagsIndexForSession(),
+          ]);
           setUserTags(tags);
           setPinTagIndex(index);
         } catch {
@@ -1318,6 +1368,15 @@ export function MapScreenVNext() {
       setSpotsLoadSettled(true);
     }
   }, [selectedSpot, setSheetState]);
+
+  /** Instantánea KPI perfil: misma semántica que `useProfileKpis` / `PROFILE_KPI_STALE_WHILE_REVALIDATE`. */
+  useEffect(() => {
+    if (!isAuthUser || !authUserId) {
+      clearProfileKpiWarmSnapshot();
+      return;
+    }
+    commitProfileKpiWarmSnapshotFromExploreSpots(authUserId, spots);
+  }, [isAuthUser, authUserId, spots]);
 
   /** Switch de cuenta autenticada: refrescar pins del mapa con el nuevo uid. */
   useEffect(() => {
@@ -1931,7 +1990,12 @@ export function MapScreenVNext() {
     [countriesBucketsByFilter.visited, pinCounts.visited],
   );
 
-  const countriesFilterForActiveCounter = pinFilter === "visited" ? "visited" : "saved";
+  /**
+   * Dataset del contador circular países/lugares + sheet alineado al filtro de pins.
+   * Con pinFilter «Todos» antes quedaba en «saved» y los KPI del mapa no coincidían con visitados
+   * (perfil, flows/travelerPoints y sheet «Países visitados»). Solo «Por visitar» fuerza saved.
+   */
+  const countriesFilterForActiveCounter = pinFilter === "saved" ? "saved" : "visited";
 
   useEffect(() => {
     updatePendingFilterBadges((prev) => {
@@ -2711,7 +2775,7 @@ export function MapScreenVNext() {
       setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagDeleteConfirm.id));
       await refreshTagsAfterPinChange();
       if (!suppressToastRef.current) {
-        toast.show("Etiqueta eliminada.", { type: "success", replaceVisible: true });
+        toast.show("Etiqueta eliminada.", { type: "error", replaceVisible: true });
       }
       setTagDeleteConfirm(null);
       setTagFilterEditMode(false);
@@ -2937,10 +3001,8 @@ export function MapScreenVNext() {
   /** Helper único: si no hay sesión abre modal y devuelve false; si hay sesión devuelve true. */
   const requireAuthOrModal = useCallback(
     async (message: string): Promise<boolean> => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || user.is_anonymous) {
+      const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+      if (!uid) {
         openAuthModal({ message });
         return false;
       }
@@ -3209,6 +3271,7 @@ export function MapScreenVNext() {
   /** Crear spot mínimo desde BORRADOR. skipDuplicateCheck = cuando usuario confirmó "Crear otro" en modal. */
   const handleCreateSpotFromDraft = useCallback(
     async (skipDuplicateCheck = false) => {
+      const mutationToken = (lastUserMutationTokenRef.current += 1);
       const draft = selectedSpot;
       if (!draft || !draft.id.startsWith("draft_")) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
@@ -3230,9 +3293,7 @@ export function MapScreenVNext() {
           return;
         }
       }
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
     const insertPayload: Record<string, unknown> = {
       title: draft.title?.trim() || "Nuevo lugar",
       description_short: null,
@@ -3241,9 +3302,7 @@ export function MapScreenVNext() {
       longitude: draft.longitude,
       address: null,
     };
-    if (user?.id && !user.is_anonymous) {
-      insertPayload.user_id = user.id;
-    }
+    if (uid) insertPayload.user_id = uid;
     const { data: inserted, error: insertError } = await supabase
       .from("spots")
       .insert(insertPayload)
@@ -3285,8 +3344,11 @@ export function MapScreenVNext() {
     };
     // Añadir a spots de forma síncrona para que el efecto (selectedSpot debe estar en filteredSpots) no borre la selección antes de que refetchSpots termine.
     setSpots((prev) => (prev.some((s) => s.id === created.id) ? prev : [...prev, created]));
-    setSelectedSpot(created);
-    setSheetState("medium");
+    // Solo enfocar el spot si sigue siendo la última acción del usuario.
+    if (lastUserMutationTokenRef.current === mutationToken) {
+      setSelectedSpot(created);
+      setSheetState("medium");
+    }
     setIsPlacingDraftSpot(false);
     setDraftCoverUri(null);
     searchV2.setOpen(false);
@@ -3321,6 +3383,7 @@ export function MapScreenVNext() {
   );
 
   const [poiSheetLoading, setPoiSheetLoading] = useState(false);
+  const [poiAddPhotosBusy, setPoiAddPhotosBusy] = useState(false);
   const [fullscreenLightbox, setFullscreenLightbox] = useState<{
     uris: string[];
     initialIndex: number;
@@ -3341,8 +3404,10 @@ export function MapScreenVNext() {
       initialStatus?: "to_visit" | "visited",
       targetSheetState: "medium" | "expanded" = "medium",
     ) => {
+      const mutationToken = (lastUserMutationTokenRef.current += 1);
       const poi = poiTapped;
       if (!poi) return;
+      const poiKey = poi.placeId ?? `${poi.name}:${poi.lat}:${poi.lng}`;
       const shouldTrackCreateFromSearch = poi.source === "search_suggestion";
       let didAttemptPersist = false;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
@@ -3359,9 +3424,7 @@ export function MapScreenVNext() {
       }
       setPoiSheetLoading(true);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
         didAttemptPersist = true;
         const framing = await resolveFramingForMapTapPoi(poi);
         const insertPayload: Record<string, unknown> = {
@@ -3380,9 +3443,7 @@ export function MapScreenVNext() {
           mapbox_bbox: framing.bbox,
           mapbox_feature_type: framing.featureType,
         };
-        if (user?.id && !user.is_anonymous) {
-          insertPayload.user_id = user.id;
-        }
+        if (uid) insertPayload.user_id = uid;
         const { data: inserted, error: insertError } = await supabase
           .from("spots")
           .insert(insertPayload)
@@ -3428,9 +3489,14 @@ export function MapScreenVNext() {
         created = true;
         if (shouldTrackCreateFromSearch) recordCreateFromSearchResult(true);
         setSpots((prev) => (prev.some((s) => s.id === createdSpot.id) ? prev : [...prev, createdSpot]));
-        setSelectedSpot(createdSpot);
-        setPoiTapped(null);
-        setSheetState(targetSheetState);
+        // No “robar foco” si el usuario ya está creando/guardando otra cosa.
+        const stillSamePoi =
+          (poiTapped?.placeId ?? `${poiTapped?.name ?? ""}:${poiTapped?.lat ?? ""}:${poiTapped?.lng ?? ""}`) === poiKey;
+        if (lastUserMutationTokenRef.current === mutationToken && stillSamePoi) {
+          setSelectedSpot(createdSpot);
+          setPoiTapped(null);
+          setSheetState(targetSheetState);
+        }
         void refreshTagsAfterPinChange();
         resolveAddress(poi.lat, poi.lng).then((address) => {
           if (!address) return;
@@ -3468,6 +3534,232 @@ export function MapScreenVNext() {
     ],
   );
 
+  const handlePoiAddPhotos = useCallback(async () => {
+    if (poiAddPhotosBusy) return;
+    const mutationToken = (lastUserMutationTokenRef.current += 1);
+    const poi = poiTapped;
+    if (!poi) return;
+    if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    const sharePref = await resolvePhotoSharingOrAskOnce();
+    if (sharePref == null) return;
+    const initialStatus: "to_visit" | "visited" =
+      pinFilter === "saved" ? "to_visit" : "visited";
+
+    setPoiAddPhotosBusy(true);
+    try {
+      const files = await pickImageFilesFromWeb({ multiple: true });
+      if (!files || files.length === 0) return;
+
+      const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+      const framing = await resolveFramingForMapTapPoi(poi);
+      const insertPayload: Record<string, unknown> = {
+        title: poi.name,
+        description_short: null,
+        description_long: null,
+        latitude: poi.lat,
+        longitude: poi.lng,
+        address: null,
+        link_status: poi.placeId ? "linked" : "unlinked",
+        linked_place_id: poi.placeId,
+        linked_place_kind: poi.placeId ? poi.kind : null,
+        linked_maki: poi.placeId ? poi.maki : null,
+        linked_at: poi.placeId ? new Date().toISOString() : null,
+        link_version: poi.placeId ? SPOT_LINK_VERSION : null,
+        mapbox_bbox: framing.bbox,
+        mapbox_feature_type: framing.featureType,
+      };
+      if (uid) insertPayload.user_id = uid;
+
+      const { data: inserted, error: insertError } = await supabase
+        .from("spots")
+        .insert(insertPayload)
+        .select(
+          "id, title, description_short, description_long, cover_image_url, address, latitude, longitude, link_status, linked_place_id, linked_place_kind, linked_maki, mapbox_bbox, mapbox_feature_type",
+        )
+        .single();
+      if (insertError) {
+        toast.show(
+          insertError.message ??
+            "Ups, no se pudo guardar el lugar. Prueba de nuevo.",
+          { type: "error" },
+        );
+        return;
+      }
+      const newId = inserted?.id;
+      if (!newId) {
+        toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", {
+          type: "error",
+        });
+        return;
+      }
+
+      if (initialStatus === "to_visit") {
+        const savedState = await setSaved(newId, true);
+        if (savedState == null) {
+          toast.show(
+            "Se creó el lugar, pero no se pudo agregar a Por visitar. Prueba otra vez.",
+            { type: "error" },
+          );
+        }
+      } else {
+        const visitedState = await setVisited(newId, true);
+        if (visitedState == null) {
+          toast.show(
+            "Se creó el lugar, pero no se pudo marcar como visitado. Prueba otra vez.",
+            { type: "error" },
+          );
+        }
+      }
+
+      const pinMap = await getPinsForSpots([newId]);
+      const state = pinMap.get(newId);
+      const createdSpot: Spot = {
+        ...(inserted as Omit<Spot, "saved" | "visited" | "pinStatus">),
+        cover_image_url: inserted?.cover_image_url ?? null,
+        saved: state?.saved ?? false,
+        visited: state?.visited ?? false,
+        pinStatus: state?.visited ? "visited" : state?.saved ? "to_visit" : "default",
+      };
+
+      setSpots((prev) =>
+        prev.some((s) => s.id === createdSpot.id) ? prev : [...prev, createdSpot],
+      );
+
+      // Optimista (web): mostrar previews instantáneos mientras sube/DB inserta.
+      if (Platform.OS === "web") {
+        const previews = files
+          .map((f) => {
+            try {
+              return URL.createObjectURL(f);
+            } catch {
+              return null;
+            }
+          })
+          .filter((u): u is string => Boolean(u));
+        if (previews.length > 0) setOptimisticHeroUrisForSpot(newId, previews);
+      }
+
+      const poiKey = poi.placeId ?? `${poi.name}:${poi.lat}:${poi.lng}`;
+      const stillSamePoi =
+        (poiTapped?.placeId ??
+          `${poiTapped?.name ?? ""}:${poiTapped?.lat ?? ""}:${poiTapped?.lng ?? ""}`) ===
+        poiKey;
+      if (lastUserMutationTokenRef.current === mutationToken && stillSamePoi) {
+        setSelectedSpot(createdSpot);
+        setPoiTapped(null);
+        setSheetState("medium");
+      }
+      void refreshTagsAfterPinChange();
+
+      const toUpload = files.slice(0, MAX_SPOT_GALLERY_IMAGES);
+      if (files.length > MAX_SPOT_GALLERY_IMAGES) {
+        toast.show(
+          `Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos por lugar. Subiré las primeras ${MAX_SPOT_GALLERY_IMAGES}.`,
+          { type: "error" },
+        );
+      }
+
+      let added = 0;
+      let hitLimit = false;
+      if (sharePref) {
+        await ensureGallerySeedFromCover(newId, inserted?.cover_image_url ?? null);
+        for (const file of toUpload) {
+          const optimized = await optimizeSpotImage(file);
+          const blobToUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+          if (!blobToUpload) continue;
+          const url = await uploadSpotGalleryImage(newId, blobToUpload);
+          if (!url) continue;
+          const { error } = await addSpotImageRow(newId, url);
+          if (error === "limit") {
+            hitLimit = true;
+            toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, { type: "error" });
+            break;
+          }
+          if (error === "db") continue;
+          added += 1;
+        }
+        if (added > 0) {
+          await syncCoverFromGallery(newId);
+          const rows = await listSpotImages(newId);
+          setHeroOverrideUrisForSpot(
+            newId,
+            rows
+              .map((r) => r.url)
+              .filter((u) => typeof u === "string" && u.trim().length > 0),
+          );
+          const coverUrl = rows[0]?.url ?? null;
+          if (coverUrl) {
+            patchSpotSearchMetadata(newId, { cover_image_url: coverUrl });
+            setSelectedSpot((prev) =>
+              prev?.id === newId && prev ? { ...prev, cover_image_url: coverUrl } : prev,
+            );
+          }
+          clearOptimisticHeroUrisForSpot(newId);
+        } else if (!hitLimit && toUpload.length > 0) {
+          toast.show("No se pudo subir ninguna imagen. Inténtalo de nuevo.", {
+            type: "error",
+          });
+          clearOptimisticHeroUrisForSpot(newId);
+          clearHeroOverrideUrisForSpot(newId);
+        }
+      } else {
+        for (const file of toUpload) {
+          const optimized = await optimizeSpotImage(file);
+          const blobToUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+          if (!blobToUpload) continue;
+          const uploaded = await uploadSpotPersonalGalleryImage(newId, blobToUpload);
+          if (!uploaded) continue;
+          const { error } = await addSpotPersonalImageRow({
+            spotId: newId,
+            userId: uid!,
+            storagePath: uploaded.storagePath,
+          });
+          if (error === "limit") {
+            hitLimit = true;
+            toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, { type: "error" });
+            break;
+          }
+          if (error === "db") continue;
+          added += 1;
+        }
+
+        if (added > 0) {
+          const rows = await listSpotPersonalImages(newId);
+          const signed = (
+            await Promise.all(rows.map((r) => createSpotPersonalImageSignedUrl(r.storage_path)))
+          ).filter((u): u is string => Boolean(u));
+          setHeroOverrideUrisForSpot(newId, signed);
+          clearOptimisticHeroUrisForSpot(newId);
+        } else if (!hitLimit && toUpload.length > 0) {
+          toast.show("No se pudo subir ninguna imagen. Inténtalo de nuevo.", {
+            type: "error",
+          });
+          clearOptimisticHeroUrisForSpot(newId);
+          clearHeroOverrideUrisForSpot(newId);
+        }
+      }
+    } catch (e) {
+      toast.show("Ups, no se pudieron subir tus fotos. ¿Intentas de nuevo?", {
+        type: "error",
+      });
+    } finally {
+      setPoiAddPhotosBusy(false);
+    }
+  }, [
+    poiAddPhotosBusy,
+    poiTapped,
+    pinFilter,
+    requireAuthOrModal,
+    refreshTagsAfterPinChange,
+    clearHeroOverrideUrisForSpot,
+    clearOptimisticHeroUrisForSpot,
+    setHeroOverrideUrisForSpot,
+    setOptimisticHeroUrisForSpot,
+    resolvePhotoSharingOrAskOnce,
+    setSheetState,
+    toast,
+  ]);
+
   /** Crear spot desde POI y compartir. Flujo de planificación: no bloquea por anti-duplicado. */
   const handleCreateSpotFromPoiAndShare = useCallback(
     async () => {
@@ -3476,9 +3768,7 @@ export function MapScreenVNext() {
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
       setPoiSheetLoading(true);
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+        const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
         const framing = await resolveFramingForMapTapPoi(poi);
         const insertPayload: Record<string, unknown> = {
           title: poi.name,
@@ -3496,9 +3786,7 @@ export function MapScreenVNext() {
           mapbox_bbox: framing.bbox,
           mapbox_feature_type: framing.featureType,
         };
-        if (user?.id && !user.is_anonymous) {
-          insertPayload.user_id = user.id;
-        }
+        if (uid) insertPayload.user_id = uid;
         const { data: inserted, error: insertError } = await supabase
           .from("spots")
           .insert(insertPayload)
@@ -3629,14 +3917,172 @@ export function MapScreenVNext() {
     });
   }, []);
 
+  const pickImageFilesFromWeb = useCallback(
+    async ({ multiple }: { multiple: boolean }): Promise<File[] | null> => {
+      if (Platform.OS !== "web" || typeof document === "undefined") return null;
+      return await new Promise<File[] | null>((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "image/*";
+        input.multiple = multiple;
+        input.style.position = "fixed";
+        input.style.left = "-9999px";
+        let settled = false;
+        let fallbackTimer: number | null = null;
+        let focusCancelTimer: number | null = null;
+        let focusListenerActive = false;
+
+        const onWindowFocus = () => {
+          if (focusCancelTimer != null) {
+            window.clearTimeout(focusCancelTimer);
+          }
+          // En móvil web `focus` puede llegar antes de `change`. Esperar un poco antes de cancelar.
+          focusCancelTimer = window.setTimeout(() => {
+            const hasFile = (input.files?.length ?? 0) > 0;
+            if (!settled && !hasFile) finalize(null);
+          }, 350);
+        };
+
+        const finalize = (files: File[] | null) => {
+          if (settled) return;
+          settled = true;
+          if (fallbackTimer != null) {
+            window.clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+          }
+          if (focusCancelTimer != null) {
+            window.clearTimeout(focusCancelTimer);
+            focusCancelTimer = null;
+          }
+          if (focusListenerActive) {
+            window.removeEventListener("focus", onWindowFocus);
+            focusListenerActive = false;
+          }
+          input.onchange = null;
+          input.oncancel = null;
+          input.remove();
+          resolve(files);
+        };
+
+        input.onchange = () => {
+          const files = input.files ? Array.from(input.files) : [];
+          finalize(files.length > 0 ? files : null);
+        };
+        input.oncancel = () => finalize(null);
+
+        document.body.appendChild(input);
+        window.addEventListener("focus", onWindowFocus);
+        focusListenerActive = true;
+        input.click();
+        // Último recurso: no usar timeout corto (móvil puede tardar en elegir).
+        fallbackTimer = window.setTimeout(() => finalize(null), 60_000);
+      });
+    },
+    [],
+  );
+
+  const [quickAddImageBusySpotId, setQuickAddImageBusySpotId] = useState<string | null>(null);
+
   const handleQuickAddImageFromSearch = useCallback(
     async (spot: Spot) => {
       if (!isAuthUser && !(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
+      if (quickAddImageBusySpotId === spot.id) return;
+      const sharePref = await resolvePhotoSharingOrAskOnce();
+      if (sharePref == null) return;
+      setQuickAddImageBusySpotId(spot.id);
       try {
         let sourceBlob: Blob | null = null;
         if (Platform.OS === "web") {
-          sourceBlob = await pickImageBlobFromWeb();
-          if (!sourceBlob) return;
+          const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+          const currentRows = sharePref
+            ? await listSpotImages(spot.id)
+            : await listSpotPersonalImages(spot.id);
+          if (currentRows.length >= MAX_SPOT_GALLERY_IMAGES) {
+            if (!suppressToastRef.current) {
+              toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, { type: "error" });
+            }
+            return;
+          }
+
+          const remainingSlots = MAX_SPOT_GALLERY_IMAGES - currentRows.length;
+          const files = await pickImageFilesFromWeb({ multiple: true });
+          if (!files || files.length === 0) return;
+
+          const picked = files.slice(0, remainingSlots);
+          let added = 0;
+          let hitLimit = false;
+
+          for (const file of picked) {
+            const optimized = await optimizeSpotImage(file);
+            const toUpload = optimized.ok ? optimized.blob : optimized.fallbackBlob;
+            if (!toUpload) continue;
+            if (sharePref) {
+              // Si el spot ya tenía portada “legacy”, la insertamos como primera fila antes de sumar más.
+              await ensureGallerySeedFromCover(spot.id, spot.cover_image_url);
+              const url = await uploadSpotGalleryImage(spot.id, toUpload);
+              if (!url) continue;
+              const { error } = await addSpotImageRow(spot.id, url);
+              if (error === "limit") {
+                hitLimit = true;
+                if (!suppressToastRef.current) {
+                  toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, { type: "error" });
+                }
+                break;
+              }
+              if (error === "db") continue;
+              added += 1;
+            } else {
+              if (!uid) break;
+              const uploaded = await uploadSpotPersonalGalleryImage(spot.id, toUpload);
+              if (!uploaded) continue;
+              const { error } = await addSpotPersonalImageRow({
+                spotId: spot.id,
+                userId: uid,
+                storagePath: uploaded.storagePath,
+              });
+              if (error === "limit") {
+                hitLimit = true;
+                if (!suppressToastRef.current) {
+                  toast.show(`Máximo ${MAX_SPOT_GALLERY_IMAGES} fotos`, { type: "error" });
+                }
+                break;
+              }
+              if (error === "db") continue;
+              added += 1;
+            }
+          }
+
+          if (added > 0) {
+            if (sharePref) {
+              await syncCoverFromGallery(spot.id);
+              const { data: coverData } = await supabase
+                .from("spots")
+                .select("cover_image_url")
+                .eq("id", spot.id)
+                .single();
+              const coverUrlRaw = coverData?.cover_image_url ? String(coverData.cover_image_url) : null;
+              patchSpotSearchMetadata(spot.id, {
+                cover_image_url: coverUrlRaw ? publicImageUrlWithoutQuery(coverUrlRaw) : null,
+              });
+            } else {
+              const rows = await listSpotPersonalImages(spot.id);
+              const signed = (
+                await Promise.all(rows.map((r) => createSpotPersonalImageSignedUrl(r.storage_path)))
+              ).filter((u): u is string => Boolean(u));
+              setHeroOverrideUrisForSpot(spot.id, signed);
+            }
+            if (!suppressToastRef.current) {
+              toast.show(added === 1 ? "Imagen agregada." : `${added} imágenes agregadas.`, {
+                type: "success",
+                replaceVisible: true,
+              });
+            }
+          } else if (!hitLimit && picked.length > 0) {
+            if (!suppressToastRef.current) {
+              toast.show("No se pudo subir ninguna imagen. Inténtalo de nuevo.", { type: "error" });
+            }
+          }
+          return;
         } else {
           const ImagePicker = await import("expo-image-picker");
           const result = await ImagePicker.launchImageLibraryAsync({
@@ -3661,6 +4107,8 @@ export function MapScreenVNext() {
           }
         }
 
+        // Native: conserva el comportamiento actual (solo portada).
+        // Nota: el scope QA reportado es web; dejamos móvil sin cambios para evitar regresiones.
         if (!sourceBlob) {
           if (!suppressToastRef.current) {
             toast.show("No se detectó una imagen válida para subir.", { type: "error" });
@@ -3691,9 +4139,20 @@ export function MapScreenVNext() {
         if (!suppressToastRef.current) toast.show("Imagen agregada.", { type: "success", replaceVisible: true });
       } catch {
         if (!suppressToastRef.current) toast.show("No se pudo completar la carga de imagen.", { type: "error" });
+      } finally {
+        setQuickAddImageBusySpotId((prev) => (prev === spot.id ? null : prev));
       }
     },
-    [isAuthUser, patchSpotSearchMetadata, pickImageBlobFromWeb, requireAuthOrModal, toast],
+    [
+      isAuthUser,
+      patchSpotSearchMetadata,
+      pickImageFilesFromWeb,
+      quickAddImageBusySpotId,
+      requireAuthOrModal,
+      resolvePhotoSharingOrAskOnce,
+      setHeroOverrideUrisForSpot,
+      toast,
+    ],
   );
 
   const handleQuickEditDescriptionOpen = useCallback((spot: Spot) => {
@@ -4544,6 +5003,25 @@ export function MapScreenVNext() {
     setCountriesSheetState,
   ]);
 
+  // Intento “one-shot” desde otras pantallas (p. ej. Perfil → KPI países/lugares).
+  useEffect(() => {
+    if (Platform.OS !== "web") return;
+    const intent = consumeExploreEntryIntentOnce();
+    if (!intent) return;
+    if (intent.kind !== "open_countries_sheet") return;
+    if (intent.filter === "visited") {
+      void handleVisitedCountriesPress().then(() => {
+        if (intent.view === "all_places") {
+          setTimeout(() => {
+            handleCountriesSpotsKpiPress();
+          }, 80);
+        }
+      });
+      return;
+    }
+    openCountriesSheetForFilter("saved", { requireMounted: true });
+  }, [handleCountriesSpotsKpiPress, handleVisitedCountriesPress, openCountriesSheetForFilter]);
+
   const handleCountryDetailBack = useCallback(() => {
     setCountriesSheetListView(null);
   }, []);
@@ -4673,30 +5151,31 @@ export function MapScreenVNext() {
         ? Colors[colorScheme ?? "light"].stateToVisit
         : Colors[colorScheme ?? "light"].stateSuccess;
     try {
-      const result = await shareCountriesCard({
-        title,
-        countriesCount: countriesCountForOverlay,
-        spotsCount: exploreMapKpiPlacesCount,
-        worldPercentage: countriesWorldPercentageForOverlay,
-        accentColor,
-        mapSnapshotDataUrl: countriesMapSnapshot,
-        items: countriesBucketsForOverlay,
-      });
-      if (result.shared) return;
-      if (result.downloaded) {
-        if (!suppressToastRef.current) {
-          toast.show("Imagen guardada en tu computadora.", { type: "default", replaceVisible: true });
-        }
-        return;
+      if (countriesOverlayFilter === "visited") {
+        await shareVisitedCountriesProgress({
+          show: toast.show,
+          colorScheme: colorScheme ?? "light",
+          suppressToasts: suppressToastRef.current,
+          precomposed: {
+            mapSnapshotDataUrl: countriesMapSnapshot,
+            items: countriesBucketsForOverlay,
+            countriesCount: countriesCountForOverlay,
+            spotsCount: exploreMapKpiPlacesCount,
+            worldPercentage: countriesWorldPercentageForOverlay,
+          },
+        });
+      } else {
+        const result = await shareCountriesCard({
+          title,
+          countriesCount: countriesCountForOverlay,
+          spotsCount: exploreMapKpiPlacesCount,
+          worldPercentage: countriesWorldPercentageForOverlay,
+          accentColor,
+          mapSnapshotDataUrl: countriesMapSnapshot,
+          items: countriesBucketsForOverlay,
+        });
+        notifyShareCountriesCardOutcome(result, toast.show, { suppress: suppressToastRef.current });
       }
-      if (result.copied) {
-        if (!suppressToastRef.current) toast.show("Resumen copiado al portapapeles.", { type: "default", replaceVisible: true });
-        return;
-      }
-      if (!suppressToastRef.current) toast.show("No se pudo compartir en este dispositivo.", {
-        type: "default",
-        replaceVisible: true,
-      });
     } finally {
       setTimeout(() => {
         isCountriesShareInFlightRef.current = false;
@@ -4928,6 +5407,7 @@ export function MapScreenVNext() {
                       id: `add-image-${spot.id}`,
                       label: "Agregar imagen",
                       kind: "add_image" as const,
+                      busy: quickAddImageBusySpotId === spot.id,
                       onPress: () => handleQuickAddImageFromSearch(spot),
                       accessibilityLabel: `Agregar imagen a ${spot.title}`,
                     },
@@ -4970,6 +5450,7 @@ export function MapScreenVNext() {
       handleQuickEditDescriptionOpen,
       isAuthUser,
       pinTagIndex,
+      quickAddImageBusySpotId,
       tagLabelById,
       userCoords,
     ],
@@ -5228,18 +5709,30 @@ export function MapScreenVNext() {
       outcome: "opened_detail",
       pinFilter,
     });
+    markSuppressExploreSplashOnceForNextMount();
     saveFocusBeforeNavigate();
     blurActiveElement();
     (router.push as (href: string) => void)(`/spot/${selectedSpot.id}`);
   }, [selectedSpot, router, pinFilter]);
 
   const handleProfilePress = useCallback(async () => {
+    if (profileNavBusy) return;
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.profile))) return;
+    setProfileNavBusy(true);
     if (Platform.OS === "web") {
       blurActiveElement();
     }
-    (router.push as (href: string) => void)("/account");
-  }, [requireAuthOrModal, router]);
+    markSuppressExploreSplashOnceForNextMount();
+    if (webDesktopExploreSplitLayout) {
+      (router.setParams as (p: Record<string, string | undefined>) => void)({ account: "profile" });
+    } else {
+      (router.push as (href: string) => void)("/account");
+    }
+    // Fallback: si por alguna razón no navega, permitir reintento.
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.setTimeout(() => setProfileNavBusy(false), 2500);
+    }
+  }, [requireAuthOrModal, router, profileNavBusy, webDesktopExploreSplitLayout]);
 
   const handleShare = useCallback(
     async (spot: Spot) => {
@@ -5295,6 +5788,7 @@ export function MapScreenVNext() {
         | "clear_to_visit"
         | "clear_visited",
     ) => {
+      const mutationToken = (lastUserMutationTokenRef.current += 1);
       if (spot.id.startsWith("draft_")) return;
       let userId = exploreAuthUserIdRef.current;
       if (!userId) {
@@ -5448,22 +5942,27 @@ export function MapScreenVNext() {
           setPinFilterPulseNonce((n) => n + 1);
         }
 
+        // Estado real siempre se aplica al listado.
         updateSpotPinState(spot.id, nextState);
-        setSelectedSpot(nextSpotSelection);
-        setRecentMutation(spot.id, pinFilter);
-        setPinMutationTarget(null);
-        if (
-          mapInstance &&
-          !isPointVisibleInViewport(
-            mapInstance,
-            spot.longitude,
-            spot.latitude,
-          )
-        ) {
-          flyToUnlessActMode(
-            { lng: spot.longitude, lat: spot.latitude },
-            { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
-          );
+        // Side-effects de UI solo si esta sigue siendo la última mutación iniciada.
+        const isLatestUserMutation = lastUserMutationTokenRef.current === mutationToken;
+        if (isLatestUserMutation) {
+          setSelectedSpot(nextSpotSelection);
+          setRecentMutation(spot.id, pinFilter);
+          setPinMutationTarget(null);
+          if (
+            mapInstance &&
+            !isPointVisibleInViewport(
+              mapInstance,
+              spot.longitude,
+              spot.latitude,
+            )
+          ) {
+            flyToUnlessActMode(
+              { lng: spot.longitude, lat: spot.latitude },
+              { zoom: SPOT_FOCUS_ZOOM, duration: FIT_BOUNDS_DURATION_MS },
+            );
+          }
         }
         const outcome = nextState.visited
           ? "visited"
@@ -5471,15 +5970,17 @@ export function MapScreenVNext() {
             ? "saved"
             : "dismissed";
         recordExploreDecisionCompleted({ outcome, pinFilter });
-        setSheetState("medium");
-        if (!suppressToastRef.current) {
-          const toastText =
-            outcome === "visited"
-              ? "Guardado como visitado."
-              : outcome === "saved"
-                ? "Guardado para tu ruta."
-                : "Cambios guardados.";
-          toast.show(toastText, { type: "success", replaceVisible: true });
+        if (isLatestUserMutation) {
+          setSheetState("medium");
+          if (!suppressToastRef.current) {
+            const toastText =
+              outcome === "visited"
+                ? "Guardado como visitado."
+                : outcome === "saved"
+                  ? "Guardado para tu ruta."
+                  : "Cambios guardados.";
+            toast.show(toastText, { type: "success", replaceVisible: true });
+          }
         }
       } catch {
         revertOptimistic();
@@ -5532,6 +6033,7 @@ export function MapScreenVNext() {
     welcomeSidebarDismissed,
     countriesSheetListViewPresent:
       countriesSheetListView != null,
+    accountDesktopExploreOpen,
   });
   const {
     webConstrainedFlowyaLayout,
@@ -5943,13 +6445,16 @@ export function MapScreenVNext() {
     Platform.OS === "web" && exploreDesktopSidebarActive && spotSheetChromeVisible;
 
   const hasDesktopSidebarPanel =
+    accountDesktopExploreOpen ||
     (exploreDesktopSidebarActive && showExploreWelcomeSheet) ||
     countriesInSidebarDesktop ||
     spotInSidebarDesktop;
 
   /** Una sola columna lateral: ancho según spot / países (KPI o listado) / welcome. */
   const exploreDesktopSidebarPanelWidthResolved =
-    spotInSidebarDesktop
+    accountDesktopExploreOpen
+      ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH
+      : spotInSidebarDesktop
       ? WEB_EXPLORE_SIDEBAR_PANEL_WIDTH
       : countriesInSidebarDesktop
         ? countriesDesktopSidebarPanelWidth
@@ -5957,10 +6462,11 @@ export function MapScreenVNext() {
 
   /** Transición suave entre árboles distintos del sidebar (welcome ↔ países ↔ spot). */
   const exploreSidebarPanelKey = useMemo(() => {
+    if (accountDesktopExploreOpen) return `account:${accountDesktopPanel ?? "profile"}`;
     if (spotInSidebarDesktop) return "spot";
     if (countriesInSidebarDesktop) return "countries";
     return "welcome";
-  }, [spotInSidebarDesktop, countriesInSidebarDesktop]);
+  }, [accountDesktopExploreOpen, accountDesktopPanel, spotInSidebarDesktop, countriesInSidebarDesktop]);
 
   const [sidebarPresencePhase, setSidebarPresencePhase] = useState<
     "hidden" | "visible" | "exiting"
@@ -6096,10 +6602,12 @@ export function MapScreenVNext() {
     (exploreDesktopSidebarActive && hasDesktopSidebarPanel) ||
     shouldShowInlineTopFilters;
 
-  /** Ruta `/account` (panel lateral de perfil en desktop): el botón de perfil en el mapa es redundante. */
+  /** Perfil visible: stack `/account*` o panel embebido `?account=` en Explore desktop. */
   const accountProfileSidebarOpen =
     Platform.OS === "web" &&
-    (pathname === "/account" || pathname?.startsWith("/account/"));
+    (pathname === "/account" ||
+      pathname?.startsWith("/account/") ||
+      accountDesktopExploreOpen);
 
   const showExploreMapProfileCorner =
     !createSpotNameOverlayOpen &&
@@ -6238,12 +6746,32 @@ export function MapScreenVNext() {
       onCreateSpot={handleCreateSpotFromDraft}
       onPoiPorVisitar={() => handleCreateSpotFromPoi("to_visit")}
       onPoiVisitado={() => handleCreateSpotFromPoi("visited")}
+      onPoiAddPhotos={
+        poiTapped != null && selectedSpot == null ? handlePoiAddPhotos : undefined
+      }
+      poiAddPhotosBusy={poiAddPhotosBusy}
       onPoiShare={handleCreateSpotFromPoiAndShare}
       poiLoading={poiSheetLoading}
-      heroImageUris={galleryUris}
+      heroImageUris={
+        selectedSpot && (selectedSpot.visited ?? selectedSpot.pinStatus === "visited")
+          ? heroUrisOverrideBySpotId[selectedSpot.id] ??
+            optimisticHeroUrisBySpotId[selectedSpot.id] ??
+            galleryUris
+          : undefined
+      }
+      onAddPersonalPhotos={
+        selectedSpot && !selectedSpot.id.startsWith("draft_")
+          ? () => void handleQuickAddImageFromSearch(selectedSpot)
+          : undefined
+      }
+      addPersonalPhotosBusy={
+        selectedSpot != null && quickAddImageBusySpotId === selectedSpot.id
+      }
       onImagePress={
         selectedSpot &&
-        (galleryUris.length > 0 || Boolean(selectedSpot.cover_image_url))
+        ((selectedSpot.visited ?? selectedSpot.pinStatus === "visited")
+          ? galleryUris.length > 0
+          : galleryUris.length > 0 || Boolean(selectedSpot.cover_image_url))
           ? (payload) =>
               setFullscreenLightbox({
                 uris: payload.allUris,
@@ -6479,6 +7007,8 @@ export function MapScreenVNext() {
             onPress={() => void handleProfilePress()}
             isAuthUser={isAuthUser}
             avatarUri={myProfileAvatarPublicUrl}
+            busy={profileNavBusy}
+            selected={accountProfileSidebarOpen}
           />
         </View>
       ) : null}
@@ -6562,7 +7092,6 @@ export function MapScreenVNext() {
           state={countriesSheetState}
           forceColorScheme={countriesOverlayScheme}
           items={countriesBucketsForOverlay}
-          worldPercentage={countriesWorldPercentageForOverlay}
           summaryCountriesCount={countriesCountForOverlay}
           summaryPlacesCount={exploreMapKpiPlacesCount}
           onCountriesKpiPress={handleCountriesKpiPress}
@@ -6799,6 +7328,30 @@ export function MapScreenVNext() {
         visible={showBetaModal}
         onClose={() => setShowBetaModal(false)}
       />
+      <SharePhotosConsentModal
+        visible={photoShareConsentOpen}
+        busy={photoShareConsentBusy}
+        onChoose={async (choice) => {
+          const resolver = pendingPhotoShareResolverRef.current;
+          pendingPhotoShareResolverRef.current = null;
+          setPhotoShareConsentBusy(true);
+          const { ok } = await persistMyPhotoSharingPreference(choice);
+          setPhotoShareConsentBusy(false);
+          setPhotoShareConsentOpen(false);
+          resolver?.(ok ? choice : null);
+          if (!ok) {
+            toast.show("No se pudo guardar tu preferencia. Inténtalo de nuevo.", {
+              type: "error",
+            });
+          }
+        }}
+        onCancel={() => {
+          const resolver = pendingPhotoShareResolverRef.current;
+          pendingPhotoShareResolverRef.current = null;
+          setPhotoShareConsentOpen(false);
+          resolver?.(null);
+        }}
+      />
       <ExplorePlacesFiltersModal
         presentation="modal"
         visible={explorePlacesFiltersOpen && !embedExplorePlacesFiltersInDesktopSidebar}
@@ -6829,7 +7382,9 @@ export function MapScreenVNext() {
           {exploreSidebarFlowyaHeaderEl}
           <View style={styles.exploreSidebarSheetBody}>
             <ExploreDesktopSidebarPanelBody panelKey={exploreSidebarPanelKeyForRender}>
-            {spotForDesktopSidebarPanel ? (
+            {accountDesktopExploreOpen && accountDesktopPanel ? (
+              <AccountExploreDesktopPanel panel={accountDesktopPanel} />
+            ) : spotForDesktopSidebarPanel ? (
               renderExploreSpotSheet(true)
             ) : countriesForDesktopSidebarPanel ? (
               <View style={styles.exploreSidebarCountriesHost}>
@@ -6840,7 +7395,6 @@ export function MapScreenVNext() {
                   state={countriesSheetState}
                   forceColorScheme={countriesOverlayScheme}
                   items={countriesBucketsForOverlay}
-                  worldPercentage={countriesWorldPercentageForOverlay}
                   summaryCountriesCount={countriesCountForOverlay}
                   summaryPlacesCount={exploreMapKpiPlacesCount}
                   onCountriesKpiPress={handleCountriesKpiPress}

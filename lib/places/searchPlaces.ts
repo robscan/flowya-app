@@ -6,6 +6,7 @@
 
 import { getCurrentLanguage } from '@/lib/i18n/locale-config';
 import { recordMapboxApiCall } from '@/lib/mapbox-api-metrics';
+import { mapboxCacheKey, mapboxCached } from '@/lib/mapbox-request-cache';
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? '';
 const FORWARD_URL = 'https://api.mapbox.com/search/geocode/v6/forward';
@@ -117,51 +118,63 @@ export async function searchPlaces(
     }
   }
 
-  recordMapboxApiCall('geocode/v6/forward', 'searchPlaces');
-  try {
-    const res = await fetch(`${FORWARD_URL}?${params.toString()}`);
-    if (!res.ok) return [];
-    const data = (await res.json()) as ForwardResponse;
-    const features = data?.features ?? [];
-    const out: PlaceResult[] = [];
-    for (let i = 0; i < features.length; i++) {
-      const f = features[i];
-      if (!f?.geometry?.coordinates?.length) continue;
-      const [lng, lat] = f.geometry.coordinates;
-      if (typeof lng !== 'number' || typeof lat !== 'number' || !Number.isFinite(lng) || !Number.isFinite(lat))
-        continue;
-      const name =
-        f.properties?.name?.trim() ||
-        f.properties?.place_formatted?.trim() ||
-        q;
-      const fullName =
-        f.properties?.full_address?.trim() ||
-        f.properties?.place_formatted?.trim() ||
-        undefined;
-      out.push({
-        id: f.id ?? `place-${i}-${lng}-${lat}`,
-        name,
-        fullName: fullName || undefined,
-        lat,
-        lng,
-        bbox: parseBBox(f.bbox ?? f.properties?.bbox),
-        source: 'mapbox',
-        maki: f.properties?.maki?.trim() || undefined,
-        featureType: f.properties?.feature_type?.trim() || undefined,
-        categories:
-          Array.isArray(f.properties?.poi_category)
-            ? f.properties?.poi_category.filter(
-                (c): c is string =>
-                  typeof c === 'string' && c.trim().length > 0
-              )
-            : typeof f.properties?.poi_category === 'string' &&
-                f.properties.poi_category.trim().length > 0
-              ? [f.properties.poi_category.trim()]
-              : undefined,
-      });
+  const key = mapboxCacheKey([
+    'geocode/v6/forward',
+    q,
+    limit,
+    params.get('language'),
+    params.get('proximity') ?? '',
+    params.get('bbox') ?? '',
+    params.get('types') ?? '',
+  ]);
+
+  return await mapboxCached(key, async () => {
+    recordMapboxApiCall('geocode/v6/forward', 'searchPlaces');
+    try {
+      const res = await fetch(`${FORWARD_URL}?${params.toString()}`);
+      if (!res.ok) return [];
+      const data = (await res.json()) as ForwardResponse;
+      const features = data?.features ?? [];
+      const out: PlaceResult[] = [];
+      for (let i = 0; i < features.length; i++) {
+        const f = features[i];
+        if (!f?.geometry?.coordinates?.length) continue;
+        const [lng, lat] = f.geometry.coordinates;
+        if (typeof lng !== 'number' || typeof lat !== 'number' || !Number.isFinite(lng) || !Number.isFinite(lat))
+          continue;
+        const name =
+          f.properties?.name?.trim() ||
+          f.properties?.place_formatted?.trim() ||
+          q;
+        const fullName =
+          f.properties?.full_address?.trim() ||
+          f.properties?.place_formatted?.trim() ||
+          undefined;
+        out.push({
+          id: f.id ?? `place-${i}-${lng}-${lat}`,
+          name,
+          fullName: fullName || undefined,
+          lat,
+          lng,
+          bbox: parseBBox(f.bbox ?? f.properties?.bbox),
+          source: 'mapbox',
+          maki: f.properties?.maki?.trim() || undefined,
+          featureType: f.properties?.feature_type?.trim() || undefined,
+          categories:
+            Array.isArray(f.properties?.poi_category)
+              ? f.properties?.poi_category.filter(
+                  (c): c is string =>
+                    typeof c === 'string' && c.trim().length > 0
+                )
+              : typeof f.properties?.poi_category === 'string' &&
+                  f.properties.poi_category.trim().length > 0
+                ? [f.properties.poi_category.trim()]
+                : undefined,
+        });
+      }
+      return out;
+    } catch {
+      return [];
     }
-    return out;
-  } catch {
-    return [];
-  }
+  });
 }

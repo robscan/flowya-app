@@ -29,6 +29,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
+import { COUNTRIES_SHEET_MAP_PREVIEW_HEIGHT_PX } from "@/lib/explore/countries-sheet-map-preview-dimensions";
 import {
   WEB_EXPLORE_SIDEBAR_PANEL_WIDTH,
   WEB_SHEET_MAX_WIDTH,
@@ -62,7 +63,6 @@ type CountriesSheetProps = {
   state: CountriesSheetState;
   forceColorScheme?: "light" | "dark";
   items: CountrySheetItem[];
-  worldPercentage: number;
   summaryCountriesCount: number;
   summaryPlacesCount: number;
   onCountriesKpiPress?: () => void;
@@ -113,8 +113,8 @@ const HEADER_PADDING_V = 12;
 const HANDLE_ROW_ESTIMATE = 20;
 const DURATION_PROGRAMMATIC = 300;
 const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
-/** Mini-mapa países: un poco más alto para mejor lectura; el preview web rellena el ancho del wrap. */
-const MAP_PREVIEW_HEIGHT = 176;
+/** Mini-mapa países: altura canónica compartida con captura offscreen (`countries-sheet-map-preview-dimensions`). */
+const MAP_PREVIEW_HEIGHT = COUNTRIES_SHEET_MAP_PREVIEW_HEIGHT_PX;
 const MAP_PREVIEW_TOP_GAP = Spacing.md;
 const MAP_PREVIEW_BLOCK_HEIGHT = MAP_PREVIEW_HEIGHT + MAP_PREVIEW_TOP_GAP + 12;
 const PROGRESS_BLOCK_HEIGHT = 62;
@@ -131,7 +131,6 @@ export function CountriesSheet({
   state,
   forceColorScheme,
   items,
-  worldPercentage,
   summaryCountriesCount,
   summaryPlacesCount,
   onCountriesKpiPress,
@@ -501,7 +500,6 @@ export function CountriesSheet({
     filterMode === "saved"
       ? colors.countriesMapCountryLineToVisit
       : colors.countriesMapCountryLineVisited;
-  const normalizedWorldPercentage = Math.max(0, Math.min(100, Math.round(worldPercentage)));
   const currentTravelerPoints = computeTravelerPoints(summaryCountriesCount, summaryPlacesCount);
   const currentTravelerLevel = resolveTravelerLevelByPoints(currentTravelerPoints);
   const pointsLabel = new Intl.NumberFormat("es-MX").format(currentTravelerPoints);
@@ -748,7 +746,6 @@ export function CountriesSheet({
             ) : null}
             {filterMode === "visited" ? (
               <CountriesSheetVisitedProgress
-                worldPercentage={normalizedWorldPercentage}
                 levelLabel={currentTravelerLevel.label}
                 levelIndex={currentTravelerLevel.level}
                 currentTravelerPoints={currentTravelerPoints}

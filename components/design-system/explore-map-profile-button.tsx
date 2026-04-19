@@ -18,6 +18,10 @@ export type ExploreMapProfileButtonProps = {
   isAuthUser?: boolean;
   /** URL pública del avatar (Storage); si no hay, icono `User`. */
   avatarUri?: string | null;
+  /** Mientras navega/abre cuenta: deshabilita y muestra estado seleccionado. */
+  busy?: boolean;
+  /** Estado seleccionado (p. ej. cuando la ruta actual es /account). */
+  selected?: boolean;
   accessibilityLabel?: string;
 };
 
@@ -25,25 +29,31 @@ export function ExploreMapProfileButton({
   onPress,
   isAuthUser = false,
   avatarUri,
+  busy = false,
+  selected = false,
   accessibilityLabel = "Cuenta",
 }: ExploreMapProfileButtonProps) {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const uri = avatarUri?.trim() ?? "";
+  const active = busy || selected;
 
   if (uri.length > 0) {
     return (
       <View style={styles.wrap} pointerEvents="box-none">
         <Pressable
           onPress={onPress}
+          disabled={busy}
           accessibilityLabel={accessibilityLabel}
           accessibilityRole="button"
+          accessibilityState={{ selected, disabled: busy }}
           style={({ pressed }) => [
             styles.avatarOuter,
             Shadow.subtle,
             {
-              borderColor: pressed ? colors.primary : colors.borderSubtle,
-              transform: [{ scale: pressed ? 0.98 : 1 }],
+              borderColor: active || pressed ? colors.primary : colors.borderSubtle,
+              backgroundColor: active ? colors.backgroundElevated : "transparent",
+              transform: [{ scale: active ? 1.08 : pressed ? 0.98 : 1 }],
             },
           ]}
         >
@@ -60,13 +70,20 @@ export function ExploreMapProfileButton({
 
   return (
     <View style={styles.wrap} pointerEvents="box-none">
-      <IconButton variant="default" onPress={onPress} accessibilityLabel={accessibilityLabel}>
+      <View style={[active && styles.iconBusyWrap]}>
+        <IconButton
+          variant="default"
+          onPress={onPress}
+          accessibilityLabel={accessibilityLabel}
+          disabled={busy}
+        >
         <User
           size={24}
-          color={isAuthUser ? colors.primary : colors.text}
+          color={active || isAuthUser ? colors.primary : colors.text}
           strokeWidth={2}
         />
-      </IconButton>
+        </IconButton>
+      </View>
     </View>
   );
 }
@@ -74,6 +91,9 @@ export function ExploreMapProfileButton({
 const styles = StyleSheet.create({
   wrap: {
     alignSelf: "flex-start",
+  },
+  iconBusyWrap: {
+    transform: [{ scale: 1.06 }],
   },
   avatarOuter: {
     width: BTN_SIZE,

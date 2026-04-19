@@ -18,6 +18,7 @@
 | `display_name`        | text        | Nullable; editable por el usuario (web)                                                                                                |
 | `email`               | text        | Nullable; copia de `auth.users.email`, sincronizada por triggers (migración **028**)                                                   |
 | `avatar_storage_path` | text        | Nullable; clave en bucket `profile-avatars` (p. ej. `{user_id}/avatar.jpg`) — **027**                                                  |
+| `share_photos_with_world` | boolean   | Nullable; preferencia: `null`=sin definir (mostrar modal), `true`=fotos públicas, `false`=fotos privadas — **030**                       |
 | `last_activity_at`    | timestamptz | Nullable; marca de uso de app (**029**). **No** forma parte de la UI de cuenta; se persiste para análisis vía DB (**OL-METRICS-001**). |
 | `created_at`          | timestamptz | Default `now()`                                                                                                                        |
 | `updated_at`          | timestamptz | Trigger `profiles_set_updated_at`                                                                                                      |
@@ -25,7 +26,7 @@
 
 - **No se usa** columna libre `avatar_url` (texto); fue sustituida por **Storage + `avatar_storage_path`** (**027**).
 - **RLS:** owner-only — solo el usuario autenticado puede SELECT/INSERT/UPDATE su fila (`auth.uid() = id`). Sin listado público de perfiles.
-- **Migraciones de referencia:** `026_profiles_private_owner_rls.sql`, `027_profile_avatar_storage.sql`, `028_profiles_email_sync.sql`, `029_profiles_last_activity_at.sql`.
+- **Migraciones de referencia:** `026_profiles_private_owner_rls.sql`, `027_profile_avatar_storage.sql`, `028_profiles_email_sync.sql`, `029_profiles_last_activity_at.sql`, `030_profiles_photo_sharing_pref.sql`.
 
 ---
 
@@ -47,7 +48,7 @@
   - `pickProfileImageBlob` (web: `input[type=file]`; nativo: galería + recorte 1:1).
   - `uploadMyProfileAvatar` (optimiza imagen y escribe en `profile-avatars/{user_id}/avatar.jpg`, `upsert: true`).
   - `deleteMyProfileAvatarObject`, `getProfileAvatarPublicUrl`.
-- **Web — cuenta:** `app/account/index.web.tsx`, ruta `/account`; header oculto en stack; desktop: panel lateral + mapa visible (modal transparente).
+- **Web — cuenta:** `app/account/*.web.tsx` en el stack (móvil o ventana estrecha, ancho menor al umbral Explore sidebar). En stack, **flecha atrás** en una subpantalla vuelve al home de perfil (`/account`); el **botón cerrar (X)** en subpantalla sale del flujo de perfil por completo (`replace('/')` → Explorar). **Explore desktop (ancho mínimo sidebar, ver `WEB_EXPLORE_SIDEBAR_MIN_WIDTH`):** las rutas `/account*` hacen `<Redirect>` a `/?account=profile|details|privacy|language`; el UI se monta en **`AccountExploreDesktopPanel`** dentro de **`ExploreDesktopSidebarAnimatedColumn`** (misma columna que welcome/países/spot). `AccountShell` usa `layout="embedded"` ahí; no hay modal full-screen del stack encima del mapa.
 - **Nativo — cuenta:** `app/account/index.tsx` permanece **stub** hasta OL de paridad; alcance explícitamente **web-first** en OL-PROFILE-001.
 
 ---

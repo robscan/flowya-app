@@ -2,10 +2,10 @@
  * Bloque de progreso mundial + nivel (solo modo visitados en CountriesSheet).
  */
 
-import { TRAVELER_LEVELS } from '@/lib/traveler-levels';
+import { computeTravelerLevelBarFillPercent, TRAVELER_LEVELS } from '@/lib/traveler-levels';
 import { List } from 'lucide-react-native';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
 
@@ -18,7 +18,6 @@ export type CountriesSheetVisitedProgressColors = {
 };
 
 export type CountriesSheetVisitedProgressProps = {
-  worldPercentage: number;
   levelLabel: string;
   levelIndex: number;
   currentTravelerPoints: number;
@@ -27,15 +26,16 @@ export type CountriesSheetVisitedProgressProps = {
 };
 
 export function CountriesSheetVisitedProgress({
-  worldPercentage,
   levelLabel,
   levelIndex,
   currentTravelerPoints,
   colors,
   onPressLevels,
 }: CountriesSheetVisitedProgressProps) {
-  const normalized = Math.max(0, Math.min(100, Math.round(worldPercentage)));
   const levelTotal = TRAVELER_LEVELS.length;
+  const levelBand =
+    TRAVELER_LEVELS.find((entry) => entry.level === levelIndex) ?? TRAVELER_LEVELS[0];
+  const barFillPercent = computeTravelerLevelBarFillPercent(currentTravelerPoints, levelBand);
 
   return (
     <View style={styles.progressWrap}>
@@ -44,7 +44,7 @@ export function CountriesSheetVisitedProgress({
           style={[
             styles.progressFill,
             {
-              width: `${normalized}%`,
+              width: `${barFillPercent}%`,
               backgroundColor: colors.stateSuccess,
             },
           ]}
@@ -63,7 +63,14 @@ export function CountriesSheetVisitedProgress({
           <Text style={[styles.progressLevelButtonText, { color: colors.textSecondary }]}>
             {`${levelIndex}/${levelTotal}`}
           </Text>
-          <List size={14} color={colors.primary} strokeWidth={2.2} />
+          <View
+            accessible={false}
+            {...(Platform.OS === "web"
+              ? ({ "aria-hidden": true } as object)
+              : { accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" })}
+          >
+            <List size={14} color={colors.primary} strokeWidth={2.2} />
+          </View>
         </Pressable>
       </View>
     </View>

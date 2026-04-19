@@ -27,6 +27,9 @@ export default function RootLayout() {
         <Stack.Screen name="design-system" options={{ title: 'Design System' }} />
         <Stack.Screen name="privacy" options={{ title: 'Política de privacidad' }} />
         <Stack.Screen name="account/index" options={{ headerShown: false, title: 'Cuenta' }} />
+        <Stack.Screen name="account/account" options={{ headerShown: false, title: 'Cuenta' }} />
+        <Stack.Screen name="account/privacy" options={{ headerShown: false, title: 'Privacidad de fotos' }} />
+        <Stack.Screen name="account/language" options={{ headerShown: false, title: 'Idioma' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
           </AuthModalProvider>

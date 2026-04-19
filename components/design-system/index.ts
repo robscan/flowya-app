@@ -82,6 +82,8 @@ export { ImageFullscreenModal } from './image-fullscreen-modal';
 export type { ImageFullscreenModalProps } from './image-fullscreen-modal';
 export { ImagePlaceholder } from './image-placeholder';
 export type { ImagePlaceholderProps } from './image-placeholder';
+export { AddImageCta } from './add-image-cta';
+export type { AddImageCtaProps } from './add-image-cta';
 export { MapControls } from './map-controls';
 export type { MapControlsProps } from './map-controls';
 export { MapLocationPicker } from './map-location-picker';

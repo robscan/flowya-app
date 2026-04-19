@@ -44,6 +44,7 @@ import {
   MapPinsShowcase,
   type MapPinFilterValue,
   SearchListCard,
+  AddImageCta,
   ExploreFilterChipsShowcase,
   SearchSurfaceShowcase,
   ShareCountriesCardShowcase,
@@ -68,6 +69,7 @@ import { SearchInputV2 } from '@/components/search/SearchInputV2';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
+import { SharePhotosConsentModal } from '@/components/ui/share-photos-consent-modal';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Search } from 'lucide-react-native';
@@ -98,6 +100,9 @@ const DS_F1_QUICK_ETIQUETAR = [
     accessibilityLabel: 'Etiquetar este lugar',
   },
 ];
+
+const DS_ADD_IMAGE_CTA_CONTAINER_W = 88;
+const DS_ADD_IMAGE_CTA_CONTAINER_H = 120;
 
 const DS_EXPLORE_WELCOME_MOCK_ITEMS: WelcomeBrowseItem[] = [
   {
@@ -133,6 +138,8 @@ export default function DesignSystemScreen() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showDeleteSpotConfirm, setShowDeleteSpotConfirm] = useState(false);
   const [showBetaModal, setShowBetaModal] = useState(false);
+  const [showPhotoShareConsent, setShowPhotoShareConsent] = useState(false);
+  const [photoShareConsentBusy, setPhotoShareConsentBusy] = useState(false);
   const [showTravelerLevelsModal, setShowTravelerLevelsModal] = useState(false);
   const [dsSearchQuery, setDsSearchQuery] = useState('Ejemplo de búsqueda');
   const [dsSearchFocused, setDsSearchFocused] = useState(false);
@@ -837,7 +844,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Progreso % mundo y nivel (solo filtro visitados). Import: @/components/design-system/countries-sheet-visited-progress."
+          description="Progreso de nivel (flows / tramos 1–12; no % países del mundo). Import: @/components/design-system/countries-sheet-visited-progress."
         >
           <View
             style={{
@@ -851,7 +858,6 @@ export default function DesignSystemScreen() {
             }}
           >
             <CountriesSheetVisitedProgress
-              worldPercentage={18}
               levelLabel={dsCountriesDemoLevel.label}
               levelIndex={dsCountriesDemoLevel.level}
               currentTravelerPoints={dsCountriesDemoTravelerPoints}
@@ -1170,6 +1176,19 @@ export default function DesignSystemScreen() {
             >
               <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>FLOWYA Beta</Text>
             </Pressable>
+            <Pressable
+              style={({ pressed }) => ({
+                paddingVertical: 14,
+                paddingHorizontal: 28,
+                borderRadius: Radius.md,
+                backgroundColor: pressed ? colors.text : colors.primary,
+              })}
+              onPress={() => setShowPhotoShareConsent(true)}
+            >
+              <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>
+                Consentimiento fotos
+              </Text>
+            </Pressable>
           </View>
           <ConfirmModal
             visible={showLogoutConfirm}
@@ -1191,6 +1210,18 @@ export default function DesignSystemScreen() {
             onCancel={() => setShowDeleteSpotConfirm(false)}
           />
           <FlowyaBetaModal visible={showBetaModal} onClose={() => setShowBetaModal(false)} />
+          <SharePhotosConsentModal
+            visible={showPhotoShareConsent}
+            busy={photoShareConsentBusy}
+            onChoose={async (choice) => {
+              setPhotoShareConsentBusy(true);
+              await new Promise((r) => setTimeout(r, 450));
+              setPhotoShareConsentBusy(false);
+              toast.show(choice ? 'Elegiste compartir' : 'Elegiste solo para mí', { type: 'default' });
+              setShowPhotoShareConsent(false);
+            }}
+            onCancel={() => setShowPhotoShareConsent(false)}
+          />
         </DesignSystemSection>
 
         <DesignSystemSection
@@ -1251,6 +1282,66 @@ export default function DesignSystemScreen() {
           description="Orquesta buscador, MapPinFilterInline, hint OR + fila de chips de etiquetas (Por visitar/Visitados) y listados con SearchListCard (distancia, imagen de portada, visitado con CTA imagen/nota como en MapScreen). Runtime: SearchFloating → SearchSurface. Chips aislados: sección **ds-run-explore-filter-chips**. Import vitrina: @/components/design-system/search-surface-showcase."
         >
           <SearchSurfaceShowcase />
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-run-add-image-cta"
+          title="CTA — Subir mis fotos (AddImageCta)"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Componente canónico para subir fotos (memorias). Usar en listados (slot media) y en formularios/grid (tile). Soporta estado busy: spinner + “Subiendo mis fotos…”."
+        >
+          <View style={{ flexDirection: "row", gap: Spacing.lg, flexWrap: "wrap" }}>
+            <View
+              style={{
+                width: DS_ADD_IMAGE_CTA_CONTAINER_W,
+                height: DS_ADD_IMAGE_CTA_CONTAINER_H,
+                borderWidth: 1,
+                borderColor: colors.borderSubtle,
+                borderRadius: Radius.lg,
+                overflow: "hidden",
+                backgroundColor: colors.background,
+              }}
+            >
+              <AddImageCta size="media" onPress={() => {}} />
+            </View>
+            <View
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: Radius.md,
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: colors.borderSubtle,
+                backgroundColor: colors.backgroundElevated,
+                overflow: "hidden",
+                padding: Spacing.md,
+              }}
+            >
+              <AddImageCta
+                size="tile"
+                onPress={() => {}}
+                label="Subir mis fotos"
+                borderColor={colors.primary}
+                backgroundColor={colors.backgroundElevated}
+              />
+            </View>
+            <View
+              style={{
+                width: DS_ADD_IMAGE_CTA_CONTAINER_W,
+                height: DS_ADD_IMAGE_CTA_CONTAINER_H,
+                borderWidth: 1,
+                borderColor: colors.borderSubtle,
+                borderRadius: Radius.lg,
+                overflow: "hidden",
+                backgroundColor: colors.background,
+              }}
+            >
+              <AddImageCta size="media" onPress={() => {}} busy />
+            </View>
+          </View>
         </DesignSystemSection>
 
         <View style={styles.footer}>

@@ -22,6 +22,9 @@
 - **DESIGN_SYSTEM_USAGE.md** — Uso de componentes canónicos en Explore/Edit Spot; inventario mínimo vigente y matriz de deprecación.
 - **DATA_MODEL_CURRENT.md** — Modelo de datos vigente (referencia operativa).
 - **PROFILE_AUTH_CONTRACT_CURRENT.md** — Contrato de autenticación/perfil (referencia operativa).
+- **PROFILE_VNEXT_MENU_KPIS.md** — Perfil vNext (web-first): menú + subpantallas + KPI “Países, lugares y flows” + niveles + desktop sidebar interactiva
+- **PROFILE_KPI_STALE_WHILE_REVALIDATE.md** — KPI Perfil ↔ Explorar: caché warm en memoria, fetch deduplicado (`spots`+pins), stale-while-revalidate y UX sin salto de layout.
+- **VISITED_COUNTRIES_SHARE_FLOW.md** — Compartir PNG «Países visitados»: API única (`visited-countries-share`), caché warm opcional, captura web offscreen; independiente del sheet de países.
 - **MAP_PINS_CONTRACT.md** — Map pins: fuentes de verdad (`mapPinSpot`, `map-pin-metrics`, `spots-layer`), paridad DS ↔ Mapbox, `MAP_PIN_SIZES`, `defaultPinStyle`, animaciones, reglas anti-regresión (bitácora 321).
 - **KEYBOARD_AND_TEXT_INPUTS.md** — Teclado y campos de texto: foco/teclado, CTA sticky sobre teclado, scroll cierra teclado.
 - **RECORDAR_ENTRY_SPOT_SHEET.md** — Entry "Mi diario" en SpotSheet: condición (saved/visited), layout (dos botones en fila responsiva), accesibilidad.
@@ -31,6 +34,7 @@
 - **SYSTEM_STATUS_BAR.md** — Comunicación sistema-usuario: mensajes de estado, cola hasta 3 líneas, tono asistente de viaje; sustituye toast.
 - **SYSTEM_STATUS_TOAST.md** — Implementación vigente (`system-status-bar.tsx`), anclaje Explore, política sheet `expanded` + toasts, checklist paridad **nativa** (iOS/Android).
 - **ACTIVITY_SUMMARY.md** — Resumen de actividad del usuario (países visitados, lugares visitados, pendientes): métricas canónicas, reglas de cálculo, UX y guardrails.
+- **PHOTO_SHARING_CONSENT.md** — Consentimiento one-shot para compartir fotos; preferencia editable en perfil; ON=fotos públicas, OFF=fotos privadas (URLs firmadas).
 - **GAMIFICATION_TRAVELER_LEVELS.md** — Sistema de niveles de exploración + flows (V1 activa), fórmula canónica de score y definición V2 (eventos/telemetría/calibración).
 - **explore/EXPLORE_RUNTIME_RULES_INDEX.md** — Índice modular runtime de Explore (mapa, filtros, controles, buscador) para reconstrucción/reuso cross-platform.
 - **explore/SELECTION_DOMINANCE_RULES.md** — Dominancia visual de selección (spot/POI), supresión de labels competitivos y restauración de capas externas al salir de selección.

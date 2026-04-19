@@ -17,6 +17,8 @@ import { ImagePlaceholder } from "@/components/design-system/image-placeholder";
 import type { SpotPinStatus } from "@/components/design-system/map-pins";
 import { SpotImageGrid } from "@/components/design-system/spot-image-grid";
 import { SpotImage } from "@/components/design-system/spot-image";
+import { AddImageCta } from "@/components/design-system/add-image-cta";
+import { resolveHeroUris } from "@/lib/spot-hero/resolve-hero-media";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
@@ -115,6 +117,8 @@ const COVER_HEIGHT_WEB_SIDEBAR = 200;
 /** Sheet móvil (no sidebar): tope bajo del hero (portada o galería). */
 const COVER_HEIGHT_GALLERY_MOBILE = 180;
 const COVER_HEIGHT_GALLERY_MAX_MOBILE = 220;
+/** Cuando el hero está vacío (sin imágenes), usar una altura más moderada para ahorrar espacio. */
+const COVER_HEIGHT_EMPTY = 120;
 /** Tope dinámico: el hero móvil no supera este % del alto de ventana. */
 const GALLERY_HERO_MAX_VIEWPORT_RATIO = 0.3;
 const HEADER_BUTTON_SIZE = 40;
@@ -198,6 +202,9 @@ export type SpotSheetProps = {
   pinFilter?: "all" | "saved" | "visited";
   onPoiPorVisitar?: () => void | Promise<void>;
   onPoiVisitado?: () => void | Promise<void>;
+  /** Modo POI no agregado: CTA para "Guardar y subir mis fotos". */
+  onPoiAddPhotos?: () => void | Promise<void>;
+  poiAddPhotosBusy?: boolean;
   onPoiShare?: () => void | Promise<void>;
   poiLoading?: boolean;
   /** Override del título mostrado (p. ej. nombre resuelto desde tiles del mapa). */
@@ -206,6 +213,9 @@ export type SpotSheetProps = {
   onImagePress?: SpotHeroImagePressHandler;
   /** URLs del hero en orden (galería + portada); si no se pasa, solo `spot.cover_image_url`. */
   heroImageUris?: string[];
+  /** Visitados sin fotos personales: CTA para subir memorias. */
+  onAddPersonalPhotos?: () => void;
+  addPersonalPhotosBusy?: boolean;
   /** Etiquetas del spot en el sheet (solo lectura). */
   sheetTagChips?: { id: string; label: string }[];
   /** Tap en chip: buscador en Por visitar o Visitados con filtro por esa etiqueta. */
@@ -339,6 +349,8 @@ function MediumBodyContent({
   heroImageUris,
   webDesktopSidebar = false,
   pinMutationTarget = null,
+  onAddPersonalPhotos,
+  addPersonalPhotosBusy = false,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -364,14 +376,18 @@ function MediumBodyContent({
   heroImageUris?: string[];
   /** Columna lateral desktop: hero con `coverHeight` único (sin subir grid aparte). */
   webDesktopSidebar?: boolean;
+  onAddPersonalPhotos?: () => void;
+  addPersonalPhotosBusy?: boolean;
 }) {
-  const effectiveUris =
-    heroImageUris != null && heroImageUris.length > 0
-      ? heroImageUris
-      : spot.cover_image_url
-        ? [spot.cover_image_url]
-        : [];
+  // Canon: si no hay fotos, invitamos a subir una desde el hero (sin importar visited).
+  // Regla de fallback: en Visitados (persistido), ocultar cover “comunitario” y usar solo personal.
+  const effectiveUris = resolveHeroUris({
+    personalUris: heroImageUris,
+    coverUrl: spot.cover_image_url ?? null,
+    hideCoverFallback: isVisited && !isDraft,
+  });
   const showGrid = effectiveUris.length > 1;
+  const heroIsEmpty = effectiveUris.length === 0;
 
   const { height: windowHeight } = useWindowDimensions();
   /**
@@ -379,6 +395,7 @@ function MediumBodyContent({
    * Móvil: techo adaptativo; no usa `coverHeight` (ver rama inferior).
    */
   const resolvedHeroHeight = useMemo(() => {
+    if (heroIsEmpty) return COVER_HEIGHT_EMPTY;
     if (webDesktopSidebar) return coverHeight;
     const dim = Dimensions.get("window");
     const winH =
@@ -389,11 +406,13 @@ function MediumBodyContent({
       COVER_HEIGHT_GALLERY_MAX_MOBILE,
       byViewport,
     );
-  }, [webDesktopSidebar, coverHeight, windowHeight]);
+  }, [heroIsEmpty, webDesktopSidebar, coverHeight, windowHeight]);
 
   const savingPorVisitar = pinMutationTarget === "saved";
   const savingVisitado = pinMutationTarget === "visited";
   const pinMutationBusy = pinMutationTarget != null;
+  const showHeroUploadCta =
+    !isDraft && effectiveUris.length === 0 && onAddPersonalPhotos != null;
 
   return (
     <>
@@ -407,10 +426,32 @@ function MediumBodyContent({
           </Text>
         </View>
       ) : null}
-      {hasCover ? (
+      {effectiveUris.length > 0 || showHeroUploadCta ? (
         <View style={styles.imageRow}>
           <View style={[styles.imageWrap, { height: resolvedHeroHeight }]}>
-            {showGrid ? (
+            {showHeroUploadCta ? (
+              <View
+                style={[
+                  styles.personalPhotosEmptyWrap,
+                  {
+                    height: resolvedHeroHeight,
+                    borderColor: colors.borderSubtle,
+                    backgroundColor: colors.background,
+                  },
+                ]}
+              >
+                <AddImageCta
+                  size="media"
+                  onPress={onAddPersonalPhotos}
+                  busy={Boolean(addPersonalPhotosBusy)}
+                  disabled={Boolean(addPersonalPhotosBusy)}
+                  label="Subir mis fotos"
+                  accessibilityLabel="Subir mis fotos"
+                  borderColor="transparent"
+                  backgroundColor="transparent"
+                />
+              </View>
+            ) : showGrid ? (
               <SpotImageGrid
                 uris={effectiveUris}
                 totalHeight={resolvedHeroHeight}
@@ -727,12 +768,16 @@ function DraftInlineEditor({
 function PoiBodyContent({
   onPorVisitar,
   onVisitado,
+  onAddPhotos,
+  addPhotosBusy,
   pinFilter = "all",
   loading,
   colors,
 }: {
   onPorVisitar: () => void | Promise<void>;
   onVisitado?: () => void | Promise<void>;
+  onAddPhotos?: () => void | Promise<void>;
+  addPhotosBusy?: boolean;
   pinFilter?: "all" | "saved" | "visited";
   loading: boolean;
   colors: (typeof Colors)["light"];
@@ -750,51 +795,81 @@ function PoiBodyContent({
   const showPorVisitar = pinFilter === "saved" || pinFilter === "all";
   const showVisitado =
     (pinFilter === "all" || pinFilter === "visited") && onVisitado;
+  const actionsDisabled = Boolean(addPhotosBusy);
 
   return (
-    <View style={[styles.actionRow, { marginTop: Spacing.md }]}>
-      {showPorVisitar && (
-        <Pressable
+    <View style={{ marginTop: Spacing.md, gap: Spacing.md }}>
+      {onAddPhotos ? (
+        <View
           style={[
-            styles.actionPill,
+            styles.personalPhotosEmptyWrap,
             {
-              backgroundColor: colors.backgroundElevated,
+              height: 120,
               borderColor: colors.borderSubtle,
-              borderWidth: 1,
+              backgroundColor: colors.background,
             },
           ]}
-          onPress={onPorVisitar}
-          accessibilityLabel="Por visitar"
-          accessibilityRole="button"
-          accessibilityState={{ selected: false }}
         >
-          <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-          <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-            Por visitar
-          </Text>
-        </Pressable>
-      )}
-      {showVisitado && (
-        <Pressable
-          style={[
-            styles.actionPill,
-            {
-              backgroundColor: colors.backgroundElevated,
-              borderColor: colors.borderSubtle,
-              borderWidth: 1,
-            },
-          ]}
-          onPress={onVisitado}
-          accessibilityLabel="Visitado"
-          accessibilityRole="button"
-          accessibilityState={{ selected: false }}
-        >
-          <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
-          <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
-            Visitado
-          </Text>
-        </Pressable>
-      )}
+          <AddImageCta
+            size="media"
+            onPress={() => void onAddPhotos()}
+            busy={Boolean(addPhotosBusy)}
+            disabled={Boolean(addPhotosBusy)}
+            label="Guardar y subir mis fotos"
+            accessibilityLabel="Guardar y subir mis fotos"
+            borderColor="transparent"
+            backgroundColor="transparent"
+          />
+        </View>
+      ) : null}
+      <View style={styles.actionRow}>
+        {showPorVisitar && (
+          <Pressable
+            style={[
+              styles.actionPill,
+              {
+                backgroundColor: colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+                borderWidth: 1,
+                opacity: actionsDisabled ? 0.6 : 1,
+              },
+            ]}
+            onPress={actionsDisabled ? undefined : onPorVisitar}
+            disabled={actionsDisabled}
+            accessibilityLabel="Por visitar"
+            accessibilityRole="button"
+            accessibilityState={{ selected: false, disabled: actionsDisabled }}
+          >
+            <Pin size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+            <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+              Por visitar
+            </Text>
+          </Pressable>
+        )}
+        {showVisitado && (
+          <Pressable
+            style={[
+              styles.actionPill,
+              {
+                backgroundColor: colors.backgroundElevated,
+                borderColor: colors.borderSubtle,
+                borderWidth: 1,
+                opacity: actionsDisabled ? 0.6 : 1,
+              },
+            ]}
+            onPress={actionsDisabled ? undefined : onVisitado}
+            disabled={actionsDisabled}
+            accessibilityLabel="Visitado"
+            accessibilityRole="button"
+            accessibilityState={{ selected: false, disabled: actionsDisabled }}
+          >
+            <CheckCircle size={ACTION_ICON_SIZE} color={colors.text} strokeWidth={2} />
+            <Text style={[styles.actionPillText, { color: colors.text }]} numberOfLines={1}>
+              Visitado
+            </Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }
@@ -901,6 +976,8 @@ type SpotSheetBodyProps = {
   onClose: () => void;
   onPoiPorVisitar?: () => void | Promise<void>;
   onPoiVisitado?: () => void | Promise<void>;
+  onPoiAddPhotos?: () => void | Promise<void>;
+  poiAddPhotosBusy?: boolean;
   spot: SpotSheetSpot | null;
   hasDesc: boolean;
   hasCover: boolean;
@@ -927,6 +1004,8 @@ type SpotSheetBodyProps = {
   onEdit?: (spotId: string) => void;
   onImagePress?: SpotHeroImagePressHandler;
   heroImageUris?: string[];
+  onAddPersonalPhotos?: () => void;
+  addPersonalPhotosBusy?: boolean;
   sheetTagChips?: { id: string; label: string }[];
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
@@ -951,6 +1030,8 @@ function SpotSheetBody({
   onClose,
   onPoiPorVisitar,
   onPoiVisitado,
+  onPoiAddPhotos,
+  poiAddPhotosBusy,
   spot,
   hasDesc,
   hasCover,
@@ -971,6 +1052,8 @@ function SpotSheetBody({
   onEdit,
   onImagePress,
   heroImageUris,
+  onAddPersonalPhotos,
+  addPersonalPhotosBusy = false,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
@@ -984,6 +1067,8 @@ function SpotSheetBody({
         <PoiBodyContent
           onPorVisitar={onPoiPorVisitar}
           onVisitado={onPoiVisitado}
+          onAddPhotos={onPoiAddPhotos}
+          addPhotosBusy={poiAddPhotosBusy}
           pinFilter={pinFilter}
           loading={poiLoading}
           colors={colors}
@@ -1014,6 +1099,8 @@ function SpotSheetBody({
           pinMutationTarget={pinMutationTarget}
           onImagePress={onImagePress}
           heroImageUris={heroImageUris}
+          onAddPersonalPhotos={onAddPersonalPhotos}
+          addPersonalPhotosBusy={addPersonalPhotosBusy}
           distanceKmVal={distanceKmVal}
           sheetTagChips={sheetTagChips}
           onSheetTagChipPress={onSheetTagChipPress}
@@ -1095,11 +1182,15 @@ export function SpotSheet({
   pinFilter = "all",
   onPoiPorVisitar,
   onPoiVisitado,
+  onPoiAddPhotos,
+  poiAddPhotosBusy = false,
   onPoiShare,
   poiLoading = false,
   displayTitleOverride,
   onImagePress,
   heroImageUris,
+  onAddPersonalPhotos,
+  addPersonalPhotosBusy = false,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
@@ -1464,13 +1555,14 @@ export function SpotSheet({
         ? false
         : bodyNeedsScroll;
   const colors = Colors[colorScheme ?? "light"];
+  const isVisited = spot ? (spot.visited ?? spot.pinStatus === "visited") : false;
   const hasDesc = spot ? Boolean(spot.description_short?.trim()) : false;
+  // Canon: en Visitados, mostrar solo fotos personales (galería) y no la portada “comunitaria”.
   const hasCover = spot
     ? (heroImageUris != null && heroImageUris.length > 0) ||
-      Boolean(spot.cover_image_url)
+      (!isVisited && Boolean(spot.cover_image_url))
     : false;
   const isSaved = spot ? (spot.saved ?? spot.pinStatus === "to_visit") : false;
-  const isVisited = spot ? (spot.visited ?? spot.pinStatus === "visited") : false;
   const distanceKmVal =
     spot && userCoords != null
       ? distanceKm(
@@ -1592,6 +1684,8 @@ export function SpotSheet({
         onClose={onClose}
         onPoiPorVisitar={onPoiPorVisitar}
         onPoiVisitado={onPoiVisitado}
+        onPoiAddPhotos={onPoiAddPhotos}
+        poiAddPhotosBusy={poiAddPhotosBusy}
         spot={spot}
         hasDesc={hasDesc}
         hasCover={hasCover}
@@ -1612,6 +1706,8 @@ export function SpotSheet({
         onEdit={onEdit}
         onImagePress={onImagePress}
         heroImageUris={heroImageUris}
+        onAddPersonalPhotos={onAddPersonalPhotos}
+        addPersonalPhotosBusy={addPersonalPhotosBusy}
         sheetTagChips={sheetTagChips}
         onSheetTagChipPress={onSheetTagChipPress}
         onSheetEtiquetarPress={onSheetEtiquetarPress}
@@ -1860,6 +1956,13 @@ const styles = StyleSheet.create({
   },
   imageWrap: {
     width: "100%",
+    borderRadius: Radius.md,
+    overflow: "hidden",
+  },
+  personalPhotosEmptyWrap: {
+    width: "100%",
+    borderWidth: 1,
+    borderStyle: "dashed",
     borderRadius: Radius.md,
     overflow: "hidden",
   },

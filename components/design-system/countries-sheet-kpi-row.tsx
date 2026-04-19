@@ -84,11 +84,18 @@ export function CountriesSheetKpiRow({
         <View style={styles.kpiValueRow}>
           <Text style={[styles.kpiValue, { color: colors.text }]}>{summaryCountriesCount}</Text>
           {countriesIsButton ? (
-            countriesKpiExpanded ? (
-              <ChevronDown size={14} color={countriesExpandedAccent} strokeWidth={2.2} />
-            ) : (
-              <List size={14} color={colors.primary} strokeWidth={2.2} />
-            )
+            <View
+              accessible={false}
+              {...(Platform.OS === "web"
+                ? ({ "aria-hidden": true } as object)
+                : { accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" })}
+            >
+              {countriesKpiExpanded ? (
+                <ChevronDown size={14} color={countriesExpandedAccent} strokeWidth={2.2} />
+              ) : (
+                <List size={14} color={colors.primary} strokeWidth={2.2} />
+              )}
+            </View>
           ) : null}
         </View>
         <Text style={[styles.kpiLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>
@@ -115,7 +122,14 @@ export function CountriesSheetKpiRow({
         <View style={styles.kpiValueRow}>
           <Text style={[styles.kpiValue, { color: colors.text }]}>{summaryPlacesCount}</Text>
           {placesIsButton ? (
-            <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+            <View
+              accessible={false}
+              {...(Platform.OS === "web"
+                ? ({ "aria-hidden": true } as object)
+                : { accessibilityElementsHidden: true, importantForAccessibility: "no-hide-descendants" })}
+            >
+              <ChevronRight size={14} color={colors.primary} strokeWidth={2.2} />
+            </View>
           ) : null}
         </View>
         <Text style={[styles.kpiLabel, styles.kpiLabelBelow, { color: colors.textSecondary }]}>

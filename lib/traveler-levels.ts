@@ -51,6 +51,32 @@ export function resolveTravelerLevelByPoints(points: number): TravelerLevel {
   );
 }
 
+/**
+ * Progreso 0–100 para la barra verde junto a «Nivel …» y `X/12`.
+ * Combina (a) tramos completados de nivel y (b) avance de flows **dentro** del tramo actual.
+ * No usar % de países del mundo aquí (eso desincroniza la barra respecto a `X/12`).
+ */
+export function computeTravelerLevelBarFillPercent(points: number, level: TravelerLevel): number {
+  const total = TRAVELER_LEVELS.length;
+  const levelIdx = Math.max(1, Math.min(total, level.level));
+  const p = Math.max(0, Math.floor(points));
+  const last = TRAVELER_LEVELS[total - 1];
+
+  let within = 0;
+  if (levelIdx >= last.level) {
+    const min = last.minPoints;
+    /** En el último tramo no hay «siguiente nivel»: al alcanzarlo la barra refleja tramo completo. */
+    within = p >= min ? 1 : 0;
+  } else {
+    const span = Math.max(1, level.maxPoints - level.minPoints);
+    const capped = Math.min(level.maxPoints, Math.max(level.minPoints, p));
+    within = (capped - level.minPoints) / span;
+  }
+
+  const raw = ((levelIdx - 1 + within) / total) * 100;
+  return Math.max(0, Math.min(100, Math.round(raw)));
+}
+
 export function formatTravelerLevelPointsRange(level: TravelerLevel): string {
   if (level.level === TRAVELER_LEVELS[TRAVELER_LEVELS.length - 1].level) {
     return `${level.minPoints}+ pts`;

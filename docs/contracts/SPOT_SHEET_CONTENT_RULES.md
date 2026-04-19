@@ -81,6 +81,24 @@ Mientras se está guardando (`poiLoading`), se reemplaza la fila de acciones por
 
 Además, si el usuario expande la sheet estando en modo POI, el flujo puede auto-crear spot con estado derivado del filtro (`saved`→`to_visit`, `visited`→`visited`).
 
+### Extensión E1 — POI no guardado: “Guardar y subir mis fotos”
+
+Cuando la sheet está en **modo POI** (no hay `spot` aún) se puede mostrar un CTA adicional:
+
+- **Etiqueta**: **“Guardar y subir mis fotos”**
+- **Acción** (contrato):
+  - Abre picker de imágenes (web: multi-selección).
+  - Si el usuario selecciona imágenes, entonces:
+    - Persiste el spot (insert) en background.
+    - Sube todas las imágenes seleccionadas como **galería** (`spot_images`).
+    - Sincroniza portada desde la galería (primera imagen efectiva).
+- **Estado busy**:
+  - El CTA se reemplaza por el estado de “Subiendo…” (spinner + copy) usando el componente canónico `AddImageCta`.
+  - Mientras está busy, los CTAs `Por visitar` / `Visitado` quedan deshabilitados para evitar doble persistencia.
+- **Semántica de estado inicial**:
+  - Si `pinFilter === "saved"` el spot se crea como `to_visit`.
+  - En cualquier otro caso (incluye `all` y `visited`), se crea como `visited` (subir fotos implica memoria personal).
+
 ---
 
 ## Troubleshooting rápido

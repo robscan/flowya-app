@@ -1,9 +1,10 @@
 import { Image } from 'expo-image';
 import { CheckCircle, ChevronRight, ImagePlus, Landmark, Pencil, Pin, Tag } from 'lucide-react-native';
 
+import { AddImageCta } from "@/components/design-system/add-image-cta";
 import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
 import React, { useMemo, useRef, useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -46,6 +47,7 @@ export type SearchListCardProps = {
     label: string;
     kind: 'add_image' | 'edit_description' | 'add_tag';
     onPress: () => void;
+    busy?: boolean;
     accessibilityLabel?: string;
   }[];
   /** Web: hover en la fila (p. ej. sincronizar pin del mapa en desktop). */
@@ -196,12 +198,21 @@ export function SearchListCard({
           }}
           onResponderRelease={(event) => {
             event.stopPropagation?.();
-            triggerInlineAction(addImageAction.onPress);
+            if (!addImageAction.busy) triggerInlineAction(addImageAction.onPress);
           }}
           accessible={false}
         >
-          <ImagePlus size={18} color={colors.textSecondary} strokeWidth={2} />
-          <Text style={[styles.imagePlaceholderText, { color: colors.textSecondary }]}>Agregar imagen</Text>
+          <AddImageCta
+            onPress={addImageAction.onPress}
+            busy={Boolean(addImageAction.busy)}
+            disabled={disabled}
+            size="media"
+            interactive={false}
+            borderColor="transparent"
+            backgroundColor="transparent"
+            accessibilityLabel={addImageAction.accessibilityLabel ?? "Subir mis fotos"}
+            label="Subir mis fotos"
+          />
         </View>
       ) : (
         <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
@@ -433,14 +444,7 @@ const styles = StyleSheet.create({
     borderRightWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 6,
-  },
-  imagePlaceholderText: {
-    fontSize: 11,
-    fontWeight: '600',
-    lineHeight: 13,
-    textAlign: 'center',
+    paddingHorizontal: 0,
   },
   image: {
     width: '100%',
