@@ -30,6 +30,7 @@
   9. **Auth** — social login (investigación / activación).
   10. **OL-METRICS-001** — actividad, retorno y comparación `Explore` vs `Recordar`; incluye **`profiles.last_activity_at`** (dato ya guardado; no UI de cuenta).
   11. **OL-SEARCHV2-002** — fase investigación postergada (bitácora `301`).
+  12. **OL-DATA-MODEL-INTROSPECTION-001** — **Abierto:** alinear [`DATA_MODEL_CURRENT.md`](../contracts/DATA_MODEL_CURRENT.md) con el esquema **post–PR #157** (más allá del puente §1.4). **Alcance:** documentar en §1 (o subsecciones explícitas) **`public.spot_personal_images`** (PK, FKs a `spots`/`auth.users` según migración, columnas de visibilidad y referencia a Storage), columna **`profiles.share_photos_with_world`**, y enlaces a migraciones **`030`–`032`** sin contradecir [`PROFILE_AUTH_CONTRACT_CURRENT.md`](../contracts/PROFILE_AUTH_CONTRACT_CURRENT.md) ni [`PHOTO_SHARING_CONSENT.md`](../contracts/PHOTO_SHARING_CONSENT.md). **Método aceptado:** nueva introspección `information_schema` en Supabase objetivo (actualizar fecha en cabecera del contrato) **o** derivo controlado desde migraciones + checklist de drift. **Fuera de alcance:** reescribir políticas RLS en este contrato (siguen en migraciones / inventario seguridad). **Origen deuda:** PR [#157](https://github.com/robscan/flowya-app/pull/157), bitácora [`372`](../bitacora/2026/04/372-ol-profile-web-desktop-sidebar-embedded-a11y-share.md).
 
 ---
 

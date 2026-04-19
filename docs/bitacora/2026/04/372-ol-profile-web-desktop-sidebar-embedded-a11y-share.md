@@ -93,6 +93,7 @@ Esta sección es **trazabilidad por archivos** (no sustituye contratos): agrupa 
 
 ## 5) Referencias
 
+- **Deuda documental (modelo canónico):** **OL-DATA-MODEL-INTROSPECTION-001** — [`OPEN_LOOPS.md`](../../ops/OPEN_LOOPS.md) (cola, ítem 12); puente actual en [`DATA_MODEL_CURRENT.md`](../../contracts/DATA_MODEL_CURRENT.md) §1.4.
 - [`PROFILE_AUTH_CONTRACT_CURRENT.md`](../../contracts/PROFILE_AUTH_CONTRACT_CURRENT.md)
 - [`EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md`](../../contracts/EXPLORE_WEB_DESKTOP_SIDEBAR_CANON.md) (contexto columna lateral)
 - [`lib/focus-management.ts`](../../../lib/focus-management.ts)

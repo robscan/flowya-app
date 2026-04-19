@@ -114,7 +114,7 @@ Las secciones **1.1–1.3** siguen basadas en la introspección **2026-02-25** (
 | Tabla `spot_personal_images`, visibilidad y Storage `spot-personal` | Migraciones `031_spot_personal_images_private.sql`, `032_storage_spot_personal_private.sql` + contrato fotos arriba |
 | Preferencia en DB | `030_profiles_photo_sharing_pref.sql` |
 
-> **Pendiente de rigor:** repetir introspección `information_schema` o leer migraciones y fusionar campos nuevos dentro de §1.1+ como filas canónicas (evitar duplicar `profiles` aquí mientras `PROFILE_AUTH_CONTRACT_CURRENT` sea la fuente de perfil).
+> **Seguimiento operativo:** **OL-DATA-MODEL-INTROSPECTION-001** en [`docs/ops/OPEN_LOOPS.md`](../ops/OPEN_LOOPS.md) (cola § «En espera», ítem 12) — alcance: introspección o derivo desde migraciones **030–032** + secciones canónicas para `spot_personal_images` / ampliación `profiles`, sin duplicar RLS ni sustituir `PROFILE_AUTH_CONTRACT_CURRENT` como fuente de perfil.
 
 ---
 
