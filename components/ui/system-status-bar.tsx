@@ -362,8 +362,12 @@ const styles = StyleSheet.create({
   stackTopCenter: {
     maxWidth: 440,
     width: '100%',
-    /** Overlay con `alignItems: 'center'`: sin `stretch` el ancho colapsa y el texto se corta con `…`. */
-    alignSelf: 'stretch',
+    /**
+     * No usar `stretch`: el `Pressable` pasaba a ocupar todo el ancho del overlay (left=0,right=0)
+     * y bloqueaba taps en elementos debajo aunque el fondo sea transparente.
+     * `width: '100%'` + `maxWidth` ya garantizan ancho estable sin capturar toda la pantalla.
+     */
+    alignSelf: 'center',
   },
   stackBottomLeft: {
     maxWidth: 320,
