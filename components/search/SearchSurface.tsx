@@ -10,7 +10,7 @@ import { MapPinFilterInline } from '@/components/design-system/map-pin-filter-in
 import { SearchListCard } from '@/components/design-system/search-list-card';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useCallback, useState, type ReactNode } from 'react';
+import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -23,6 +23,7 @@ import {
   type TextStyle,
 } from 'react-native';
 import { ExploreTagFilterChipRow } from '@/components/design-system/explore-tag-filter-chip-row';
+import { ExplorePlacesListSectionTitleRow } from '@/components/explorar/explore-places-list-section-title-row';
 import { Search, X } from 'lucide-react-native';
 import { SearchInputV2 } from './SearchInputV2';
 import type { PlacesFiltersBarRenderProps, SearchFloatingProps } from './types';
@@ -72,6 +73,7 @@ export function SearchSurface<T>({
   onInputBlur,
   searchInputAutoFocus = true,
   placesFiltersBar,
+  placesListFirstSectionHeaderRight,
 }: SearchSurfaceProps<T>) {
   const [searchInputFocused, setSearchInputFocused] = useState(false);
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
@@ -85,6 +87,20 @@ export function SearchSurface<T>({
   const sectionHeaderGlowStyle = {
     textShadow: `0px 1px 6px ${sectionHeaderGlowColor}`,
   } as unknown as TextStyle;
+
+  const firstDefaultItemSectionIdWithItems = useMemo(() => {
+    for (const s of defaultItemSections) {
+      if (s.items.length > 0) return s.id;
+    }
+    return null as string | null;
+  }, [defaultItemSections]);
+
+  const firstResultSectionIdWithItems = useMemo(() => {
+    for (const s of resultSections) {
+      if (s.items.length > 0) return s.id;
+    }
+    return null as string | null;
+  }, [resultSections]);
 
   const q = controller.query.trim();
   const len = q.length;
@@ -290,9 +306,20 @@ export function SearchSurface<T>({
                 </Text>
               ) : null}
               {resultsSummaryLabel ? (
-                <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                  {resultsSummaryLabel}
-                </Text>
+                isFilteredPinSearch &&
+                placesListFirstSectionHeaderRight != null &&
+                resultSections.filter((s) => s.items.length > 0).length === 0 ? (
+                  <ExplorePlacesListSectionTitleRow
+                    title={resultsSummaryLabel}
+                    titleColor={sectionHeaderColor}
+                    titleStyle={sectionHeaderGlowStyle}
+                    right={placesListFirstSectionHeaderRight}
+                  />
+                ) : (
+                  <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                    {resultsSummaryLabel}
+                  </Text>
+                )
               ) : null}
             </>
           ) : null}
@@ -301,9 +328,18 @@ export function SearchSurface<T>({
               defaultItemSections.map((section) =>
                 section.items.length > 0 ? (
                   <View key={section.id} style={styles.sectionWithGap}>
-                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
-                      {section.title}
-                    </Text>
+                    <ExplorePlacesListSectionTitleRow
+                      title={section.title}
+                      titleColor={sectionHeaderColor}
+                      titleStyle={sectionHeaderGlowStyle}
+                      right={
+                        isFilteredPinSearch &&
+                        placesListFirstSectionHeaderRight != null &&
+                        section.id === firstDefaultItemSectionIdWithItems
+                          ? placesListFirstSectionHeaderRight
+                          : undefined
+                      }
+                    />
                     {section.items.map((item, idx) => (
                       <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
                         {renderItem(item)}
@@ -318,6 +354,13 @@ export function SearchSurface<T>({
                   <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
                     Lugares en la zona
                   </Text>
+                ) : isFilteredPinSearch && placesListFirstSectionHeaderRight != null ? (
+                  <ExplorePlacesListSectionTitleRow
+                    title="Lugares en la zona"
+                    titleColor={sectionHeaderColor}
+                    titleStyle={sectionHeaderGlowStyle}
+                    right={placesListFirstSectionHeaderRight}
+                  />
                 ) : null}
                 {defaultItems.map((item, idx) => (
                   <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
@@ -367,11 +410,18 @@ export function SearchSurface<T>({
                     .map((section) => (
                       <View key={section.id} style={styles.sectionWithGap}>
                         {isFilteredPinSearch ? (
-                          <Text
-                            style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}
-                          >
-                            {section.title}
-                          </Text>
+                          <ExplorePlacesListSectionTitleRow
+                            title={section.title}
+                            titleColor={sectionHeaderColor}
+                            titleStyle={sectionHeaderGlowStyle}
+                            right={
+                              placesListFirstSectionHeaderRight != null &&
+                              firstResultSectionIdWithItems != null &&
+                              section.id === firstResultSectionIdWithItems
+                                ? placesListFirstSectionHeaderRight
+                                : undefined
+                            }
+                          />
                         ) : (
                           <View style={styles.sectionHeaderPlaceholder} />
                         )}

@@ -4,7 +4,19 @@
  * Web Share API si está disponible; si no, copiar link al clipboard.
  */
 
-import { getMapSpotShareUrl } from "@/lib/explore-deeplink";
+/**
+ * Nota SEO/social cards:
+ * Para previsualización (OG) fiable, el link compartido debe apuntar a una ruta “pública” renderizable
+ * (p. ej. `/spot/[id]`). Esa página puede redirigir al deep link del mapa para humanos.
+ */
+
+function getPublicSpotShareUrl(spotId: string): string {
+  const path = `/spot/${encodeURIComponent(spotId)}?open=map`;
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return `${window.location.origin}${path}`;
+  }
+  return path;
+}
 
 export type ShareSpotResult = { copied: boolean };
 
@@ -29,7 +41,7 @@ export async function shareSpot(
   spotId: string,
   title?: string | null
 ): Promise<ShareSpotResult> {
-  const url = getMapSpotShareUrl(spotId);
+  const url = getPublicSpotShareUrl(spotId);
   const shareTitle = title?.trim() || 'Lugar';
 
   const canShare =

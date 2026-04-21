@@ -62,6 +62,7 @@ export function SearchOverlayWeb<T>({
   onCreateFromPlace,
   searchInputAutoFocus = true,
   placesFiltersBar,
+  placesListFirstSectionHeaderRight,
 }: SearchFloatingProps<T>) {
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
@@ -201,6 +202,7 @@ export function SearchOverlayWeb<T>({
       onInputBlur={() => setIsInputFocused(false)}
       searchInputAutoFocus={searchInputAutoFocus}
       placesFiltersBar={placesFiltersBar}
+      placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
     />
   );
 

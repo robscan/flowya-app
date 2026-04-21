@@ -27,7 +27,7 @@
 | Caso | Acción |
 |------|--------|
 | **Post-edit** | Tras guardar → `router.replace(getMapSpotDeepLink(spot.id))` (default `sheet=extended`). Usuario ve mapa y sheet del spot en **expanded**. El **filtro de pins** (Todos / Por visitar / Visitados) **no** se resetea; si el spot no encaja en el filtro activo, la selección se preserva vía `preserveOutOfFilterSelection` / mutación reciente (mismo criterio que el sheet). |
-| **Compartir** | `getMapSpotShareUrl(spotId)` genera URL con `sheet=medium`. Al abrir el link, mapa + sheet en **medium**. |
+| **Compartir** | **Link público**: `/spot/<id>?open=map` (para previsualización social/SEO). La pantalla `app/spot/[id].web.tsx` redirige a humanos al deep link `getMapSpotShareUrl(spotId)` (mapa + sheet en **medium**) y evita redirección para bots/crawlers. |
 | **Post-create** | Tras crear spot, el flujo web navega con `/(tabs)?created=<id>`. MapScreenVNext selecciona el spot, abre sheet **expanded**, aplica `ensureSpotVisibleWithActiveFilter`, limpia la URL con `router.replace("/(tabs)")`. No depende de `sheet`. |
 | **Apertura en frío** | Con `spotId` + `sheet`: `extended` → expanded, `medium` → medium. |
 
@@ -47,6 +47,7 @@
   - `getMapSpotDeepLink(spotId, sheet?)` — default `extended` (post-edit).
   - `getMapSpotShareUrl(spotId)` — usa `sheet=medium`.
   - El param `created` no pasa por estos helpers; lo construye el flujo de creación (`/(tabs)?created=…`).
+- **Share spot:** `lib/share-spot.ts` comparte `/spot/<id>?open=map` (no el deep link directo) para permitir cards en redes; la redirección al mapa ocurre en `app/spot/[id].web.tsx`.
 - **Consumo:** `components/explorar/MapScreenVNext.tsx` lee `spotId`, `sheet` y `created` (`useLocalSearchParams`).
   - `spotId` + `sheet`: `extended` → `setSheetState('expanded')`, `medium` → `setSheetState('medium')`.
   - `created`: `setSheetState('expanded')` (post-create canónico).

@@ -48,6 +48,7 @@ import {
 } from "@/lib/pins";
 import { shareSpot } from "@/lib/share-spot";
 import { supabase } from "@/lib/supabase";
+import { getMapSpotShareUrl } from "@/lib/explore-deeplink";
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 
@@ -237,10 +238,11 @@ function SpotDetailMapSlot({
 }
 
 export default function SpotDetailScreen() {
-  const { id, edit, refreshed } = useLocalSearchParams<{
+  const { id, edit, refreshed, open } = useLocalSearchParams<{
     id: string;
     edit?: string;
     refreshed?: string;
+    open?: string;
   }>();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -275,6 +277,7 @@ export default function SpotDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <SpotDetailScreenContent
         id={id}
+        open={open}
         colors={colors}
         router={router}
         spot={spot}
@@ -289,6 +292,7 @@ export default function SpotDetailScreen() {
 
 function SpotDetailScreenContent({
   id,
+  open,
   colors,
   router,
   spot,
@@ -298,6 +302,7 @@ function SpotDetailScreenContent({
   refreshed,
 }: {
   id: string | undefined;
+  open?: string;
   colors: (typeof Colors)["light"];
   router: ReturnType<typeof useRouter>;
   spot: SpotDetailSpot | null;
@@ -398,6 +403,27 @@ function SpotDetailScreenContent({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setLoading/setSpot stable; id+refreshed intentional deps
   }, [id, refreshed]);
+
+  // Share/SEO: cuando el link se abre desde redes (open=map), bots deben poder leer el contenido
+  // sin ser redirigidos, pero humanos sí deben acabar en el deep link del mapa.
+  useEffect(() => {
+    if (open !== "map") return;
+    if (!id) return;
+    if (typeof window === "undefined") return;
+    const ua = window.navigator?.userAgent ?? "";
+    const looksLikeBot =
+      /bot|crawl|slurp|spider|facebookexternalhit|twitterbot|slackbot|whatsapp|telegrambot/i.test(ua);
+    if (looksLikeBot) return;
+    const href = getMapSpotShareUrl(id);
+    const t = window.setTimeout(() => {
+      try {
+        (router.replace as (h: string) => void)(href);
+      } catch {
+        // ignore
+      }
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [open, id, router]);
 
 
   const handleBack = useCallback(() => {

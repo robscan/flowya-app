@@ -13,6 +13,7 @@
 - Superficie búsqueda: `components/search/SearchSurface.tsx` (fila de chips + modo edición)
 - Mapa/orquestación: `components/explorar/MapScreenVNext.tsx`
 - Barra bulk de selección: `components/explorar/explore-bulk-tag-selection-bar.tsx`
+- Cabecera canónica lista (título sección + CTA terciario a la derecha en la **primera** sección): `components/explorar/explore-places-list-section-title-row.tsx` (sheet `CountriesSheet` + `SearchSurface` vía `placesListFirstSectionHeaderRight` en `SearchFloatingProps`).
 - Sheet de spot: `components/explorar/SpotSheet.tsx` (`SpotSheetMetaRow`: distancia + chips + «Etiquetar»)
 - Administración en perfil: `components/account/web/AccountTagsPanel.web.tsx`, `app/account/tags.web.tsx`
 
