@@ -5067,7 +5067,7 @@ export function MapScreenVNext() {
 
   const openCountriesSheetForFilter = useCallback((
     targetFilter: "saved" | "visited",
-    options?: { requireMounted?: boolean },
+    options?: { requireMounted?: boolean; resetToInitialCountriesView?: boolean },
   ) => {
     if (options?.requireMounted && !countriesOverlayMounted) return;
     countriesSheetForcedFilterRef.current =
@@ -5085,15 +5085,26 @@ export function MapScreenVNext() {
     setIsPlacingDraftSpot(false);
     setDraftCoverUri(null);
     const persistKey = targetFilter === "visited" ? "visited" : "saved";
-    setCountriesSheetState(
-      coerceCountriesSheetInitialState(countriesSheetPersistRef.current[persistKey].state),
-    );
+    if (options?.resetToInitialCountriesView) {
+      // Entry points “Países” deben mostrar el sheet en su vista inicial (KPI/listado países),
+      // sin heredar el estado previo de “Lugares” (countriesSheetListView != null).
+      setCountriesDrilldown(null);
+      setCountriesSheetListView(null);
+      setCountriesSheetState("medium");
+    } else {
+      setCountriesSheetState(
+        coerceCountriesSheetInitialState(countriesSheetPersistRef.current[persistKey].state),
+      );
+    }
     setCountriesSheetOpen(true);
     /** Conservar `countriesSheetListView` si ya había alcance (p. ej. país / todos los lugares) para no borrar chips al reabrir. */
   }, [countriesOverlayMounted, countriesFilterForActiveCounter, poiTapped, selectedSpot, setSheetState]);
 
   const handleCountriesCounterPress = useCallback(() => {
-    openCountriesSheetForFilter(countriesOverlayFilter, { requireMounted: true });
+    openCountriesSheetForFilter(countriesOverlayFilter, {
+      requireMounted: true,
+      resetToInitialCountriesView: true,
+    });
   }, [countriesOverlayFilter, openCountriesSheetForFilter]);
 
   const handleVisitedCountriesPress = useCallback(async () => {
@@ -5109,7 +5120,7 @@ export function MapScreenVNext() {
         toastMessage: "",
       });
     }
-    openCountriesSheetForFilter("visited");
+    openCountriesSheetForFilter("visited", { resetToInitialCountriesView: true });
   }, [handlePinFilterChange, openCountriesSheetForFilter, pinFilter, requireAuthOrModal]);
 
   const handleCountriesSheetClose = useCallback(() => {
@@ -5242,7 +5253,7 @@ export function MapScreenVNext() {
       });
       return;
     }
-    openCountriesSheetForFilter("saved", { requireMounted: true });
+    openCountriesSheetForFilter("saved", { requireMounted: true, resetToInitialCountriesView: true });
   }, [handleCountriesSpotsKpiPress, handleVisitedCountriesPress, openCountriesSheetForFilter]);
 
   const handleCountryDetailBack = useCallback(() => {
@@ -5301,7 +5312,9 @@ export function MapScreenVNext() {
       setExplorePlacesCountryFilter(
         buildSingleCountryFilter({ key: country.key, label: country.label }),
       );
-      setCountriesSheetState("expanded");
+      // Excepción de UX: al seleccionar un país desde el KPI/listado, mantener el sheet en `medium`
+      // para que el usuario note el cambio de mapa y el update del listado sin “ocupar” toda la pantalla.
+      setCountriesSheetState("medium");
       if (
         !suppressToastRef.current &&
         getExplorePlacesCountryFilterSummaryLabel(prevCountry) !== next.label
@@ -5556,6 +5569,11 @@ export function MapScreenVNext() {
 
   const placesListFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
+    const selectableIds = countriesSheetDetailSpots.map((s) => s.id);
+    const totalSelectableCount = selectableIds.length;
+    const allSelectableSelected =
+      totalSelectableCount > 0 &&
+      selectableIds.every((id) => bulkTagSelectedSpotIds.includes(id));
     return (
       <View style={styles.placesListBarsStack}>
         <ExplorePlacesActiveFiltersBar
@@ -5578,15 +5596,27 @@ export function MapScreenVNext() {
           colors={placesListFiltersBarColors}
           selectionMode={bulkTagSelectionMode}
           selectedCount={bulkTagSelectedSpotIds.length}
+          totalCount={totalSelectableCount}
+          hideEntryButton
+          hideCancelButton
           onEnterSelectionMode={() => setBulkTagSelectionMode(true)}
           onCancelSelectionMode={() => clearBulkTagSelection()}
           onAssignTags={handleOpenBulkTagAssign}
+          onSelectAll={() => {
+            if (!bulkTagSelectionMode) return;
+            if (allSelectableSelected) {
+              setBulkTagSelectedSpotIds([]);
+              return;
+            }
+            setBulkTagSelectedSpotIds(selectableIds);
+          }}
         />
       </View>
     );
   }, [
     isAuthUser,
     pinFilter,
+    countriesSheetDetailSpots,
     placesScopeForData,
     placesListFiltersBarColors,
     placesListActiveTags,
@@ -5594,6 +5624,7 @@ export function MapScreenVNext() {
     openSearchPreservingCountriesSheet,
     bulkTagSelectionMode,
     bulkTagSelectedSpotIds.length,
+    bulkTagSelectedSpotIds,
     clearBulkTagSelection,
     handleOpenBulkTagAssign,
   ]);
@@ -5612,6 +5643,11 @@ export function MapScreenVNext() {
 
   const placesSearchFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
+    const selectableIds = countriesSheetDetailSpots.map((s) => s.id);
+    const totalSelectableCount = selectableIds.length;
+    const allSelectableSelected =
+      totalSelectableCount > 0 &&
+      selectableIds.every((id) => bulkTagSelectedSpotIds.includes(id));
     return ({ searchField }: PlacesFiltersBarRenderProps) => (
       <View style={styles.placesListBarsStack}>
         <ExplorePlacesActiveFiltersBar
@@ -5630,9 +5666,20 @@ export function MapScreenVNext() {
           colors={placesListFiltersBarColors}
           selectionMode={bulkTagSelectionMode}
           selectedCount={bulkTagSelectedSpotIds.length}
+          totalCount={totalSelectableCount}
+          hideEntryButton
+          hideCancelButton
           onEnterSelectionMode={() => setBulkTagSelectionMode(true)}
           onCancelSelectionMode={() => clearBulkTagSelection()}
           onAssignTags={handleOpenBulkTagAssign}
+          onSelectAll={() => {
+            if (!bulkTagSelectionMode) return;
+            if (allSelectableSelected) {
+              setBulkTagSelectedSpotIds([]);
+              return;
+            }
+            setBulkTagSelectedSpotIds(selectableIds);
+          }}
         />
       </View>
     );
@@ -5640,13 +5687,56 @@ export function MapScreenVNext() {
     isAuthUser,
     pinFilter,
     placesListFiltersBarColors,
+    countriesSheetDetailSpots,
     placesScopeForData,
     placesSearchActiveTags,
     applyPlacesScopeAllPlaces,
     bulkTagSelectionMode,
     bulkTagSelectedSpotIds.length,
+    bulkTagSelectedSpotIds,
     clearBulkTagSelection,
     handleOpenBulkTagAssign,
+  ]);
+
+  const placesListFirstSectionHeaderRight = useMemo(() => {
+    if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
+    if (bulkTagSelectionMode) {
+      return (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Cancelar selección"
+          onPress={() => clearBulkTagSelection()}
+          style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+        >
+          <Text
+            style={[
+              TypographyStyles.caption,
+              { color: placesListFiltersBarColors.textSecondary, fontWeight: "700" },
+            ]}
+          >
+            Cancelar
+          </Text>
+        </Pressable>
+      );
+    }
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Seleccionar lugares"
+        onPress={() => setBulkTagSelectionMode(true)}
+        style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1 }]}
+      >
+        <Text style={[TypographyStyles.caption, { color: placesListFiltersBarColors.textSecondary, fontWeight: "700" }]}>
+          Seleccionar
+        </Text>
+      </Pressable>
+    );
+  }, [
+    isAuthUser,
+    pinFilter,
+    bulkTagSelectionMode,
+    clearBulkTagSelection,
+    placesListFiltersBarColors.textSecondary,
   ]);
 
   const renderCountryDetailItem = useCallback(
@@ -5953,13 +6043,18 @@ export function MapScreenVNext() {
     if (viewportTick < 0) return [];
     if (pinFilter !== "saved" && pinFilter !== "visited") return [];
     if (searchDisplayResultsWithTag.length === 0) return [];
-    if (!mapInstance) return [];
+    const refLat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
+    const refLng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
     try {
-      const center = mapInstance.getCenter();
-      const refLat = userCoords?.latitude ?? FALLBACK_VIEW.latitude;
-      const refLng = userCoords?.longitude ?? FALLBACK_VIEW.longitude;
+      const center =
+        mapInstance != null
+          ? (() => {
+              const c = mapInstance.getCenter();
+              return { lat: c.lat, lng: c.lng };
+            })()
+          : null;
       return buildSavedVisitedPlaceSections(searchDisplayResultsWithTag, {
-        mapCenter: { lat: center.lat, lng: center.lng },
+        mapCenter: center,
         refLatitude: refLat,
         refLongitude: refLng,
         forceSingleSection: isSearchColdStartBootstrapActive,
@@ -7461,6 +7556,7 @@ export function MapScreenVNext() {
           countryDetailSpotSections={countriesSheetDetailSpotSections}
           renderCountryDetailItem={renderCountryDetailItem}
           placesListFilterBar={placesListFilterBarEl}
+          placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
           placesListFilterBarEmbedsSheetSearch={
             isAuthUser && (pinFilter === "saved" || pinFilter === "visited")
           }
@@ -7863,6 +7959,7 @@ export function MapScreenVNext() {
             : undefined
         }
         placesFiltersBar={placesSearchFilterBarEl}
+        placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
         resultsOverride={kpiSpotsSearchResults}
         resultSections={searchResultSections}
         resultsSummaryLabel={
@@ -8630,7 +8727,7 @@ const styles = StyleSheet.create({
   },
   placesListBarsStack: {
     width: "100%",
-    gap: Spacing.sm,
+    gap: Spacing.xs,
   },
   placeholder: {
     flex: 1,

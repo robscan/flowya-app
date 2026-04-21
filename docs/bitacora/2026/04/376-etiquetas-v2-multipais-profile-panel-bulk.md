@@ -1,7 +1,7 @@
 # 376 — Etiquetas v2 + filtro multi-país + panel de perfil
 
 **Fecha:** 2026-04-20
-**Estado:** ejecutado en rama de trabajo / pendiente QA manual del usuario
+**Estado:** mergeado en `main` (PR #158) / QA manual pendiente
 
 ## 1) Motivo
 
@@ -80,7 +80,7 @@ Con el bloque correctivo P0 ya validado por QA, se ejecuta el siguiente bloque p
 
 - `npx tsc --noEmit`
 
-## 7) QA manual pendiente
+## 7) QA manual pendiente (post-merge)
 
 1. Abrir perfil web y validar panel `Etiquetas` con rename/delete.
 2. Seleccionar varios spots en `Por visitar` y `Visitados`, asignar etiqueta y verificar resultado.

@@ -74,4 +74,9 @@ export type SearchFloatingProps<T> = {
    * Si se pasa, no se pinta la fila inline `ExploreTagFilterChipRow` en `SearchSurface` (edición en modal).
    */
   placesFiltersBar?: ReactNode | ((props: PlacesFiltersBarRenderProps) => ReactNode);
+  /**
+   * Paridad con `CountriesSheet` (lista Lugares): slot derecho en la **primera** cabecera de sección con ítems
+   * cuando `pinFilter` es `saved`/`visited` (p. ej. CTA «Seleccionar» / «Cancelar» para etiquetado masivo).
+   */
+  placesListFirstSectionHeaderRight?: ReactNode;
 };

@@ -128,3 +128,5 @@ Fuente: [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §4.
 
 - Verificar en **web** que, al cancelar Search o cerrar Spot, se restaure CountriesSheet si estaba abierto antes y el contexto sigue siendo `saved/visited` (ver [FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §1c).
 - Verificar en **nativo** que la hidratación de `pinFilter` no sobrescribe preferencia con `"all"` (guardrail de storage-ready).
+- Excepción UX (2026-04-21): al seleccionar un país desde el KPI/listado de países, `CountriesSheet` **mantiene** `state="medium"` (no auto-`expanded`) para que el usuario perciba cambio de mapa y actualización del listado.
+- Paridad UX (2026-04-20): en **Por visitar / Visitados** (owner), el CTA terciario de entrada a selección masiva de etiquetas vive en la **misma fila** que el título de la **primera** sección con ítems, tanto en `CountriesSheet` como en `SearchSurface` (`placesListFirstSectionHeaderRight`); tipografía/layout canónicos en `components/explorar/explore-places-list-section-title-row.tsx`.

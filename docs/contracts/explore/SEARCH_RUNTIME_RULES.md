@@ -41,6 +41,7 @@ Reglas runtime de buscador en Explorar.
   - `defaultItemSections` / `resultSections` para estados compuestos.
   - `tagFilter*` para owner tags.
   - `placeSuggestions` + `onCreateFromPlace` para create-from-place cuando aplica.
+  - `placesListFirstSectionHeaderRight` (opcional): slot derecho en la **primera** cabecera de sección con ítems cuando `pinFilter ∈ {saved,visited}` (paridad con `CountriesSheet` / sheet Lugares). Implementación canónica de tipografía + layout: `components/explorar/explore-places-list-section-title-row.tsx`, consumida por `SearchSurface`.
 
 7. **Router de plataforma + layout web**
 - `SearchFloating` enruta por plataforma:

@@ -64,6 +64,7 @@ export function SearchFloatingNative<T>({
   onCreateFromPlace,
   searchInputAutoFocus = true,
   placesFiltersBar,
+  placesListFirstSectionHeaderRight,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -206,6 +207,7 @@ export function SearchFloatingNative<T>({
                     scrollViewKeyboardDismissMode="on-drag"
                     searchInputAutoFocus={searchInputAutoFocus}
                     placesFiltersBar={placesFiltersBar}
+                    placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
                 />
               </KeyboardAvoidingView>
             </View>

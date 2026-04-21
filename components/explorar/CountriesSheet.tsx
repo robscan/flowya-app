@@ -11,6 +11,7 @@ import type {
 import { SearchLauncherField } from "@/components/design-system/search-launcher-field";
 import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
+import { ExplorePlacesListSectionTitleRow } from "@/components/explorar/explore-places-list-section-title-row";
 import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -90,6 +91,11 @@ type CountriesSheetProps = {
   /** Barra «Filtros» + chips activos; el panel completo lo monta el host (`ExplorePlacesFiltersModal`). */
   placesListFilterBar?: React.ReactNode;
   /**
+   * CTA opcional para la primera sección del listado de lugares (alineado a la derecha del header),
+   * para ahorrar espacio (título sección izquierda, CTA derecha).
+   */
+  placesListFirstSectionHeaderRight?: React.ReactNode;
+  /**
    * Si es true y hay `placesListFilterBar`, el buscador del header del sheet va **dentro** de esa barra
    * (fila única con truncado); no se renderiza el `SearchLauncherField` suelto arriba.
    */
@@ -151,6 +157,7 @@ export function CountriesSheet({
   countryDetailSpotSections = null,
   renderCountryDetailItem,
   placesListFilterBar,
+  placesListFirstSectionHeaderRight,
   placesListFilterBarEmbedsSheetSearch = false,
   countryDetailTagFilterSignature = null,
   webDesktopSidebar = false,
@@ -646,19 +653,21 @@ export function CountriesSheet({
                 <SectionList
                   sections={countryDetailSpotSections
                     .filter((s) => s.items.length > 0)
-                    .map((s) => ({ title: s.title, data: s.items }))}
+                    .map((s, idx) => ({ title: s.title, data: s.items, __isFirst: idx === 0 }))}
                   keyExtractor={(item) => item.id}
                   renderItem={({ item }) => (
                     <View style={styles.detailItemWrap}>{renderCountryDetailItem(item)}</View>
                   )}
-                  renderSectionHeader={({ section: { title } }) => (
-                    <Text
-                      style={[styles.placesSectionHeader, { color: colors.textSecondary }]}
-                      accessibilityRole="header"
-                    >
-                      {title}
-                    </Text>
-                  )}
+                  renderSectionHeader={({ section }) => {
+                    const headerRight = section.__isFirst ? placesListFirstSectionHeaderRight : null;
+                    return (
+                      <ExplorePlacesListSectionTitleRow
+                        title={section.title}
+                        titleColor={colors.textSecondary}
+                        right={headerRight ?? undefined}
+                      />
+                    );
+                  }}
                   ListHeaderComponent={renderPlacesDetailListHeader}
                   contentContainerStyle={[
                     styles.placesDetailListContent,
@@ -1067,15 +1076,6 @@ const styles = StyleSheet.create({
   },
   detailItemWrap: {
     marginBottom: Spacing.sm,
-  },
-  /** Alineado a SearchSurface (`sectionHeader`) para paridad buscador ↔ sheet lugares. */
-  placesSectionHeader: {
-    fontSize: 13,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.8,
-    marginTop: Spacing.sm,
-    marginBottom: Spacing.xs,
   },
   tagFilterRow: {
     flexDirection: "row",
