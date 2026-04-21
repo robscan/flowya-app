@@ -4198,13 +4198,15 @@ export function MapScreenVNext() {
     async (spot: Spot) => {
       if (!isAuthUser && !(await requireAuthOrModal(AUTH_MODAL_MESSAGES.editSpot))) return;
       if (quickAddImageBusySpotId === spot.id) return;
-      const sharePref = await resolvePhotoSharingOrAskOnce();
-      if (sharePref == null) return;
-      setQuickAddImageBusySpotId(spot.id);
       try {
         let sourceBlob: Blob | null = null;
         if (Platform.OS === "web") {
+          // Importante: el file picker debe abrirse desde el gesto del usuario (sin await previo),
+          // o algunos navegadores lo bloquean silenciosamente y solo queda el loader.
+          const filesPromise = pickImageFilesFromWeb({ multiple: true });
           const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
+          const sharePref = await resolvePhotoSharingOrAskOnce();
+          if (sharePref == null) return;
           const currentRows = sharePref
             ? await listSpotImages(spot.id)
             : await listSpotPersonalImages(spot.id);
@@ -4216,8 +4218,9 @@ export function MapScreenVNext() {
           }
 
           const remainingSlots = MAX_SPOT_GALLERY_IMAGES - currentRows.length;
-          const files = await pickImageFilesFromWeb({ multiple: true });
+          const files = await filesPromise;
           if (!files || files.length === 0) return;
+          setQuickAddImageBusySpotId(spot.id);
 
           const picked = files.slice(0, remainingSlots);
           let added = 0;
@@ -4295,6 +4298,7 @@ export function MapScreenVNext() {
           }
           return;
         } else {
+          setQuickAddImageBusySpotId(spot.id);
           const ImagePicker = await import("expo-image-picker");
           const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ["images"],
