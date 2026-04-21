@@ -6,7 +6,7 @@
 export type PrivacySection = { title: string; paragraphs: string[] };
 
 /** Fecha de última actualización del documento (ISO visual). */
-export const PRIVACY_POLICY_LAST_UPDATED_ES = '12 de abril de 2026';
+export const PRIVACY_POLICY_LAST_UPDATED_ES = '20 de abril de 2026';
 
 export const PRIVACY_POLICY_SECTIONS_ES: PrivacySection[] = [
   {
@@ -41,6 +41,7 @@ export const PRIVACY_POLICY_SECTIONS_ES: PrivacySection[] = [
     title: '5. Datos de tus lugares (backend)',
     paragraphs: [
       'Los spots, pins, imágenes asociadas y metadatos que guardas se almacenan en nuestra base de datos (Supabase), con acceso protegido por las reglas de seguridad configuradas para la aplicación.',
+      'Si eliges compartir tus fotos con el mundo, las fotos que subas como públicas se publicarán en FLOWYA y podrán ser vistas por cualquier usuario de la aplicación. Si eliges mantenerlas privadas, solo tú podrás verlas.',
     ],
   },
   {

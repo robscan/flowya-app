@@ -2,6 +2,7 @@ import type { Map as MapboxMap } from "mapbox-gl";
 import { getCurrentLanguage } from "@/lib/i18n/locale-config";
 import { getLabelLayerScore } from "@/lib/map-core/constants";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
+import { normalizeSpotTitle } from "@/lib/spot-duplicate-check";
 import { distanceKm } from "@/lib/geo-utils";
 
 /** Regex: CJK (Hiragana, Katakana, CJK Unified) + Cirílico. No incluye diacríticos latinos. */
@@ -25,6 +26,8 @@ type SpotSearchCandidate = {
 };
 
 const LINKED_TAP_FALLBACK_TOLERANCE_KM = 0.012;
+const SEMANTIC_TAP_NAME_EXACT_TOLERANCE_KM = 0.03;
+const SEMANTIC_TAP_NAME_CONTAINS_TOLERANCE_KM = 0.02;
 
 const TOURISM_KEYWORDS = [
   "museum",
@@ -90,6 +93,19 @@ export function normalizeText(value: string): string {
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
+}
+
+type NameMatchKind = "exact" | "contains" | null;
+
+function getNameMatchKind(a: string, b: string): NameMatchKind {
+  const left = normalizeSpotTitle(a);
+  const right = normalizeSpotTitle(b);
+  if (!left || !right) return null;
+  if (left === right) return "exact";
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length <= right.length ? right : left;
+  if (shorter.length < 8) return null;
+  return longer.includes(shorter) ? "contains" : null;
 }
 
 export function classifyTappedFeatureKind(
@@ -262,10 +278,17 @@ export function resolveTappedSpotMatch<T extends SpotSearchCandidate>(
     .map((s) => ({
       spot: s,
       km: distanceKm(s.latitude, s.longitude, tapped.lat, tapped.lng),
-      sameName: normalizeText(s.title) === tappedName,
+      matchKind: getNameMatchKind(s.title, tappedName),
     }))
-    .filter(({ km, sameName }) => sameName && km <= 0.03)
-    .sort((a, b) => a.km - b.km)[0];
+    .filter(({ km, matchKind }) => {
+      if (matchKind === "exact") return km <= SEMANTIC_TAP_NAME_EXACT_TOLERANCE_KM;
+      if (matchKind === "contains") return km <= SEMANTIC_TAP_NAME_CONTAINS_TOLERANCE_KM;
+      return false;
+    })
+    .sort((a, b) => {
+      if (a.matchKind === b.matchKind) return a.km - b.km;
+      return a.matchKind === "exact" ? -1 : 1;
+    })[0];
   if (closestSemantic) return closestSemantic.spot;
 
   return null;
@@ -287,8 +310,12 @@ export function dedupeExternalPlacesAgainstSpots(
       const closeEnough =
         distanceKm(spot.latitude, spot.longitude, place.lat, place.lng) <= 0.02;
       if (!closeEnough) return false;
-      const spotName = normalizeText(spot.title ?? "");
-      return spotName.length > 0 && placeName.length > 0 && spotName === placeName;
+      const matchKind = getNameMatchKind(spot.title ?? "", placeName);
+      if (matchKind === "exact") return true;
+      if (matchKind === "contains") {
+        return distanceKm(spot.latitude, spot.longitude, place.lat, place.lng) <= 0.01;
+      }
+      return false;
     });
   });
 }

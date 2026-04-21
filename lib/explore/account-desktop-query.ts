@@ -5,13 +5,13 @@
 
 export const ACCOUNT_DESKTOP_QUERY_KEY = "account" as const;
 
-export type AccountDesktopPanelKey = "profile" | "details" | "privacy" | "language";
+export type AccountDesktopPanelKey = "profile" | "details" | "privacy" | "tags" | "language";
 
 export function parseAccountDesktopPanel(
   raw: string | string[] | undefined,
 ): AccountDesktopPanelKey | null {
   const v = Array.isArray(raw) ? raw[0] : raw;
   if (v == null || String(v).trim() === "") return null;
-  if (v === "profile" || v === "details" || v === "privacy" || v === "language") return v;
+  if (v === "profile" || v === "details" || v === "privacy" || v === "tags" || v === "language") return v;
   return null;
 }

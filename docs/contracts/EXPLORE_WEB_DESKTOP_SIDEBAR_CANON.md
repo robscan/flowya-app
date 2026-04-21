@@ -1,6 +1,6 @@
 # EXPLORE_WEB_DESKTOP_SIDEBAR_CANON — Sidebar desktop (≥1080) + map stage
 
-**Última actualización:** 2026-04-12  
+**Última actualización:** 2026-04-20  
 **Estado:** ACTIVE (canon de producto + implementación)  
 **Relacionado:** [EXPLORE_CHROME_SHELL.md](EXPLORE_CHROME_SHELL.md) §8–8b, `components/explorar/ExploreDesktopSidebarAnimatedColumn.tsx`, `components/explorar/MapScreenVNext.tsx`, `lib/explore-map-chrome-layout.ts`, [`layer-z.ts`](../components/explorar/layer-z.ts)
 
@@ -11,7 +11,7 @@
 Unificar el **panel lateral izquierdo** en Explorar web (viewport ≥ `WEB_EXPLORE_SIDEBAR_MIN_WIDTH`) para que:
 
 - Existan **variantes de ancho** fijas y acotadas (no anchos arbitrarios).
-- El **contenido** sea intercambiable (misma “carcasa”, distinto cuerpo): bienvenida, países/KPI, detalle spot/POI.
+- El **contenido** sea intercambiable (misma “carcasa”, distinto cuerpo): bienvenida, países/KPI, detalle spot/POI y panel embebido de cuenta (`?account=`).
 - Las **animaciones de entrada/salida** no provoquen **parpadeo blanco**, recortes ni mapa desincronizado.
 - Los **controles del mapa** sigan siendo **usables y clicables** en la columna derecha (`mapStage`).
 
@@ -69,9 +69,10 @@ Causas típicas a vigilar (no son parches por pantalla, sino **checklist**):
 
 Orden de prioridad de render en el panel (simplificado):
 
-1. **Spot / POI** (`SpotSheet` con `webDesktopSidebar`).
-2. **CountriesSheet** (`webDesktopSidebar`).
-3. **ExploreWelcomeSheet** (`webExploreLayout="desktopSidebar"`).
+1. **Cuenta embebida** (`AccountExploreDesktopPanel`) cuando `accountDesktopExploreOpen === true` (`profile|details|privacy|tags|language`).
+2. **Spot / POI** (`SpotSheet` con `webDesktopSidebar`).
+3. **CountriesSheet** (`webDesktopSidebar`).
+4. **ExploreWelcomeSheet** (`webExploreLayout="desktopSidebar"`).
 
 **Cabecera FLOWYA:** cuando `isFlowyaSidebarHeaderVisible`, la fila FLOWYA + pastilla puede vivir en la **cabecera del sidebar** (no sobre el mapa). Ver `computeExploreMapChromeLayout` y `EXPLORE_CHROME_SHELL.md`.
 

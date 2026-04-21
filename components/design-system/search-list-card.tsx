@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { CheckCircle, ChevronRight, ImagePlus, Landmark, Pencil, Pin, Tag } from 'lucide-react-native';
+import { CheckCircle, CheckCircle2, ChevronRight, Circle, ImagePlus, Landmark, Pencil, Pin, Tag } from 'lucide-react-native';
 
 import { AddImageCta } from "@/components/design-system/add-image-cta";
 import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
@@ -52,6 +52,8 @@ export type SearchListCardProps = {
   }[];
   /** Web: hover en la fila (p. ej. sincronizar pin del mapa en desktop). */
   onHoverChange?: (hovered: boolean) => void;
+  /** Modo selección múltiple: el card actúa como checkbox y reemplaza el chevron por indicador. */
+  selectionMode?: boolean;
 };
 /** Alias canónico DS para item visual de listados. */
 export type ResultRowProps = SearchListCardProps;
@@ -72,6 +74,7 @@ export function SearchListCard({
   tagChips = [],
   quickActions = [],
   onHoverChange,
+  selectionMode = false,
 }: SearchListCardProps) {
   const INLINE_ACTION_SUPPRESS_MS = 650;
   const colorScheme = useColorScheme();
@@ -168,9 +171,9 @@ export function SearchListCard({
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       disabled={disabled}
-      accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected, disabled }}
+      accessibilityRole={selectionMode ? "checkbox" : "button"}
+      accessibilityState={selectionMode ? { checked: selected, disabled } : { selected, disabled }}
     >
       {hasImage ? (
         <View style={styles.imageWrap}>
@@ -227,7 +230,23 @@ export function SearchListCard({
           <Text style={[styles.title, styles.titleInRow, { color: colors.text }]} numberOfLines={2}>
             {title}
           </Text>
-          {showChevron ? (
+          {selectionMode ? (
+            selected ? (
+              <CheckCircle2
+                size={20}
+                color={colors.primary}
+                strokeWidth={2.2}
+                style={styles.chevronInTitleRow}
+              />
+            ) : (
+              <Circle
+                size={20}
+                color={colors.textSecondary}
+                strokeWidth={2}
+                style={styles.chevronInTitleRow}
+              />
+            )
+          ) : showChevron ? (
             <ChevronRight
               size={20}
               color={colors.textSecondary}

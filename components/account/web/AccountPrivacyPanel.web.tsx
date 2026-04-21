@@ -51,8 +51,8 @@ export function AccountPrivacyPanelWeb() {
     shareWithWorld === true ? "Activado" : shareWithWorld === false ? "Desactivado" : "Sin definir";
   const shareWithWorldHint =
     shareWithWorld === false
-      ? "Tus fotos se guardan como privadas. Puedes activarlo para contribuir fotos públicas."
-      : "Tus fotos pueden verse por otros en la plataforma.";
+      ? "Tus fotos nuevas se guardan como privadas. Si lo activas, las fotos que subas se publicarán en FLOWYA y todos los usuarios podrán verlas."
+      : "Las fotos que subas se publicarán en FLOWYA y todos los usuarios podrán verlas.";
 
   const onToggle = useCallback(async () => {
     if (!sessionReady || busy) return;

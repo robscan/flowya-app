@@ -34,6 +34,17 @@ export function normalizeAddressKey(address: string | null | undefined): string 
   return normalizeSpotTitle(address);
 }
 
+function titlesLikelyDuplicate(a: string, b: string): boolean {
+  const left = normalizeSpotTitle(a);
+  const right = normalizeSpotTitle(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const shorter = left.length <= right.length ? left : right;
+  const longer = left.length <= right.length ? right : left;
+  if (shorter.length < 8) return false;
+  return longer.includes(shorter);
+}
+
 /** Distancia haversine entre dos puntos en metros (radio terrestre ≈ 6_371_000 m). */
 function haversineDistanceMeters(
   lat1: number,
@@ -116,7 +127,7 @@ export async function checkDuplicateSpot(
     );
     if (dist > radiusMeters) continue;
 
-    const titleMatch = normalizeSpotTitle(row.title) === normalizedInput;
+    const titleMatch = titlesLikelyDuplicate(row.title, normalizedInput);
     if (titleMatch) {
       return { duplicate: true, existingTitle: row.title, existingSpotId: row.id };
     }

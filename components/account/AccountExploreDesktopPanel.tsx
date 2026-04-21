@@ -7,6 +7,7 @@ import { AccountDetailsPanelWeb } from "@/components/account/web/AccountDetailsP
 import { AccountHomePanelWeb } from "@/components/account/web/AccountHomePanel.web";
 import { AccountLanguagePanelWeb } from "@/components/account/web/AccountLanguagePanel.web";
 import { AccountPrivacyPanelWeb } from "@/components/account/web/AccountPrivacyPanel.web";
+import { AccountTagsPanelWeb } from "@/components/account/web/AccountTagsPanel.web";
 import type { AccountDesktopPanelKey } from "@/lib/explore/account-desktop-query";
 import { useRouter } from "expo-router";
 
@@ -62,6 +63,19 @@ export function AccountExploreDesktopPanel({ panel }: AccountExploreDesktopPanel
           onEmbeddedBack={backToProfileHome}
         >
           <AccountPrivacyPanelWeb />
+        </AccountShell>
+      );
+    case "tags":
+      return (
+        <AccountShell
+          layout="embedded"
+          title="Etiquetas"
+          showBack
+          loading={false}
+          onEmbeddedClosePanel={closeEntirePanel}
+          onEmbeddedBack={backToProfileHome}
+        >
+          <AccountTagsPanelWeb />
         </AccountShell>
       );
     case "language":

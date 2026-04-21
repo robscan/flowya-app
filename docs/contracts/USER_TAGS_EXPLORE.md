@@ -1,6 +1,6 @@
 # USER_TAGS_EXPLORE — Etiquetas personales en Explore (pins + búsqueda)
 
-**Estado:** implementado (merge PR #106, 2026-03-22).  
+**Estado:** implementado (merge PR #106, 2026-03-22) y ampliado en rama de trabajo el 2026-04-20 con rename, panel `Etiquetas` en perfil y asignación masiva.  
 **Loops:** `OL-EXPLORE-TAGS-001` (cerrado — ver bitácora `310`).  
 **Decisión de producto:** bitácora `277` (tags personales; sin categorías Mapbox en v1).
 
@@ -12,7 +12,9 @@
 - Listados: `components/design-system/search-list-card.tsx` (`tagChips`, quick action `add_tag`)
 - Superficie búsqueda: `components/search/SearchSurface.tsx` (fila de chips + modo edición)
 - Mapa/orquestación: `components/explorar/MapScreenVNext.tsx`
+- Barra bulk de selección: `components/explorar/explore-bulk-tag-selection-bar.tsx`
 - Sheet de spot: `components/explorar/SpotSheet.tsx` (`SpotSheetMetaRow`: distancia + chips + «Etiquetar»)
+- Administración en perfil: `components/account/web/AccountTagsPanel.web.tsx`, `app/account/tags.web.tsx`
 
 ---
 
@@ -61,12 +63,23 @@ Implementación: `lib/tags.ts` → `normalizeTagSlug`, `createOrGetUserTag`.
 
 **Replicación nativa:** misma función de normalización en cliente; unicidad garantizada en BD.
 
+### 2.1 Rename canónico (2026-04-20)
+
+- `renameUserTag(tagId, nextName)` vive en `lib/tags.ts`.
+- Reglas:
+  - recalcula `slug` con la misma normalización de creación;
+  - exige sesión autenticada;
+  - bloquea colisión de `(user_id, slug)` con error explícito;
+  - emite revisión de catálogo (`subscribeUserTagsRevision`) para refrescar paneles y listados dependientes sin recarga manual.
+
 ---
 
 ## 3) Asociación a un spot
 
 - `attachTagToSpot(spotId, tagId)` → INSERT en `pin_tags`
 - `detachTagFromSpot(spotId, tagId)` → DELETE
+- `attachTagToSpots(spotIds[], tagId)` → inserción masiva idempotente a nivel de UI (el runtime filtra previamente asociaciones ya compartidas por todo el batch)
+- `detachTagFromSpots(spotIds[], tagId)` → DELETE masivo por `spot_id[]`
 - `deleteUserTag(tagId)` → borra `user_tags` (CASCADE en asociaciones según migración)
 
 ---
@@ -116,22 +129,41 @@ Props relevantes: `label`, `showHash` (default `true` → muestra `#nombre`), `o
 
 ## 8) Modal de asignación de etiquetas (runtime)
 
-- Controlado en `MapScreenVNext` cuando `tagAssignSpot != null`.
-- Muestra título del spot, chips actuales con `tagChip` + `onRemove`, input para crear/buscar, sugerencias con `TagChip` `visualVariant="suggested"`.
-- Al guardar: `createOrGetUserTag` + `attachTagToSpot`; feedback por **System Status** (toast).
+- Controlado en `MapScreenVNext` cuando `tagAssignTarget != null`.
+- Soporta dos objetivos:
+  - `single`: un solo spot;
+  - `bulk`: varios spots seleccionados desde el listado `Lugares`.
+- Muestra chips actualmente compartidos por el target, input para crear/buscar y sugerencias con `TagChip` `visualVariant="suggested"`.
+- Al guardar:
+  - target simple → `createOrGetUserTag` + `attachTagToSpot`;
+  - target bulk → `createOrGetUserTag` + `attachTagToSpots` solo sobre spots que todavía no comparten esa etiqueta.
+- La selección bulk es **efímera**: se limpia al confirmar o al invalidarse el pool visible.
+
+## 9) Panel `Etiquetas` en perfil (2026-04-20)
+
+- El perfil web expone un subpanel `Etiquetas` accesible desde `/account/tags` o `?account=tags` en Explore desktop.
+- El panel lista el inventario global del usuario y muestra:
+  - nombre;
+  - conteo de spots asociados;
+  - acción de renombrar;
+  - acción de borrar.
+- La creación y asignación siguen siendo contextuales desde Explore; el panel de perfil es la superficie de administración global.
 
 ---
 
-## 9) Coexistencia con `pinFilter` (Todos / Por visitar / Visitados)
+## 10) Coexistencia con `pinFilter` (Todos / Por visitar / Visitados)
 
 - El filtro de **pins** (`MapPinFilterInline`) y el filtro de **etiqueta** son ortogonales: se documenta la intención en `docs/contracts/SEARCH_V2.md` y aquí.
 - Al pasar a pin **Todos**, se limpia el filtro de etiqueta y el modo edición de chips (`MapScreenVNext`).
 
 ---
 
-## 10) Criterios de aceptación (v1) — checklist
+## 11) Criterios de aceptación — checklist
 
 1. Usuario autenticado crea etiqueta y reutiliza sin duplicados semánticos (slug).
 2. Cards y sheet muestran chips de etiquetas del usuario para ese spot.
 3. Barra de chips en buscador permite filtrar y, en modo edición, eliminar etiqueta del inventario.
-4. RLS impide lectura/escritura de tags de otros usuarios.
+4. El usuario puede renombrar una etiqueta sin refrescar manualmente y sin generar colisión silenciosa.
+5. El usuario puede seleccionar varios spots en `Lugares` y asignar etiquetas en lote.
+6. El panel `Etiquetas` en perfil refleja el inventario global y sus conteos.
+7. RLS impide lectura/escritura de tags de otros usuarios.
