@@ -30,6 +30,8 @@ export type SearchResultCardProps = {
   }[];
   tagChips?: { id: string; label: string }[];
   onHoverChange?: (hovered: boolean) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
 };
 
 export function SearchResultCard({
@@ -40,6 +42,8 @@ export function SearchResultCard({
   quickActions = [],
   tagChips,
   onHoverChange,
+  selectionMode = false,
+  selected = false,
 }: SearchResultCardProps) {
   const resolvedSubtitle =
     subtitleOverride !== undefined ? subtitleOverride : (spot.address ?? null);
@@ -54,6 +58,8 @@ export function SearchResultCard({
         maki={spot.linked_maki ?? undefined}
         quickActions={quickActions}
         tagChips={tagChips}
+        selectionMode={selectionMode}
+        selected={selected}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
         onHoverChange={onHoverChange}

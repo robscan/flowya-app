@@ -29,6 +29,7 @@ export default function RootLayout() {
         <Stack.Screen name="account/index" options={{ headerShown: false, title: 'Cuenta' }} />
         <Stack.Screen name="account/account" options={{ headerShown: false, title: 'Cuenta' }} />
         <Stack.Screen name="account/privacy" options={{ headerShown: false, title: 'Privacidad de fotos' }} />
+        <Stack.Screen name="account/tags" options={{ headerShown: false, title: 'Etiquetas' }} />
         <Stack.Screen name="account/language" options={{ headerShown: false, title: 'Idioma' }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>

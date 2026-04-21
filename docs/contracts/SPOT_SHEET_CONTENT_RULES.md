@@ -90,14 +90,22 @@ Cuando la sheet está en **modo POI** (no hay `spot` aún) se puede mostrar un C
   - Abre picker de imágenes (web: multi-selección).
   - Si el usuario selecciona imágenes, entonces:
     - Persiste el spot (insert) en background.
-    - Sube todas las imágenes seleccionadas como **galería** (`spot_images`).
-    - Sincroniza portada desde la galería (primera imagen efectiva).
+    - Resuelve primero la preferencia `profiles.share_photos_with_world`.
+    - Si la preferencia es **ON**: sube imágenes a **galería pública** (`spot_images`) y sincroniza portada desde la galería.
+    - Si la preferencia es **OFF**: sube imágenes a **galería privada** (`spot_personal_images` + bucket `spot-personal`) y **no** escribe `spots.cover_image_url`.
 - **Estado busy**:
   - El CTA se reemplaza por el estado de “Subiendo…” (spinner + copy) usando el componente canónico `AddImageCta`.
   - Mientras está busy, los CTAs `Por visitar` / `Visitado` quedan deshabilitados para evitar doble persistencia.
 - **Semántica de estado inicial**:
   - Si `pinFilter === "saved"` el spot se crea como `to_visit`.
   - En cualquier otro caso (incluye `all` y `visited`), se crea como `visited` (subir fotos implica memoria personal).
+
+### Extensión E2 — Hero en spot visitado
+
+- En **Visitados**, el hero de `SpotSheet` debe priorizar **fotos personales del usuario autenticado**.
+- Si existen fotos personales del usuario para ese spot, **se muestran esas fotos**.
+- Si **no** existen fotos personales del usuario, el hero **no** debe caer a portada/galería comunitaria; en ese caso se muestra el CTA **“Subir mis fotos”**.
+- Ver contrato fuente para semántica público/privado: [`PHOTO_SHARING_CONSENT.md`](PHOTO_SHARING_CONSENT.md).
 
 ---
 

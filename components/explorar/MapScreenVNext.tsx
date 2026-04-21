@@ -69,11 +69,23 @@ import {
   type CountriesSheetListDetail,
   type CountriesSheetState,
 } from "@/components/explorar/CountriesSheet";
-import type { CountrySheetItem } from "@/components/design-system/countries-sheet-types";
+import {
+  areExplorePlacesCountryFiltersEqual,
+  buildAllPlacesCountryFilter,
+  buildSingleCountryFilter,
+  explorePlacesCountryFilterIncludes,
+  getExplorePlacesCountryFilterSummaryLabel,
+  isExplorePlacesCountryFilterActive,
+  normalizeExplorePlacesCountryFilter,
+  toggleExplorePlacesCountryFilterCountry,
+  type CountrySheetItem,
+  type ExplorePlacesCountryFilter,
+} from "@/components/design-system/countries-sheet-types";
 import {
   ExplorePlacesActiveFilterChips,
   ExplorePlacesActiveFiltersBar,
 } from "@/components/explorar/explore-places-active-filters-bar";
+import { ExploreBulkTagSelectionBar } from "@/components/explorar/explore-bulk-tag-selection-bar";
 import { ExplorePlacesFiltersModal } from "@/components/explorar/explore-places-filters-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { AccountExploreDesktopPanel } from "@/components/account/AccountExploreDesktopPanel";
@@ -94,6 +106,7 @@ import { useSearchHistory } from "@/hooks/search/useSearchHistory";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useSpotGalleryUris } from "@/hooks/useSpotGalleryUris";
+import { useSpotPersonalGalleryUris } from "@/hooks/useSpotPersonalGalleryUris";
 import { getCurrentLanguage, getCurrentLocale } from "@/lib/i18n/locale-config";
 import { useMapCore } from "@/hooks/useMapCore";
 import { featureFlags } from "@/lib/feature-flags";
@@ -281,13 +294,17 @@ import { computeTravelerPoints } from "@/lib/traveler-levels";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
+    attachTagToSpots,
     attachTagToSpot,
     countTagsInSpotIds,
     createOrGetUserTag,
     deleteUserTag,
+    detachTagFromSpots,
     detachTagFromSpot,
     fetchPinTagsIndexForSession,
+    getUserTagsRevisionSnapshot,
     listUserTags,
+    subscribeUserTagsRevision,
     type UserTagRow,
 } from "@/lib/tags";
 
@@ -314,6 +331,10 @@ type Spot = {
   /** OL-EXPLORE-TAGS-001: ids de user_tags (búsqueda / índice en cliente). */
   tagIds?: string[];
 };
+
+type TagAssignTarget =
+  | { kind: "single"; spotIds: string[]; title: string }
+  | { kind: "bulk"; spotIds: string[]; title: string };
 
 /** Spots Flowya en filas de lista vacía (mezcla con PlaceResult) — solo IDs reales para conteo de chips. */
 function collectSpotIdsFromBrowseEmptyItems(items: (Spot | PlaceResult)[]): Set<string> {
@@ -620,12 +641,22 @@ export function MapScreenVNext() {
     selectedSpot && !selectedSpot.id.startsWith("draft_")
       ? selectedSpot.id
       : null;
+  const selectedSpotIsVisited = Boolean(
+    selectedSpot && (selectedSpot.visited ?? selectedSpot.pinStatus === "visited"),
+  );
   const { galleryUris } = useSpotGalleryUris(gallerySpotId);
+  const { personalGalleryUris, loading: personalGalleryUrisLoading } = useSpotPersonalGalleryUris(
+    selectedSpotIsVisited ? gallerySpotId : null,
+    selectedSpotIsVisited,
+  );
   const [optimisticHeroUrisBySpotId, setOptimisticHeroUrisBySpotId] = useState<
     Record<string, string[]>
   >({});
   const [heroUrisOverrideBySpotId, setHeroUrisOverrideBySpotId] = useState<
     Record<string, string[]>
+  >({});
+  const [spotOwnerUserIdBySpotId, setSpotOwnerUserIdBySpotId] = useState<
+    Record<string, string | null>
   >({});
   const revokeOptimisticHeroUris = useCallback((spotId: string) => {
     if (Platform.OS !== "web") return;
@@ -689,8 +720,80 @@ export function MapScreenVNext() {
     if (!gallerySpotId) return;
     if (galleryUris.length === 0) return;
     if (!heroUrisOverrideBySpotId[gallerySpotId]) return;
+    if (
+      selectedSpotIsVisited &&
+      spotOwnerUserIdBySpotId[gallerySpotId] !== exploreAuthUserIdRef.current
+    ) {
+      return;
+    }
     clearHeroOverrideUrisForSpot(gallerySpotId);
-  }, [gallerySpotId, galleryUris, heroUrisOverrideBySpotId, clearHeroOverrideUrisForSpot]);
+  }, [
+    gallerySpotId,
+    galleryUris,
+    heroUrisOverrideBySpotId,
+    clearHeroOverrideUrisForSpot,
+    selectedSpotIsVisited,
+    spotOwnerUserIdBySpotId,
+  ]);
+
+  useEffect(() => {
+    if (!gallerySpotId) return;
+    if (gallerySpotId in spotOwnerUserIdBySpotId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from("spots")
+          .select("user_id")
+          .eq("id", gallerySpotId)
+          .maybeSingle();
+        if (cancelled) return;
+        setSpotOwnerUserIdBySpotId((prev) => {
+          if (gallerySpotId in prev) return prev;
+          return {
+            ...prev,
+            [gallerySpotId]:
+              data && typeof (data as { user_id?: unknown }).user_id === "string"
+                ? String((data as { user_id: string }).user_id)
+                : null,
+          };
+        });
+      } catch {
+        if (cancelled) return;
+        setSpotOwnerUserIdBySpotId((prev) => {
+          if (gallerySpotId in prev) return prev;
+          return { ...prev, [gallerySpotId]: null };
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [gallerySpotId, spotOwnerUserIdBySpotId]);
+
+  const selectedSpotOwnedByCurrentUser = Boolean(
+    gallerySpotId &&
+      exploreAuthUserIdRef.current &&
+      spotOwnerUserIdBySpotId[gallerySpotId] === exploreAuthUserIdRef.current,
+  );
+  const selectedVisitedHeroUris = useMemo(() => {
+    if (!selectedSpotIsVisited || !gallerySpotId) return [];
+    const override = heroUrisOverrideBySpotId[gallerySpotId] ?? [];
+    if (override.length > 0) return override;
+    const optimistic = optimisticHeroUrisBySpotId[gallerySpotId] ?? [];
+    if (optimistic.length > 0) return optimistic;
+    if (personalGalleryUris.length > 0) return personalGalleryUris;
+    if (selectedSpotOwnedByCurrentUser && galleryUris.length > 0) return galleryUris;
+    return [];
+  }, [
+    selectedSpotIsVisited,
+    gallerySpotId,
+    heroUrisOverrideBySpotId,
+    optimisticHeroUrisBySpotId,
+    personalGalleryUris,
+    selectedSpotOwnedByCurrentUser,
+    galleryUris,
+  ]);
   const [runtimeState, dispatchRuntimeIntent] = useReducer(
     exploreRuntimeReducer,
     INITIAL_EXPLORE_RUNTIME_STATE,
@@ -778,6 +881,11 @@ export function MapScreenVNext() {
   const [userTags, setUserTags] = useState<UserTagRow[]>([]);
   /** Catálogo de etiquetas cargado al menos una vez; evita prune con pool vacío por carrera con hidratación. */
   const [userTagsCatalogReady, setUserTagsCatalogReady] = useState(false);
+  const userTagsRevision = useSyncExternalStore(
+    subscribeUserTagsRevision,
+    getUserTagsRevisionSnapshot,
+    getUserTagsRevisionSnapshot,
+  );
   const userTagsRef = useRef(userTags);
   userTagsRef.current = userTags;
   const [pinTagIndex, setPinTagIndex] = useState<Record<string, string[]>>({});
@@ -796,13 +904,15 @@ export function MapScreenVNext() {
    * No se borra al pasar a KPI (`countriesSheetListView === null`) ni al cerrar el sheet.
    */
   const [explorePlacesCountryFilter, setExplorePlacesCountryFilter] =
-    useState<CountriesSheetListDetail | null>(null);
+    useState<ExplorePlacesCountryFilter>(buildAllPlacesCountryFilter());
   const [tagFilterEditMode, setTagFilterEditMode] = useState(false);
   const [tagDeleteConfirm, setTagDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
   const [tagDeleteBusy, setTagDeleteBusy] = useState(false);
-  const [tagAssignSpot, setTagAssignSpot] = useState<Spot | null>(null);
+  const [tagAssignTarget, setTagAssignTarget] = useState<TagAssignTarget | null>(null);
   const [tagAssignInput, setTagAssignInput] = useState("");
   const [tagAssignSaving, setTagAssignSaving] = useState(false);
+  const [bulkTagSelectionMode, setBulkTagSelectionMode] = useState(false);
+  const [bulkTagSelectedSpotIds, setBulkTagSelectedSpotIds] = useState<string[]>([]);
   const countriesOverlayEntry = useRef(new Animated.Value(0)).current;
   const filterOverlayEntry = useRef(new Animated.Value(0)).current;
   const sloganEntryOpacity = useRef(new Animated.Value(0)).current;
@@ -982,14 +1092,14 @@ export function MapScreenVNext() {
     wasOpen: boolean;
     state: CountriesSheetState;
     listView: CountriesSheetListDetail | null;
-    countryFilter: CountriesSheetListDetail | null;
+    countryFilter: ExplorePlacesCountryFilter;
   } | null>(null);
   /** KPI: Countries abierto antes de cubrir con Spot/POI; restaurar al cerrar SpotSheet. */
   const countriesSheetBeforeSpotSheetRef = useRef<{
     wasOpen: boolean;
     state: CountriesSheetState;
     listView: CountriesSheetListDetail | null;
-    countryFilter: CountriesSheetListDetail | null;
+    countryFilter: ExplorePlacesCountryFilter;
   } | null>(null);
   /** Asignado cada render tras `countriesSheet*Ref`; handlers tempranos (p. ej. `handleMapClick`) llaman vía ref. */
   const captureCountriesBeforeSpotFnRef = useRef<() => void>(() => {});
@@ -1178,13 +1288,15 @@ export function MapScreenVNext() {
       setUserTags([]);
       setPinTagIndex({});
       setSelectedTagFilterIds([]);
-      setExplorePlacesCountryFilter(null);
+      setExplorePlacesCountryFilter(buildAllPlacesCountryFilter());
       setCountriesSheetListView(null);
       setUserTagsCatalogReady(false);
       explorePlacesFiltersHydratedForUserRef.current = null;
-      setTagAssignSpot(null);
+      setTagAssignTarget(null);
       setTagAssignInput("");
       setTagAssignSaving(false);
+      setBulkTagSelectionMode(false);
+      setBulkTagSelectedSpotIds([]);
       setSpots((prev) =>
         prev.map((s) => ({ ...s, saved: false, visited: false, pinStatus: "default" as SpotPinStatus })),
       );
@@ -1194,11 +1306,13 @@ export function MapScreenVNext() {
     setUserTags([]);
     setPinTagIndex({});
     setSelectedTagFilterIds([]);
-    setExplorePlacesCountryFilter(null);
+    setExplorePlacesCountryFilter(buildAllPlacesCountryFilter());
     setCountriesSheetListView(null);
-    setTagAssignSpot(null);
+    setTagAssignTarget(null);
     setTagAssignInput("");
     setTagAssignSaving(false);
+    setBulkTagSelectionMode(false);
+    setBulkTagSelectedSpotIds([]);
     setSpots((prev) =>
       prev.map((s) => ({ ...s, saved: false, visited: false, pinStatus: "default" as SpotPinStatus })),
     );
@@ -1235,9 +1349,7 @@ export function MapScreenVNext() {
     if (!snap) return;
     const valid = new Set(userTagsRef.current.map((t) => t.id));
     setSelectedTagFilterIds(snap.tagIds.filter((id) => valid.has(id)));
-    if (snap.country != null) {
-      setExplorePlacesCountryFilter(snap.country);
-    }
+    setExplorePlacesCountryFilter(snap.country);
   }, [isAuthUser, userTagsCatalogReady]);
 
   useEffect(() => {
@@ -1255,9 +1367,7 @@ export function MapScreenVNext() {
       if (!snap) return;
       const valid = new Set(userTagsRef.current.map((t) => t.id));
       setSelectedTagFilterIds(snap.tagIds.filter((id) => valid.has(id)));
-      if (snap.country != null) {
-        setExplorePlacesCountryFilter(snap.country);
-      }
+      setExplorePlacesCountryFilter(snap.country);
     })();
     return () => {
       cancelled = true;
@@ -1279,7 +1389,7 @@ export function MapScreenVNext() {
       setExplorePlacesFiltersSnapshot(uid, {
         v: EXPLORE_PLACES_FILTERS_SNAPSHOT_VERSION,
         tagIds: selectedTagFilterIds,
-        country: explorePlacesCountryFilter,
+        country: normalizeExplorePlacesCountryFilter(explorePlacesCountryFilter),
       });
     }, 400);
     return () => clearTimeout(t);
@@ -1498,14 +1608,13 @@ export function MapScreenVNext() {
 
   /**
    * Alcance para mapa, chips, conteos y modal Filtros.
-   * Debe prevalecer `explorePlacesCountryFilter` (selección persistida / mapa) sobre la ruta UI del sheet:
-   * si `countriesSheetListView` queda en «todos los lugares» (p. ej. fila Lugares del KPI) pero el filtro
-   * de país sigue activo, `listView ?? map` ocultaba el chip de país al reabrir el sheet; las etiquetas no pasaban por eso.
+   * Separado de `countriesSheetListView`: la ruta del sheet resuelve UX de navegación;
+   * este filtro gobierna dataset/persistencia y puede abarcar uno o varios países.
    */
   const placesScopeForData = useMemo(
-    (): CountriesSheetListDetail | null =>
-      explorePlacesCountryFilter ?? countriesSheetListView,
-    [explorePlacesCountryFilter, countriesSheetListView],
+    (): ExplorePlacesCountryFilter =>
+      normalizeExplorePlacesCountryFilter(explorePlacesCountryFilter),
+    [explorePlacesCountryFilter],
   );
 
   const displayedSpots = useMemo(() => {
@@ -1539,15 +1648,13 @@ export function MapScreenVNext() {
       ? filterExploreSearchItemsByTag(allFilterWithoutLinkedDefaults, selectedTagFilterIds, pinTagIndex)
       : allFilterWithoutLinkedDefaults;
 
-    const countryScopeKey =
-      placesScopeForData?.kind === "country" ? placesScopeForData.key : null;
-    const afterCountryFilter =
-      countryScopeKey == null
-        ? afterTagFilter
-        : afterTagFilter.filter((spot) => {
-            const resolved = resolveCountryForSpot(spot);
-            return resolved?.key === countryScopeKey;
-          });
+    const countryScopeActive = isExplorePlacesCountryFilterActive(placesScopeForData);
+    const afterCountryFilter = !countryScopeActive
+      ? afterTagFilter
+      : afterTagFilter.filter((spot) => {
+          const resolved = resolveCountryForSpot(spot);
+          return explorePlacesCountryFilterIncludes(placesScopeForData, resolved?.key);
+        });
 
     const base =
       afterCountryFilter.length > MAP_PIN_CAP
@@ -1581,8 +1688,7 @@ export function MapScreenVNext() {
       result = [...result, selectedSpot];
     }
     const countryScopeActiveOnMap =
-      placesScopeForData?.kind === "country" &&
-      (pinFilter === "saved" || pinFilter === "visited");
+      countryScopeActive && (pinFilter === "saved" || pinFilter === "visited");
     if (
       countryScopeActiveOnMap &&
       selectedSpot &&
@@ -2687,6 +2793,12 @@ export function MapScreenVNext() {
       .filter((s): s is Spot => s != null);
   }, [spots, recentViewedIds]);
 
+  const spotsById = useMemo(() => {
+    const map = new Map<string, Spot>();
+    for (const spot of spots) map.set(spot.id, spot);
+    return map;
+  }, [spots]);
+
   const refreshTagsAfterPinChange = useCallback(async () => {
     try {
       const [tags, index] = await Promise.all([listUserTags(), fetchPinTagsIndexForSession()]);
@@ -2697,8 +2809,49 @@ export function MapScreenVNext() {
     }
   }, []);
 
+  useEffect(() => {
+    if (!isAuthUser || userTagsRevision === 0) return;
+    void refreshTagsAfterPinChange();
+  }, [isAuthUser, userTagsRevision, refreshTagsAfterPinChange]);
+
+  const clearBulkTagSelection = useCallback(
+    (options?: { exitSelectionMode?: boolean }) => {
+      setBulkTagSelectedSpotIds([]);
+      if (options?.exitSelectionMode !== false) setBulkTagSelectionMode(false);
+    },
+    [],
+  );
+
+  const toggleBulkTagSelectedSpot = useCallback((spotId: string) => {
+    setBulkTagSelectedSpotIds((prev) =>
+      prev.includes(spotId) ? prev.filter((id) => id !== spotId) : [...prev, spotId],
+    );
+  }, []);
+
+  const handleOpenBulkTagAssign = useCallback(() => {
+    const spotIds = [...new Set(bulkTagSelectedSpotIds)].filter((id) => !id.startsWith("draft_"));
+    if (spotIds.length === 0) return;
+    setTagAssignTarget({
+      kind: "bulk",
+      spotIds,
+      title:
+        spotIds.length === 1
+          ? spotsById.get(spotIds[0])?.title ?? "1 lugar seleccionado"
+          : `${spotIds.length} lugares seleccionados`,
+    });
+    setTagAssignInput("");
+    setTagAssignSaving(false);
+  }, [bulkTagSelectedSpotIds, spotsById]);
+
+  const openTagAssignForSpot = useCallback((spot: Spot) => {
+    if (spot.id.startsWith("draft_")) return;
+    setTagAssignTarget({ kind: "single", spotIds: [spot.id], title: spot.title });
+    setTagAssignInput("");
+    setTagAssignSaving(false);
+  }, []);
+
   const handleCloseTagAssignModal = useCallback(() => {
-    setTagAssignSpot(null);
+    setTagAssignTarget(null);
     setTagAssignInput("");
     setTagAssignSaving(false);
   }, []);
@@ -2719,40 +2872,57 @@ export function MapScreenVNext() {
 
   const handleSheetEtiquetarFromSheet = useCallback(() => {
     if (!selectedSpot || selectedSpot.id.startsWith("draft_")) return;
-    setTagAssignSpot(selectedSpot);
-    setTagAssignInput("");
-  }, [selectedSpot]);
+    openTagAssignForSpot(selectedSpot);
+  }, [openTagAssignForSpot, selectedSpot]);
 
-  const handleDetachTagFromAssignSpot = useCallback(
+  const handleDetachTagFromAssignTarget = useCallback(
     async (tagId: string) => {
-      if (!tagAssignSpot) return;
+      if (!tagAssignTarget) return;
       setTagAssignSaving(true);
       try {
-        await detachTagFromSpot(tagAssignSpot.id, tagId);
+        if (tagAssignTarget.kind === "single") {
+          await detachTagFromSpot(tagAssignTarget.spotIds[0], tagId);
+          searchV2.invalidateSpotId(tagAssignTarget.spotIds[0]);
+        } else {
+          await detachTagFromSpots(tagAssignTarget.spotIds, tagId);
+          tagAssignTarget.spotIds.forEach((spotId) => searchV2.invalidateSpotId(spotId));
+        }
         await refreshTagsAfterPinChange();
-        searchV2.invalidateSpotId(tagAssignSpot.id);
       } finally {
         setTagAssignSaving(false);
       }
     },
-    [tagAssignSpot, refreshTagsAfterPinChange, searchV2],
+    [tagAssignTarget, refreshTagsAfterPinChange, searchV2],
   );
 
   const handleCreateAndAttachTag = useCallback(async () => {
-    if (!tagAssignSpot) return;
+    if (!tagAssignTarget) return;
     const name = tagAssignInput.trim();
     if (!name) return;
-    const spotId = tagAssignSpot.id;
     setTagAssignSaving(true);
     try {
       const row = await createOrGetUserTag(name);
-      await attachTagToSpot(spotId, row.id);
+      const spotIds = [...new Set(tagAssignTarget.spotIds)];
+      const missingSpotIds = spotIds.filter((spotId) => !(pinTagIndex[spotId] ?? []).includes(row.id));
+      if (tagAssignTarget.kind === "single") {
+        if (missingSpotIds.length > 0) await attachTagToSpot(missingSpotIds[0], row.id);
+      } else if (missingSpotIds.length > 0) {
+        await attachTagToSpots(missingSpotIds, row.id);
+      }
       await refreshTagsAfterPinChange();
-      searchV2.invalidateSpotId(spotId);
-      setTagAssignSpot(null);
+      spotIds.forEach((spotId) => searchV2.invalidateSpotId(spotId));
+      setTagAssignTarget(null);
       setTagAssignInput("");
+      if (tagAssignTarget.kind === "bulk") {
+        clearBulkTagSelection();
+      }
       if (!suppressToastRef.current) {
-        toast.show("Etiqueta guardada.", { type: "success", replaceVisible: true });
+        toast.show(
+          tagAssignTarget.kind === "bulk"
+            ? "Etiquetas actualizadas para la selección."
+            : "Etiqueta guardada.",
+          { type: "success", replaceVisible: true },
+        );
       }
     } catch {
       if (!suppressToastRef.current) {
@@ -2761,7 +2931,15 @@ export function MapScreenVNext() {
     } finally {
       setTagAssignSaving(false);
     }
-  }, [tagAssignSpot, tagAssignInput, refreshTagsAfterPinChange, searchV2, toast]);
+  }, [
+    tagAssignTarget,
+    tagAssignInput,
+    pinTagIndex,
+    refreshTagsAfterPinChange,
+    searchV2,
+    toast,
+    clearBulkTagSelection,
+  ]);
 
   const handleRequestDeleteUserTag = useCallback((tagId: string, tagName: string) => {
     setTagDeleteConfirm({ id: tagId, name: tagName });
@@ -3403,6 +3581,7 @@ export function MapScreenVNext() {
     async (
       initialStatus?: "to_visit" | "visited",
       targetSheetState: "medium" | "expanded" = "medium",
+      skipDuplicateCheck: boolean = false,
     ) => {
       const mutationToken = (lastUserMutationTokenRef.current += 1);
       const poi = poiTapped;
@@ -3411,6 +3590,22 @@ export function MapScreenVNext() {
       const shouldTrackCreateFromSearch = poi.source === "search_suggestion";
       let didAttemptPersist = false;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      if (!skipDuplicateCheck) {
+        const duplicateResult = await checkDuplicateSpot(
+          poi.name,
+          poi.lat,
+          poi.lng,
+          DEFAULT_DUPLICATE_RADIUS_METERS,
+        );
+        if (duplicateResult.duplicate) {
+          setDuplicateModal({
+            existingTitle: duplicateResult.existingTitle,
+            existingSpotId: duplicateResult.existingSpotId,
+            onCreateAnyway: () => handleCreateSpotFromPoi(initialStatus, targetSheetState, true),
+          });
+          return;
+        }
+      }
       let created = false;
       if (initialStatus === "to_visit") {
         setPoiTapped((prev) =>
@@ -3534,12 +3729,28 @@ export function MapScreenVNext() {
     ],
   );
 
-  const handlePoiAddPhotos = useCallback(async () => {
+  const handlePoiAddPhotos = useCallback(async (skipDuplicateCheck: boolean = false) => {
     if (poiAddPhotosBusy) return;
     const mutationToken = (lastUserMutationTokenRef.current += 1);
     const poi = poiTapped;
     if (!poi) return;
     if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    if (!skipDuplicateCheck) {
+      const duplicateResult = await checkDuplicateSpot(
+        poi.name,
+        poi.lat,
+        poi.lng,
+        DEFAULT_DUPLICATE_RADIUS_METERS,
+      );
+      if (duplicateResult.duplicate) {
+        setDuplicateModal({
+          existingTitle: duplicateResult.existingTitle,
+          existingSpotId: duplicateResult.existingSpotId,
+          onCreateAnyway: () => handlePoiAddPhotos(true),
+        });
+        return;
+      }
+    }
     const sharePref = await resolvePhotoSharingOrAskOnce();
     if (sharePref == null) return;
     const initialStatus: "to_visit" | "visited" =
@@ -4265,9 +4476,7 @@ export function MapScreenVNext() {
       ) {
         setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnapshot.state));
         setCountriesSheetListView(countriesSnapshot.listView);
-        setExplorePlacesCountryFilter(
-          countriesSnapshot.countryFilter ?? countriesSnapshot.listView ?? null,
-        );
+        setExplorePlacesCountryFilter(countriesSnapshot.countryFilter);
         setCountriesSheetOpen(true);
       }
     }
@@ -4486,9 +4695,10 @@ export function MapScreenVNext() {
       return countriesPlacesCountForOverlay;
     }
     let pool = countriesSheetOverlaySpotsPool;
-    if (placesScopeForData?.kind === "country") {
-      const key = placesScopeForData.key;
-      pool = pool.filter((spot) => resolveCountryForSpot(spot)?.key === key);
+    if (isExplorePlacesCountryFilterActive(placesScopeForData)) {
+      pool = pool.filter((spot) =>
+        explorePlacesCountryFilterIncludes(placesScopeForData, resolveCountryForSpot(spot)?.key),
+      );
     }
     return filterExploreSearchItemsByTag(pool, selectedTagFilterIds, pinTagIndex).length;
   }, [
@@ -4516,14 +4726,27 @@ export function MapScreenVNext() {
     pinTagIndex,
   ]);
 
+  useEffect(() => {
+    const normalized = normalizeExplorePlacesCountryFilter(
+      explorePlacesCountryFilterRef.current,
+      countryBucketsForPlacesFiltersModal,
+    );
+    if (areExplorePlacesCountryFiltersEqual(normalized, explorePlacesCountryFilterRef.current)) {
+      return;
+    }
+    setExplorePlacesCountryFilter(normalized);
+    if (normalized.kind === "all_places" && countriesSheetListViewRef.current?.kind === "country") {
+      setCountriesSheetListView({ kind: "all_places" });
+    }
+  }, [countryBucketsForPlacesFiltersModal]);
+
   const countriesSheetDetailBaseSpots = useMemo(() => {
-    if (!placesScopeForData) return [];
-    if (placesScopeForData.kind === "all_places") {
+    if (!isExplorePlacesCountryFilterActive(placesScopeForData)) {
       return countriesSheetOverlaySpotsPool;
     }
     return countriesSheetOverlaySpotsPool.filter((spot) => {
       const resolved = resolveCountryForSpot(spot);
-      return resolved?.key === placesScopeForData.key;
+      return explorePlacesCountryFilterIncludes(placesScopeForData, resolved?.key);
     });
   }, [placesScopeForData, countriesSheetOverlaySpotsPool]);
 
@@ -4568,21 +4791,20 @@ export function MapScreenVNext() {
   );
 
   const countriesSheetDetailTagSpotIds = useMemo(() => {
-    if (!placesScopeForData) return new Set<string>();
     return new Set(countriesSheetDetailBaseSpots.map((s) => s.id));
-  }, [placesScopeForData, countriesSheetDetailBaseSpots]);
+  }, [countriesSheetDetailBaseSpots]);
 
   const countriesSheetDetailTagFilterOptions = useMemo(() => {
-    if (!isAuthUser || !placesScopeForData) return [];
+    if (!isAuthUser) return [];
     return countTagsInSpotIds(userTags, countriesSheetDetailTagSpotIds, pinTagIndex).map((tc) => ({
       id: tc.tag.id,
       name: tc.tag.name,
       count: tc.count,
     }));
-  }, [isAuthUser, placesScopeForData, userTags, countriesSheetDetailTagSpotIds, pinTagIndex]);
+  }, [isAuthUser, userTags, countriesSheetDetailTagSpotIds, pinTagIndex]);
 
   useEffect(() => {
-    if (!isAuthUser || !userTagsCatalogReady || placesScopeForData == null) return;
+    if (!isAuthUser || !userTagsCatalogReady) return;
     if (selectedTagFilterIds.length === 0) return;
     const valid = new Set(countriesSheetDetailTagFilterOptions.map((o) => o.id));
     const next = selectedTagFilterIds.filter((id) => valid.has(id));
@@ -4593,7 +4815,6 @@ export function MapScreenVNext() {
   }, [
     isAuthUser,
     userTagsCatalogReady,
-    placesScopeForData,
     countriesSheetDetailTagFilterOptions,
     selectedTagFilterIds,
   ]);
@@ -4629,6 +4850,8 @@ export function MapScreenVNext() {
       textSecondary: base.textSecondary,
       borderSubtle: panelOverrides.borderSubtle,
       background: panelOverrides.background,
+      backgroundElevated: panelOverrides.backgroundElevated,
+      primary: base.tint,
       surfaceOnMap: base.surfaceOnMap,
       /** País/ubicación: café/tierra `explorePlacesCountryChip*` (distinto de `tint` etiqueta y `location.primary` mapa). */
       countryChipBackground: base.explorePlacesCountryChipBackground,
@@ -4837,7 +5060,7 @@ export function MapScreenVNext() {
     } else {
       setCountriesSheetOpen(false);
       setCountriesSheetListView(null);
-      setExplorePlacesCountryFilter(null);
+      setExplorePlacesCountryFilter(buildAllPlacesCountryFilter());
       setCountriesSheetHeight(0);
     }
   }, [pinFilter, pinCounts.saved, pinCounts.visited]);
@@ -5075,11 +5298,13 @@ export function MapScreenVNext() {
       };
       const prevCountry = explorePlacesCountryFilterRef.current;
       setCountriesSheetListView(next);
-      setExplorePlacesCountryFilter(next);
+      setExplorePlacesCountryFilter(
+        buildSingleCountryFilter({ key: country.key, label: country.label }),
+      );
       setCountriesSheetState("expanded");
       if (
         !suppressToastRef.current &&
-        (prevCountry?.kind !== "country" || prevCountry.key !== next.key)
+        getExplorePlacesCountryFilterSummaryLabel(prevCountry) !== next.label
       ) {
         toast.show(`Mostrando solo ${next.label}.`, { type: "default", replaceVisible: true });
       }
@@ -5289,34 +5514,75 @@ export function MapScreenVNext() {
 
   /** Un solo sitio para «quitar país» en mapa + sheet + modal (ambos estados de alcance). */
   const applyPlacesScopeAllPlaces = useCallback(() => {
-    const prev = explorePlacesCountryFilterRef.current;
-    setExplorePlacesCountryFilter({ kind: "all_places" });
+    const prev = normalizeExplorePlacesCountryFilter(explorePlacesCountryFilterRef.current);
+    setExplorePlacesCountryFilter(buildAllPlacesCountryFilter());
     setCountriesSheetListView({ kind: "all_places" });
-    if (!suppressToastRef.current && prev?.kind === "country") {
+    if (!suppressToastRef.current && isExplorePlacesCountryFilterActive(prev)) {
       toast.show("Filtro de país desactivado.", { type: "default", replaceVisible: true });
     }
   }, [toast]);
 
+  const handleTogglePlacesCountryFilter = useCallback(
+    (item: CountrySheetItem) => {
+      const prev = normalizeExplorePlacesCountryFilter(
+        explorePlacesCountryFilterRef.current,
+        countryBucketsForPlacesFiltersModal,
+      );
+      const next = toggleExplorePlacesCountryFilterCountry(
+        prev,
+        item,
+        countryBucketsForPlacesFiltersModal,
+      );
+      setExplorePlacesCountryFilter(next);
+      setCountriesSheetListView({ kind: "all_places" });
+      if (suppressToastRef.current) return;
+      const nextLabel = getExplorePlacesCountryFilterSummaryLabel(next);
+      if (nextLabel == null) {
+        if (isExplorePlacesCountryFilterActive(prev)) {
+          toast.show("Filtro de país desactivado.", { type: "default", replaceVisible: true });
+        }
+        return;
+      }
+      if (getExplorePlacesCountryFilterSummaryLabel(prev) === nextLabel) return;
+      toast.show(
+        next.kind === "country_subset" && next.countries.length > 1
+          ? `Mostrando ${next.countries.length} países.`
+          : `Mostrando ${nextLabel}.`,
+        { type: "default", replaceVisible: true },
+      );
+    },
+    [countryBucketsForPlacesFiltersModal, toast],
+  );
+
   const placesListFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
-    const countryForBar = placesScopeForData ?? { kind: "all_places" as const };
     return (
-      <ExplorePlacesActiveFiltersBar
-        colors={placesListFiltersBarColors}
-        countryDetail={countryForBar}
-        onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
-        onClearCountryScope={applyPlacesScopeAllPlaces}
-        activeTags={placesListActiveTags}
-        onClearTagFilter={(tagId) => {
-          setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
-        }}
-        showTagChips={isAuthUser}
-        filtersSearchInline={{
-          onPress: openSearchPreservingCountriesSheet,
-          placeholder: "Busca: países, regiones o lugares",
-          accessibilityLabel: "Abrir búsqueda",
-        }}
-      />
+      <View style={styles.placesListBarsStack}>
+        <ExplorePlacesActiveFiltersBar
+          colors={placesListFiltersBarColors}
+          countryFilter={placesScopeForData}
+          onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
+          onClearCountryScope={applyPlacesScopeAllPlaces}
+          activeTags={placesListActiveTags}
+          onClearTagFilter={(tagId) => {
+            setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
+          }}
+          showTagChips={isAuthUser}
+          filtersSearchInline={{
+            onPress: openSearchPreservingCountriesSheet,
+            placeholder: "Busca: países, regiones o lugares",
+            accessibilityLabel: "Abrir búsqueda",
+          }}
+        />
+        <ExploreBulkTagSelectionBar
+          colors={placesListFiltersBarColors}
+          selectionMode={bulkTagSelectionMode}
+          selectedCount={bulkTagSelectedSpotIds.length}
+          onEnterSelectionMode={() => setBulkTagSelectionMode(true)}
+          onCancelSelectionMode={() => clearBulkTagSelection()}
+          onAssignTags={handleOpenBulkTagAssign}
+        />
+      </View>
     );
   }, [
     isAuthUser,
@@ -5326,6 +5592,10 @@ export function MapScreenVNext() {
     placesListActiveTags,
     applyPlacesScopeAllPlaces,
     openSearchPreservingCountriesSheet,
+    bulkTagSelectionMode,
+    bulkTagSelectedSpotIds.length,
+    clearBulkTagSelection,
+    handleOpenBulkTagAssign,
   ]);
 
   /** Misma fila que el sheet Lugares, pero visible aunque `countriesSheetListView` sea null (solo búsqueda). */
@@ -5342,20 +5612,29 @@ export function MapScreenVNext() {
 
   const placesSearchFilterBarEl = useMemo(() => {
     if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return null;
-    const countryForBar = placesScopeForData ?? { kind: "all_places" as const };
     return ({ searchField }: PlacesFiltersBarRenderProps) => (
-      <ExplorePlacesActiveFiltersBar
-        colors={placesListFiltersBarColors}
-        countryDetail={countryForBar}
-        onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
-        onClearCountryScope={applyPlacesScopeAllPlaces}
-        activeTags={placesSearchActiveTags}
-        onClearTagFilter={(tagId) => {
-          setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
-        }}
-        showTagChips={isAuthUser}
-        filtersEntryLeading={searchField}
-      />
+      <View style={styles.placesListBarsStack}>
+        <ExplorePlacesActiveFiltersBar
+          colors={placesListFiltersBarColors}
+          countryFilter={placesScopeForData}
+          onOpenFiltersPanel={() => setExplorePlacesFiltersOpen(true)}
+          onClearCountryScope={applyPlacesScopeAllPlaces}
+          activeTags={placesSearchActiveTags}
+          onClearTagFilter={(tagId) => {
+            setSelectedTagFilterIds((prev) => prev.filter((id) => id !== tagId));
+          }}
+          showTagChips={isAuthUser}
+          filtersEntryLeading={searchField}
+        />
+        <ExploreBulkTagSelectionBar
+          colors={placesListFiltersBarColors}
+          selectionMode={bulkTagSelectionMode}
+          selectedCount={bulkTagSelectedSpotIds.length}
+          onEnterSelectionMode={() => setBulkTagSelectionMode(true)}
+          onCancelSelectionMode={() => clearBulkTagSelection()}
+          onAssignTags={handleOpenBulkTagAssign}
+        />
+      </View>
     );
   }, [
     isAuthUser,
@@ -5364,6 +5643,10 @@ export function MapScreenVNext() {
     placesScopeForData,
     placesSearchActiveTags,
     applyPlacesScopeAllPlaces,
+    bulkTagSelectionMode,
+    bulkTagSelectedSpotIds.length,
+    clearBulkTagSelection,
+    handleOpenBulkTagAssign,
   ]);
 
   const renderCountryDetailItem = useCallback(
@@ -5384,22 +5667,21 @@ export function MapScreenVNext() {
         id,
         label: tagLabelById.get(id) ?? id,
       }));
+      const selectionActive = bulkTagSelectionMode;
+      const selectionSelected = bulkTagSelectedSpotIds.includes(spot.id);
       const quickActions = [
-        ...(isAuthUser
+        ...(isAuthUser && !selectionActive
           ? [
               {
                 id: `add-tag-${spot.id}`,
                 label: "Etiquetar",
                 kind: "add_tag" as const,
-                onPress: () => {
-                  setTagAssignSpot(spot);
-                  setTagAssignInput("");
-                },
+                onPress: () => openTagAssignForSpot(spot),
                 accessibilityLabel: `Etiquetar ${spot.title}`,
               },
             ]
           : []),
-        ...(isVisitedFilter
+        ...(isVisitedFilter && !selectionActive
           ? [
               ...(!hasCoverImage
                 ? [
@@ -5430,11 +5712,15 @@ export function MapScreenVNext() {
       return (
         <SearchResultCard
           spot={spot}
-          onPress={() => handleCountryDetailSpotPress(spot)}
+          onPress={() =>
+            selectionActive ? toggleBulkTagSelectedSpot(spot.id) : handleCountryDetailSpotPress(spot)
+          }
           distanceText={distanceText}
           subtitleOverride={isVisitedFilter ? (hasDescriptionShort ? descriptionShort : null) : undefined}
           quickActions={quickActions}
           tagChips={isAuthUser && tagChips.length > 0 ? tagChips : undefined}
+          selectionMode={selectionActive}
+          selected={selectionSelected}
           onHoverChange={
             Platform.OS === "web"
               ? (hovered) => setMapSearchListHoverSpotId(hovered ? spot.id : null)
@@ -5449,6 +5735,10 @@ export function MapScreenVNext() {
       handleQuickAddImageFromSearch,
       handleQuickEditDescriptionOpen,
       isAuthUser,
+      bulkTagSelectionMode,
+      bulkTagSelectedSpotIds,
+      openTagAssignForSpot,
+      toggleBulkTagSelectedSpot,
       pinTagIndex,
       quickAddImageBusySpotId,
       tagLabelById,
@@ -5463,15 +5753,28 @@ export function MapScreenVNext() {
     return ids.map((id) => ({ id, label: tagLabelById.get(id) ?? id }));
   }, [selectedSpot, isAuthUser, pinTagIndex, tagLabelById]);
 
-  /** Etiquetas guardadas que aún no están en el spot (sin duplicar icono+nombre en ambas secciones). */
+  const tagAssignCommonTagIds = useMemo(() => {
+    if (!tagAssignTarget || tagAssignTarget.spotIds.length === 0) return [];
+    const [firstSpotId, ...restSpotIds] = tagAssignTarget.spotIds;
+    const intersection = new Set(pinTagIndex[firstSpotId] ?? []);
+    for (const spotId of restSpotIds) {
+      const onSpot = new Set(pinTagIndex[spotId] ?? []);
+      for (const tagId of [...intersection]) {
+        if (!onSpot.has(tagId)) intersection.delete(tagId);
+      }
+    }
+    return [...intersection];
+  }, [tagAssignTarget, pinTagIndex]);
+
+  /** Etiquetas guardadas que aún no están en el target actual (sin duplicar icono+nombre en ambas secciones). */
   const tagModalAvailableToAdd = useMemo(() => {
-    if (!tagAssignSpot) return [];
-    const onSpot = new Set(pinTagIndex[tagAssignSpot.id] ?? []);
+    if (!tagAssignTarget) return [];
+    const alreadyAppliedToWholeTarget = new Set(tagAssignCommonTagIds);
     const q = tagAssignInput.trim().toLowerCase();
-    let list = userTags.filter((t) => !onSpot.has(t.id));
+    let list = userTags.filter((t) => !alreadyAppliedToWholeTarget.has(t.id));
     if (q) list = list.filter((t) => t.name.toLowerCase().includes(q));
     return list.slice(0, 24);
-  }, [tagAssignInput, userTags, tagAssignSpot, pinTagIndex]);
+  }, [tagAssignInput, userTags, tagAssignTarget, tagAssignCommonTagIds]);
 
   const tagModalAddButtonLabel = useMemo(() => {
     const t = tagAssignInput.trim();
@@ -5583,6 +5886,52 @@ export function MapScreenVNext() {
     selectedTagFilterIds,
     pinTagIndex,
   ]);
+
+  const bulkTagSelectableSpotIds = useMemo(() => {
+    if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) return [];
+    if (searchV2.isOpen) {
+      return kpiSpotsSearchResults
+        .filter((item): item is Spot => "title" in item && "latitude" in item)
+        .map((spot) => spot.id)
+        .filter((id) => !id.startsWith("draft_"));
+    }
+    if (countriesSheetListView != null) {
+      return countriesSheetDetailSpots
+        .map((spot) => spot.id)
+        .filter((id) => typeof id === "string" && !id.startsWith("draft_"));
+    }
+    return [];
+  }, [
+    isAuthUser,
+    pinFilter,
+    searchV2.isOpen,
+    kpiSpotsSearchResults,
+    countriesSheetListView,
+    countriesSheetDetailSpots,
+  ]);
+
+  useEffect(() => {
+    if (!bulkTagSelectionMode) return;
+    if (!isAuthUser || (pinFilter !== "saved" && pinFilter !== "visited")) {
+      clearBulkTagSelection();
+      return;
+    }
+    if (!searchV2.isOpen && countriesSheetListView == null) {
+      clearBulkTagSelection();
+      return;
+    }
+    const valid = new Set(bulkTagSelectableSpotIds);
+    setBulkTagSelectedSpotIds((prev) => prev.filter((id) => valid.has(id)));
+  }, [
+    bulkTagSelectionMode,
+    bulkTagSelectableSpotIds,
+    clearBulkTagSelection,
+    countriesSheetListView,
+    isAuthUser,
+    pinFilter,
+    searchV2.isOpen,
+  ]);
+
   const searchResultSections = useMemo<SearchSection<Spot | PlaceResult>[]>(() => {
     const normalizedQuery = normalizeCountryToken(searchV2.query);
     const isCountryDrilldownQuery =
@@ -6531,13 +6880,13 @@ export function MapScreenVNext() {
     () => ({
       onClose: () => setExplorePlacesFiltersOpen(false),
       countryItems: countryBucketsForPlacesFiltersModal,
-      countryDetail: placesScopeForData,
+      countryFilter: placesScopeForData,
       onSelectAllPlaces: () => {
         applyPlacesScopeAllPlaces();
         setExplorePlacesFiltersOpen(false);
       },
-      onSelectCountry: (item: CountrySheetItem) => {
-        handleCountryBucketPress(item);
+      onToggleCountry: (item: CountrySheetItem) => {
+        handleTogglePlacesCountryFilter(item);
         setExplorePlacesFiltersOpen(false);
       },
       tagFilterOptions: countriesSheetDetailTagFilterOptions,
@@ -6553,7 +6902,7 @@ export function MapScreenVNext() {
       countryBucketsForPlacesFiltersModal,
       placesScopeForData,
       applyPlacesScopeAllPlaces,
-      handleCountryBucketPress,
+      handleTogglePlacesCountryFilter,
       countriesSheetDetailTagFilterOptions,
       selectedTagFilterIds,
       tagFilterEditMode,
@@ -6705,7 +7054,7 @@ export function MapScreenVNext() {
         ) {
           setCountriesSheetState(coerceCountriesSheetInitialState(countriesSnap.state));
           setCountriesSheetListView(countriesSnap.listView);
-          setExplorePlacesCountryFilter(countriesSnap.countryFilter ?? countriesSnap.listView ?? null);
+          setExplorePlacesCountryFilter(countriesSnap.countryFilter);
           setCountriesSheetOpen(true);
         }
       }}
@@ -6753,14 +7102,14 @@ export function MapScreenVNext() {
       onPoiShare={handleCreateSpotFromPoiAndShare}
       poiLoading={poiSheetLoading}
       heroImageUris={
-        selectedSpot && (selectedSpot.visited ?? selectedSpot.pinStatus === "visited")
-          ? heroUrisOverrideBySpotId[selectedSpot.id] ??
-            optimisticHeroUrisBySpotId[selectedSpot.id] ??
-            galleryUris
+        selectedSpot && selectedSpotIsVisited
+          ? selectedVisitedHeroUris
           : undefined
       }
       onAddPersonalPhotos={
-        selectedSpot && !selectedSpot.id.startsWith("draft_")
+        selectedSpot &&
+        !selectedSpot.id.startsWith("draft_") &&
+        (!selectedSpotIsVisited || !personalGalleryUrisLoading)
           ? () => void handleQuickAddImageFromSearch(selectedSpot)
           : undefined
       }
@@ -6769,8 +7118,8 @@ export function MapScreenVNext() {
       }
       onImagePress={
         selectedSpot &&
-        ((selectedSpot.visited ?? selectedSpot.pinStatus === "visited")
-          ? galleryUris.length > 0
+        (selectedSpotIsVisited
+          ? selectedVisitedHeroUris.length > 0
           : galleryUris.length > 0 || Boolean(selectedSpot.cover_image_url))
           ? (payload) =>
               setFullscreenLightbox({
@@ -6938,7 +7287,8 @@ export function MapScreenVNext() {
                 availableWidth={effectiveMapFilterWidth}
               />
             </View>
-            {(mapPinFilterActiveTags.length > 0 || placesScopeForData?.kind === "country") &&
+            {(mapPinFilterActiveTags.length > 0 ||
+              isExplorePlacesCountryFilterActive(placesScopeForData)) &&
             showExplorePlacesActiveFilterChipsOnMap ? (
               <ScrollView
                 horizontal
@@ -6954,7 +7304,7 @@ export function MapScreenVNext() {
               >
                 <ExplorePlacesActiveFilterChips
                   colors={placesListFiltersBarColors}
-                  countryDetail={placesScopeForData}
+                  countryFilter={placesScopeForData}
                   activeTags={mapPinFilterActiveTags}
                   showTagChips={mapPinFilterActiveTags.length > 0}
                   onClearTagFilter={(tagId) => {
@@ -7552,22 +7902,21 @@ export function MapScreenVNext() {
               id,
               label: tagLabelById.get(id) ?? id,
             }));
+            const selectionActive = bulkTagSelectionMode;
+            const selectionSelected = bulkTagSelectedSpotIds.includes(spot.id);
             const quickActions = [
-              ...(isAuthUser
+              ...(isAuthUser && !selectionActive
                 ? [
                     {
                       id: `add-tag-${spot.id}`,
                       label: "Etiquetar",
                       kind: "add_tag" as const,
-                      onPress: () => {
-                        setTagAssignSpot(spot);
-                        setTagAssignInput("");
-                      },
+                      onPress: () => openTagAssignForSpot(spot),
                       accessibilityLabel: `Etiquetar ${spot.title}`,
                     },
                   ]
                 : []),
-              ...(isVisitedFilter
+              ...(isVisitedFilter && !selectionActive
                 ? [
                     ...(!hasCoverImage
                       ? [
@@ -7597,13 +7946,17 @@ export function MapScreenVNext() {
             return (
               <SearchResultCard
                 spot={item}
-                onPress={() => searchV2.onSelect(item)}
+                onPress={() =>
+                  selectionActive ? toggleBulkTagSelectedSpot(spot.id) : searchV2.onSelect(item)
+                }
                 distanceText={distanceText}
                 subtitleOverride={
                   isVisitedFilter ? (hasDescriptionShort ? descriptionShort : null) : undefined
                 }
                 quickActions={quickActions}
                 tagChips={isAuthUser && tagChips.length > 0 ? tagChips : undefined}
+                selectionMode={selectionActive}
+                selected={selectionSelected}
                 onHoverChange={
                   Platform.OS === "web"
                     ? (hovered) =>
@@ -7635,7 +7988,7 @@ export function MapScreenVNext() {
           return p.id ?? `place-${p.lat}-${p.lng}`;
         }}
       />
-      {tagAssignSpot ? (
+      {tagAssignTarget ? (
         <Modal
           visible
           transparent
@@ -7663,13 +8016,13 @@ export function MapScreenVNext() {
                   <Text
                     style={[styles.tagAssignModalEyebrow, { color: Colors[colorScheme ?? "light"].textSecondary }]}
                   >
-                    Etiquetar
+                    {tagAssignTarget.kind === "bulk" ? "Etiquetar selección" : "Etiquetar"}
                   </Text>
                   <Text
                     style={[styles.tagAssignModalSpotTitle, { color: Colors[colorScheme ?? "light"].text }]}
                     numberOfLines={3}
                   >
-                    {tagAssignSpot.title}
+                    {tagAssignTarget.title}
                   </Text>
                 </View>
                 <IconButton
@@ -7691,18 +8044,28 @@ export function MapScreenVNext() {
                   { paddingBottom: Math.max(insets.bottom, 12) + 16 },
                 ]}
               >
-                {(pinTagIndex[tagAssignSpot.id] ?? []).length > 0 ? (
+                {tagAssignCommonTagIds.length > 0 ? (
                   <View style={styles.tagAssignModalChipsWrap}>
-                    {(pinTagIndex[tagAssignSpot.id] ?? []).map((tid) => (
+                    {tagAssignCommonTagIds.map((tid) => (
                       <TagChip
                         key={tid}
                         label={tagLabelById.get(tid) ?? tid}
                         showHash
                         disabled={tagAssignSaving}
-                        onRemove={() => void handleDetachTagFromAssignSpot(tid)}
+                        onRemove={() => void handleDetachTagFromAssignTarget(tid)}
                       />
                     ))}
                   </View>
+                ) : null}
+                {tagAssignTarget.kind === "bulk" ? (
+                  <Text
+                    style={[
+                      styles.tagAssignModalSelectionHint,
+                      { color: Colors[colorScheme ?? "light"].textSecondary },
+                    ]}
+                  >
+                    Las etiquetas que confirmes aquí se aplicarán a todos los lugares seleccionados.
+                  </Text>
                 ) : null}
                 <View style={styles.tagAssignModalInlineRow}>
                   <View style={styles.tagAssignModalInputWrap}>
@@ -8203,6 +8566,11 @@ const styles = StyleSheet.create({
   tagAssignModalScrollContent: {
     gap: 20,
   },
+  tagAssignModalSelectionHint: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: -8,
+  },
   tagAssignModalChipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -8259,6 +8627,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
     fontSize: 15,
+  },
+  placesListBarsStack: {
+    width: "100%",
+    gap: Spacing.sm,
   },
   placeholder: {
     flex: 1,

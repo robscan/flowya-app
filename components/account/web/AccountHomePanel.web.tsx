@@ -30,7 +30,14 @@ import {
   subscribeProfileAvatarDisplayBust,
   uploadMyProfileAvatar,
 } from "@/lib/profile-avatar-upload";
-import { fetchMyProfile, touchMyProfileLastActivity, updateMyProfile, type ProfileRow } from "@/lib/profile";
+import {
+  fetchMyProfile,
+  getMyProfileRevisionSnapshot,
+  subscribeMyProfileRevision,
+  touchMyProfileLastActivity,
+  updateMyProfile,
+  type ProfileRow,
+} from "@/lib/profile";
 import { supabase } from "@/lib/supabase";
 import { Image } from "expo-image";
 import { useFocusEffect } from "@react-navigation/native";
@@ -126,10 +133,20 @@ export function AccountHomePanelWeb() {
     getProfileAvatarDisplayBustSnapshot,
     getProfileAvatarDisplayBustSnapshot,
   );
+  const profileRevision = useSyncExternalStore(
+    subscribeMyProfileRevision,
+    getMyProfileRevisionSnapshot,
+    getMyProfileRevisionSnapshot,
+  );
   const avatarPublicUrl = useMemo(
     () => buildProfileAvatarDisplayUrl(profile?.avatar_storage_path ?? null, profileAvatarUriBust),
     [profile?.avatar_storage_path, profileAvatarUriBust],
   );
+
+  useEffect(() => {
+    if (profileRevision === 0 || sessionPhase !== "user") return;
+    void refreshFromSession();
+  }, [profileRevision, refreshFromSession, sessionPhase]);
 
   const [avatarBusy, setAvatarBusy] = useState(false);
   const onPickAvatarFromHome = useCallback(async () => {
@@ -191,19 +208,26 @@ export function AccountHomePanelWeb() {
   }, [colorScheme, toast.show]);
 
   const goSubPanel = useCallback(
-    (key: "details" | "privacy" | "language") => {
+    (key: "details" | "privacy" | "tags" | "language") => {
       blurActiveElement();
       if (exploreDesktopInline) {
         router.setParams({ [ACCOUNT_DESKTOP_QUERY_KEY]: key });
       } else {
-        const href = key === "details" ? "/account/account" : key === "privacy" ? "/account/privacy" : "/account/language";
+        const href =
+          key === "details"
+            ? "/account/account"
+            : key === "privacy"
+              ? "/account/privacy"
+              : key === "tags"
+                ? "/account/tags"
+                : "/account/language";
         (router.push as (h: string) => void)(href);
       }
     },
     [exploreDesktopInline, router],
   );
 
-  const menuItem = (args: { title: string; subtitle: string; panel: "details" | "privacy" | "language" }) => (
+  const menuItem = (args: { title: string; subtitle: string; panel: "details" | "privacy" | "tags" | "language" }) => (
     <Pressable
       accessibilityRole="button"
       onPress={() => goSubPanel(args.panel)}
@@ -463,6 +487,11 @@ export function AccountHomePanelWeb() {
             title: "Privacidad de fotos",
             subtitle: "Compartir con el mundo o guardar como privadas",
             panel: "privacy",
+          })}
+          {menuItem({
+            title: "Etiquetas",
+            subtitle: "Renombra y administra tus etiquetas personales",
+            panel: "tags",
           })}
           {menuItem({
             title: "Idioma",

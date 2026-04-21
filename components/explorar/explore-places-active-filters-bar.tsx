@@ -13,7 +13,11 @@
 import { ClearIconCircleDecoration } from "@/components/design-system/clear-icon-circle";
 import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
 import { SearchLauncherField } from "@/components/design-system/search-launcher-field";
-import type { CountriesSheetListDetail } from "@/components/design-system/countries-sheet-types";
+import {
+  getExplorePlacesCountryFilterSummaryLabel,
+  isExplorePlacesCountryFilterActive,
+  type ExplorePlacesCountryFilter,
+} from "@/components/design-system/countries-sheet-types";
 import { Radius, Spacing } from "@/constants/theme";
 import { Globe, SlidersHorizontal } from "lucide-react-native";
 import React from "react";
@@ -37,7 +41,7 @@ export type ExplorePlacesActiveFiltersBarColors = {
 
 export type ExplorePlacesActiveFilterChipsProps = {
   colors: ExplorePlacesActiveFiltersBarColors;
-  countryDetail: CountriesSheetListDetail | null;
+  countryFilter: ExplorePlacesCountryFilter | null;
   /** Etiquetas en OR; el chip país va después de las etiquetas (scroll horizontal). */
   activeTags: { id: string; label: string }[];
   showTagChips: boolean;
@@ -51,18 +55,19 @@ export type ExplorePlacesActiveFilterChipsProps = {
  */
 export function ExplorePlacesActiveFilterChips({
   colors,
-  countryDetail,
+  countryFilter,
   activeTags,
   showTagChips,
   onClearCountryScope,
   onClearTagFilter,
 }: ExplorePlacesActiveFilterChipsProps) {
-  const showCountryChip = countryDetail?.kind === "country";
+  const countrySummaryLabel = getExplorePlacesCountryFilterSummaryLabel(countryFilter);
+  const showCountryChip = countrySummaryLabel != null;
   const showTagRow = showTagChips && activeTags.length > 0;
   if (!showTagRow && !showCountryChip) return null;
 
   const countryBlock =
-    showCountryChip && countryDetail?.kind === "country" ? (
+    showCountryChip && countrySummaryLabel != null ? (
       <View
         style={[
           styles.activeChip,
@@ -81,18 +86,18 @@ export function ExplorePlacesActiveFilterChips({
         />
         <Text
           accessible
-          accessibilityLabel={`Ubicación, ${countryDetail.label}`}
+          accessibilityLabel={`Ubicación, ${countrySummaryLabel}`}
           style={[styles.activeChipValue, styles.activeChipCountryLabel, { color: colors.surfaceOnMap }]}
           numberOfLines={1}
           maxFontSizeMultiplier={1.35}
         >
-          {countryDetail.label}
+          {countrySummaryLabel}
         </Text>
         <Pressable
           onPress={onClearCountryScope}
           hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel={`Quitar filtro de ubicación, ${countryDetail.label}`}
+          accessibilityLabel={`Quitar filtro de ubicación, ${countrySummaryLabel}`}
           style={styles.chipClearDecorHit}
         >
           <ClearIconCircleDecoration
@@ -160,7 +165,7 @@ export type ExplorePlacesFiltersSearchInline = {
 
 export type ExplorePlacesActiveFiltersBarProps = {
   colors: ExplorePlacesActiveFiltersBarColors;
-  countryDetail: CountriesSheetListDetail | null;
+  countryFilter: ExplorePlacesCountryFilter | null;
   onOpenFiltersPanel: () => void;
   onClearCountryScope: () => void;
   activeTags: { id: string; label: string }[];
@@ -177,7 +182,7 @@ export type ExplorePlacesActiveFiltersBarProps = {
 
 export function ExplorePlacesActiveFiltersBar({
   colors,
-  countryDetail,
+  countryFilter,
   onOpenFiltersPanel,
   onClearCountryScope,
   activeTags,
@@ -187,8 +192,7 @@ export function ExplorePlacesActiveFiltersBar({
   filtersEntryLeading,
 }: ExplorePlacesActiveFiltersBarProps) {
   const hasActiveChips =
-    (showTagChips && activeTags.length > 0) ||
-    (countryDetail != null && countryDetail.kind === "country");
+    (showTagChips && activeTags.length > 0) || isExplorePlacesCountryFilterActive(countryFilter);
 
   const filtersCtaPrimary = (
     <Pressable
@@ -260,7 +264,7 @@ export function ExplorePlacesActiveFiltersBar({
         >
           <ExplorePlacesActiveFilterChips
             colors={colors}
-            countryDetail={countryDetail}
+            countryFilter={countryFilter}
             activeTags={activeTags}
             showTagChips={showTagChips}
             onClearCountryScope={onClearCountryScope}

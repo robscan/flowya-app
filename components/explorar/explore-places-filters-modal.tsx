@@ -5,7 +5,7 @@
  */
 
 import type {
-  CountriesSheetListDetail,
+  ExplorePlacesCountryFilter,
   CountrySheetItem,
 } from "@/components/design-system/countries-sheet-types";
 import { ExploreCountryFilterChipRow } from "@/components/design-system/explore-country-filter-chip-row";
@@ -26,9 +26,9 @@ export type ExplorePlacesFiltersModalProps = {
   visible: boolean;
   onClose: () => void;
   countryItems: CountrySheetItem[];
-  countryDetail: CountriesSheetListDetail | null;
+  countryFilter: ExplorePlacesCountryFilter | null;
   onSelectAllPlaces: () => void;
-  onSelectCountry: (item: CountrySheetItem) => void;
+  onToggleCountry: (item: CountrySheetItem) => void;
   tagFilterOptions: { id: string; name: string; count: number }[];
   /** Vacío = sin filtro por etiqueta. Varios = OR. */
   selectedTagFilterIds: readonly string[];
@@ -51,9 +51,9 @@ type PanelContentProps = Omit<
 function ExplorePlacesFiltersPanelContent({
   onClose,
   countryItems,
-  countryDetail,
+  countryFilter,
   onSelectAllPlaces,
-  onSelectCountry,
+  onToggleCountry,
   tagFilterOptions,
   selectedTagFilterIds,
   onTagFilterChange,
@@ -135,14 +135,14 @@ function ExplorePlacesFiltersPanelContent({
         >
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>País</Text>
           <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
-            Elige un país o «Todos». Se combina con las etiquetas que marques arriba.
+            Elige uno o varios países, o deja «Todos» activo. Se combina con las etiquetas que marques arriba.
           </Text>
           <ExploreCountryFilterChipRow
             variant="search"
             countryItems={countryItems}
-            countryDetail={countryDetail}
+            countryFilter={countryFilter}
             onSelectAllPlaces={onSelectAllPlaces}
-            onSelectCountry={onSelectCountry}
+            onToggleCountry={onToggleCountry}
           />
         </View>
       </ScrollView>
@@ -154,9 +154,9 @@ export function ExplorePlacesFiltersModal({
   visible,
   onClose,
   countryItems,
-  countryDetail,
+  countryFilter,
   onSelectAllPlaces,
-  onSelectCountry,
+  onToggleCountry,
   tagFilterOptions,
   selectedTagFilterIds,
   onTagFilterChange,
@@ -173,9 +173,9 @@ export function ExplorePlacesFiltersModal({
   const panelProps: PanelContentProps = {
     onClose,
     countryItems,
-    countryDetail,
+    countryFilter,
     onSelectAllPlaces,
-    onSelectCountry,
+    onToggleCountry,
     tagFilterOptions,
     selectedTagFilterIds,
     onTagFilterChange,

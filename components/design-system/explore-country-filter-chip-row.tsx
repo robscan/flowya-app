@@ -6,9 +6,10 @@
 
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import type {
-  CountriesSheetListDetail,
+  ExplorePlacesCountryFilter,
   CountrySheetItem,
 } from "@/components/design-system/countries-sheet-types";
+import { normalizeExplorePlacesCountryFilter } from "@/components/design-system/countries-sheet-types";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Globe } from "lucide-react-native";
 import React, { useMemo } from "react";
@@ -21,18 +22,18 @@ const webNoSelect =
 
 export type ExploreCountryFilterChipRowProps = {
   countryItems: CountrySheetItem[];
-  countryDetail: CountriesSheetListDetail | null;
+  countryFilter: ExplorePlacesCountryFilter | null;
   onSelectAllPlaces: () => void;
-  onSelectCountry: (item: CountrySheetItem) => void;
+  onToggleCountry: (item: CountrySheetItem) => void;
   /** `search`: margen bajo (modal filtros). */
   variant?: "search" | "map";
 };
 
 export function ExploreCountryFilterChipRow({
   countryItems,
-  countryDetail,
+  countryFilter,
   onSelectAllPlaces,
-  onSelectCountry,
+  onToggleCountry,
   variant = "search",
 }: ExploreCountryFilterChipRowProps) {
   const colorScheme = useColorScheme();
@@ -43,7 +44,12 @@ export function ExploreCountryFilterChipRow({
     [countryItems],
   );
 
-  const allSelected = countryDetail?.kind === "all_places";
+  const normalizedFilter = useMemo(
+    () => normalizeExplorePlacesCountryFilter(countryFilter, countryItems),
+    [countryFilter, countryItems],
+  );
+
+  const allSelected = normalizedFilter.kind === "all_places";
 
   return (
     <View
@@ -82,11 +88,13 @@ export function ExploreCountryFilterChipRow({
         </Pressable>
 
         {countryItems.map((item) => {
-          const selected = countryDetail?.kind === "country" && countryDetail.key === item.key;
+          const selected =
+            normalizedFilter.kind === "country_subset" &&
+            normalizedFilter.countries.some((country) => country.key === item.key);
           return (
             <Pressable
               key={item.key}
-              onPress={() => onSelectCountry(item)}
+              onPress={() => onToggleCountry(item)}
               style={[
                 styles.chip,
                 styles.chipInner,

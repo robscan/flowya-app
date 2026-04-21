@@ -24,6 +24,23 @@ const PROFILE_COLUMNS_BASE =
   'id, email, display_name, avatar_storage_path, created_at, updated_at, last_activity_at';
 const PROFILE_COLUMNS_WITH_PHOTO_PREF = `${PROFILE_COLUMNS_BASE}, share_photos_with_world`;
 
+let myProfileRevision = 0;
+const myProfileRevisionListeners = new Set<() => void>();
+
+export function subscribeMyProfileRevision(onChange: () => void): () => void {
+  myProfileRevisionListeners.add(onChange);
+  return () => myProfileRevisionListeners.delete(onChange);
+}
+
+export function getMyProfileRevisionSnapshot(): number {
+  return myProfileRevision;
+}
+
+export function bumpMyProfileRevision(): void {
+  myProfileRevision += 1;
+  myProfileRevisionListeners.forEach((cb) => cb());
+}
+
 function isMissingColumnError(err: unknown, columnName: string): boolean {
   const msg =
     err && typeof err === 'object' && 'message' in err
@@ -134,6 +151,7 @@ export async function updateMyProfile(patch: {
   if (!wantSelect) {
     const { error } = await supabase.from('profiles').update(patch).eq('id', user.id);
     if (error) return { data: null, error: new Error(error.message) };
+    bumpMyProfileRevision();
     return { data: null, error: null };
   }
 
@@ -148,5 +166,6 @@ export async function updateMyProfile(patch: {
   if (res.error) {
     return { data: null, error: new Error(res.error.message) };
   }
+  bumpMyProfileRevision();
   return { data: res.data ? normalizeProfileRow(res.data) : null, error: null };
 }

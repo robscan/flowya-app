@@ -1,6 +1,6 @@
 # EXPLORE_SHEETS_BEHAVIOR_MATRIX — Matriz de comportamiento (sheets/overlays)
 
-**Última actualización:** 2026-04-14  
+**Última actualización:** 2026-04-20  
 **Status:** ACTIVE (documentación operativa)  
 **Source of truth:** `lib/explore-map-chrome-layout.ts` + orquestación en `components/explorar/MapScreenVNext.tsx`
 
@@ -13,7 +13,8 @@ Relacionado: [EXPLORE_CHROME_SHELL.md](EXPLORE_CHROME_SHELL.md), [EXPLORE_SHEET.
 - **SpotSheet/POI**: `SpotSheet` (cuando hay `selectedSpot` o `poiTapped`).
 - **Search**: `SearchFloating` (web: `SearchOverlayWeb`, nativo: `SearchFloatingNative`), controlado por `searchV2Open`.
 - **CreateSpotNameOverlay**: `CreateSpotNameOverlay`, controlado por `createSpotNameOverlayOpen`.
-- **DesktopSidebar (web ≥1080)**: modo layout donde Welcome/Countries/Spot se anclan en columna izquierda.
+- **AccountDesktopPanel**: `AccountExploreDesktopPanel` (web ≥1080, `?account=profile|details|privacy|tags|language`).
+- **DesktopSidebar (web ≥1080)**: modo layout donde Account/Welcome/Countries/Spot se anclan en columna izquierda.
 
 > Nota: Este documento describe **qué se muestra** y **cuándo**. El “snap” (`peek|medium|expanded`) está documentado en [EXPLORE_CHROME_SHELL.md](EXPLORE_CHROME_SHELL.md) §5–7.
 
@@ -27,6 +28,7 @@ La elegibilidad principal vive en `computeExploreMapChromeLayout`:
 - `selectedSpot`: object | null
 - `poiTapped`: object | null
 - `createSpotNameOverlayOpen`: boolean
+- `accountDesktopExploreOpen`: boolean
 - `isGlobeEntryMotionSettled`: boolean
 - `welcomeSidebarDismissed`: boolean (solo web sidebar ≥1080)
 - `windowWidth`: para determinar `webExploreUsesDesktopSidebar(windowWidth)`
@@ -39,6 +41,7 @@ Estas reglas evitan apilar superficies incompatibles:
 
 - **Overlay bloqueante**: si `createSpotNameOverlayOpen === true` o `searchV2Open === true` ⇒ `isShellBlockedByOverlay === true`.
   - Consecuencia: el “chrome” de Explore se considera bloqueado; no se debe mostrar WelcomeSheet debajo si eso genera conflicto visual/gestual.
+- **Cuenta embebida desktop**: si `accountDesktopExploreOpen === true` en web sidebar ≥1080, la columna lateral prioriza `AccountExploreDesktopPanel` sobre Welcome/Countries/Spot hasta limpiar `?account=`.
 - **Selección Spot/POI**: si `selectedSpot != null` o `poiTapped != null` ⇒ `isSpotSheetVisible === true`.
   - En presencia de Search abierto, SpotSheet no se monta (ver [EXPLORE_SHEET.md](EXPLORE_SHEET.md) §1.1–1.2).
 
@@ -66,6 +69,19 @@ Fuente: `lib/explore-map-chrome-layout.ts` (`showExploreWelcomeSheetBase` + gate
 - típicamente `pinFilter === "saved" | "visited"` (KPI mode)
 
 La **auto-apertura** al entrar desde `all → saved/visited` con `count > 0` y la persistencia por filtro (`countriesSheetPersistRef`) se orquestan en `MapScreenVNext`. Referencia: [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §1b–1c.
+
+### 3.4 Filtro de país del dataset (`explorePlacesCountryFilter`)
+
+- Desde 2026-04-20, el alcance de país para `Lugares` ya no reutiliza `CountriesSheetListDetail`.
+- Contrato de datos:
+  - `{ kind: "all_places" }`
+  - `{ kind: "country_subset", countries: Array<{ key, label }> }`
+- `countriesSheetListView` sigue resolviendo solo la ruta del sheet (`null` / `all_places` / `country`), mientras `explorePlacesCountryFilter` gobierna:
+  - dataset del mapa;
+  - chips activos;
+  - persistencia local;
+  - modal de filtros.
+- Tap en bucket de país del KPI puede forzar un subconjunto de un solo país, pero el modal de filtros puede volver a `Todos` o a un subset de varios países sin reescribir la navegación del sheet como si fuera una sola fuente de verdad.
 
 ## 4) Matriz: carga inicial (web vs nativo)
 
@@ -103,6 +119,7 @@ Fuente: [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §4.
 |------------|-----------------------------------|
 | `searchV2Open=true` | Search (overlay/sheet) domina; no se muestra Welcome debajo; SpotSheet no se monta |
 | `createSpotNameOverlayOpen=true` | CreateSpotNameOverlay domina (bloquea shell) |
+| `accountDesktopExploreOpen=true` en web ≥1080 | AccountDesktopPanel domina la columna lateral |
 | `selectedSpot!=null` o `poiTapped!=null` y `searchV2Open=false` | SpotSheet/POI domina |
 | `pinFilter=all` + sin bloqueos + `isGlobeEntryMotionSettled=true` | WelcomeSheet |
 | `pinFilter=saved|visited` + `countriesSheetOpen=true` | CountriesSheet |
@@ -111,4 +128,3 @@ Fuente: [explore/FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §4.
 
 - Verificar en **web** que, al cancelar Search o cerrar Spot, se restaure CountriesSheet si estaba abierto antes y el contexto sigue siendo `saved/visited` (ver [FILTER_RUNTIME_RULES.md](explore/FILTER_RUNTIME_RULES.md) §1c).
 - Verificar en **nativo** que la hidratación de `pinFilter` no sobrescribe preferencia con `"all"` (guardrail de storage-ready).
-

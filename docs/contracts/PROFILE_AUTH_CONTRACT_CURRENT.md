@@ -1,7 +1,7 @@
 # PROFILE_AUTH_CONTRACT_CURRENT
 
 **Estado:** CURRENT  
-**Última verificación:** 2026-04-13 (app `/account` + `MapScreenVNext` + esquema remoto + políticas Storage; ver bitácoras `[354](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md)` y `[356](../bitacora/2026/04/356-last-activity-no-ui-cuenta-ol-metrics-001-2026-04.md)`)  
+**Última verificación:** 2026-04-19 (app `/account` + `MapScreenVNext` + panel embebido desktop + esquema remoto + políticas Storage; ver bitácoras `[354](../bitacora/2026/04/354-ol-profile-001-cierre-web-paridad-nativa-diferida.md)`, `[356](../bitacora/2026/04/356-last-activity-no-ui-cuenta-ol-metrics-001-2026-04.md)` y `[372](../bitacora/2026/04/372-ol-profile-web-desktop-sidebar-embedded-a11y-share.md)`)  
 **Fuente de verdad:** este archivo + migraciones en `supabase/migrations/`.
 
 ---

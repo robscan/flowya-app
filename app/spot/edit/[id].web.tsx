@@ -1015,7 +1015,7 @@ export default function EditSpotScreenWeb() {
                 Fotos
               </Text>
               <Text style={[styles.photoSubLabel, { color: colors.textSecondary }]}>
-                Comparte con la comunidad: las fotos que subas aquí son públicas.
+                Las fotos que subas aquí son públicas y todos los usuarios de FLOWYA podrán verlas.
               </Text>
               {coverImageUrl || galleryRows.length > 0 ? (
                 <View style={styles.photoBlock}>

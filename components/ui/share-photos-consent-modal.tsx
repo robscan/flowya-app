@@ -59,7 +59,9 @@ export function SharePhotosConsentModal({
 
             <Text style={[styles.bodyText, { color: colors.textSecondary }]}>
               Si eliges <Text style={{ color: colors.text, fontWeight: "700" }}>Compartir</Text>, tus
-              fotos podrán verse por otras personas. Si eliges{" "}
+              fotos se publicarán en FLOWYA y{" "}
+              <Text style={{ color: colors.text, fontWeight: "700" }}>todos los usuarios podrán verlas</Text>.
+              {" "}Si eliges{" "}
               <Text style={{ color: colors.text, fontWeight: "700" }}>Solo para mí</Text>, se
               guardarán como privadas y solo tú las verás.
             </Text>
@@ -190,4 +192,3 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 });
-

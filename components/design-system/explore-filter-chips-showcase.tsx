@@ -5,7 +5,11 @@
 
 import { ExploreCountryFilterChipRow } from '@/components/design-system/explore-country-filter-chip-row';
 import { ExploreTagFilterChipRow } from '@/components/design-system/explore-tag-filter-chip-row';
-import type { CountriesSheetListDetail } from '@/components/design-system/countries-sheet-types';
+import {
+  buildAllPlacesCountryFilter,
+  toggleExplorePlacesCountryFilterCountry,
+  type ExplorePlacesCountryFilter,
+} from '@/components/design-system/countries-sheet-types';
 import { DS_MOCK_COUNTRY_ITEMS } from '@/components/design-system/countries-sheet-list-demo';
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -26,13 +30,15 @@ export function ExploreFilterChipsShowcase() {
   const colors = Colors[colorScheme ?? 'light'];
   const [selectedTagFilterIds, setSelectedTagFilterIds] = useState<string[]>([]);
   const [tagEditMode, setTagEditMode] = useState(false);
-  const [countryDetail, setCountryDetail] = useState<CountriesSheetListDetail>({ kind: 'all_places' });
+  const [countryFilter, setCountryFilter] = useState<ExplorePlacesCountryFilter>(
+    buildAllPlacesCountryFilter(),
+  );
 
   return (
     <View style={styles.outer}>
       <Text style={[styles.intro, { color: colors.textSecondary }]}>
-        Varias etiquetas activas = OR (cualquier coincidencia). País: un chip a la vez; tokens
-        `explorePlacesCountryChip*` + `surfaceOnMap` al seleccionar.
+        Varias etiquetas activas = OR (cualquier coincidencia). País: puedes combinar varios o dejar
+        `Todos` activo; tokens `explorePlacesCountryChip*` + `surfaceOnMap` al seleccionar.
       </Text>
 
       <View style={[styles.card, { borderColor: colors.borderSubtle, backgroundColor: colors.background }]}>
@@ -58,10 +64,12 @@ export function ExploreFilterChipsShowcase() {
         <ExploreCountryFilterChipRow
           variant="search"
           countryItems={DS_MOCK_COUNTRY_ITEMS}
-          countryDetail={countryDetail}
-          onSelectAllPlaces={() => setCountryDetail({ kind: 'all_places' })}
-          onSelectCountry={(item) =>
-            setCountryDetail({ kind: 'country', key: item.key, label: item.label })
+          countryFilter={countryFilter}
+          onSelectAllPlaces={() => setCountryFilter(buildAllPlacesCountryFilter())}
+          onToggleCountry={(item) =>
+            setCountryFilter((prev) =>
+              toggleExplorePlacesCountryFilterCountry(prev, item, DS_MOCK_COUNTRY_ITEMS),
+            )
           }
         />
       </View>

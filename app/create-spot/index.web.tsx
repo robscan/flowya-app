@@ -779,8 +779,8 @@ export default function CreateSpotScreen() {
                       ) : null}
                     </View>
                     <Text style={[styles.createGalleryHint, { color: colors.textSecondary }]}>
-                      Comparte con la comunidad: las fotos que subas aquí son públicas. Hasta{' '}
-                      {MAX_SPOT_GALLERY_IMAGES} fotos.
+                      Las fotos que subas aquí son públicas y todos los usuarios de FLOWYA podrán
+                      verlas. Hasta {MAX_SPOT_GALLERY_IMAGES} fotos.
                     </Text>
                   </View>
                 ) : (

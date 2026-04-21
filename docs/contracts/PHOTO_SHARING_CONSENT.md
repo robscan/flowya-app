@@ -1,7 +1,7 @@
 # PHOTO_SHARING_CONSENT — Contrato
 
 **Estado:** CURRENT  
-**Última actualización:** 2026-04-19  
+**Última actualización:** 2026-04-20  
 **Relación:** `profiles.share_photos_with_world`, `components/explorar/MapScreenVNext.tsx`, `app/spot/edit/[id].web.tsx`, `app/account/index.web.tsx`, `components/ui/share-photos-consent-modal.tsx`.
 
 ---
@@ -13,9 +13,9 @@ Antes de que el usuario suba fotos por primera vez, FLOWYA debe pedir consentimi
 - **“¿Compartir tus fotos con el mundo?”**
 - La decisión se persiste y se puede editar en `/account`.
 
-Esta preferencia **sí cambia el comportamiento**:
+Esta preferencia **sí cambia el comportamiento** y debe explicarse sin ambigüedad al usuario:
 
-- `ON` → fotos públicas (modelo actual: `spot_images` + bucket público `spot-covers`).
+- `ON` → fotos públicas visibles para **todos los usuarios** de FLOWYA (modelo actual: `spot_images` + bucket público `spot-covers`).
 - `OFF` → fotos privadas (solo el dueño: bucket privado `spot-personal` + tabla `spot_personal_images`).
 
 ---
@@ -27,7 +27,7 @@ Esta preferencia **sí cambia el comportamiento**:
 - **Tipo:** boolean nullable
 - **Semántica:**
   - `null` = no decidido aún → mostrar modal al intentar subir fotos.
-  - `true` = compartir (públicas).
+  - `true` = compartir (públicas y visibles para todos los usuarios).
   - `false` = solo para mí (privadas).
 
 ---
@@ -43,6 +43,8 @@ Se muestra **solo** si `share_photos_with_world` es `null` y el usuario intenta 
 - **Compartir** → persiste `true` y continúa el flujo de subida.
 - **Solo para mí** → persiste `false` y continúa el flujo de subida (privada).
 - **Ahora no** (cerrar/backdrop) → no persiste; aborta el flujo (no abre picker / no sube).
+
+El copy del modal y de la pantalla `/account/privacy` debe dejar explícito que elegir **Compartir** significa que las fotos nuevas se publicarán en FLOWYA y **todos los usuarios podrán verlas**.
 
 ### 3.3 Template visual
 
@@ -60,6 +62,7 @@ Debe respetar el template canónico de modales (auth/confirm/beta):
 - Storage: bucket `spot-covers` (público) en `{spotId}/gallery/*.jpg`.
 - DB: `public.spot_images` (SELECT público; INSERT/UPDATE/DELETE solo owner).
 - Side-effect: `syncCoverFromGallery(spotId)` para reflejar portada canónica en `spots.cover_image_url`.
+- Copy producto/legal: no usar fórmulas ambiguas como «otras personas» si el alcance real es **todo usuario de FLOWYA**.
 
 ### 4.2 OFF (privadas)
 
@@ -87,4 +90,3 @@ En `/account` debe existir un toggle:
   - revisar que el upload no use `uploadSpotGalleryImage` ni `addSpotImageRow`.
 - Fotos privadas no se ven tras subir:
   - revisar RLS/policies de `spot-personal` y que se generen URLs firmadas.
-

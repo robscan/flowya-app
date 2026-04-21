@@ -13,6 +13,25 @@ export type UserTagRow = {
   created_at: string;
 };
 
+const userTagsRevisionListeners = new Set<() => void>();
+let userTagsRevision = 0;
+
+function emitUserTagsRevision(): void {
+  userTagsRevision += 1;
+  for (const listener of userTagsRevisionListeners) listener();
+}
+
+export function subscribeUserTagsRevision(listener: () => void): () => void {
+  userTagsRevisionListeners.add(listener);
+  return () => {
+    userTagsRevisionListeners.delete(listener);
+  };
+}
+
+export function getUserTagsRevisionSnapshot(): number {
+  return userTagsRevision;
+}
+
 /** Normaliza texto para slug: minúsculas, sin acentos, alfanumérico + guiones. */
 export function normalizeTagSlug(raw: string): string {
   const trimmed = raw.trim().toLowerCase();
@@ -71,7 +90,10 @@ export async function createOrGetUserTag(name: string): Promise<UserTagRow> {
     .insert({ name: trimmed, slug, user_id: user.id })
     .select('id, user_id, name, slug, created_at')
     .single();
-  if (!insErr) return inserted as UserTagRow;
+  if (!insErr) {
+    emitUserTagsRevision();
+    return inserted as UserTagRow;
+  }
   if (insErr.code === '23505') {
     const { data: again, error: e2 } = await supabase
       .from('user_tags')
@@ -85,20 +107,76 @@ export async function createOrGetUserTag(name: string): Promise<UserTagRow> {
   throw insErr;
 }
 
+export async function renameUserTag(tagId: string, nextName: string): Promise<UserTagRow> {
+  const trimmed = nextName.trim();
+  if (!trimmed) throw new Error('Tag vacío');
+  const slug = normalizeTagSlug(trimmed);
+  if (!slug) throw new Error('Tag inválido');
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.id) throw new Error('Sesión requerida para editar etiquetas');
+
+  const { data: duplicate, error: dupErr } = await supabase
+    .from('user_tags')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('slug', slug)
+    .neq('id', tagId)
+    .maybeSingle();
+  if (dupErr) throw dupErr;
+  if (duplicate) throw new Error('Ya existe una etiqueta con ese nombre');
+
+  const { data, error } = await supabase
+    .from('user_tags')
+    .update({ name: trimmed, slug })
+    .eq('id', tagId)
+    .select('id, user_id, name, slug, created_at')
+    .single();
+
+  if (error) {
+    if (error.code === '23505') throw new Error('Ya existe una etiqueta con ese nombre');
+    throw error;
+  }
+  emitUserTagsRevision();
+  return data as UserTagRow;
+}
+
 export async function attachTagToSpot(spotId: string, tagId: string): Promise<void> {
   const { error } = await supabase.from('pin_tags').insert({ spot_id: spotId, tag_id: tagId });
   if (error) throw error;
+  emitUserTagsRevision();
 }
 
 export async function detachTagFromSpot(spotId: string, tagId: string): Promise<void> {
   const { error } = await supabase.from('pin_tags').delete().eq('spot_id', spotId).eq('tag_id', tagId);
   if (error) throw error;
+  emitUserTagsRevision();
+}
+
+export async function attachTagToSpots(spotIds: readonly string[], tagId: string): Promise<void> {
+  const deduped = [...new Set(spotIds)].filter((id) => id.trim().length > 0);
+  if (deduped.length === 0) return;
+  const rows = deduped.map((spotId) => ({ spot_id: spotId, tag_id: tagId }));
+  const { error } = await supabase.from('pin_tags').insert(rows);
+  if (error) throw error;
+  emitUserTagsRevision();
+}
+
+export async function detachTagFromSpots(spotIds: readonly string[], tagId: string): Promise<void> {
+  const deduped = [...new Set(spotIds)].filter((id) => id.trim().length > 0);
+  if (deduped.length === 0) return;
+  const { error } = await supabase.from('pin_tags').delete().in('spot_id', deduped).eq('tag_id', tagId);
+  if (error) throw error;
+  emitUserTagsRevision();
 }
 
 /** Elimina la etiqueta del inventario (y todas las asociaciones pin_tags por CASCADE). */
 export async function deleteUserTag(tagId: string): Promise<void> {
   const { error } = await supabase.from('user_tags').delete().eq('id', tagId);
   if (error) throw error;
+  emitUserTagsRevision();
 }
 
 /** spot_id -> tag_id[] para el usuario actual (sesión). */
@@ -145,4 +223,15 @@ export function countTagsInSpotIds(
   }
   out.sort((a, b) => b.count - a.count || a.tag.name.localeCompare(b.tag.name));
   return out;
+}
+
+export function countTagUsageById(pinIndex: Record<string, string[]>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const tagIds of Object.values(pinIndex)) {
+    const uniqueForSpot = new Set(tagIds);
+    for (const tagId of uniqueForSpot) {
+      counts[tagId] = (counts[tagId] ?? 0) + 1;
+    }
+  }
+  return counts;
 }
