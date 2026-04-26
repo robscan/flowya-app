@@ -1,3 +1,6 @@
+# Fallback para rutas públicas de share (/s/:id) en hosts estáticos sin función server-side
+/s/*  /index.html  200
+
 # Fallback para rutas dinámicas /spot/:id (Netlify, Cloudflare Pages)
 # Links compartidos deben cargar la app; el router maneja /spot/:id
 /spot/*  /index.html  200

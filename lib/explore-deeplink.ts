@@ -8,6 +8,7 @@
  */
 
 const MAP_ROUTE = "/(tabs)";
+const MAP_BROWSER_ENTRY_ROUTE = "/";
 
 export type SheetParam = "medium" | "extended";
 
@@ -25,11 +26,25 @@ export function getMapSpotDeepLink(
 }
 
 /**
+ * Entry URL pública del mapa en web (ruta visible del navegador), sin exponer grupos internos del router.
+ */
+export function getMapSpotBrowserEntryPath(
+  spotId: string,
+  sheet: SheetParam = "extended",
+): string {
+  const params = new URLSearchParams({ spotId, sheet });
+  return `${MAP_BROWSER_ENTRY_ROUTE}?${params.toString()}`;
+}
+
+/**
  * URL para compartir: sheet en estado medium (no expanded).
  * Si no hay origin (SSR/entorno sin window), devuelve solo path+query.
  */
-export function getMapSpotShareUrl(spotId: string): string {
-  const pathQuery = getMapSpotDeepLink(spotId, "medium");
+export function getMapSpotShareUrl(spotId: string, origin?: string | null): string {
+  const pathQuery = getMapSpotBrowserEntryPath(spotId, "medium");
+  if (origin) {
+    return `${origin.replace(/\/$/, "")}${pathQuery}`;
+  }
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}${pathQuery}`;
   }

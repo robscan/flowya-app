@@ -1,6 +1,6 @@
 # ANTI_DUPLICATE_SPOT_RULES — Contrato
 
-**Última actualización:** 2026-03-22
+**Última actualización:** 2026-04-26
 **Relación:** [bitácora 016](../bitacora/2026/01/016-scope-g-duplicate-prevention.md), `lib/spot-duplicate-check.ts`
 
 > Reglas no negociables para prevenir spots duplicados en todos los paths de creación.
@@ -11,10 +11,12 @@
 
 Un spot se considera duplicado si, estando a **distancia** ≤ radio (default **150 m**), se cumple **una** de:
 
-- **Título normalizado** coincide (`normalizeSpotTitle`), o
+- **Título normalizado** coincide de forma exacta (`normalizeSpotTitle`), o
 - **Dirección normalizada** coincide (`normalizeAddressKey`) y ambas cadenas tienen longitud ≥ umbral interno (evita matches triviales), cuando el cliente pasa `address` en opciones y la fila en BD tiene `address`.
 
 Implementación: `lib/spot-duplicate-check.ts` — `checkDuplicateSpot(title, lat, lng, radiusMeters?, options?)` con `options.address` opcional.
+
+No se debe bloquear por coincidencias parciales de substring (`"Cafe Central"` vs `"Cafe Central Terraza"`). Los nombres cercanos parecidos pueden mostrarse como contexto visual, pero no cuentan como duplicado duro.
 
 ---
 

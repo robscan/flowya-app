@@ -70,7 +70,7 @@ import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
 import { SharePhotosConsentModal } from '@/components/ui/share-photos-consent-modal';
-import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Colors, Radius, Shadow, Spacing, asWebViewStyle } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Search } from 'lucide-react-native';
 
@@ -190,7 +190,7 @@ export default function DesignSystemScreen() {
 
   const sidebarSticky =
     Platform.OS === 'web'
-      ? ({ position: 'sticky' as const, top: 0, alignSelf: 'flex-start' } as const)
+      ? asWebViewStyle({ position: 'sticky', top: 0, alignSelf: 'flex-start' })
       : null;
 
   return (

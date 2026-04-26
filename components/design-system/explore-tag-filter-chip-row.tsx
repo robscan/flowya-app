@@ -4,16 +4,11 @@
  */
 
 import { ExploreTagIconLabel } from "@/components/design-system/explore-tag-icon-label";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Radius, Spacing, WebNoTextSelect } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Trash2 } from "lucide-react-native";
 import React from "react";
 import { Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
-
-const webTagChipNoSelect =
-  Platform.OS === "web"
-    ? ({ userSelect: "none", WebkitUserSelect: "none" } as const)
-    : null;
 
 export type ExploreTagFilterOption = {
   id: string;
@@ -76,7 +71,7 @@ export function ExploreTagFilterChipRow({
               }}
               style={[
                 styles.chip,
-                webTagChipNoSelect,
+                WebNoTextSelect,
                 {
                   backgroundColor:
                     selectedTagFilterIds.length === 0
@@ -93,7 +88,7 @@ export function ExploreTagFilterChipRow({
               <Text
                 style={[
                   styles.chipLabel,
-                  webTagChipNoSelect,
+                  WebNoTextSelect,
                   {
                     color:
                       selectedTagFilterIds.length === 0
@@ -137,7 +132,7 @@ export function ExploreTagFilterChipRow({
                   styles.chip,
                   styles.chipInner,
                   chipColors,
-                  webTagChipNoSelect,
+                  WebNoTextSelect,
                 ]}
               >
                 <Pressable
@@ -168,7 +163,7 @@ export function ExploreTagFilterChipRow({
                     iconSize={12}
                     textStyle={[
                       styles.chipLabel,
-                      webTagChipNoSelect,
+                      WebNoTextSelect,
                       { color: chipLabelColor },
                     ]}
                     containerStyle={styles.chipIconLabelFill}

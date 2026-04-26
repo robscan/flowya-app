@@ -52,18 +52,6 @@ import { getMapSpotShareUrl } from "@/lib/explore-deeplink";
 
 const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "";
 
-/**
- * Genera HTML estático para cada spot en build time.
- * Sin esto, links compartidos (/spot/xxx) dan 404 en acceso directo.
- */
-export async function generateStaticParams(): Promise<{ id: string }[]> {
-  const { data } = await supabase
-    .from("spots")
-    .select("id")
-    .eq("is_hidden", false);
-  return (data ?? []).map((row) => ({ id: row.id }));
-}
-
 const MAP_SPOT_HEIGHT = 320;
 const MAP_CONTROLS_PADDING = 8;
 const FIT_BOUNDS_PADDING = 48;
@@ -404,8 +392,7 @@ function SpotDetailScreenContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- setLoading/setSpot stable; id+refreshed intentional deps
   }, [id, refreshed]);
 
-  // Share/SEO: cuando el link se abre desde redes (open=map), bots deben poder leer el contenido
-  // sin ser redirigidos, pero humanos sí deben acabar en el deep link del mapa.
+  // Compatibilidad legacy: los links antiguos `/spot/:id?open=map` siguen saltando al mapa.
   useEffect(() => {
     if (open !== "map") return;
     if (!id) return;

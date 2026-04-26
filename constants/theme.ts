@@ -6,6 +6,28 @@
 
 import { Platform, type ViewStyle } from 'react-native';
 
+type WebOnlyViewStyleProps = {
+  cursor?: 'pointer';
+  position?: 'fixed' | 'sticky';
+  touchAction?: 'auto' | 'none' | 'pan-x' | 'pan-y' | 'manipulation';
+  userSelect?: 'auto' | 'none' | 'text';
+  WebkitUserSelect?: 'auto' | 'none' | 'text';
+};
+
+type WebViewStyleInput = Omit<ViewStyle, 'position'> & WebOnlyViewStyleProps;
+
+function castWebViewStyle(style: WebViewStyleInput): ViewStyle {
+  return style as unknown as ViewStyle;
+}
+
+export function asWebViewStyle(style: WebViewStyleInput): ViewStyle {
+  return castWebViewStyle(style);
+}
+
+export function webViewStyle(style: WebViewStyleInput): ViewStyle {
+  return Platform.OS === 'web' ? castWebViewStyle(style) : {};
+}
+
 // — Paleta Light (valores únicos; pines y UI referencian estas claves)
 const primaryLight = '#0071e3';
 const primaryPressedLight = '#005bb7';
@@ -357,8 +379,14 @@ export const Spacing = {
  * Web: evita zoom por doble tap en botones interactivos.
  * Usar en Pressable de acciones.
  */
-export const WebTouchManipulation: ViewStyle =
-  Platform.OS === 'web' ? { touchAction: 'manipulation' } : {};
+export const WebNoTextSelect: ViewStyle = webViewStyle({
+  userSelect: 'none',
+  WebkitUserSelect: 'none',
+});
+
+export const WebTouchManipulation: ViewStyle = webViewStyle({
+  touchAction: 'manipulation',
+});
 
 /** Radios de borde suaves. */
 export const Radius = {

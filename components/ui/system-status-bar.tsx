@@ -1,8 +1,8 @@
-import { Colors, Radius, Shadow, Spacing, WebTouchManipulation } from '@/constants/theme';
+import { Colors, Radius, Shadow, Spacing, WebTouchManipulation, asWebViewStyle } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AlertCircle, CheckCircle2 } from 'lucide-react-native';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
 
 /** Tiempo por defecto para leer el mensaje; tap en el toast lo cierra antes. */
 const SYSTEM_STATUS_DURATION_MS = 4800;
@@ -228,25 +228,35 @@ export function SystemStatusProvider({ children }: { children: React.ReactNode }
    * Web + bottom-left: `fixed` respecto al viewport. Si es `absolute` dentro del flex raíz,
    * cualquier reflow del mapa/sidebar puede desplazar el contenedor y el toast «salta».
    */
-  const overlayPositionStyle =
+  const overlayPositionStyle: ViewStyle =
     anchor.placement === 'bottom-left'
-      ? ({
-          position: Platform.OS === 'web' ? ('fixed' as const) : ('absolute' as const),
-          top: undefined,
-          left: anchor.left ?? Spacing.base,
-          right: anchor.right,
-          bottom: anchor.bottom ?? Spacing.base,
-          alignItems: 'flex-start',
-          paddingHorizontal: 0,
-        } as const)
-      : ({
+      ? Platform.OS === 'web'
+        ? asWebViewStyle({
+            position: 'fixed',
+            top: undefined,
+            left: anchor.left ?? Spacing.base,
+            right: anchor.right,
+            bottom: anchor.bottom ?? Spacing.base,
+            alignItems: 'flex-start',
+            paddingHorizontal: 0,
+          })
+        : {
+            position: 'absolute',
+            top: undefined,
+            left: anchor.left ?? Spacing.base,
+            right: anchor.right,
+            bottom: anchor.bottom ?? Spacing.base,
+            alignItems: 'flex-start',
+            paddingHorizontal: 0,
+          }
+      : {
           top: anchor.top ?? Platform.select({ web: DEFAULT_TOP_WEB, default: DEFAULT_TOP_NATIVE }),
           left: 0,
           right: 0,
           bottom: undefined,
           alignItems: 'center',
           paddingHorizontal: Spacing.lg,
-        } as const);
+        };
 
   return (
     <SystemStatusContext.Provider value={contextValue}>

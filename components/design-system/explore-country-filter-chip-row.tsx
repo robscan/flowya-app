@@ -4,7 +4,7 @@
  * Nombre y conteo visibles siempre en cada chip.
  */
 
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { Colors, Radius, Spacing, WebNoTextSelect } from "@/constants/theme";
 import type {
   ExplorePlacesCountryFilter,
   CountrySheetItem,
@@ -14,11 +14,6 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { Globe } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
-
-const webNoSelect =
-  Platform.OS === "web"
-    ? ({ userSelect: "none", WebkitUserSelect: "none" } as const)
-    : null;
 
 export type ExploreCountryFilterChipRowProps = {
   countryItems: CountrySheetItem[];
@@ -61,7 +56,7 @@ export function ExploreCountryFilterChipRow({
           onPress={onSelectAllPlaces}
           style={[
             styles.chip,
-            webNoSelect,
+            WebNoTextSelect,
             {
               backgroundColor: allSelected
                 ? colors.explorePlacesCountryChipBackground
@@ -78,7 +73,7 @@ export function ExploreCountryFilterChipRow({
           <Text
             style={[
               styles.chipLabel,
-              webNoSelect,
+              WebNoTextSelect,
               { color: allSelected ? colors.surfaceOnMap : colors.text },
             ]}
             numberOfLines={1}
@@ -98,7 +93,7 @@ export function ExploreCountryFilterChipRow({
               style={[
                 styles.chip,
                 styles.chipInner,
-                webNoSelect,
+                WebNoTextSelect,
                 {
                   backgroundColor: selected
                     ? colors.explorePlacesCountryChipBackground
@@ -121,7 +116,7 @@ export function ExploreCountryFilterChipRow({
               <Text
                 style={[
                   styles.chipLabel,
-                  webNoSelect,
+                  WebNoTextSelect,
                   { color: selected ? colors.surfaceOnMap : colors.text },
                 ]}
                 numberOfLines={1}
