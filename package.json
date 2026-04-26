@@ -10,6 +10,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "test:regression": "node --no-warnings --experimental-strip-types --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
     "build": "expo export -p web"
   },

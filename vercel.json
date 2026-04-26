@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/s/:id",
+      "destination": "/api/spot-share?id=:id"
+    },
+    {
       "source": "/spot/:path*",
       "destination": "/index.html"
     }

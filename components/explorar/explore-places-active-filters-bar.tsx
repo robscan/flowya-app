@@ -18,13 +18,10 @@ import {
   isExplorePlacesCountryFilterActive,
   type ExplorePlacesCountryFilter,
 } from "@/components/design-system/countries-sheet-types";
-import { Radius, Spacing } from "@/constants/theme";
+import { Radius, Spacing, WebNoTextSelect } from "@/constants/theme";
 import { Globe, SlidersHorizontal } from "lucide-react-native";
 import React from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-
-const webNoSelect =
-  Platform.OS === "web" ? ({ userSelect: "none", WebkitUserSelect: "none" } as const) : null;
 
 export type ExplorePlacesActiveFiltersBarColors = {
   text: string;
@@ -71,7 +68,7 @@ export function ExplorePlacesActiveFilterChips({
       <View
         style={[
           styles.activeChip,
-          webNoSelect,
+          WebNoTextSelect,
           {
             borderColor: colors.countryChipBorder,
             backgroundColor: colors.countryChipBackground,
@@ -116,7 +113,7 @@ export function ExplorePlacesActiveFilterChips({
           key={t.id}
           style={[
             styles.activeChip,
-            webNoSelect,
+            WebNoTextSelect,
             {
               borderColor: colors.borderSubtle,
               backgroundColor: colors.tagChipBackground,
@@ -218,12 +215,12 @@ export function ExplorePlacesActiveFiltersBar({
   return (
     <View style={styles.column}>
       {filtersEntryLeading != null ? (
-        <View style={[styles.entrySearchRow, webNoSelect]}>
+        <View style={[styles.entrySearchRow, WebNoTextSelect]}>
           <View style={styles.inlineSearchWrap}>{filtersEntryLeading}</View>
           {filtersCtaPrimary}
         </View>
       ) : filtersSearchInline != null ? (
-        <View style={[styles.entrySearchRow, webNoSelect]}>
+        <View style={[styles.entrySearchRow, WebNoTextSelect]}>
           <View style={styles.inlineSearchWrap}>
             <SearchLauncherField
               variant="sheet"
@@ -239,7 +236,7 @@ export function ExplorePlacesActiveFiltersBar({
           onPress={onOpenFiltersPanel}
           style={({ pressed }) => [
             styles.filtersEntryPrimarySolo,
-            webNoSelect,
+            WebNoTextSelect,
             {
               backgroundColor: colors.tagChipBackground,
               borderColor: colors.tagChipBackground,

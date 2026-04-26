@@ -5,13 +5,18 @@
  */
 
 /**
- * Nota SEO/social cards:
- * Para previsualización (OG) fiable, el link compartido debe apuntar a una ruta “pública” renderizable
- * (p. ej. `/spot/[id]`). Esa página puede redirigir al deep link del mapa para humanos.
+ * Ruta pública de share preview. En Vercel se resuelve server-side para OG/social cards;
+ * en hosts puramente estáticos cae en la SPA y redirige al mapa.
  */
+export function getSpotSharePreviewPath(spotId: string): string {
+  return `/s/${encodeURIComponent(spotId)}`;
+}
 
-function getPublicSpotShareUrl(spotId: string): string {
-  const path = `/spot/${encodeURIComponent(spotId)}?open=map`;
+export function getSpotSharePreviewUrl(spotId: string, origin?: string | null): string {
+  const path = getSpotSharePreviewPath(spotId);
+  if (origin) {
+    return `${origin.replace(/\/$/, "")}${path}`;
+  }
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}${path}`;
   }
@@ -41,7 +46,7 @@ export async function shareSpot(
   spotId: string,
   title?: string | null
 ): Promise<ShareSpotResult> {
-  const url = getPublicSpotShareUrl(spotId);
+  const url = getSpotSharePreviewUrl(spotId);
   const shareTitle = title?.trim() || 'Lugar';
 
   const canShare =

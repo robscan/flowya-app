@@ -8,7 +8,7 @@
  */
 
 import { ExploreDesktopSidebarAnimatedColumn } from '@/components/explorar/ExploreDesktopSidebarAnimatedColumn';
-import { Colors } from '@/constants/theme';
+import { Colors, webViewStyle } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import {
   WEB_PANEL_PADDING_H,
@@ -312,19 +312,15 @@ const styles = StyleSheet.create({
     zIndex: 15,
   } satisfies ViewStyle,
   overlayWebFixed:
-    Platform.OS === 'web'
-      ? {
-          position: 'fixed' as const,
-          top: 0,
-          left: 0,
-          right: 0,
-          height: 'var(--app-height, 100dvh)' as DimensionValue,
-        }
-      : ({} satisfies ViewStyle),
+    webViewStyle({
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 'var(--app-height, 100dvh)' as DimensionValue,
+    }),
   backdropWebLock:
-    Platform.OS === 'web'
-      ? { touchAction: 'none' as const }
-      : ({} satisfies ViewStyle),
+    webViewStyle({ touchAction: 'none' }),
   backdrop: {
     position: 'absolute',
     left: 0,
@@ -350,9 +346,7 @@ const styles = StyleSheet.create({
   } satisfies ViewStyle,
   /** Asegura scroll vertical en listados dentro del overlay (web). */
   panelWebScroll:
-    Platform.OS === 'web'
-      ? { touchAction: 'pan-y' as const }
-      : ({} satisfies ViewStyle),
+    webViewStyle({ touchAction: 'pan-y' }),
   overlayDesktopSplit:
     Platform.OS === 'web'
       ? {

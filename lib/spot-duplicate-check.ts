@@ -5,7 +5,12 @@
  * Sin índices nuevos; consulta por bbox y filtro en cliente. Fail-open si falla la validación.
  */
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from './supabase.ts';
+import {
+  normalizeAddressKey,
+  normalizeSpotTitle,
+  titlesExactlyDuplicate,
+} from './spot-duplicate-text.ts';
 
 /** Radio por defecto para considerar duplicado (metros). */
 export const DEFAULT_DUPLICATE_RADIUS_METERS = 150;
@@ -13,37 +18,7 @@ export const DEFAULT_DUPLICATE_RADIUS_METERS = 150;
 /** Longitud mínima de clave de dirección para considerar match (evita "Calle 1"). */
 const MIN_ADDRESS_KEY_LEN = 10;
 
-/**
- * Normaliza el título para comparación:
- * lowercase, trim, quitar acentos, colapsar espacios internos.
- * Reutilizable y consistente.
- */
-export function normalizeSpotTitle(title: string): string {
-  const trimmed = title.trim();
-  if (!trimmed) return '';
-  const withoutAccents = trimmed
-    .normalize('NFD')
-    .replace(/\p{Diacritic}/gu, '');
-  const lower = withoutAccents.toLowerCase();
-  return lower.replace(/\s+/g, ' ').trim();
-}
-
-/** Normaliza dirección para dedupe (misma semántica que título). */
-export function normalizeAddressKey(address: string | null | undefined): string {
-  if (address == null) return '';
-  return normalizeSpotTitle(address);
-}
-
-function titlesLikelyDuplicate(a: string, b: string): boolean {
-  const left = normalizeSpotTitle(a);
-  const right = normalizeSpotTitle(b);
-  if (!left || !right) return false;
-  if (left === right) return true;
-  const shorter = left.length <= right.length ? left : right;
-  const longer = left.length <= right.length ? right : left;
-  if (shorter.length < 8) return false;
-  return longer.includes(shorter);
-}
+export { normalizeAddressKey, normalizeSpotTitle, titlesExactlyDuplicate };
 
 /** Distancia haversine entre dos puntos en metros (radio terrestre ≈ 6_371_000 m). */
 function haversineDistanceMeters(
@@ -127,7 +102,7 @@ export async function checkDuplicateSpot(
     );
     if (dist > radiusMeters) continue;
 
-    const titleMatch = titlesLikelyDuplicate(row.title, normalizedInput);
+    const titleMatch = titlesExactlyDuplicate(row.title, normalizedInput);
     if (titleMatch) {
       return { duplicate: true, existingTitle: row.title, existingSpotId: row.id };
     }
