@@ -1,4 +1,4 @@
-import { listSpotImages } from '@/lib/spot-images';
+import { getSpotImagePublicUrl, listSpotImages } from '@/lib/spot-images';
 import { useEffect, useState } from 'react';
 
 /**
@@ -25,7 +25,7 @@ export function useSpotGalleryUris(spotId: string | null | undefined): {
     void listSpotImages(spotId)
       .then((rows) => {
         if (cancelled) return;
-        setGalleryUris(rows.map((r) => r.url));
+        setGalleryUris(rows.map((r) => getSpotImagePublicUrl(r)));
       })
       .catch(() => {
         if (cancelled) return;

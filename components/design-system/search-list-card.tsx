@@ -4,10 +4,11 @@ import { CheckCircle, CheckCircle2, ChevronRight, Circle, ImagePlus, Landmark, P
 import { AddImageCta } from "@/components/design-system/add-image-cta";
 import { getMakiLucideIcon } from '@/lib/maki-icon-mapping';
 import React, { useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Colors, Radius, Spacing } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import type { ExploreListDensity } from '@/lib/storage/exploreListDensityPreference';
 
 /**
  * Fila de resultado de búsqueda (mapa / listados).
@@ -54,6 +55,10 @@ export type SearchListCardProps = {
   onHoverChange?: (hovered: boolean) => void;
   /** Modo selección múltiple: el card actúa como checkbox y reemplaza el chevron por indicador. */
   selectionMode?: boolean;
+  /** Densidad visual: misma card canónica, distinto nivel de detalle. */
+  density?: ExploreListDensity;
+  /** Contexto visual del listado. No filtra ni cambia contenido; solo tiñe superficie/borde. */
+  listContext?: 'all' | 'to_visit' | 'visited';
 };
 /** Alias canónico DS para item visual de listados. */
 export type ResultRowProps = SearchListCardProps;
@@ -75,6 +80,8 @@ export function SearchListCard({
   quickActions = [],
   onHoverChange,
   selectionMode = false,
+  density = 'detail',
+  listContext = 'all',
 }: SearchListCardProps) {
   const INLINE_ACTION_SUPPRESS_MS = 650;
   const colorScheme = useColorScheme();
@@ -89,9 +96,34 @@ export function SearchListCard({
   const addImageAction = quickActions.find((action) => action.kind === 'add_image');
   const editDescriptionAction = quickActions.find((action) => action.kind === 'edit_description');
   const addTagAction = quickActions.find((action) => action.kind === 'add_tag');
-  const hasLeadingMediaBlock = hasImage || addImageAction != null;
+  const isDetailDensity = density === 'detail';
+  const isCompactDensity = density === 'compact';
+  const isSimpleDensity = density === 'simple';
+  const showAddImageCta = isDetailDensity && addImageAction != null;
+  const hasLeadingMediaBlock = hasImage || showAddImageCta;
+  const isSimpleWithoutMedia = isSimpleDensity && !hasLeadingMediaBlock;
+  const showVisitedAddImageLead =
+    !selectionMode && !isDetailDensity && !hasImage && addImageAction != null && listContext === 'visited';
+  const contextSurface =
+    listContext === 'to_visit'
+      ? {
+          background: colors.countriesPanelToVisitBackgroundElevated,
+          border: colors.countriesPanelToVisitBorder,
+          subtle: colors.countriesPanelToVisitBorderSubtle,
+        }
+      : listContext === 'visited'
+        ? {
+            background: colors.countriesPanelVisitedBackgroundElevated,
+            border: colors.countriesPanelVisitedBorder,
+            subtle: colors.countriesPanelVisitedBorderSubtle,
+          }
+        : {
+            background: colors.backgroundElevated,
+            border: colors.borderSubtle,
+            subtle: colors.borderSubtle,
+          };
   const showPinStatusChip = pinStatus === 'to_visit' || pinStatus === 'visited';
-  const showTagChips = tagChips.length > 0;
+  const showTagChips = !isSimpleDensity && tagChips.length > 0;
   const suppressCardPressUntilRef = useRef(0);
   /** Chip de estado pin: muy tenue (solo borde teñido + texto secundario). */
   const pinStatusMuted =
@@ -108,11 +140,11 @@ export function SearchListCard({
         };
   const statusLabel = pinStatus === 'visited' ? 'Visitado' : 'Por visitar';
   const showRankingSignals =
-    distanceText != null ||
-    isLandmark ||
-    showPinStatusChip ||
+    (!isCompactDensity && !isSimpleDensity && distanceText != null) ||
+    (!isCompactDensity && !isSimpleDensity && isLandmark) ||
+    (!isSimpleDensity && showPinStatusChip) ||
     showTagChips ||
-    addTagAction != null;
+    (!isSimpleDensity && addTagAction != null);
   const markInlineActionIntent = () => {
     suppressCardPressUntilRef.current = Date.now() + INLINE_ACTION_SUPPRESS_MS;
   };
@@ -127,6 +159,35 @@ export function SearchListCard({
     markInlineActionIntent();
     action();
   };
+  const handleVisitedAddImageLeadPress = () => {
+    if (disabled || !showVisitedAddImageLead || addImageAction?.busy) return;
+    triggerInlineAction(addImageAction?.onPress);
+  };
+  const trailingAffordance = selectionMode ? (
+    <View style={[styles.trailingSlot, isSimpleDensity ? styles.trailingSlotSimple : null]}>
+      {selected ? (
+        <CheckCircle2
+          size={20}
+          color={colors.primary}
+          strokeWidth={2.2}
+        />
+      ) : (
+        <Circle
+          size={20}
+          color={colors.textSecondary}
+          strokeWidth={2}
+        />
+      )}
+    </View>
+  ) : showChevron ? (
+    <View style={[styles.trailingSlot, isSimpleDensity ? styles.trailingSlotSimple : null]}>
+      <ChevronRight
+        size={20}
+        color={colors.textSecondary}
+        strokeWidth={2}
+      />
+    </View>
+  ) : null;
   const webInlineActionStopProps =
     Platform.OS === 'web'
       ? ({
@@ -145,16 +206,20 @@ export function SearchListCard({
     <Pressable
       style={({ pressed }) => [
         styles.card,
+        isCompactDensity ? styles.cardCompact : null,
+        isSimpleDensity ? styles.cardSimple : null,
         hasLeadingMediaBlock ? styles.cardWithImage : null,
+        hasLeadingMediaBlock && isCompactDensity ? styles.cardWithImageCompact : null,
+        hasLeadingMediaBlock && isSimpleDensity ? styles.cardWithImageSimple : null,
         {
-          borderColor: selected ? colors.primary : colors.borderSubtle,
+          borderColor: selected ? colors.primary : contextSurface.border,
           backgroundColor: selected
             ? colors.stateSurfaceHover
             : pressed && !disabled
               ? colors.stateSurfacePressed
               : hovered && Platform.OS === 'web'
                 ? colors.stateSurfaceHover
-                : colors.backgroundElevated,
+                : contextSurface.background,
           opacity: disabled ? 0.55 : 1,
         },
         focused && Platform.OS === 'web' ? { boxShadow: `0 0 0 2px ${colors.stateFocusRing}` } : null,
@@ -176,7 +241,13 @@ export function SearchListCard({
       accessibilityState={selectionMode ? { checked: selected, disabled } : { selected, disabled }}
     >
       {hasImage ? (
-        <View style={styles.imageWrap}>
+        <View
+          style={[
+            styles.imageWrap,
+            isCompactDensity ? styles.imageWrapCompact : null,
+            isSimpleDensity ? styles.imageWrapSimple : null,
+          ]}
+        >
           <Image
             source={{ uri: imageUri! }}
             style={styles.image}
@@ -184,12 +255,12 @@ export function SearchListCard({
             onError={() => setImageError(true)}
           />
         </View>
-      ) : addImageAction ? (
+      ) : showAddImageCta ? (
         <View
           style={[
             styles.imagePlaceholderWrap,
             {
-              borderColor: colors.borderSubtle,
+              borderColor: contextSurface.subtle,
               backgroundColor: colors.background,
             },
           ]}
@@ -218,51 +289,99 @@ export function SearchListCard({
           />
         </View>
       ) : (
-        <View style={[styles.iconWrap, { backgroundColor: colors.borderSubtle, borderColor: colors.borderSubtle }]}>
+        <View
+          style={[
+            styles.iconWrap,
+            isCompactDensity ? styles.iconWrapCompact : null,
+            isSimpleDensity ? styles.iconWrapSimple : null,
+            showVisitedAddImageLead && Platform.OS === 'web' ? ({ cursor: 'pointer' } as const) : null,
+            {
+              backgroundColor: showVisitedAddImageLead ? colors.background : contextSurface.subtle,
+              borderColor: showVisitedAddImageLead ? contextSurface.border : contextSurface.subtle,
+            },
+          ]}
+          {...(showVisitedAddImageLead ? webInlineActionStopProps : null)}
+          {...(showVisitedAddImageLead && Platform.OS === 'web'
+            ? ({
+                onClick: (e: unknown) => {
+                  (e as { stopPropagation?: () => void })?.stopPropagation?.();
+                  handleVisitedAddImageLeadPress();
+                },
+              } as const)
+            : showVisitedAddImageLead
+              ? {
+                  onStartShouldSetResponder: () => true,
+                  onStartShouldSetResponderCapture: () => {
+                    markInlineActionIntent();
+                    return true;
+                  },
+                  onResponderRelease: (event: { stopPropagation?: () => void }) => {
+                    event.stopPropagation?.();
+                    handleVisitedAddImageLeadPress();
+                  },
+                }
+              : null)}
+          accessible={showVisitedAddImageLead ? true : undefined}
+          accessibilityRole={showVisitedAddImageLead ? "button" : undefined}
+          accessibilityLabel={
+            showVisitedAddImageLead
+              ? addImageAction?.accessibilityLabel ?? `Subir mis fotos a ${title}`
+              : undefined
+          }
+          accessibilityState={showVisitedAddImageLead ? { disabled: disabled || Boolean(addImageAction?.busy) } : undefined}
+        >
           {(() => {
-            const IconComponent = getMakiLucideIcon(maki ?? null);
-            return <IconComponent size={18} color={colors.textSecondary} strokeWidth={2} />;
+            const IconComponent = showVisitedAddImageLead ? ImagePlus : getMakiLucideIcon(maki ?? null);
+            return (
+              <IconComponent
+                size={isSimpleDensity ? 16 : 18}
+                color={colors.textSecondary}
+                strokeWidth={2}
+              />
+            );
           })()}
         </View>
       )}
-      <View style={[styles.content, hasLeadingMediaBlock ? styles.contentWithMedia : null]}>
-        <View style={styles.titleRow}>
-          <Text style={[styles.title, styles.titleInRow, { color: colors.text }]} numberOfLines={2}>
+      <View
+        style={[
+          styles.content,
+          hasLeadingMediaBlock ? styles.contentWithMedia : null,
+          isCompactDensity ? styles.contentCompact : null,
+          isSimpleDensity ? styles.contentSimple : null,
+          isSimpleWithoutMedia ? styles.contentSimpleWithoutMedia : null,
+          hasLeadingMediaBlock && isCompactDensity ? styles.contentWithMediaCompact : null,
+          hasLeadingMediaBlock && isSimpleDensity ? styles.contentWithMediaSimple : null,
+        ]}
+      >
+        <View
+          style={[
+            styles.titleRow,
+            !isDetailDensity ? styles.titleRowDense : null,
+            isSimpleDensity ? styles.titleRowSimple : null,
+          ]}
+        >
+          <Text
+            style={[
+              styles.title,
+              styles.titleInRow,
+              isSimpleDensity ? styles.titleSimple : null,
+              { color: colors.text },
+            ]}
+            numberOfLines={isDetailDensity ? 2 : 1}
+            {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
+          >
             {title}
           </Text>
-          {selectionMode ? (
-            selected ? (
-              <CheckCircle2
-                size={20}
-                color={colors.primary}
-                strokeWidth={2.2}
-                style={styles.chevronInTitleRow}
-              />
-            ) : (
-              <Circle
-                size={20}
-                color={colors.textSecondary}
-                strokeWidth={2}
-                style={styles.chevronInTitleRow}
-              />
-            )
-          ) : showChevron ? (
-            <ChevronRight
-              size={20}
-              color={colors.textSecondary}
-              strokeWidth={2}
-              style={styles.chevronInTitleRow}
-            />
-          ) : null}
+          {trailingAffordance}
         </View>
-        {subtitle ? (
+        {isDetailDensity && subtitle ? (
           <Text
             style={[styles.subtitle, { color: colors.textSecondary }]}
             {...(Platform.OS === 'android' ? { includeFontPadding: false } : {})}
           >
             {subtitle}
           </Text>
-        ) : editDescriptionAction ? (
+        ) : isDetailDensity && editDescriptionAction ? (
           <View
             style={styles.descriptionCtaRow}
             {...webInlineActionStopProps}
@@ -284,8 +403,8 @@ export function SearchListCard({
           </View>
         ) : null}
         {showRankingSignals ? (
-          <View style={styles.rankingChipsCluster}>
-            {distanceText != null ? (
+          <View style={[styles.rankingChipsCluster, isCompactDensity ? styles.rankingChipsClusterCompact : null]}>
+            {!isCompactDensity && !isSimpleDensity && distanceText != null ? (
               <Text
                 style={[styles.rankingSignal, { color: colors.textSecondary }]}
                 numberOfLines={1}
@@ -317,8 +436,8 @@ export function SearchListCard({
                 </Text>
               </View>
             ) : null}
-            {isLandmark ? (
-              <View style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}>
+            {!isCompactDensity && !isSimpleDensity && isLandmark ? (
+              <View style={[styles.rankingChip, { backgroundColor: contextSurface.subtle }]}>
                 <Landmark size={12} color={colors.textSecondary} strokeWidth={2} />
                 <Text style={[styles.rankingChipLabel, { color: colors.textSecondary }]}>Lugar destacado</Text>
               </View>
@@ -327,7 +446,7 @@ export function SearchListCard({
               ? tagChips.map((chip) => (
                   <View
                     key={chip.id}
-                    style={[styles.rankingChip, { backgroundColor: colors.borderSubtle }]}
+                    style={[styles.rankingChip, { backgroundColor: contextSurface.subtle }]}
                     accessibilityLabel={chip.label}
                     accessibilityRole="text"
                   >
@@ -341,11 +460,12 @@ export function SearchListCard({
                   </View>
                 ))
               : null}
-            {addTagAction ? (
+            {!isSimpleDensity && addTagAction ? (
               <View
                 collapsable={false}
                 style={[
                   styles.etiquetarBesideChips,
+                  isCompactDensity ? styles.etiquetarBesideChipsCompact : null,
                   Platform.OS === 'web' ? ({ cursor: 'pointer', userSelect: 'none' } as const) : null,
                 ]}
                 {...webInlineActionStopProps}
@@ -397,6 +517,22 @@ const styles = StyleSheet.create({
     minHeight: 88,
     overflow: 'hidden',
   },
+  cardCompact: {
+    minHeight: 72,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    gap: Spacing.sm,
+    alignItems: 'center',
+  },
+  cardSimple: {
+    minHeight: 48,
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    gap: 10,
+    alignItems: 'center',
+  },
   cardWithImage: {
     alignItems: 'stretch',
     paddingLeft: 0,
@@ -404,16 +540,46 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
     gap: Spacing.base,
   },
+  cardWithImageCompact: {
+    gap: Spacing.sm,
+  },
+  cardWithImageSimple: {
+    alignItems: 'center',
+    gap: 10,
+    paddingLeft: 6,
+    paddingTop: 4,
+    paddingBottom: 4,
+  },
   content: {
     flex: 1,
     minWidth: 0,
     gap: 4,
     justifyContent: 'flex-start',
   },
+  contentCompact: {
+    gap: 2,
+  },
+  contentSimple: {
+    gap: 0,
+    justifyContent: 'center',
+  },
+  contentSimpleWithoutMedia: {
+    minHeight: 36,
+  },
   contentWithMedia: {
     justifyContent: 'flex-start',
     paddingTop: Spacing.base,
     paddingBottom: Spacing.base,
+  },
+  contentWithMediaCompact: {
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.sm,
+    justifyContent: 'center',
+  },
+  contentWithMediaSimple: {
+    paddingTop: 0,
+    paddingBottom: 0,
+    justifyContent: 'center',
   },
   titleRow: {
     flexDirection: 'row',
@@ -422,18 +588,35 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
   },
+  titleRowDense: {
+    alignItems: 'center',
+  },
+  titleRowSimple: {
+    minHeight: 36,
+  },
   title: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  titleSimple: {
+    fontSize: 14,
+    lineHeight: 18,
   },
   /** Ocupa el espacio entre media y chevron; permite wrap del título sin reservar columna vacía abajo. */
   titleInRow: {
     flex: 1,
     minWidth: 0,
   },
-  chevronInTitleRow: {
+  trailingSlot: {
+    width: 24,
+    height: 24,
     flexShrink: 0,
-    marginTop: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trailingSlotSimple: {
+    width: 28,
+    height: 36,
   },
   subtitle: {
     fontSize: 13,
@@ -450,12 +633,38 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 2,
   },
+  iconWrapCompact: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignSelf: 'center',
+    marginTop: 0,
+  },
+  iconWrapSimple: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignSelf: 'center',
+    marginTop: 0,
+  },
   imageWrap: {
     width: 88,
     alignSelf: 'stretch',
     overflow: 'hidden',
     borderTopLeftRadius: Radius.lg,
     borderBottomLeftRadius: Radius.lg,
+  },
+  imageWrapCompact: {
+    width: 64,
+    alignSelf: 'stretch',
+    borderTopLeftRadius: Radius.md,
+    borderBottomLeftRadius: Radius.md,
+  },
+  imageWrapSimple: {
+    width: 32,
+    height: 32,
+    alignSelf: 'center',
+    borderRadius: 16,
   },
   imagePlaceholderWrap: {
     width: 88,
@@ -497,6 +706,11 @@ const styles = StyleSheet.create({
     width: '100%',
     minWidth: 0,
   },
+  rankingChipsClusterCompact: {
+    marginTop: 2,
+    rowGap: 4,
+    columnGap: Spacing.xs,
+  },
   /** Puede acortarse con puntos si hace falta espacio para el cluster. */
   rankingSignal: {
     fontSize: 12,
@@ -527,6 +741,11 @@ const styles = StyleSheet.create({
     marginLeft: -2,
     borderRadius: Radius.sm,
     flexShrink: 0,
+  },
+  etiquetarBesideChipsCompact: {
+    minHeight: 28,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
   },
   etiquetarLabel: {
     fontSize: 13,

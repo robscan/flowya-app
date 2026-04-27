@@ -65,6 +65,7 @@ export function SearchFloatingNative<T>({
   searchInputAutoFocus = true,
   placesFiltersBar,
   placesListFirstSectionHeaderRight,
+  listDensity,
 }: SearchFloatingProps<T>) {
   const colorScheme = useColorScheme();
   const scheme = colorScheme === 'dark' ? 'dark' : 'light';
@@ -208,6 +209,7 @@ export function SearchFloatingNative<T>({
                     searchInputAutoFocus={searchInputAutoFocus}
                     placesFiltersBar={placesFiltersBar}
                     placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
+                    listDensity={listDensity}
                 />
               </KeyboardAvoidingView>
             </View>

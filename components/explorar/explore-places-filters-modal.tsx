@@ -12,6 +12,7 @@ import { ExploreCountryFilterChipRow } from "@/components/design-system/explore-
 import { ExploreTagFilterChipRow } from "@/components/design-system/explore-tag-filter-chip-row";
 import { Colors, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { getMakiLucideIcon } from "@/lib/maki-icon-mapping";
 import { X } from "lucide-react-native";
 import React from "react";
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -33,6 +34,9 @@ export type ExplorePlacesFiltersModalProps = {
   /** Vacío = sin filtro por etiqueta. Varios = OR. */
   selectedTagFilterIds: readonly string[];
   onTagFilterChange: (tagIds: string[]) => void;
+  makiFilterOptions?: { id: string; label: string; count: number }[];
+  selectedMakiFilterIds?: readonly string[];
+  onMakiFilterChange?: (makiIds: string[]) => void;
   tagFilterEditMode: boolean;
   onTagFilterEnterEditMode?: () => void;
   onTagFilterExitEditMode?: () => void;
@@ -57,6 +61,9 @@ function ExplorePlacesFiltersPanelContent({
   tagFilterOptions,
   selectedTagFilterIds,
   onTagFilterChange,
+  makiFilterOptions = [],
+  selectedMakiFilterIds = [],
+  onMakiFilterChange,
   tagFilterEditMode,
   onTagFilterEnterEditMode,
   onTagFilterExitEditMode,
@@ -67,6 +74,7 @@ function ExplorePlacesFiltersPanelContent({
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
   const topBarPadV = presentation === "sidebarPanel" ? Spacing.xs : Spacing.sm;
+  const showMakiSection = makiFilterOptions.length > 0 && onMakiFilterChange != null;
 
   return (
     <>
@@ -127,15 +135,104 @@ function ExplorePlacesFiltersPanelContent({
           </View>
         ) : null}
 
+        {showMakiSection ? (
+          <View
+            style={[
+              styles.block,
+              showTagsSection && tagFilterOptions.length > 0 ? styles.blockSpaced : null,
+            ]}
+          >
+            <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>Categorías</Text>
+            <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
+              Acota por las categorías de lugar que aparecen en el listado.
+            </Text>
+            <View style={styles.makiChipsWrap}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Mostrar todas las categorías"
+                accessibilityState={{ selected: selectedMakiFilterIds.length === 0 }}
+                onPress={() => onMakiFilterChange([])}
+                style={({ pressed }) => [
+                  styles.makiChip,
+                  {
+                    backgroundColor:
+                      selectedMakiFilterIds.length === 0 ? colors.primary : colors.background,
+                    borderColor:
+                      selectedMakiFilterIds.length === 0 ? colors.primary : colors.borderSubtle,
+                    opacity: pressed ? 0.85 : 1,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.makiChipLabel,
+                    { color: selectedMakiFilterIds.length === 0 ? colors.surfaceOnMap : colors.text },
+                  ]}
+                >
+                  Todas
+                </Text>
+              </Pressable>
+              {makiFilterOptions.map((option) => {
+                const selected = selectedMakiFilterIds.includes(option.id);
+                const Icon = getMakiLucideIcon(option.id);
+                return (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.label}, ${option.count} lugares`}
+                    accessibilityState={{ selected }}
+                    onPress={() => {
+                      const next = selected
+                        ? selectedMakiFilterIds.filter((id) => id !== option.id)
+                        : [...selectedMakiFilterIds, option.id];
+                      onMakiFilterChange(next);
+                    }}
+                    style={({ pressed }) => [
+                      styles.makiChip,
+                      {
+                        backgroundColor: selected ? colors.primary : colors.background,
+                        borderColor: selected ? colors.primary : colors.borderSubtle,
+                        opacity: pressed ? 0.85 : 1,
+                      },
+                    ]}
+                  >
+                    <Icon
+                      size={14}
+                      color={selected ? colors.surfaceOnMap : colors.textSecondary}
+                      strokeWidth={2.1}
+                    />
+                    <Text
+                      style={[
+                        styles.makiChipLabel,
+                        { color: selected ? colors.surfaceOnMap : colors.text },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.makiChipCount,
+                        { color: selected ? colors.surfaceOnMap : colors.textSecondary },
+                      ]}
+                    >
+                      {option.count}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
         <View
           style={[
             styles.block,
-            showTagsSection && tagFilterOptions.length > 0 ? styles.blockSpaced : null,
+            (showTagsSection && tagFilterOptions.length > 0) || showMakiSection ? styles.blockSpaced : null,
           ]}
         >
           <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>País</Text>
           <Text style={[styles.sectionHint, { color: colors.textSecondary }]}>
-            Elige uno o varios países, o deja «Todos» activo. Se combina con las etiquetas que marques arriba.
+            Elige uno o varios países, o deja «Todos» activo. Se combina con etiquetas y categorías.
           </Text>
           <ExploreCountryFilterChipRow
             variant="search"
@@ -160,6 +257,9 @@ export function ExplorePlacesFiltersModal({
   tagFilterOptions,
   selectedTagFilterIds,
   onTagFilterChange,
+  makiFilterOptions,
+  selectedMakiFilterIds,
+  onMakiFilterChange,
   tagFilterEditMode,
   onTagFilterEnterEditMode,
   onTagFilterExitEditMode,
@@ -179,6 +279,9 @@ export function ExplorePlacesFiltersModal({
     tagFilterOptions,
     selectedTagFilterIds,
     onTagFilterChange,
+    makiFilterOptions,
+    selectedMakiFilterIds,
+    onMakiFilterChange,
     tagFilterEditMode,
     onTagFilterEnterEditMode,
     onTagFilterExitEditMode,
@@ -220,6 +323,30 @@ export function ExplorePlacesFiltersModal({
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+  },
+  makiChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  makiChip: {
+    minHeight: 34,
+    borderRadius: 999,
+    borderWidth: 1,
+    paddingHorizontal: Spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  makiChipLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
+  makiChipCount: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
   },
   sidebarPanelRoot: {
     flex: 1,

@@ -19,6 +19,7 @@ import {
   type ExplorePlacesCountryFilter,
 } from "@/components/design-system/countries-sheet-types";
 import { Radius, Spacing, WebNoTextSelect } from "@/constants/theme";
+import { getMakiLucideIcon } from "@/lib/maki-icon-mapping";
 import { Globe, SlidersHorizontal } from "lucide-react-native";
 import React from "react";
 import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -41,10 +42,17 @@ export type ExplorePlacesActiveFilterChipsProps = {
   countryFilter: ExplorePlacesCountryFilter | null;
   /** Etiquetas en OR; el chip país va después de las etiquetas (scroll horizontal). */
   activeTags: { id: string; label: string }[];
+  activeMakiCategories?: { id: string; label: string }[];
   showTagChips: boolean;
   onClearCountryScope: () => void;
   /** Quitar una etiqueta del filtro OR. */
   onClearTagFilter: (tagId: string) => void;
+  onClearMakiFilter?: (makiId: string) => void;
+  /**
+   * En vistas donde el país ya es el título del sheet, el chip país duplica contexto y roba área
+   * de lista. Las etiquetas activas se mantienen visibles.
+   */
+  hideCountryChip?: boolean;
 };
 
 /**
@@ -54,14 +62,18 @@ export function ExplorePlacesActiveFilterChips({
   colors,
   countryFilter,
   activeTags,
+  activeMakiCategories = [],
   showTagChips,
   onClearCountryScope,
   onClearTagFilter,
+  onClearMakiFilter,
+  hideCountryChip = false,
 }: ExplorePlacesActiveFilterChipsProps) {
   const countrySummaryLabel = getExplorePlacesCountryFilterSummaryLabel(countryFilter);
-  const showCountryChip = countrySummaryLabel != null;
+  const showCountryChip = !hideCountryChip && countrySummaryLabel != null;
   const showTagRow = showTagChips && activeTags.length > 0;
-  if (!showTagRow && !showCountryChip) return null;
+  const showMakiRow = activeMakiCategories.length > 0 && onClearMakiFilter != null;
+  if (!showTagRow && !showMakiRow && !showCountryChip) return null;
 
   const countryBlock =
     showCountryChip && countrySummaryLabel != null ? (
@@ -144,9 +156,56 @@ export function ExplorePlacesActiveFilterChips({
       ))
     : null;
 
+  const makiBlocks = showMakiRow
+    ? activeMakiCategories.map((maki) => {
+        const Icon = getMakiLucideIcon(maki.id);
+        return (
+          <View
+            key={maki.id}
+            style={[
+              styles.activeChip,
+              WebNoTextSelect,
+              {
+                borderColor: colors.borderSubtle,
+                backgroundColor: colors.countryChipBackground,
+              },
+            ]}
+          >
+            <Icon
+              size={13}
+              color={colors.surfaceOnMap}
+              strokeWidth={2.1}
+              {...(Platform.OS !== "web" ? { accessibilityElementsHidden: true as const } : {})}
+            />
+            <Text
+              style={[styles.activeChipTagText, { color: colors.surfaceOnMap }]}
+              numberOfLines={1}
+            >
+              {maki.label}
+            </Text>
+            <Pressable
+              onPress={() => onClearMakiFilter?.(maki.id)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={`Quitar filtro de categoría ${maki.label}`}
+              style={styles.chipClearDecorHit}
+            >
+              <ClearIconCircleDecoration
+                variant="onPrimary"
+                size={22}
+                iconPx={11}
+                iconColor={colors.surfaceOnMap}
+              />
+            </Pressable>
+          </View>
+        );
+      })
+    : null;
+
   return (
     <>
       {tagBlocks}
+      {makiBlocks}
       {countryBlock}
     </>
   );
@@ -160,42 +219,24 @@ export type ExplorePlacesFiltersSearchInline = {
   accessibilityLabel?: string;
 };
 
-export type ExplorePlacesActiveFiltersBarProps = {
+export type ExplorePlacesFiltersButtonProps = {
   colors: ExplorePlacesActiveFiltersBarColors;
-  countryFilter: ExplorePlacesCountryFilter | null;
-  onOpenFiltersPanel: () => void;
-  onClearCountryScope: () => void;
-  activeTags: { id: string; label: string }[];
-  onClearTagFilter: (tagId: string) => void;
-  showTagChips: boolean;
-  /** Misma fila que el launcher de búsqueda (sheet Lugares); el host oculta el buscador duplicado arriba. */
-  filtersSearchInline?: ExplorePlacesFiltersSearchInline;
-  /**
-   * Misma fila que `filtersSearchInline`, pero el slot izquierdo lo provee el host (p. ej. `SearchSurface`
-   * con `SearchInputV2` embebido). No combinar con `filtersSearchInline`.
-   */
-  filtersEntryLeading?: React.ReactNode;
+  onPress: () => void;
+  variant?: "default" | "compact" | "header";
 };
 
-export function ExplorePlacesActiveFiltersBar({
+export function ExplorePlacesFiltersButton({
   colors,
-  countryFilter,
-  onOpenFiltersPanel,
-  onClearCountryScope,
-  activeTags,
-  onClearTagFilter,
-  showTagChips,
-  filtersSearchInline,
-  filtersEntryLeading,
-}: ExplorePlacesActiveFiltersBarProps) {
-  const hasActiveChips =
-    (showTagChips && activeTags.length > 0) || isExplorePlacesCountryFilterActive(countryFilter);
-
-  const filtersCtaPrimary = (
+  onPress,
+  variant = "default",
+}: ExplorePlacesFiltersButtonProps) {
+  const isCompact = variant === "compact" || variant === "header";
+  return (
     <Pressable
-      onPress={onOpenFiltersPanel}
+      onPress={onPress}
       style={({ pressed }) => [
-        styles.filtersEntryPrimary,
+        isCompact ? styles.filtersEntryCompact : styles.filtersEntryPrimary,
+        variant === "header" ? styles.filtersEntryHeader : null,
         {
           backgroundColor: colors.tagChipBackground,
           borderColor: colors.tagChipBackground,
@@ -206,11 +247,138 @@ export function ExplorePlacesActiveFiltersBar({
       accessibilityLabel="Abrir etiquetas y filtros de lugares"
     >
       <SlidersHorizontal size={16} color={colors.surfaceOnMap} strokeWidth={2.2} />
-      <Text style={[styles.filtersEntryLabel, { color: colors.surfaceOnMap }]} numberOfLines={1}>
+      <Text
+        style={[
+          isCompact ? styles.filtersEntryCompactLabel : styles.filtersEntryLabel,
+          { color: colors.surfaceOnMap },
+        ]}
+        numberOfLines={1}
+      >
         {FILTERS_ENTRY_LABEL}
       </Text>
     </Pressable>
   );
+}
+
+export type ExplorePlacesActiveFiltersBarProps = {
+  colors: ExplorePlacesActiveFiltersBarColors;
+  countryFilter: ExplorePlacesCountryFilter | null;
+  onOpenFiltersPanel: () => void;
+  onClearCountryScope: () => void;
+  activeTags: { id: string; label: string }[];
+  activeMakiCategories?: { id: string; label: string }[];
+  onClearTagFilter: (tagId: string) => void;
+  onClearMakiFilter?: (makiId: string) => void;
+  showTagChips: boolean;
+  /** Misma fila que el launcher de búsqueda (sheet Lugares); el host oculta el buscador duplicado arriba. */
+  filtersSearchInline?: ExplorePlacesFiltersSearchInline;
+  /**
+   * Misma fila que `filtersSearchInline`, pero el slot izquierdo lo provee el host (p. ej. `SearchSurface`
+   * con `SearchInputV2` embebido). No combinar con `filtersSearchInline`.
+   */
+  filtersEntryLeading?: React.ReactNode;
+  /**
+   * `compact` es para el modo Lugares de país: no compite con el buscador full-screen y conserva
+   * alto útil para la lista/mapa.
+   */
+  density?: "default" | "compact";
+  hideCountryChip?: boolean;
+  /** Cuando el CTA vive en la cabecera del sheet, esta barra renderiza solo chips activos. */
+  hideFiltersEntry?: boolean;
+};
+
+export function ExplorePlacesActiveFiltersBar({
+  colors,
+  countryFilter,
+  onOpenFiltersPanel,
+  onClearCountryScope,
+  activeTags,
+  activeMakiCategories = [],
+  onClearTagFilter,
+  onClearMakiFilter,
+  showTagChips,
+  filtersSearchInline,
+  filtersEntryLeading,
+  density = "default",
+  hideCountryChip = false,
+  hideFiltersEntry = false,
+}: ExplorePlacesActiveFiltersBarProps) {
+  const countryChipVisible =
+    !hideCountryChip && isExplorePlacesCountryFilterActive(countryFilter);
+  const hasActiveChips =
+    (showTagChips && activeTags.length > 0) ||
+    activeMakiCategories.length > 0 ||
+    countryChipVisible;
+
+  const filtersCtaPrimary = (
+    <ExplorePlacesFiltersButton colors={colors} onPress={onOpenFiltersPanel} />
+  );
+
+  const filtersCtaCompact = (
+    <ExplorePlacesFiltersButton
+      colors={colors}
+      onPress={onOpenFiltersPanel}
+      variant="compact"
+    />
+  );
+
+  if (hideFiltersEntry) {
+    if (!hasActiveChips) return null;
+    return (
+      <View style={[styles.column, styles.columnCompact]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.compactChipsScrollContent}
+          style={styles.chipsOnlyScroll}
+        >
+          <ExplorePlacesActiveFilterChips
+            colors={colors}
+            countryFilter={countryFilter}
+            activeTags={activeTags}
+            activeMakiCategories={activeMakiCategories}
+            showTagChips={showTagChips}
+            onClearCountryScope={onClearCountryScope}
+            onClearTagFilter={onClearTagFilter}
+            onClearMakiFilter={onClearMakiFilter}
+            hideCountryChip={hideCountryChip}
+          />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (density === "compact" && filtersEntryLeading == null && filtersSearchInline == null) {
+    return (
+      <View style={[styles.column, styles.columnCompact]}>
+        <View style={[styles.compactRow, WebNoTextSelect]}>
+          {filtersCtaCompact}
+          {hasActiveChips ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.compactChipsScrollContent}
+              style={styles.compactChipsScroll}
+            >
+              <ExplorePlacesActiveFilterChips
+                colors={colors}
+                countryFilter={countryFilter}
+                activeTags={activeTags}
+                activeMakiCategories={activeMakiCategories}
+                showTagChips={showTagChips}
+                onClearCountryScope={onClearCountryScope}
+                onClearTagFilter={onClearTagFilter}
+                onClearMakiFilter={onClearMakiFilter}
+                hideCountryChip={hideCountryChip}
+              />
+            </ScrollView>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.column}>
@@ -263,9 +431,12 @@ export function ExplorePlacesActiveFiltersBar({
             colors={colors}
             countryFilter={countryFilter}
             activeTags={activeTags}
+            activeMakiCategories={activeMakiCategories}
             showTagChips={showTagChips}
             onClearCountryScope={onClearCountryScope}
             onClearTagFilter={onClearTagFilter}
+            onClearMakiFilter={onClearMakiFilter}
+            hideCountryChip={hideCountryChip}
           />
         </ScrollView>
       ) : null}
@@ -279,6 +450,35 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xs,
     marginBottom: Spacing.sm,
     gap: Spacing.sm,
+  },
+  columnCompact: {
+    marginTop: 0,
+    marginBottom: Spacing.xs,
+    gap: 0,
+  },
+  compactRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "stretch",
+    gap: Spacing.sm,
+    minHeight: 40,
+  },
+  compactChipsScroll: {
+    flex: 1,
+    flexGrow: 1,
+    minWidth: 0,
+    maxWidth: "100%",
+  },
+  chipsOnlyScroll: {
+    flexGrow: 0,
+    maxWidth: "100%",
+  },
+  compactChipsScrollContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingVertical: 2,
+    paddingRight: Spacing.xs,
   },
   chipsScroll: {
     flexGrow: 0,
@@ -327,9 +527,30 @@ const styles = StyleSheet.create({
     borderRadius: Radius.md,
     borderWidth: 1,
   },
+  filtersEntryCompact: {
+    flexShrink: 0,
+    minHeight: 38,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+  },
+  filtersEntryHeader: {
+    alignSelf: "flex-end",
+    minHeight: 38,
+    paddingHorizontal: Spacing.sm,
+  },
   filtersEntryLabel: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  filtersEntryCompactLabel: {
+    fontSize: 13,
+    fontWeight: "700",
   },
   activeChip: {
     flexDirection: "row",

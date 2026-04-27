@@ -104,7 +104,9 @@ Cuando la sheet está en **modo POI** (no hay `spot` aún) se puede mostrar un C
 
 - En **Visitados**, el hero de `SpotSheet` debe priorizar **fotos personales del usuario autenticado**.
 - Si existen fotos personales del usuario para ese spot, **se muestran esas fotos**.
-- Si **no** existen fotos personales del usuario, el hero **no** debe caer a portada/galería comunitaria; en ese caso se muestra el CTA **“Subir mis fotos”**.
+- Si **no** existen fotos personales del usuario, el hero debe caer a la galería/portada pública canónica si existe; el CTA **“Subir mis fotos”** se muestra como acción complementaria, no como reemplazo de una imagen existente.
+- En **Todos** y **Por visitar**, la portada/galería pública canónica es la fuente visual principal; las fotos privadas nunca deben publicarse como cover.
+- Durante uploads multi-foto, el hero puede mostrar una barra de progreso mínima por archivos procesados. No debe prometer progreso byte-a-byte si el uploader no lo expone.
 - Ver contrato fuente para semántica público/privado: [`PHOTO_SHARING_CONSENT.md`](PHOTO_SHARING_CONSENT.md).
 
 ---

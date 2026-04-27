@@ -1,5 +1,6 @@
 import type { MapPinFilterCounts, MapPinFilterValue } from '@/components/design-system/map-pin-filter';
 import type { UseSearchControllerV2Return } from '@/hooks/search/useSearchControllerV2';
+import type { ExploreListDensity } from '@/lib/storage/exploreListDensityPreference';
 import type { PlaceResult } from '@/lib/places/searchPlaces';
 import type { ReactNode } from 'react';
 import type { SearchSection } from './SearchResultsListV2';
@@ -79,4 +80,6 @@ export type SearchFloatingProps<T> = {
    * cuando `pinFilter` es `saved`/`visited` (p. ej. CTA «Seleccionar» / «Cancelar» para etiquetado masivo).
    */
   placesListFirstSectionHeaderRight?: ReactNode;
+  /** Densidad canónica para cards internas de SearchSurface (p. ej. recomendaciones Mapbox). */
+  listDensity?: ExploreListDensity;
 };

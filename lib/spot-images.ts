@@ -38,8 +38,16 @@ export type SpotImageRow = {
   id: string;
   spot_id: string;
   url: string;
+  storage_bucket: string | null;
+  storage_path: string | null;
+  width: number | null;
+  height: number | null;
+  blurhash: string | null;
+  thumb_path: string | null;
+  version: number;
   sort_order: number;
   created_at: string;
+  updated_at: string | null;
 };
 
 function rowFromDb(r: Record<string, unknown>): SpotImageRow {
@@ -47,9 +55,27 @@ function rowFromDb(r: Record<string, unknown>): SpotImageRow {
     id: String(r.id),
     spot_id: String(r.spot_id),
     url: String(r.url),
+    storage_bucket: typeof r.storage_bucket === 'string' ? r.storage_bucket : null,
+    storage_path: typeof r.storage_path === 'string' ? r.storage_path : null,
+    width: typeof r.width === 'number' ? r.width : null,
+    height: typeof r.height === 'number' ? r.height : null,
+    blurhash: typeof r.blurhash === 'string' ? r.blurhash : null,
+    thumb_path: typeof r.thumb_path === 'string' ? r.thumb_path : null,
+    version: typeof r.version === 'number' ? r.version : 1,
     sort_order: Number(r.sort_order),
     created_at: String(r.created_at),
+    updated_at: typeof r.updated_at === 'string' ? r.updated_at : null,
   };
+}
+
+export function getSpotImagePublicUrl(row: Pick<SpotImageRow, 'url' | 'storage_bucket' | 'storage_path'>): string {
+  const bucket = row.storage_bucket?.trim();
+  const path = row.storage_path?.trim();
+  if (bucket === 'spot-covers' && path) {
+    const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+    if (data.publicUrl) return data.publicUrl;
+  }
+  return row.url;
 }
 
 /** Lista imágenes del spot por `sort_order` (primera = portada en mapa tras sincronizar). */
@@ -61,7 +87,7 @@ export async function listSpotImages(spotId: string): Promise<SpotImageRow[]> {
   const run = (async () => {
     const { data, error } = await supabase
     .from('spot_images')
-    .select('id, spot_id, url, sort_order, created_at')
+    .select('id, spot_id, url, storage_bucket, storage_path, width, height, blurhash, thumb_path, version, sort_order, created_at, updated_at')
     .eq('spot_id', spotId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -117,9 +143,12 @@ export async function ensureGallerySeedFromCover(
   if (n > 0) return false;
   const url = publicImageUrlWithoutQuery(coverImageUrl);
   if (!url) return false;
+  const storagePath = extractStoragePathFromPublicUrl(url);
   const { error } = await supabase.from('spot_images').insert({
     spot_id: spotId,
     url,
+    storage_bucket: storagePath ? 'spot-covers' : null,
+    storage_path: storagePath,
     sort_order: 0,
   });
   if (!error) invalidateSpotImagesCache(spotId);
@@ -151,15 +180,19 @@ export async function addSpotImageRow(
     maxRow && typeof (maxRow as { sort_order?: number }).sort_order === 'number'
       ? (maxRow as { sort_order: number }).sort_order + 1
       : 0;
+  const normalizedUrl = publicImageUrlWithoutQuery(publicUrl);
+  const storagePath = extractStoragePathFromPublicUrl(normalizedUrl);
 
   const { data, error } = await supabase
     .from('spot_images')
     .insert({
       spot_id: spotId,
-      url: publicUrl,
+      url: normalizedUrl,
+      storage_bucket: storagePath ? 'spot-covers' : null,
+      storage_path: storagePath,
       sort_order: nextOrder,
     })
-    .select('id, spot_id, url, sort_order, created_at')
+    .select('id, spot_id, url, storage_bucket, storage_path, width, height, blurhash, thumb_path, version, sort_order, created_at, updated_at')
     .single();
 
   if (error || !data) {
@@ -173,7 +206,7 @@ export async function addSpotImageRow(
 export async function removeSpotImage(imageId: string): Promise<boolean> {
   const { data: row, error: fetchErr } = await supabase
     .from('spot_images')
-    .select('id, url, spot_id')
+    .select('id, url, storage_path, spot_id')
     .eq('id', imageId)
     .maybeSingle();
 
@@ -182,7 +215,10 @@ export async function removeSpotImage(imageId: string): Promise<boolean> {
   }
 
   const url = String((row as { url: string }).url);
-  const storagePath = extractStoragePathFromPublicUrl(url);
+  const storagePath =
+    typeof (row as { storage_path?: unknown }).storage_path === 'string'
+      ? String((row as { storage_path: string }).storage_path)
+      : extractStoragePathFromPublicUrl(url);
   // Primero eliminar la fila DB (rápido) para que la UI pueda actualizar sin esperar a Storage.
   // Luego, intentar limpiar el objeto en Storage en background (no bloquear).
   const { error } = await supabase.from('spot_images').delete().eq('id', imageId);
@@ -224,7 +260,7 @@ export async function reorderSpotImages(spotId: string, orderedIds: string[]): P
 export async function syncCoverFromGallery(spotId: string): Promise<boolean> {
   const images = await listSpotImages(spotId);
   const first = images[0];
-  const nextCover = first?.url ?? null;
+  const nextCover = first ? getSpotImagePublicUrl(first) : null;
 
   const { error } = await supabase.from('spots').update({ cover_image_url: nextCover }).eq('id', spotId);
 

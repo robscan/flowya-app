@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { SearchListCard } from './search-list-card';
+import type { ExploreListDensity } from '@/lib/storage/exploreListDensityPreference';
 
 export type SearchResultCardProps = {
   spot: {
@@ -32,6 +33,8 @@ export type SearchResultCardProps = {
   onHoverChange?: (hovered: boolean) => void;
   selectionMode?: boolean;
   selected?: boolean;
+  density?: ExploreListDensity;
+  listContext?: 'all' | 'to_visit' | 'visited';
 };
 
 export function SearchResultCard({
@@ -44,6 +47,8 @@ export function SearchResultCard({
   onHoverChange,
   selectionMode = false,
   selected = false,
+  density = "detail",
+  listContext = "all",
 }: SearchResultCardProps) {
   const resolvedSubtitle =
     subtitleOverride !== undefined ? subtitleOverride : (spot.address ?? null);
@@ -60,6 +65,8 @@ export function SearchResultCard({
         tagChips={tagChips}
         selectionMode={selectionMode}
         selected={selected}
+        density={density}
+        listContext={listContext}
         onPress={onPress ?? (() => {})}
         accessibilityLabel={`Seleccionar ${spot.title}`}
         onHoverChange={onHoverChange}

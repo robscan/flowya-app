@@ -31,6 +31,7 @@ import {
 import type { SpotHeroImagePressHandler } from "@/lib/spot-hero-press";
 import {
     CheckCircle,
+    ImagePlus,
     MapPin,
     Pencil,
     Pin,
@@ -216,6 +217,7 @@ export type SpotSheetProps = {
   /** Visitados sin fotos personales: CTA para subir memorias. */
   onAddPersonalPhotos?: () => void;
   addPersonalPhotosBusy?: boolean;
+  mediaUploadProgress?: { value: number } | null;
   /** Etiquetas del spot en el sheet (solo lectura). */
   sheetTagChips?: { id: string; label: string }[];
   /** Tap en chip: buscador en Por visitar o Visitados con filtro por esa etiqueta. */
@@ -351,6 +353,7 @@ function MediumBodyContent({
   pinMutationTarget = null,
   onAddPersonalPhotos,
   addPersonalPhotosBusy = false,
+  mediaUploadProgress = null,
 }: Pick<
   BodyContentProps,
   | "spot"
@@ -378,16 +381,20 @@ function MediumBodyContent({
   webDesktopSidebar?: boolean;
   onAddPersonalPhotos?: () => void;
   addPersonalPhotosBusy?: boolean;
+  mediaUploadProgress?: { value: number } | null;
 }) {
-  // Canon: si no hay fotos, invitamos a subir una desde el hero (sin importar visited).
-  // Regla de fallback: en Visitados (persistido), ocultar cover “comunitario” y usar solo personal.
+  // Canon media V1: la portada pública/canónica nunca se pierde como fallback visual.
+  // En Visitados, las fotos personales pueden priorizarse, pero el CTA es complementario.
   const effectiveUris = resolveHeroUris({
     personalUris: heroImageUris,
     coverUrl: spot.cover_image_url ?? null,
-    hideCoverFallback: isVisited && !isDraft,
   });
   const showGrid = effectiveUris.length > 1;
   const heroIsEmpty = effectiveUris.length === 0;
+  const uploadProgressValue =
+    mediaUploadProgress != null
+      ? Math.max(0, Math.min(1, mediaUploadProgress.value))
+      : null;
 
   const { height: windowHeight } = useWindowDimensions();
   /**
@@ -413,6 +420,11 @@ function MediumBodyContent({
   const pinMutationBusy = pinMutationTarget != null;
   const showHeroUploadCta =
     !isDraft && effectiveUris.length === 0 && onAddPersonalPhotos != null;
+  const showVisitedHeroAddPhotosCta =
+    !isDraft &&
+    isVisited &&
+    effectiveUris.length > 0 &&
+    onAddPersonalPhotos != null;
 
   return (
     <>
@@ -491,6 +503,54 @@ function MediumBodyContent({
                   colorScheme={colorScheme ?? undefined}
                 />
               )
+            ) : null}
+            {showVisitedHeroAddPhotosCta ? (
+              <Pressable
+                style={[
+                  styles.heroAddPhotosButton,
+                  {
+                    backgroundColor: colors.backgroundElevated,
+                    borderColor: colors.borderSubtle,
+                    opacity: addPersonalPhotosBusy ? 0.72 : 1,
+                  },
+                ]}
+                onPress={addPersonalPhotosBusy ? undefined : onAddPersonalPhotos}
+                disabled={addPersonalPhotosBusy}
+                accessibilityLabel="Subir mis fotos"
+                accessibilityRole="button"
+                accessibilityState={{ busy: addPersonalPhotosBusy }}
+              >
+                {addPersonalPhotosBusy ? (
+                  <ActivityIndicator size="small" color={colors.primary} />
+                ) : (
+                  <ImagePlus size={16} color={colors.text} strokeWidth={2.2} />
+                )}
+                <Text
+                  style={[styles.heroAddPhotosButtonText, { color: colors.text }]}
+                  numberOfLines={1}
+                >
+                  Subir fotos
+                </Text>
+              </Pressable>
+            ) : null}
+            {uploadProgressValue != null ? (
+              <View
+                style={[
+                  styles.mediaUploadProgressTrack,
+                  { backgroundColor: colors.borderSubtle },
+                ]}
+                pointerEvents="none"
+              >
+                <View
+                  style={[
+                    styles.mediaUploadProgressFill,
+                    {
+                      backgroundColor: colors.primary,
+                      width: `${Math.max(4, Math.round(uploadProgressValue * 100))}%`,
+                    },
+                  ]}
+                />
+              </View>
             ) : null}
           </View>
         </View>
@@ -1006,6 +1066,7 @@ type SpotSheetBodyProps = {
   heroImageUris?: string[];
   onAddPersonalPhotos?: () => void;
   addPersonalPhotosBusy?: boolean;
+  mediaUploadProgress?: { value: number } | null;
   sheetTagChips?: { id: string; label: string }[];
   onSheetTagChipPress?: (tagId: string) => void;
   onSheetEtiquetarPress?: () => void;
@@ -1054,6 +1115,7 @@ function SpotSheetBody({
   heroImageUris,
   onAddPersonalPhotos,
   addPersonalPhotosBusy = false,
+  mediaUploadProgress = null,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
@@ -1101,6 +1163,7 @@ function SpotSheetBody({
           heroImageUris={heroImageUris}
           onAddPersonalPhotos={onAddPersonalPhotos}
           addPersonalPhotosBusy={addPersonalPhotosBusy}
+          mediaUploadProgress={mediaUploadProgress}
           distanceKmVal={distanceKmVal}
           sheetTagChips={sheetTagChips}
           onSheetTagChipPress={onSheetTagChipPress}
@@ -1191,6 +1254,7 @@ export function SpotSheet({
   heroImageUris,
   onAddPersonalPhotos,
   addPersonalPhotosBusy = false,
+  mediaUploadProgress = null,
   sheetTagChips,
   onSheetTagChipPress,
   onSheetEtiquetarPress,
@@ -1557,10 +1621,10 @@ export function SpotSheet({
   const colors = Colors[colorScheme ?? "light"];
   const isVisited = spot ? (spot.visited ?? spot.pinStatus === "visited") : false;
   const hasDesc = spot ? Boolean(spot.description_short?.trim()) : false;
-  // Canon: en Visitados, mostrar solo fotos personales (galería) y no la portada “comunitaria”.
+  // Canon media V1: el cover público funciona como fallback también en Visitados.
   const hasCover = spot
     ? (heroImageUris != null && heroImageUris.length > 0) ||
-      (!isVisited && Boolean(spot.cover_image_url))
+      Boolean(spot.cover_image_url)
     : false;
   const isSaved = spot ? (spot.saved ?? spot.pinStatus === "to_visit") : false;
   const distanceKmVal =
@@ -1708,6 +1772,7 @@ export function SpotSheet({
         heroImageUris={heroImageUris}
         onAddPersonalPhotos={onAddPersonalPhotos}
         addPersonalPhotosBusy={addPersonalPhotosBusy}
+        mediaUploadProgress={mediaUploadProgress}
         sheetTagChips={sheetTagChips}
         onSheetTagChipPress={onSheetTagChipPress}
         onSheetEtiquetarPress={onSheetEtiquetarPress}
@@ -1958,6 +2023,37 @@ const styles = StyleSheet.create({
     width: "100%",
     borderRadius: Radius.md,
     overflow: "hidden",
+    position: "relative",
+  },
+  heroAddPhotosButton: {
+    position: "absolute",
+    right: 10,
+    bottom: 10,
+    minHeight: 34,
+    maxWidth: "72%",
+    borderRadius: Radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+  heroAddPhotosButtonText: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: "700",
+  },
+  mediaUploadProgressTrack: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    overflow: "hidden",
+  },
+  mediaUploadProgressFill: {
+    height: "100%",
   },
   personalPhotosEmptyWrap: {
     width: "100%",

@@ -88,7 +88,6 @@ export function ExploreTagFilterChipRow({
               <Text
                 style={[
                   styles.chipLabel,
-                  WebNoTextSelect,
                   {
                     color:
                       selectedTagFilterIds.length === 0
@@ -163,7 +162,6 @@ export function ExploreTagFilterChipRow({
                     iconSize={12}
                     textStyle={[
                       styles.chipLabel,
-                      WebNoTextSelect,
                       { color: chipLabelColor },
                     ]}
                     containerStyle={styles.chipIconLabelFill}

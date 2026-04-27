@@ -73,7 +73,6 @@ export function ExploreCountryFilterChipRow({
           <Text
             style={[
               styles.chipLabel,
-              WebNoTextSelect,
               { color: allSelected ? colors.surfaceOnMap : colors.text },
             ]}
             numberOfLines={1}
@@ -116,7 +115,6 @@ export function ExploreCountryFilterChipRow({
               <Text
                 style={[
                   styles.chipLabel,
-                  WebNoTextSelect,
                   { color: selected ? colors.surfaceOnMap : colors.text },
                 ]}
                 numberOfLines={1}

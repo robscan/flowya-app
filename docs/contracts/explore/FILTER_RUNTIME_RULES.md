@@ -32,12 +32,15 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 - Si `saved`/`visited` tienen `count=0`, opción deshabilitada y sin número.
 
 1b. **Entrada a KPI desde Todos y sheet de países (2026-04)**
-- Al pasar de **`all` → `saved`/`visited`** con **count > 0** en el filtro destino, el runtime **abre** `CountriesSheet` y aplica el **snap compartido** con el welcome (no solo la banda KPI).
+- Al pasar de **`all` → `saved`/`visited`** con **count > 0** en el filtro destino y **sin** selección activa (`selectedSpot == null` y `poiTapped == null`), el runtime **abre** `CountriesSheet` y aplica el **snap compartido** con el welcome (no solo la banda KPI).
+- Si existe selección activa, **SpotSheet domina**: el cambio de filtro actualiza dataset/chips/mapa, pero **no reemplaza** la consulta del usuario por una sheet motivacional. El CountriesSheet se puede abrir al cerrar el spot si el filtro activo sigue siendo `saved`/`visited` y tiene datos.
+- En recarga/hidratación con `pinFilter` persistido en **`saved`/`visited`** y **count > 0**, `CountriesSheet` debe abrirse como superficie base del filtro. La banda inferior KPI/FLOWYA/Search no es fallback válido para filtros KPI.
 - Con **count = 0** en el filtro destino, **no** se fuerza abrir el sheet de países (evita sheet vacío confuso); el usuario puede abrirlo vía pastilla/KPI.
 - Entre **`saved` ↔ `visited`**, la visibilidad y el estado del sheet siguen `countriesSheetPersistRef` y la regla de “sheet abierto en el filtro anterior” (ver comentario `useLayoutEffect` en `MapScreenVNext`).
 
 1c. **KPI + CountriesSheet abierto + SpotSheet desde mapa (2026-04)**
 - Con **`saved`/`visited`**, si el usuario tenía el **CountriesSheet** abierto (incl. drilldown de país / lista) y abre un **spot o POI** encima (mapa, pin, búsqueda, etc.), al **cerrar** el SpotSheet el runtime **restaura** el CountriesSheet con el mismo snap y vista de lista que tenía antes. No aplica si el spot se abrió **desde dentro** del CountriesSheet (lista): ahí el cierre del spot no debe volver a mostrar el sheet de países por error (`countriesSheetBeforeSpotSheetRef` se anula en ese flujo).
+- Si el usuario abre un spot desde **Todos** y cambia a **Por visitar** o **Visitados** mientras lo consulta, al cerrar el SpotSheet se puede abrir `CountriesSheet` en la vista KPI inicial del filtro activo. Esto es un **deferred context sheet**, no un reemplazo de selección.
 
 2. **Pending-first navigation (OL-WOW-F2-003)**
 - Si hay badge pendiente en `saved` o `visited`, al entrar a ese filtro: seleccionar ese spot, abrir sheet `medium`, centrar mapa.
@@ -108,6 +111,10 @@ Reglas runtime de filtros de pines (`Todos`, `Por visitar`, `Visitados`).
 12. **Sheet de contador de países (`CountriesSheet`, 2026-04)**
 - **Accionables (burbuja «Países» del overlay, KPI «países» y KPI «lugares» en el sheet):** no usar **`peek`** como primera posición al abrir. Snapshot persistido en `peek` se trata como **`medium`**. KPI «países» (fila resumen) lleva el sheet a **`medium`** y vuelve a la vista de lista de países (cierra detalle / listado «todos los lugares»). KPI «lugares» y la burbuja de lugares del overlay abren en **`expanded`** con listado de lugares.
 - **Cambio de filtro `Por visitar` ↔ `Visitados` con el sheet de países abierto:** se conserva el **mismo nivel** (`peek`/`medium`/`expanded`) del filtro que se deja, en lugar de restaurar solo el snapshot del filtro destino (evita saltar a un `expanded` guardado hace tiempo y refuerza sensación de **recarga** de la misma superficie). El sheet permanece **abierto** aunque el destino no tuviera `open: true` en persistencia (primera vez en ese filtro con sheet ya visible). Se limpia `countryDetail` / listado al cruzar filtros para datos coherentes con el nuevo bucket.
+- **Cierre contextual (2026-04-26):** CountriesSheet y WelcomeSheet son superficies base/motivacionales. No llevan `X` de cierre en su cabecera canónica; se desplazan por cambio de filtro, búsqueda, selección Spot/POI, cuenta desktop u overlay bloqueante. Los accesos circulares flotantes sobre controles del mapa quedan fuera del canon.
+- **País → lugares:** al seleccionar un país desde la lista/KPI, el sheet cambia a vista de lugares y conserva mínimo `medium`. Esta acción es **navegación contextual**, no filtro explícito: solo la ruta del sheet/listado queda acotada al país; el mapa vuela al envelope de sus spots sin ocultar pins de otros países, no muestra chip de país activo y no persiste filtro de país. Si el usuario abre `Filtrar` y selecciona un país, entonces sí es filtro explícito: puede acotar la visibilidad/listado, muestra chip y se persiste. El resaltado de área queda fuera de V1 hasta contar con geometría/control visual estable.
+- **Mapa del contador de países:** tocar un país en el mini mapa de CountriesSheet es una acción para ver el área en el mapa principal; el sheet debe plegarse a `peek` fuera de desktop sidebar.
+- **Control del usuario tras país → lugares:** el `fitBounds` programático puede protegerse solo contra eventos sintéticos inmediatos. El primer gesto real del usuario sobre el mapa debe colapsar la sheet a `peek`; no debe requerir dos interacciones.
 
 ## Troubleshooting
 

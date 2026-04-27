@@ -1,12 +1,13 @@
 /**
  * Scope D: persistencia de pins por usuario.
- * Fuente de verdad: saved + visited (independientes).
+ * Fuente de verdad: saved + visited.
+ * Regla V1: estados exclusivos; si visited=true, saved=false.
  * TODO(LEGACY): PinStatus/getPin/setPinStatus/removePin se eliminarán cuando SpotDetail legacy y MapScreenV0 se retiren.
  */
 
 import { supabase } from '@/lib/supabase';
 
-/** Estado de pin por spot: dos flags independientes. */
+/** Estado de pin por spot. En V1 los flags son exclusivos después de normalizar. */
 export type PinState = {
   saved: boolean;
   visited: boolean;
@@ -19,6 +20,13 @@ export type PinStatus = 'to_visit' | 'visited';
 export function deriveLegacyPinStatus(state: PinState | null | undefined): PinStatus | null {
   if (!state || (!state.saved && !state.visited)) return null;
   return state.visited ? 'visited' : 'to_visit';
+}
+
+/** Normaliza el contrato V1: un spot visitado ya no queda también en Por visitar. */
+export function normalizePinState(next: PinState): PinState {
+  return next.visited
+    ? { saved: false, visited: true }
+    : { saved: Boolean(next.saved), visited: false };
 }
 
 export async function getCurrentUserId(): Promise<string | null> {
@@ -98,21 +106,23 @@ export async function setSaved(spotId: string, value: boolean): Promise<PinState
   const userId = await getCurrentUserId();
   if (!userId) return null;
   const current = await getPinState(spotId);
-  const nextSaved = value;
-  const nextVisited = current?.visited ?? false;
-  if (!nextSaved && !nextVisited) {
+  const normalized = normalizePinState({
+    saved: value,
+    visited: current?.visited ?? false,
+  });
+  if (!normalized.saved && !normalized.visited) {
     const ok = await removePin(spotId);
     return ok ? null : null; // null = "no pin" = success
   }
-  const statusLegacy = nextVisited ? 'visited' : 'to_visit';
+  const statusLegacy = deriveLegacyPinStatus(normalized);
   const { data, error } = await supabase
     .from('pins')
     .upsert(
       {
         spot_id: spotId,
         user_id: userId,
-        saved: nextSaved,
-        visited: nextVisited,
+        saved: normalized.saved,
+        visited: normalized.visited,
         status: statusLegacy,
       },
       { onConflict: 'user_id,spot_id' }
@@ -131,21 +141,23 @@ export async function setVisited(spotId: string, value: boolean): Promise<PinSta
   const userId = await getCurrentUserId();
   if (!userId) return null;
   const current = await getPinState(spotId);
-  const nextSaved = current?.saved ?? false;
-  const nextVisited = value;
-  if (!nextSaved && !nextVisited) {
+  const normalized = normalizePinState({
+    saved: current?.saved ?? false,
+    visited: value,
+  });
+  if (!normalized.saved && !normalized.visited) {
     const ok = await removePin(spotId);
     return ok ? null : null;
   }
-  const statusLegacy = nextVisited ? 'visited' : 'to_visit';
+  const statusLegacy = deriveLegacyPinStatus(normalized);
   const { data, error } = await supabase
     .from('pins')
     .upsert(
       {
         spot_id: spotId,
         user_id: userId,
-        saved: nextSaved,
-        visited: nextVisited,
+        saved: normalized.saved,
+        visited: normalized.visited,
         status: statusLegacy,
       },
       { onConflict: 'user_id,spot_id' }
@@ -169,16 +181,14 @@ export async function setPinState(
 ): Promise<PinState | null> {
   const userId = preloadedUserId ?? (await getCurrentUserId());
   if (!userId) return null;
-  const normalized: PinState = next.visited
-    ? { saved: false, visited: true }
-    : { saved: Boolean(next.saved), visited: false };
+  const normalized = normalizePinState(next);
 
   if (!normalized.saved && !normalized.visited) {
     const ok = await removePin(spotId, userId);
     return ok ? normalized : null;
   }
 
-  const statusLegacy: PinStatus = normalized.visited ? 'visited' : 'to_visit';
+  const statusLegacy = deriveLegacyPinStatus(normalized);
   const { data, error } = await supabase
     .from('pins')
     .upsert(

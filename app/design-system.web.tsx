@@ -31,10 +31,13 @@ import {
   CountriesSheetVisitedProgress,
   DS_MOCK_COUNTRY_ITEMS,
   ExploreWelcomeSheet,
+  ExploreContextSheetHeader,
   ExploreCountriesFlowsPill,
   ExploreMapProfileButton,
   ExploreMapStatusRow,
   ExploreChromeSearchField,
+  ExploreListDensityControl,
+  type ExploreListDensity,
   IconButtonShowcase,
   ClearIconCircleShowcase,
   ImagesShowcase,
@@ -66,6 +69,7 @@ import {
 } from '@/lib/web-layout';
 import { computeTravelerPoints, resolveTravelerLevelByPoints } from '@/lib/traveler-levels';
 import { SearchInputV2 } from '@/components/search/SearchInputV2';
+import { ExplorePlacesFiltersButton } from '@/components/explorar/explore-places-active-filters-bar';
 import { ConfirmModal } from '@/components/ui/confirm-modal';
 import { useSystemStatus } from '@/components/ui/system-status-bar';
 import { FlowyaBetaModal } from '@/components/ui/flowya-beta-modal';
@@ -147,6 +151,7 @@ export default function DesignSystemScreen() {
   const [dsMapFilterInlineCompact, setDsMapFilterInlineCompact] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineWide, setDsMapFilterInlineWide] = useState<MapPinFilterValue>('all');
   const [dsMapFilterInlineDisabled, setDsMapFilterInlineDisabled] = useState<MapPinFilterValue>('all');
+  const [dsListDensity, setDsListDensity] = useState<ExploreListDensity>('detail');
   const [dsTplWelcomeState, setDsTplWelcomeState] = useState<ExploreWelcomeSheetState>('medium');
   const [dsTplWelcomeEmptyList, setDsTplWelcomeEmptyList] = useState(false);
   const sectionCard = {
@@ -480,6 +485,9 @@ export default function DesignSystemScreen() {
           description="Matriz visual única: distancia inline + #tags + Etiquetar en una franja; variaciones imagen, default, selected, disabled. SearchResultCard (search-result-card.tsx) solo mapea spot → estas props para el listado de búsqueda en mapa; no duplicar sección en DS."
         >
           <View style={{ maxWidth: 560, gap: Spacing.sm, alignSelf: 'stretch' }}>
+            <View style={{ alignSelf: 'flex-end' }}>
+              <ExploreListDensityControl value={dsListDensity} onChange={setDsListDensity} />
+            </View>
             <SearchListCard
               title="Search row con imagen"
               subtitle="Thumbnail + señales completas."
@@ -490,6 +498,7 @@ export default function DesignSystemScreen() {
               pinStatus="to_visit"
               tagChips={DS_F1_TAG_CHIPS}
               quickActions={DS_F1_QUICK_ETIQUETAR}
+              density={dsListDensity}
             />
             <SearchListCard
               title="Search row default"
@@ -500,6 +509,7 @@ export default function DesignSystemScreen() {
               pinStatus="to_visit"
               tagChips={DS_F1_TAG_CHIPS}
               quickActions={DS_F1_QUICK_ETIQUETAR}
+              density={dsListDensity}
             />
             <SearchListCard
               title="Search row selected"
@@ -511,6 +521,20 @@ export default function DesignSystemScreen() {
               distanceText="1,2 km"
               tagChips={DS_F1_TAG_CHIPS}
               quickActions={DS_F1_QUICK_ETIQUETAR}
+              density={dsListDensity}
+            />
+            <SearchListCard
+              title="Search row en selección múltiple"
+              subtitle="La selección es estado de la misma card, no componente alterno."
+              onPress={() => {}}
+              selected
+              selectionMode
+              pinStatus="visited"
+              accessibilityLabel="Search row en selección múltiple"
+              distanceText="800 m"
+              tagChips={DS_F1_TAG_CHIPS}
+              quickActions={DS_F1_QUICK_ETIQUETAR}
+              density={dsListDensity}
             />
             <SearchListCard
               title="Search row disabled"
@@ -522,6 +546,7 @@ export default function DesignSystemScreen() {
               distanceText="1,2 km"
               tagChips={DS_F1_TAG_CHIPS}
               quickActions={DS_F1_QUICK_ETIQUETAR}
+              density={dsListDensity}
             />
           </View>
         </DesignSystemSection>
@@ -773,6 +798,97 @@ export default function DesignSystemScreen() {
             }}
           >
             <ExploreCountriesFlowsPill countriesCount={0} flowsPoints={0} />
+          </View>
+        </DesignSystemSection>
+
+        <DesignSystemSection
+          id="ds-comp-explore-context-sheet-header"
+          title="Explore — ExploreContextSheetHeader"
+          titleColor={titleMuted}
+          mutedColor={colors.textSecondary}
+          cardStyle={sectionCard}
+          onLayoutY={registerY}
+          description="Cabecera canónica para sheets contextuales de Explore (Welcome y Countries). Acciones mínimas: compartir, volver cuando hay drilldown; Filtrar arriba derecha en Lugares; sin cerrar en superficies base motivacionales."
+        >
+          <View
+            style={{
+              gap: Spacing.md,
+              width: '100%',
+              maxWidth: 520,
+              alignSelf: 'stretch',
+            }}
+          >
+            <View
+              style={{
+                padding: Spacing.base,
+                borderRadius: Radius.lg,
+                borderWidth: 1,
+                borderColor: colors.borderSubtle,
+                backgroundColor: colors.backgroundElevated,
+              }}
+            >
+              <ExploreContextSheetHeader
+                title="Explorar"
+                state="medium"
+                colors={colors}
+                onTitlePress={() => {}}
+                onShare={() => {}}
+                hideSheetHandle
+              />
+            </View>
+            <View
+              style={{
+                padding: Spacing.base,
+                borderRadius: Radius.lg,
+                borderWidth: 1,
+                borderColor: colors.countriesPanelVisitedBorderSubtle,
+                backgroundColor: colors.countriesPanelVisitedBackgroundElevated,
+              }}
+            >
+              <ExploreContextSheetHeader
+                title="Países visitados"
+                state="expanded"
+                colors={colors}
+                onTitlePress={() => {}}
+                onShare={() => {}}
+                backAction={{ onPress: () => {}, accessibilityLabel: 'Volver al resumen' }}
+                hideSheetHandle
+              />
+            </View>
+            <View
+              style={{
+                padding: Spacing.base,
+                borderRadius: Radius.lg,
+                borderWidth: 1,
+                borderColor: colors.countriesPanelVisitedBorderSubtle,
+                backgroundColor: colors.countriesPanelVisitedBackgroundElevated,
+              }}
+            >
+              <ExploreContextSheetHeader
+                title="México"
+                state="medium"
+                colors={colors}
+                onTitlePress={() => {}}
+                backAction={{ onPress: () => {}, accessibilityLabel: 'Volver a países' }}
+                rightSlot={
+                  <ExplorePlacesFiltersButton
+                    colors={{
+                      text: colors.text,
+                      textSecondary: colors.textSecondary,
+                      borderSubtle: colors.borderSubtle,
+                      background: colors.background,
+                      surfaceOnMap: colors.surfaceOnMap,
+                      countryChipBackground: colors.explorePlacesCountryChipBackground,
+                      countryChipBorder: colors.explorePlacesCountryChipBorder,
+                      tagChipBackground: colors.tint,
+                    }}
+                    onPress={() => {}}
+                    variant="header"
+                  />
+                }
+                hideSheetHandle
+              />
+            </View>
           </View>
         </DesignSystemSection>
 
@@ -1054,7 +1170,7 @@ export default function DesignSystemScreen() {
           mutedColor={colors.textSecondary}
           cardStyle={sectionCard}
           onLayoutY={registerY}
-          description="Composición de runtime vía CountriesSheetTemplateDemo: SpotSheetHeader, CountriesSheetKpiRow, CountriesMapPreview, CountriesSheetVisitedProgress (visitados), CountriesSheetCountryList. Piezas sueltas en Componentes. En Explore el snapshot del mapa alimenta compartir."
+          description="Composición de runtime vía CountriesSheetTemplateDemo: ExploreContextSheetHeader, CountriesSheetKpiRow, CountriesMapPreview, CountriesSheetVisitedProgress (visitados), CountriesSheetCountryList. Piezas sueltas en Componentes. En Explore el snapshot del mapa alimenta compartir."
         >
           <Text style={{ color: colors.textSecondary, marginBottom: Spacing.sm }}>Por visitar</Text>
           <CountriesSheetTemplateDemo filterMode="saved" />

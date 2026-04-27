@@ -32,7 +32,9 @@ yarn-error.*
 
 # local env files
 .env
+.env.*
 .env*.local
+!.env.example
 
 # typescript
 *.tsbuildinfo
@@ -51,3 +53,4 @@ docs/analysis/
 
 # local scratch (do not commit)
 .local/
+supabase/.temp/
