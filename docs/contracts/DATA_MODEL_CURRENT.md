@@ -227,7 +227,7 @@ Sin implicación para el plan DB/media/geografía V1.
 
 | Bucket | Público | Objetos | Tamaño aprox. | Uso |
 |---|---:|---:|---:|---|
-| `spot-covers` | sí | 103 | 67.4 MB aprox. | Portadas y galería pública legacy/path-first |
+| `spot-covers` | sí | 81 | post-cleanup huérfanos 2026-04-27 | Portadas y galería pública legacy/path-first |
 | `spot-personal` | no | 0 | 0 | Fotos personales privadas |
 | `profile-avatars` | sí | 1 | 593 KB | Avatar público por path |
 
