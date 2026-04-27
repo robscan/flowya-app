@@ -104,6 +104,27 @@ Estado actual (Fase C):
   - degradar resultados comerciales o de dirección cuando compiten con candidatos landmark.
 - En `landmark`, no usar sesgo local (`bbox/proximity`) para evitar que resultados cercanos al usuario dominen sobre el landmark canónico.
 
+### 6.1 Recuperación de intención local V1
+
+Antes de depender de resultados externos, la búsqueda local debe recuperar spots propios por intención razonable:
+
+- normalización compartida en `lib/search/intent-normalize.ts`: lowercase, sin acentos, puntuación simple como espacios y colapso de whitespace;
+- documento runtime por spot en `lib/search/intent-scoring.ts` con título como campo primario y descripción/dirección/geo/tags como campo secundario;
+- scoring conservador: título exacto, token exacto, frase contenida, prefijo/contiene en token largo, fuzzy leve para typos en tokens largos y match secundario con score menor que título;
+- `spotsStrategy` debe filtrar y ordenar por score local antes de desempatar por pin/distancia;
+- cuando `query >= threshold`, la búsqueda local/DB no debe recortarse por `bbox` del viewport. El viewport puede influir en desempates, pero no puede impedir que aparezca un spot propio relevante ubicado fuera de la cámara actual;
+- en `Por visitar`/`Visitados`, si el filtro activo no tiene coincidencias locales, el cache de etapa vacía no puede cortar el fallback cross-filter hacia el pool completo de pins/spots;
+- el aviso de fallback cross-filter solo puede mostrarse si la lista final no contiene ningún resultado del filtro activo. Usar pool ampliado es un detalle técnico; no equivale por sí mismo a “no hay resultados en Visitados/Por visitar”;
+- `mergeSearchResults` debe evitar que ruido externo desplace un spot local plausible.
+
+Caso semilla V1:
+- “Gran Parque La Pancha” debe aparecer para `Plancha`, `plancha`, `placha`, `pancha` y `Gran parque` mientras el dato visible/canonical no se corrija.
+
+Guardrails:
+- No guardar query cruda como telemetría.
+- No agregar migración DB ni `pg_trgm` en V1.
+- No convertir fuzzy en búsqueda global demasiado agresiva: matches secundarios conservan score bajo y Mapbox sigue útil cuando no hay candidato local plausible.
+
 Estado actual (Fase D parcial):
 
 - Create-from-search usa snapshot mínimo externo ya alineado con create-from-POI (`linked_place_id`, `linked_place_kind`, `linked_maki`, `lat/lng`, `name`).

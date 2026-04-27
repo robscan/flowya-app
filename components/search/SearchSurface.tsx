@@ -14,7 +14,6 @@ import React, { useCallback, useMemo, useState, type ReactNode } from 'react';
 import {
   NativeScrollEvent,
   NativeSyntheticEvent,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +28,20 @@ import { SearchInputV2 } from './SearchInputV2';
 import type { PlacesFiltersBarRenderProps, SearchFloatingProps } from './types';
 
 const HEADER_ROW_HEIGHT = 44;
+
+function itemBelongsToPinFilter(item: unknown, pinFilter: 'saved' | 'visited'): boolean {
+  if (item == null || typeof item !== 'object') return false;
+  const row = item as {
+    saved?: unknown;
+    visited?: unknown;
+    pinStatus?: unknown;
+  };
+  if (pinFilter === 'visited') {
+    return row.visited === true || row.pinStatus === 'visited';
+  }
+  if (row.visited === true || row.pinStatus === 'visited') return false;
+  return row.saved === true || row.pinStatus === 'to_visit';
+}
 
 export type SearchSurfaceProps<T> = SearchFloatingProps<T> & {
   /** Callback al cerrar (pasado por adapter). */
@@ -74,6 +87,7 @@ export function SearchSurface<T>({
   searchInputAutoFocus = true,
   placesFiltersBar,
   placesListFirstSectionHeaderRight,
+  listDensity = 'detail',
 }: SearchSurfaceProps<T>) {
   const [searchInputFocused, setSearchInputFocused] = useState(false);
   const keyFor = (item: T, idx: number) => (getItemKey ? getItemKey(item) : `item-${idx}`);
@@ -122,8 +136,17 @@ export function SearchSurface<T>({
   const shouldRenderResultsOnEmpty = showResultsOnEmpty && isEmpty && displayResults.length > 0;
   const shouldRenderResultsList = (isSearch || shouldRenderResultsOnEmpty) && displayResults.length > 0;
   const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
+  const activePinFilterResultCount = useMemo(() => {
+    if (pinFilter !== 'saved' && pinFilter !== 'visited') return displayResults.length;
+    return displayResults.filter((item) => itemBelongsToPinFilter(item, pinFilter)).length;
+  }, [displayResults, pinFilter]);
   const showGlobalPinExpandHint =
-    isFilteredPinSearch && controller.isGlobalPinExpandActive && displayResults.length > 0 && isSearch;
+    isFilteredPinSearch &&
+    controller.isGlobalPinExpandActive &&
+    displayResults.length > 0 &&
+    activePinFilterResultCount === 0 &&
+    isSearch;
+  const listContext = pinFilter === 'saved' ? 'to_visit' : pinFilter === 'visited' ? 'visited' : 'all';
 
   const scrollProps = {
     keyboardShouldPersistTaps: 'handled' as const,
@@ -301,8 +324,8 @@ export function SearchSurface<T>({
                   accessibilityRole="text"
                 >
                   {pinFilter === 'saved'
-                    ? 'No hay coincidencias en Por visitar; mostrando resultados como en Todos (tus lugares guardados y lugares sugeridos).'
-                    : 'No hay coincidencias en Visitados; mostrando resultados como en Todos (tus lugares visitados y lugares sugeridos).'}
+                    ? 'No hay resultados en Por visitar, buscando en el mapa.'
+                    : 'No hay resultados en Visitados, buscando en el mapa.'}
                 </Text>
               ) : null}
               {resultsSummaryLabel ? (
@@ -448,6 +471,8 @@ export function SearchSurface<T>({
                         key={place.id}
                         title={place.name}
                         subtitle={place.fullName}
+                        density={listDensity}
+                        listContext={listContext}
                         onPress={() => onCreateFromPlace(place)}
                         accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
                       />
@@ -481,6 +506,8 @@ export function SearchSurface<T>({
                         key={place.id}
                         title={place.name}
                         subtitle={place.fullName}
+                        density={listDensity}
+                        listContext={listContext}
                         onPress={() => onCreateFromPlace(place)}
                         accessibilityLabel={`Ver recomendación: ${place.name}${place.fullName ? `, ${place.fullName}` : ''}`}
                       />

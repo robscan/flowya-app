@@ -53,8 +53,6 @@ export type ExploreMapChromeLayoutInput = {
   countriesSheetHeight: number;
   welcomeSheetHeight: number;
   welcomeSheetState: ExploreWelcomeSheetState;
-  /** Web sidebar: el usuario ocultó el panel de bienvenida (mapa a ancho completo hasta que se resetea). */
-  welcomeSidebarDismissed?: boolean;
   /**
    * CountriesSheet en vista listado de lugares (`all_places` o país): sidebar más ancho que el KPI de países.
    * Debe coincidir con `countriesSheetListView != null` en MapScreen.
@@ -87,7 +85,6 @@ export type ExploreMapChromeLayoutResult = {
   mapControlsLiftAboveFlowyaStatusRow: number;
   controlsBottomOffset: number;
   shouldUseCenteredOverlayColumn: boolean;
-  shouldCenterCountriesWithPeekSheet: boolean;
   /** Web ≥1080: welcome o países en columna izquierda; mapa solo en el resto. */
   exploreDesktopSidebarActive: boolean;
   /** Ancho en px de la columna lateral (0 si no aplica). Toast / offsets deben alinear con esto. */
@@ -100,8 +97,6 @@ export type ExploreMapChromeLayoutResult = {
   isFlowyaSidebarHeaderVisible: boolean;
   /** Fila FLOWYA anclada al mapa (inferior); falsa cuando va al header del sidebar. */
   isFlowyaStatusRowOnMap: boolean;
-  /** Condiciones para mostrar bienvenida sin tener en cuenta cierre persistente (sidebar web). */
-  showExploreWelcomeSheetEligible: boolean;
 };
 
 export function computeExploreMapChromeLayout(
@@ -126,7 +121,6 @@ export function computeExploreMapChromeLayout(
     countriesSheetHeight,
     welcomeSheetHeight,
     welcomeSheetState,
-    welcomeSidebarDismissed = false,
     countriesSheetListViewPresent = false,
     accountDesktopExploreOpen = false,
   } = input;
@@ -137,7 +131,7 @@ export function computeExploreMapChromeLayout(
 
   const isSpotSheetVisible = selectedSpot != null || poiTapped != null;
   const isCountriesSheetVisible = countriesSheetOpen;
-  /** Solo filtro Todos; la preferencia `welcomeSidebarDismissed` no depende del pin (persistencia global). */
+  /** Solo filtro Todos; Welcome es el contexto base cuando no hay consulta activa ni overlay bloqueante. */
   const showExploreWelcomeSheetBase =
     !createSpotNameOverlayOpen &&
     !searchV2Open &&
@@ -146,13 +140,7 @@ export function computeExploreMapChromeLayout(
     poiTapped == null &&
     pinFilter === "all" &&
     isGlobeEntryMotionSettled;
-  const showExploreWelcomeSheet =
-    showExploreWelcomeSheetBase &&
-    !(
-      welcomeSidebarDismissed &&
-      Platform.OS === "web" &&
-      webExploreUsesDesktopSidebar(windowWidth)
-    );
+  const showExploreWelcomeSheet = showExploreWelcomeSheetBase;
 
   /** Spot/POI en columna lateral (no sheet inferior centrado) cuando no bloquean búsqueda ni overlay crear. */
   const spotSheetAnchoredInSidebar =
@@ -203,6 +191,7 @@ export function computeExploreMapChromeLayout(
   const isBottomActionRowVisible =
     isGlobeEntryMotionSettled &&
     !isShellBlockedByOverlay &&
+    pinFilter === "all" &&
     !isSpotSheetVisible &&
     !isCountriesSheetVisible &&
     !showExploreWelcomeSheet;
@@ -305,11 +294,6 @@ export function computeExploreMapChromeLayout(
   const shouldUseCenteredOverlayColumn =
     !isSpotSheetVisible && !isCountriesSheetVisible && !showExploreWelcomeSheet;
 
-  const shouldCenterCountriesWithPeekSheet =
-    !isCountriesSheetVisible &&
-    ((isSpotSheetVisible && sheetState === "peek") ||
-      (showExploreWelcomeSheet && welcomeSheetState === "peek"));
-
   return {
     webConstrainedFlowyaLayout,
     kpiFilterBottomLayout,
@@ -333,13 +317,11 @@ export function computeExploreMapChromeLayout(
     mapControlsLiftAboveFlowyaStatusRow,
     controlsBottomOffset,
     shouldUseCenteredOverlayColumn,
-    shouldCenterCountriesWithPeekSheet,
     exploreDesktopSidebarActive,
     desktopSidebarPixelWidth,
     mapStageWidth,
     flowyaRowFullMapStageWidth,
     isFlowyaSidebarHeaderVisible,
     isFlowyaStatusRowOnMap,
-    showExploreWelcomeSheetEligible: showExploreWelcomeSheetBase,
   };
 }

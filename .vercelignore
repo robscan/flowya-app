@@ -1,0 +1,14 @@
+# Never upload local secrets or machine state with Vercel CLI deployments.
+.env
+.env.*
+.env*.local
+!.env.example
+
+supabase/.temp/
+.local/
+.DS_Store
+*.pem
+*.key
+*.p8
+*.p12
+*.mobileprovision

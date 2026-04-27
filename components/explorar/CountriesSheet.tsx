@@ -2,6 +2,7 @@ import { CountriesMapPreview } from "@/components/design-system/countries-map-pr
 import { CountriesSheetCountryList } from "@/components/design-system/countries-sheet-country-list";
 import { CountriesSheetKpiRow } from "@/components/design-system/countries-sheet-kpi-row";
 import { CountriesSheetVisitedProgress } from "@/components/design-system/countries-sheet-visited-progress";
+import { ExploreContextSheetHeader } from "@/components/design-system/explore-context-sheet-header";
 import type { SearchResultCardProps } from "@/components/design-system/search-result-card";
 import type {
   CountriesSheetListDetail,
@@ -12,17 +13,15 @@ import { SearchLauncherField } from "@/components/design-system/search-launcher-
 import { TravelerLevelsModal } from "@/components/design-system/traveler-levels-modal";
 import { EXPLORE_LAYER_Z } from "@/components/explorar/layer-z";
 import { ExplorePlacesListSectionTitleRow } from "@/components/explorar/explore-places-list-section-title-row";
-import { SpotSheetHeader } from "@/components/explorar/spot-sheet/SpotSheetHeader";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { computeTravelerPoints, resolveTravelerLevelByPoints } from "@/lib/traveler-levels";
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
   SectionList,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -72,7 +71,6 @@ type CountriesSheetProps = {
   onSearchPress?: () => void;
   emptyLabel?: string;
   onStateChange: (next: CountriesSheetState) => void;
-  onClose: () => void;
   onShare: () => void;
   shareDisabled?: boolean;
   onItemPress: (item: CountrySheetItem) => void;
@@ -90,6 +88,10 @@ type CountriesSheetProps = {
   renderCountryDetailItem?: (spot: SearchResultCardProps["spot"]) => React.ReactNode;
   /** Barra «Filtros» + chips activos; el panel completo lo monta el host (`ExplorePlacesFiltersModal`). */
   placesListFilterBar?: React.ReactNode;
+  /** Acción de cabecera para detalle de Lugares (p. ej. Filtrar). */
+  placesListHeaderRight?: React.ReactNode;
+  /** Altura estimada de la barra de filtros/chips para snap `medium` en modo Lugares. */
+  placesListFilterBarEstimatedHeight?: number;
   /**
    * CTA opcional para la primera sección del listado de lugares (alineado a la derecha del header),
    * para ahorrar espacio (título sección izquierda, CTA derecha).
@@ -115,7 +117,7 @@ const MIN_MAP_VISIBLE_TOP = 100;
 const CONTAINER_PADDING_BOTTOM = 16;
 const VELOCITY_SNAP_THRESHOLD = 400;
 const SNAP_POSITION_THRESHOLD = 0.25;
-const HEADER_PADDING_V = 12;
+const HEADER_PADDING_V = 8;
 const HANDLE_ROW_ESTIMATE = 20;
 const DURATION_PROGRAMMATIC = 300;
 const EASING_SHEET = Easing.bezier(0.4, 0, 0.2, 1);
@@ -144,7 +146,6 @@ export function CountriesSheet({
   onSearchPress,
   emptyLabel = "No hay países detectados por ahora.",
   onStateChange,
-  onClose,
   onShare,
   shareDisabled = false,
   onItemPress,
@@ -157,6 +158,8 @@ export function CountriesSheet({
   countryDetailSpotSections = null,
   renderCountryDetailItem,
   placesListFilterBar,
+  placesListHeaderRight,
+  placesListFilterBarEstimatedHeight,
   placesListFirstSectionHeaderRight,
   placesListFilterBarEmbedsSheetSearch = false,
   countryDetailTagFilterSignature = null,
@@ -166,9 +169,12 @@ export function CountriesSheet({
   const insets = useSafeAreaInsets();
   const deviceColorScheme = useColorScheme();
   const activeScheme = forceColorScheme ?? (deviceColorScheme === "dark" ? "dark" : "light");
-  /** Vista resumen de países: título del host. Listado de lugares: título fijo «Lugares»; el ámbito país/Todos va en la fila inferior. */
+  /** Vista resumen de países: título del host. En detalle de país, el país es el contexto primario. */
   const listViewHeaderTitle = useMemo(() => {
-    if (countryDetail?.kind === "all_places" || countryDetail?.kind === "country") {
+    if (countryDetail?.kind === "country") {
+      return countryDetail.label;
+    }
+    if (countryDetail?.kind === "all_places") {
       const n = countryDetailSpots.length;
       return n > 0 ? `Lugares (${n})` : "Lugares";
     }
@@ -231,7 +237,9 @@ export function CountriesSheet({
     CONTAINER_PADDING_BOTTOM;
   const countryDetailMediumBaseline =
     collapsedAnchor +
-    (placesListFilterBar != null ? DETAIL_TAG_ROW_HEIGHT : 0) +
+    (placesListFilterBar != null
+      ? (placesListFilterBarEstimatedHeight ?? DETAIL_TAG_ROW_HEIGHT)
+      : 0) +
     DETAIL_LIST_MIN_HEIGHT +
     CONTAINER_PADDING_BOTTOM;
   const mediumBaselineHeight = isCountryDetailMode ? countryDetailMediumBaseline : listMediumBaseline;
@@ -564,46 +572,38 @@ export function CountriesSheet({
     >
       <View style={isCountryDetailMode ? styles.placesScopeHeaderWrap : undefined}>
         {webDesktopSidebar ? (
-          <SpotSheetHeader
-            isDraft={false}
-            isPlacingDraftSpot={false}
-            isPoiMode={false}
-            poiLoading={false}
-            displayTitle={listViewHeaderTitle}
+          <ExploreContextSheetHeader
+            title={listViewHeaderTitle}
             state={layoutState}
             colors={colors}
-            onHeaderTap={handleHeaderTap}
+            onTitlePress={handleHeaderTap}
             onShare={onShare}
             shareDisabled={shareDisabled}
+            rightSlot={isCountryDetailMode ? placesListHeaderRight : undefined}
             backAction={
               countryDetail != null && onCountryDetailBack != null
                 ? { onPress: onCountryDetailBack }
                 : undefined
             }
-            onClose={onClose}
             onDragAreaLayout={onDragAreaLayout}
             onHeaderLayout={onHeaderLayout}
             hideSheetHandle
           />
         ) : (
           <GestureDetector gesture={panGesture}>
-            <SpotSheetHeader
-              isDraft={false}
-              isPlacingDraftSpot={false}
-              isPoiMode={false}
-              poiLoading={false}
-              displayTitle={listViewHeaderTitle}
+            <ExploreContextSheetHeader
+              title={listViewHeaderTitle}
               state={state}
               colors={colors}
-              onHeaderTap={handleHeaderTap}
+              onTitlePress={handleHeaderTap}
               onShare={onShare}
               shareDisabled={shareDisabled}
+              rightSlot={isCountryDetailMode ? placesListHeaderRight : undefined}
               backAction={
                 countryDetail != null && onCountryDetailBack != null
                   ? { onPress: onCountryDetailBack }
                   : undefined
               }
-              onClose={onClose}
               onDragAreaLayout={onDragAreaLayout}
               onHeaderLayout={onHeaderLayout}
             />
@@ -885,7 +885,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     overflow: "hidden",
     paddingHorizontal: 14,
-    paddingTop: 12,
+    paddingTop: 8,
     zIndex: EXPLORE_LAYER_Z.SHEET_BASE,
   },
   emptyWrap: {
@@ -962,6 +962,7 @@ const styles = StyleSheet.create({
   placesScopeHeaderWrap: {
     position: "relative",
     zIndex: EXPLORE_LAYER_Z.SHEET_HEADER_DROPDOWN,
+    paddingBottom: Spacing.sm,
   },
   countriesSearchLauncherWrap: {
     width: "100%",

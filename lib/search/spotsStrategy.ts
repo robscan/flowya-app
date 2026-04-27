@@ -9,7 +9,8 @@ import type { SearchStrategyParams, SearchStrategyResult } from '@/hooks/search/
 import { distanceKm } from '@/lib/geo-utils';
 import { expandBBox, stableBBox, type BBox } from './bbox';
 import { expandCountryQueryAliases } from './country-query-aliases';
-import { normalizeQuery } from './normalize';
+import { normalizeSearchText } from './intent-normalize';
+import { buildSpotSearchDocument, scoreSpotForQuery } from './intent-scoring';
 
 const LIMIT_PER_BATCH = 25;
 
@@ -102,8 +103,9 @@ export function createSpotsStrategy({
       expandAll && typeof getAllSpotsForSearch === 'function'
         ? getAllSpotsForSearch()
         : getFilteredSpots();
+    const q = normalizeSearchText(query);
     let list = pool;
-    if (bboxFilter) {
+    if (!q && bboxFilter) {
       list = list.filter(
         (s) =>
           s.latitude >= bboxFilter!.south &&
@@ -113,19 +115,15 @@ export function createSpotsStrategy({
       );
     }
 
-    const q = normalizeQuery(query);
+    const searchScoreById = new Map<string, number>();
     if (q) {
       const queryAliases = expandCountryQueryAliases(q);
       list = list.filter((s) => {
-        const title = normalizeQuery(s.title ?? '');
-        const desc = normalizeQuery(s.description_short ?? '');
-        const address = normalizeQuery(s.address ?? '');
-        const titleMatch = queryAliases.some((alias) => title.includes(alias));
-        if (titleMatch) return true;
-        const descMatch = queryAliases.some((alias) => desc.includes(alias));
-        if (descMatch) return true;
-        const addressMatch = queryAliases.some((alias) => address.includes(alias));
-        return addressMatch;
+        const document = buildSpotSearchDocument(s);
+        const score = scoreSpotForQuery(document, q, queryAliases);
+        if (score.score <= 0) return false;
+        searchScoreById.set(s.id, score.score);
+        return true;
       });
     }
 
@@ -146,6 +144,10 @@ export function createSpotsStrategy({
           ? centerOfBbox(stableBBox(bbox, zoom))
           : { lat: 0, lng: 0 };
     const sorted = [...list].sort((a, b) => {
+      if (q) {
+        const scoreDiff = (searchScoreById.get(b.id) ?? 0) - (searchScoreById.get(a.id) ?? 0);
+        if (scoreDiff !== 0) return scoreDiff;
+      }
       if (effectivePinFilterForSort === 'all') {
         const rankA = isPinnedStatus(a.pinStatus) ? 0 : 1;
         const rankB = isPinnedStatus(b.pinStatus) ? 0 : 1;

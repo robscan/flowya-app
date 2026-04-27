@@ -4,6 +4,7 @@ import { getLabelLayerScore } from "@/lib/map-core/constants";
 import type { PlaceResult } from "@/lib/places/searchPlaces";
 import { normalizeSpotTitle } from "@/lib/spot-duplicate-check";
 import { distanceKm } from "@/lib/geo-utils";
+import { buildSpotSearchDocument, scoreSpotForQuery } from "@/lib/search/intent-scoring";
 
 /** Regex: CJK (Hiragana, Katakana, CJK Unified) + Cirílico. No incluye diacríticos latinos. */
 const NON_LATIN_SCRIPT_RE = /[\u0400-\u04FF\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/u;
@@ -20,6 +21,8 @@ type SpotSearchCandidate = {
   title: string;
   latitude: number;
   longitude: number;
+  description_short?: string | null;
+  address?: string | null;
   link_status?: "linked" | "uncertain" | "unlinked" | null;
   linked_place_id?: string | null;
   pinStatus?: string;
@@ -452,7 +455,8 @@ export function mergeSearchResults<T extends SpotSearchCandidate>(
 
   spots.forEach((spot, idx) => {
     const hasPin = spot.pinStatus === "to_visit" || spot.pinStatus === "visited";
-    const base = hasPin ? 0 : 60;
+    const localIntentScore = scoreSpotForQuery(buildSpotSearchDocument(spot), query).score;
+    const base = localIntentScore >= 60 ? 5 : hasPin ? 12 : 60;
     entries.push({ item: spot, score: base + idx * 0.001 });
   });
 

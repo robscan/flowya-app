@@ -16,6 +16,11 @@ export type {
 } from './explore-map-status-row';
 export { ExploreChromeSearchField } from './explore-chrome-search-field';
 export type { ExploreChromeSearchFieldProps } from './explore-chrome-search-field';
+export { ExploreContextSheetHeader } from './explore-context-sheet-header';
+export type {
+  ExploreContextSheetHeaderColors,
+  ExploreContextSheetHeaderProps,
+} from './explore-context-sheet-header';
 export { ExploreTagIconLabel } from './explore-tag-icon-label';
 export type { ExploreTagIconLabelProps } from './explore-tag-icon-label';
 /** Filtros Explorar: chips «Cualquiera» + etiquetas (OR) y «Todos» + países (tokens café/tierra). Runtime: SearchSurface, modal filtros, CountriesSheet. */
@@ -26,6 +31,11 @@ export type {
 } from './explore-tag-filter-chip-row';
 export { ExploreCountryFilterChipRow } from './explore-country-filter-chip-row';
 export type { ExploreCountryFilterChipRowProps } from './explore-country-filter-chip-row';
+export { ExploreListDensityControl } from './explore-list-density-control';
+export type {
+  ExploreListDensity,
+  ExploreListDensityControlProps,
+} from './explore-list-density-control';
 export { ExploreFilterChipsShowcase } from './explore-filter-chips-showcase';
 /** @deprecated Usar `ExploreChromeSearchField`. */
 export { ExploreSearchActionRow } from './explore-search-action-row';

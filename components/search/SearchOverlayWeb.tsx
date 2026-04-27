@@ -63,6 +63,7 @@ export function SearchOverlayWeb<T>({
   searchInputAutoFocus = true,
   placesFiltersBar,
   placesListFirstSectionHeaderRight,
+  listDensity,
 }: SearchFloatingProps<T>) {
   const { width: windowWidth } = useWindowDimensions();
   const constrainSearchPanel =
@@ -203,6 +204,7 @@ export function SearchOverlayWeb<T>({
       searchInputAutoFocus={searchInputAutoFocus}
       placesFiltersBar={placesFiltersBar}
       placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
+      listDensity={listDensity}
     />
   );
 

@@ -49,6 +49,7 @@ export const DS_TOC_GROUPS: DsTocGroup[] = [
       { id: 'ds-mapa-pins', label: 'Map pins' },
       { id: 'ds-comp-toast', label: 'System status (toast)' },
       { id: 'ds-comp-explore-countries-flows-pill', label: 'Explore — países | flows' },
+      { id: 'ds-comp-explore-context-sheet-header', label: 'Explore — sheet header' },
       { id: 'ds-comp-countries-kpi', label: 'Países — KPI' },
       { id: 'ds-comp-countries-map-preview', label: 'Países — mapa preview' },
       { id: 'ds-comp-countries-visited-progress', label: 'Países — progreso visitados' },

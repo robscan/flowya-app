@@ -11,28 +11,48 @@ import {
   FIT_BOUNDS_PADDING,
   SPOT_FOCUS_ZOOM,
 } from '@/lib/map-core/constants';
+import {
+  bboxMaxSpanDegrees,
+  sanitizeCameraBBoxForPoint,
+  type CameraBBox,
+} from '@/lib/places/cameraBBox';
+
+export {
+  bboxMaxSpanDegrees,
+  doesCameraBBoxContainPoint,
+  isFiniteCameraBBox,
+  isFiniteCameraPoint,
+  sanitizeCameraBBoxForPoint,
+  type CameraBBox,
+  type CameraPoint,
+} from '@/lib/places/cameraBBox';
 
 /** Segundo paso del ciclo de encuadre: vista general (mismo centro); más bajo = más zoom out. */
 export const SPOT_REFRAME_CYCLE_WIDE_ZOOM = 10;
 
 /** Metadatos guardados en spots creados desde Mapbox Search para reutilizar encuadre. */
 export type SpotCameraFraming = {
-  bbox?: { west: number; south: number; east: number; north: number };
+  bbox?: CameraBBox;
   featureType?: string | null;
   maki?: string | null;
 } | null;
 
 const LANDMARK_TOKENS = ['landmark', 'monument', 'museum', 'religious', 'historic'];
-
-/** Span geográfico máximo (grados) en el bbox. */
-export function bboxMaxSpanDegrees(bbox: {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-}): number {
-  return Math.max(Math.abs(bbox.east - bbox.west), Math.abs(bbox.north - bbox.south));
-}
+const AREA_POI_TOKENS = [
+  'park',
+  'garden',
+  'attraction',
+  'tourism',
+  'recreation',
+  'reserve',
+  'beach',
+  'zoo',
+  'aquarium',
+  'stadium',
+  'university',
+  'campus',
+  'airport',
+];
 
 function isPlaceLandmarkForCamera(place: PlaceResult): boolean {
   const maki = (place.maki ?? '').toLowerCase();
@@ -46,6 +66,14 @@ function isPlaceLandmarkForCamera(place: PlaceResult): boolean {
 
 function featureTypeLower(place: PlaceResult): string {
   return (place.featureType ?? '').toLowerCase();
+}
+
+function placeTokensForCamera(place: PlaceResult): string[] {
+  return [
+    (place.maki ?? '').toLowerCase(),
+    featureTypeLower(place),
+    ...((place.categories ?? []).map((c) => String(c).toLowerCase())),
+  ].filter(Boolean);
 }
 
 /** País o región administrativa amplia. */
@@ -69,6 +97,11 @@ export function isSemanticAreaPlace(place: PlaceResult): boolean {
   return areaTokens.some((t) => ft.includes(t));
 }
 
+export function isAreaPoiPlace(place: PlaceResult): boolean {
+  const tokens = placeTokensForCamera(place);
+  return tokens.some((token) => AREA_POI_TOKENS.some((areaToken) => token.includes(areaToken)));
+}
+
 const MIN_SPAN_FOR_BBOX_FRAMING = 0.012;
 
 /**
@@ -78,8 +111,9 @@ const MIN_SPAN_FOR_BBOX_FRAMING = 0.012;
  * - Landmark con bbox amplio (yacimiento, parque arqueológico, ej. Copán Ruinas): sí.
  */
 export function shouldFitBoundsForPlace(place: PlaceResult): boolean {
-  if (!place.bbox) return false;
-  const span = bboxMaxSpanDegrees(place.bbox);
+  const bbox = sanitizeCameraBBoxForPoint(place.bbox, { lat: place.lat, lng: place.lng });
+  if (!bbox) return false;
+  const span = bboxMaxSpanDegrees(bbox);
   if (isPlaceLandmarkForCamera(place)) {
     return span >= MIN_SPAN_FOR_BBOX_FRAMING;
   }
@@ -97,13 +131,14 @@ export function getAreaFallbackZoom(place: PlaceResult): number {
   if (ft.includes('country')) return 3.6;
   if (ft.includes('region')) return 5.5;
   if (isSemanticAreaPlace(place) || isCountryOrRegionFeature(place)) return 6.5;
+  if (isAreaPoiPlace(place)) return 13.6;
   return SPOT_FOCUS_ZOOM;
 }
 
 export function shouldUseWideAreaCamera(place: PlaceResult): boolean {
   return (
     !isPlaceLandmarkForCamera(place) &&
-    (isCountryOrRegionFeature(place) || isSemanticAreaPlace(place))
+    (isCountryOrRegionFeature(place) || isSemanticAreaPlace(place) || isAreaPoiPlace(place))
   );
 }
 
@@ -114,13 +149,17 @@ export function placeResultFromSpotForCamera(
   selectedSpot: { id: string; latitude: number; longitude: number },
   framing: SpotCameraFraming,
 ): PlaceResult {
+  const bbox = sanitizeCameraBBoxForPoint(framing?.bbox, {
+    lat: selectedSpot.latitude,
+    lng: selectedSpot.longitude,
+  });
   return {
     id: selectedSpot.id,
     name: '',
     lat: selectedSpot.latitude,
     lng: selectedSpot.longitude,
     source: 'mapbox',
-    bbox: framing?.bbox,
+    bbox,
     maki: framing?.maki ?? undefined,
     featureType: framing?.featureType ?? undefined,
   };
@@ -141,8 +180,10 @@ export function applyExploreCameraForPlace(
 ): void {
   const duration = options?.duration ?? FIT_BOUNDS_DURATION_MS;
   const fitPadding = options?.fitBoundsPadding ?? FIT_BOUNDS_PADDING;
-  if (map && shouldFitBoundsForPlace(place) && place.bbox) {
-    const { west, south, east, north } = place.bbox;
+  const safeBbox = sanitizeCameraBBoxForPoint(place.bbox, { lat: place.lat, lng: place.lng });
+  const cameraPlace = safeBbox === place.bbox ? place : { ...place, bbox: safeBbox };
+  if (map && safeBbox && shouldFitBoundsForPlace(cameraPlace)) {
+    const { west, south, east, north } = safeBbox;
     try {
       map.fitBounds(
         [
@@ -156,11 +197,11 @@ export function applyExploreCameraForPlace(
       // fallback a flyTo
     }
   }
-  const useWideAreaZoom = shouldUseWideAreaCamera(place);
+  const useWideAreaZoom = shouldUseWideAreaCamera(cameraPlace);
   flyTo(
-    { lng: place.lng, lat: place.lat },
+    { lng: cameraPlace.lng, lat: cameraPlace.lat },
     {
-      zoom: useWideAreaZoom ? getAreaFallbackZoom(place) : SPOT_FOCUS_ZOOM,
+      zoom: useWideAreaZoom ? getAreaFallbackZoom(cameraPlace) : SPOT_FOCUS_ZOOM,
       duration,
     },
   );

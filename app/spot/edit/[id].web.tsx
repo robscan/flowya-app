@@ -55,6 +55,8 @@ import { getMapSpotDeepLink } from "@/lib/explore-deeplink";
 import { blurActiveElement } from "@/lib/focus-management";
 import { WEB_SHEET_MAX_WIDTH } from "@/lib/web-layout";
 import { featureFlags } from "@/lib/feature-flags";
+import { sanitizeCameraBBoxForPoint } from "@/lib/places/cameraBBox";
+import { resolveCameraFramingForPointName } from "@/lib/places/resolveCameraFraming";
 import { resolveSpotLink, SPOT_LINK_VERSION } from "@/lib/spot-linking/resolveSpotLink";
 import { optimizeSpotImage } from "@/lib/spot-image-optimize";
 import { createSerialQueue } from "@/lib/async/serial-queue";
@@ -62,6 +64,7 @@ import {
   MAX_SPOT_GALLERY_IMAGES,
   addSpotImageRow,
   ensureGallerySeedFromCover,
+  getSpotImagePublicUrl,
   listSpotImages,
   removeSpotImage,
   reorderSpotImages,
@@ -625,7 +628,7 @@ export default function EditSpotScreenWeb() {
           await syncCoverFromGallery(spot.id);
           const rows = await listSpotImages(spot.id);
           setGalleryRows(rows);
-          const first = rows[0]?.url ?? null;
+          const first = rows[0] ? getSpotImagePublicUrl(rows[0]) : null;
           setCoverImageUrl(first ? `${first}${first.includes("?") ? "&" : "?"}t=${Date.now()}` : null);
         } else {
           const rows = await listSpotPersonalImages(spot.id);
@@ -671,7 +674,7 @@ export default function EditSpotScreenWeb() {
         setGalleryRows(nextRowsOptimistic);
         // Mantener cover y layout consistentes: la portada efectiva es siempre la primera de la galería.
         // Si al borrar queda vacío, ocultar portada inmediatamente (evita que “permanezca” una foto).
-        const nextFirst = nextRowsOptimistic[0]?.url ?? null;
+        const nextFirst = nextRowsOptimistic[0] ? getSpotImagePublicUrl(nextRowsOptimistic[0]) : null;
         setCoverImageUrl(
           nextFirst
             ? `${nextFirst}${nextFirst.includes("?") ? "&" : "?"}t=${Date.now()}`
@@ -680,7 +683,7 @@ export default function EditSpotScreenWeb() {
         const ok = await removeSpotImage(imageId);
         if (!ok) {
           setGalleryRows(prevRows);
-          const prevFirst = prevRows[0]?.url ?? null;
+          const prevFirst = prevRows[0] ? getSpotImagePublicUrl(prevRows[0]) : null;
           setCoverImageUrl(
             prevFirst
               ? `${prevFirst}${prevFirst.includes("?") ? "&" : "?"}t=${Date.now()}`
@@ -696,7 +699,7 @@ export default function EditSpotScreenWeb() {
           // Nunca re-mostrar imágenes que el usuario ya eliminó (optimista) pero aún están en vuelo.
           const visibleRows = rows.filter((r) => !deletingImageIdsRef.current.has(r.id));
           setGalleryRows(visibleRows);
-          const first = visibleRows[0]?.url ?? null;
+          const first = visibleRows[0] ? getSpotImagePublicUrl(visibleRows[0]) : null;
           setCoverImageUrl(
             first ? `${first}${first.includes("?") ? "&" : "?"}t=${Date.now()}` : null,
           );
@@ -734,7 +737,7 @@ export default function EditSpotScreenWeb() {
         }
         await syncCoverFromGallery(spot.id);
         setGalleryRows(next);
-        const first = next[0]?.url ?? null;
+        const first = next[0] ? getSpotImagePublicUrl(next[0]) : null;
         setCoverImageUrl(first ? `${first}${first.includes("?") ? "&" : "?"}t=${Date.now()}` : null);
       } catch {
         toast.show("No se pudo reordenar.", { type: "error" });
@@ -767,15 +770,20 @@ export default function EditSpotScreenWeb() {
       updates.latitude = locationDraft.latitude;
       updates.longitude = locationDraft.longitude;
       updates.address = locationDraft.address;
+      updates.mapbox_bbox = null;
+      updates.mapbox_feature_type = null;
+      const resolvedFraming = await resolveCameraFramingForPointName({
+        name: title.trim(),
+        lat: locationDraft.latitude,
+        lng: locationDraft.longitude,
+        selectedPlace: locationDraft.selectedPlace ?? null,
+      });
+      if (resolvedFraming.bbox) updates.mapbox_bbox = resolvedFraming.bbox;
+      if (resolvedFraming.featureType != null && String(resolvedFraming.featureType).trim() !== "") {
+        updates.mapbox_feature_type = resolvedFraming.featureType;
+      }
       if (locationDraft.selectedPlace) {
         const p = locationDraft.selectedPlace;
-        // Solo persistir si Mapbox envía bbox/tipo; si no, no incluir columnas (evita borrar con null).
-        if (p.bbox != null) {
-          updates.mapbox_bbox = p.bbox;
-        }
-        if (p.featureType != null && String(p.featureType).trim() !== "") {
-          updates.mapbox_feature_type = p.featureType;
-        }
         const stableId = getStablePlaceId(p);
         if (stableId) {
           updates.link_status = "linked";
@@ -808,6 +816,18 @@ export default function EditSpotScreenWeb() {
         updates.linked_at = link.linkedAt;
         updates.link_version = link.linkVersion;
       }
+    } else if (!sanitizeCameraBBoxForPoint(spot.mapbox_bbox, { lat: spot.latitude, lng: spot.longitude })) {
+      updates.mapbox_bbox = null;
+      updates.mapbox_feature_type = null;
+      const resolvedFraming = await resolveCameraFramingForPointName({
+        name: title.trim(),
+        lat: spot.latitude,
+        lng: spot.longitude,
+      });
+      if (resolvedFraming.bbox) updates.mapbox_bbox = resolvedFraming.bbox;
+      if (resolvedFraming.featureType != null && String(resolvedFraming.featureType).trim() !== "") {
+        updates.mapbox_feature_type = resolvedFraming.featureType;
+      }
     }
     const { error } = await supabase
       .from("spots")
@@ -823,6 +843,9 @@ export default function EditSpotScreenWeb() {
     (router.replace as (href: string) => void)(getMapSpotDeepLink(spot.id));
   }, [
     spot?.id,
+    spot?.latitude,
+    spot?.longitude,
+    spot?.mapbox_bbox,
     title,
     shortDesc,
     longDesc,

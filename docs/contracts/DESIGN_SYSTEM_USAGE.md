@@ -224,6 +224,50 @@ Para resultados de spots en filtro `visited`:
 Regla DS:
 - estas variantes son parte del mismo componente canónico `SearchListCard`/`ResultRow`, no una card paralela.
 
+### 6.2.2 Densidad y selección en `SearchListCard`
+
+`SearchListCard` / `ResultRow` soporta tres densidades canónicas:
+
+- `detail`: imagen/icono, título, subtítulo o CTA de completitud, distancia, estado, tags y acciones inline.
+- `compact`: imagen/icono, título, estado y tags/`Etiquetar`; sin dirección ni descripción.
+- `simple`: fila mínima de navegación, sin metadatos ni acciones inline; no usa borde/envolvente de card y reduce padding para maximizar densidad.
+- Si hay imagen de portada, `detail` y `compact` usan rail vertical full-height; `simple` usa thumbnail circular del mismo tamaño visual que el icono.
+- El affordance derecho (`ChevronRight`, círculo vacío o check) vive en un slot fijo; no debe moverse con `transform` ni depender de la línea de texto.
+- La densidad `simple` conserva un gutter mínimo para que `selected`, `selectionMode` y `disabled` no empujen iconos al borde del contenedor.
+- En contexto `Visitados`, si no hay imagen visible y existe acción `add_image`, `compact`/`simple` usan `ImagePlus` como leading CTA accionable para subir foto desde la fila, replicando el lenguaje visual del CTA de media pendiente pero sin label. Tap/click en el icono dispara `add_image`; tap/click en el resto de la card conserva navegación. En `selectionMode`, domina la selección y no se muestra CTA inline. No sustituir una portada existente ni convertirlo en filtro/categoría.
+
+La selección múltiple no crea una card distinta. Es un estado transversal del mismo componente:
+
+- `selectionMode=false`: chevron de navegación normal.
+- `selectionMode=true && selected=false`: indicador circular vacío.
+- `selectionMode=true && selected=true`: indicador check.
+- `disabled=true`: aplica a cualquier densidad/selección.
+
+Control canónico:
+- `ExploreListDensityControl` gobierna la densidad visual de listados Explore.
+- Es una preferencia de UI local (`flowya_explore_list_density_v1`), no un filtro ni una query.
+- Cambiar densidad no debe modificar pines visibles, selección, filtros, orden ni resultados.
+
+Color contextual:
+- `SearchListCard` acepta `listContext="all" | "to_visit" | "visited"`.
+- `listContext` solo tiñe superficie/borde/soportes internos con tokens canónicos del filtro activo.
+- No debe cambiar contenido, acciones, ranking, selección ni visibilidad.
+- En `Por visitar` usa familia `countriesPanelToVisit*`; en `Visitados` usa `countriesPanelVisited*`; en `Todos` conserva superficie neutral.
+
+Controles de listado:
+- En sheet Lugares y buscador, `Seleccionar` vive en el mismo riel que `ExploreListDensityControl`.
+- En el buscador, el riel `Seleccionar` + densidad y la fila `Buscar` + `Filtrar` aplican también a `Todos`; `Todos` no debe quedarse con una toolbar reducida frente a `Por visitar`/`Visitados`.
+- No colocar `Seleccionar` en el header de sección (`LUGARES EN EL MAPA`), para evitar competencia con el título y errores de tap.
+- En modo selección, la barra de acciones de selección muestra las acciones y la salida; la densidad sigue disponible como preferencia visual.
+- El header del sheet debe conservar aire inferior suficiente antes del riel de controles para que `Filtrar` no parezca parte del selector de densidad.
+
+Categorías Maki en filtros Explore:
+- Las categorías Maki pueden aparecer en la ventana `Filtrar` como acotamiento derivado de los elementos visibles/listables.
+- Son señal de proveedor y no sustituyen tags personales ni una taxonomía propia de producto.
+- La selección de Maki usa semántica OR entre categorías y se combina con tags/país/filtro principal.
+- Las categorías activas deben mostrarse como chips removibles donde se muestren filtros activos.
+- No persistir Maki como decisión editorial del usuario ni crear migraciones sin el contrato de taxonomía definitivo.
+
 ### 6.3 Filtros en Search y mapa (consistencia)
 
 Componentes:

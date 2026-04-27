@@ -1,0 +1,57 @@
+# EAS Build upload ignores.
+# Keep this aligned with .gitignore because EAS prioritizes .easignore when present.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env
+.env.*
+.env*.local
+!.env.example
+
+# typescript
+*.tsbuildinfo
+
+app-example
+
+# generated native folders
+/ios
+/android
+
+# docs / artifacts
+*.zip
+docs/analysis/
+
+.cursor/
+
+# local scratch (do not upload)
+.local/
+supabase/.temp/

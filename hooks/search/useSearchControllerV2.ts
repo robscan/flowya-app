@@ -210,15 +210,23 @@ export function useSearchControllerV2<T>({
       const nq = normalizeQuery(q);
       const key = cacheKey(mode, st, filters, bbox, nq, cur);
       const cached = cacheRef.current.get(key);
+      const pinFilterForCacheGuard = mode === 'spots' ? resolvePinFilter(filters) : 'all';
+      const emptySpotCacheNeedsChaining =
+        mode === 'spots' &&
+        cur === null &&
+        !append &&
+        cached?.items.length === 0 &&
+        (
+          st !== 'global' ||
+          (
+            !opts?.expandSearchAcrossAllPins &&
+            (pinFilterForCacheGuard === 'saved' || pinFilterForCacheGuard === 'visited')
+          )
+        );
       const useCache =
         cached &&
         !append &&
-        !(
-          mode === 'spots' &&
-          st !== 'global' &&
-          cur === null &&
-          cached.items.length === 0
-        );
+        !emptySpotCacheNeedsChaining;
 
       if (useCache) {
         setResults((prev) => (append ? [...prev, ...cached!.items] : cached!.items));
