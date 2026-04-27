@@ -1314,6 +1314,18 @@ export function MapScreenVNext() {
   const [poiTapped, setPoiTapped] = useState<TappedMapFeature | null>(null);
   /** Ciclo encuadre mismo POI (contextual ↔ zoom general); independiente de useMapCore.reframeCycle. */
   const poiReframeCycleRef = useRef(0);
+  const poiCreateInFlightKeysRef = useRef<Set<string>>(new Set());
+  const acquirePoiCreateLock = useCallback((poi: TappedMapFeature): (() => void) | null => {
+    const key =
+      typeof poi.placeId === "string" && poi.placeId.trim().length > 0
+        ? `place:${poi.placeId.trim()}`
+        : `point:${poi.name.trim()}:${poi.lat.toFixed(7)}:${poi.lng.toFixed(7)}`;
+    if (poiCreateInFlightKeysRef.current.has(key)) return null;
+    poiCreateInFlightKeysRef.current.add(key);
+    return () => {
+      poiCreateInFlightKeysRef.current.delete(key);
+    };
+  }, []);
   /** Modal duplicado: Ver spot | Crear otro | Cerrar (2 pasos). */
   const [duplicateModal, setDuplicateModal] = useState<{
     existingTitle: string;
@@ -3742,35 +3754,37 @@ export function MapScreenVNext() {
       const shouldTrackCreateFromSearch = poi.source === "search_suggestion";
       let didAttemptPersist = false;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
-      if (!skipDuplicateCheck) {
-        const duplicateResult = await checkDuplicateSpot(
-          poi.name,
-          poi.lat,
-          poi.lng,
-          DEFAULT_DUPLICATE_RADIUS_METERS,
-        );
-        if (duplicateResult.duplicate) {
-          setDuplicateModal({
-            existingTitle: duplicateResult.existingTitle,
-            existingSpotId: duplicateResult.existingSpotId,
-            onCreateAnyway: () => handleCreateSpotFromPoi(initialStatus, targetSheetState, true),
-          });
-          return;
-        }
-      }
+      const releasePoiCreateLock = acquirePoiCreateLock(poi);
+      if (!releasePoiCreateLock) return;
       let created = false;
-      if (initialStatus === "to_visit") {
-        setPoiTapped((prev) =>
-          prev
-            ? {
-                ...prev,
-                visualState: "to_visit",
-              }
-            : prev,
-        );
-      }
-      setPoiSheetLoading(true);
       try {
+        if (!skipDuplicateCheck) {
+          const duplicateResult = await checkDuplicateSpot(
+            poi.name,
+            poi.lat,
+            poi.lng,
+            DEFAULT_DUPLICATE_RADIUS_METERS,
+          );
+          if (duplicateResult.duplicate) {
+            setDuplicateModal({
+              existingTitle: duplicateResult.existingTitle,
+              existingSpotId: duplicateResult.existingSpotId,
+              onCreateAnyway: () => handleCreateSpotFromPoi(initialStatus, targetSheetState, true),
+            });
+            return;
+          }
+        }
+        if (initialStatus === "to_visit") {
+          setPoiTapped((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  visualState: "to_visit",
+                }
+              : prev,
+          );
+        }
+        setPoiSheetLoading(true);
         const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
         didAttemptPersist = true;
         const framing = await resolveFramingForMapTapPoi(poi);
@@ -3869,10 +3883,12 @@ export function MapScreenVNext() {
         if (initialStatus === "to_visit" && !created) {
           resetPoiTappedVisualState(poi);
         }
+        releasePoiCreateLock();
       }
     },
     [
       poiTapped,
+      acquirePoiCreateLock,
       requireAuthOrModal,
       refreshTagsAfterPinChange,
       resetPoiTappedVisualState,
@@ -3899,6 +3915,8 @@ export function MapScreenVNext() {
     const poi = poiTapped;
     if (!poi) return;
     if (!isAuthUser && !(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+    const releasePoiCreateLock = acquirePoiCreateLock(poi);
+    if (!releasePoiCreateLock) return;
     const filesPromise =
       preselectedFiles != null
         ? Promise.resolve(preselectedFiles)
@@ -3921,6 +3939,7 @@ export function MapScreenVNext() {
           onCreateAnyway: () => handlePoiAddPhotos(true, files),
         });
         setPoiAddPhotosBusy(false);
+        releasePoiCreateLock();
         return;
       }
     }
@@ -4125,11 +4144,13 @@ export function MapScreenVNext() {
         type: "error",
       });
     } finally {
+      releasePoiCreateLock();
       setPoiAddPhotosBusy(false);
     }
   }, [
     poiAddPhotosBusy,
     poiTapped,
+    acquirePoiCreateLock,
     pinFilter,
     isAuthUser,
     requireAuthOrModal,
@@ -4150,6 +4171,8 @@ export function MapScreenVNext() {
       const poi = poiTapped;
       if (!poi) return;
       if (!(await requireAuthOrModal(AUTH_MODAL_MESSAGES.createSpot))) return;
+      const releasePoiCreateLock = acquirePoiCreateLock(poi);
+      if (!releasePoiCreateLock) return;
       setPoiSheetLoading(true);
       try {
         const uid = exploreAuthUserIdRef.current ?? (await getCurrentUserIdFromSession());
@@ -4221,9 +4244,10 @@ export function MapScreenVNext() {
       } catch {
         if (!suppressToastRef.current) toast.show("Ups, no se pudo guardar. ¿Intentas de nuevo?", { type: "error" });
       } finally {
+        releasePoiCreateLock();
         setPoiSheetLoading(false);
       }
-  }, [poiTapped, requireAuthOrModal, refreshTagsAfterPinChange, toast, setSheetState]);
+  }, [poiTapped, acquirePoiCreateLock, requireAuthOrModal, refreshTagsAfterPinChange, toast, setSheetState]);
 
   /** Ver spot existente (desde modal duplicado): abre sheet MEDIUM con pin seleccionado. */
   const handleViewExistingSpot = useCallback(

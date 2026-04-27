@@ -274,6 +274,7 @@ Invariantes V1:
 - `idx_pins_visited_spot_id`
 - `idx_spots_link_status`
 - `idx_spots_linked_place_id`
+- `spots_visible_linked_exact_unique_039`
 - `idx_spot_images_spot_id`
 - `idx_spot_personal_images_spot_id`
 - `idx_spot_personal_images_user_id`
