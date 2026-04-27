@@ -114,7 +114,7 @@ Código:
 
 ## Próximos micro-scopes
 
-1. **Cleanup huérfanos pendiente:** no ejecutar ahora. Supabase bloquea borrado directo desde `storage.objects`; cuando se retome, usar Storage API con service role temporal y respaldo previo de metadata. `038_spot_covers_orphan_candidates_backup.sql` queda solo como preparación de backup/listado, no como delete.
+1. **Cleanup huérfanos ejecutado 2026-04-27:** `038_spot_covers_orphan_candidates_backup.sql` respaldó/listó 29 candidatos; el borrado real se hizo vía Storage API (`supabase --experimental storage rm`), no por SQL. Postcheck: `remaining_orphan_candidates=0`, `spot-covers` queda con 81 objetos.
 2. **Thumbnails:** definir generación de `thumb_path`, `width`, `height`, `blurhash`.
 3. **CDN/helper central:** si se introduce CDN, cambiar helper sin migrar datos.
 4. **Tipos Supabase:** regenerar tipos cuando el flujo de tipos quede acordado.
@@ -123,7 +123,7 @@ Código:
 
 ## Qué NO tocar
 
-- No borrar `spot-covers`.
+- No borrar `spot-covers` completo.
 - No borrar objetos referenciados por `spot_images` o `spots.cover_image_url`.
 - No remover `spot_images.url`.
 - No cambiar buckets públicos/privados.
