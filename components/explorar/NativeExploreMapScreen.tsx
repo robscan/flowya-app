@@ -1,8 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Search, User, X } from "lucide-react-native";
 import MapView, { Callout, Marker, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { IconButton } from "@/components/design-system/icon-button";
+import { TypographyStyles } from "@/components/design-system/typography";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { getSupabaseClient, hasSupabaseClientEnv } from "@/lib/supabase";
@@ -24,12 +38,15 @@ const INITIAL_REGION: Region = {
 const SPOTS_LIMIT = 150;
 
 export function NativeExploreMapScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
   const [spots, setSpots] = useState<NativeSpotMarker[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -125,9 +142,33 @@ export function NativeExploreMapScreen() {
 
       <View
         style={[
-          styles.statusPill,
+          styles.topChrome,
           {
             top: insets.top + Spacing.sm,
+          },
+        ]}
+      >
+        <IconButton
+          accessibilityLabel="Abrir cuenta"
+          onPress={() => router.push("/account")}
+          testID="native-explore-account-button"
+        >
+          <User size={21} color={palette.text} strokeWidth={2.2} />
+        </IconButton>
+        <IconButton
+          accessibilityLabel="Abrir búsqueda"
+          onPress={() => setIsSearchOpen(true)}
+          testID="native-explore-search-button"
+        >
+          <Search size={21} color={palette.text} strokeWidth={2.2} />
+        </IconButton>
+      </View>
+
+      <View
+        style={[
+          styles.statusPill,
+          {
+            top: insets.top + 64,
             backgroundColor: palette.backgroundElevated,
             borderColor: palette.border,
           },
@@ -137,6 +178,79 @@ export function NativeExploreMapScreen() {
         {isLoading ? <ActivityIndicator size="small" color={palette.primary} /> : null}
         <Text style={[styles.statusText, { color: palette.text }]}>{statusLabel}</Text>
       </View>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={isSearchOpen}
+        onRequestClose={() => setIsSearchOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.modalRoot}
+        >
+          <Pressable
+            accessibilityLabel="Cerrar búsqueda"
+            accessibilityRole="button"
+            onPress={() => setIsSearchOpen(false)}
+            style={styles.modalBackdrop}
+          />
+          <View
+            style={[
+              styles.searchSheet,
+              {
+                backgroundColor: palette.backgroundElevated,
+                paddingBottom: insets.bottom + Spacing.lg,
+                borderColor: palette.border,
+              },
+            ]}
+          >
+            <View style={styles.searchHeader}>
+              <View style={styles.searchTitleGroup}>
+                <Text style={[TypographyStyles.heading3, { color: palette.text }]}>Buscar</Text>
+                <Text style={[styles.searchHint, { color: palette.textSecondary }]}>
+                  País, ciudad, región o lugar
+                </Text>
+              </View>
+              <IconButton
+                accessibilityLabel="Cerrar búsqueda"
+                onPress={() => setIsSearchOpen(false)}
+                size={40}
+              >
+                <X size={20} color={palette.text} strokeWidth={2.2} />
+              </IconButton>
+            </View>
+            <View
+              style={[
+                styles.searchInputWrap,
+                {
+                  backgroundColor: palette.background,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <Search size={19} color={palette.textSecondary} strokeWidth={2.2} />
+              <TextInput
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoFocus
+                clearButtonMode="while-editing"
+                inputMode="search"
+                onChangeText={setSearchQuery}
+                placeholder="Buscar en Flowya"
+                placeholderTextColor={palette.textSecondary}
+                returnKeyType="search"
+                style={[styles.searchInput, { color: palette.text }]}
+                testID="native-explore-search-input"
+                value={searchQuery}
+              />
+            </View>
+            <Text style={[styles.searchEmptyState, { color: palette.textSecondary }]}>
+              La búsqueda global V1 se conectará por contrato a entidades geo oficiales y spots deduplicados.
+            </Text>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -145,9 +259,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  topChrome: {
+    position: "absolute",
+    left: Spacing.md,
+    right: Spacing.md,
+    zIndex: 10,
+    elevation: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
   statusPill: {
     position: "absolute",
     left: Spacing.md,
+    zIndex: 9,
+    elevation: 9,
     minHeight: 40,
     borderRadius: Radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
@@ -159,11 +285,64 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
-    elevation: 3,
   },
   statusText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.24)",
+  },
+  searchSheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 8,
+  },
+  searchHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: Spacing.md,
+    marginBottom: Spacing.md,
+  },
+  searchTitleGroup: {
+    flex: 1,
+  },
+  searchHint: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  searchInputWrap: {
+    minHeight: 48,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  searchEmptyState: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: Spacing.md,
   },
   markerOuter: {
     width: 18,
