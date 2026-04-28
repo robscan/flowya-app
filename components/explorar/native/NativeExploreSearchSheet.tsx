@@ -1,8 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Check, MapPin, Search, X } from "lucide-react-native";
+import { Check, MapPin, Search } from "lucide-react-native";
 
-import { IconButton } from "@/components/design-system/icon-button";
-import { TypographyStyles } from "@/components/design-system/typography";
+import { NativeSheetHeader } from "@/components/explorar/native/NativeSheetHeader";
 import { NativeSheetShell } from "@/components/explorar/native/NativeSheetShell";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
@@ -45,157 +44,137 @@ export function NativeExploreSearchSheet({
       onClose={onClose}
       keyboardAvoiding
     >
-          <View style={styles.header}>
-            <View style={styles.titleGroup}>
-              <Text style={[TypographyStyles.heading3, { color: palette.text }]}>Buscar</Text>
-              <Text style={[styles.hint, { color: palette.textSecondary }]}>
-                País, ciudad, región o lugar
-              </Text>
-            </View>
-            <IconButton accessibilityLabel="Cerrar búsqueda" onPress={onClose} size={40}>
-              <X size={20} color={palette.text} strokeWidth={2.2} />
-            </IconButton>
-          </View>
-          <View
-            style={[
-              styles.inputWrap,
-              {
-                backgroundColor: palette.background,
-                borderColor: palette.border,
-              },
-            ]}
-          >
-            <Search size={19} color={palette.textSecondary} strokeWidth={2.2} />
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              autoFocus
-              clearButtonMode="while-editing"
-              inputMode="search"
-              onChangeText={onChangeQuery}
-              placeholder="Buscar en Flowya"
-              placeholderTextColor={palette.textSecondary}
-              returnKeyType="search"
-              style={[styles.input, { color: palette.text }]}
-              testID="native-explore-search-input"
-              value={query}
-            />
-          </View>
-          <Text style={[styles.emptyState, { color: palette.textSecondary }]}>
-            {isSearching
-              ? "Buscando..."
-              : trimmedQuery.length < 2
-                ? "Busca un país, región, ciudad o lugar."
-                : !hasResults
-                  ? "Sin resultados oficiales."
-                  : ""}
-          </Text>
-          <ScrollView
-            keyboardShouldPersistTaps="handled"
-            style={styles.resultsScroll}
-            contentContainerStyle={styles.resultsContent}
-          >
-            {geoResults.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
-                  Destinos oficiales
-                </Text>
-                {geoResults.map((geo) => (
-                  <Pressable
-                    accessibilityLabel={`Abrir ${geo.title}`}
-                    accessibilityRole="button"
-                    key={`geo:${geo.entityType}:${geo.id}`}
-                    onPress={() => onSelectGeo(geo)}
-                    style={({ pressed }) => [
-                      styles.resultRow,
-                      {
-                        backgroundColor: pressed ? palette.background : "transparent",
-                        borderColor: palette.border,
-                      },
-                    ]}
+      <NativeSheetHeader
+        title="Buscar"
+        subtitle="País, ciudad, región o lugar"
+        closeLabel="Cerrar búsqueda"
+        onClose={onClose}
+      />
+      <View
+        style={[
+          styles.inputWrap,
+          {
+            backgroundColor: palette.background,
+            borderColor: palette.border,
+          },
+        ]}
+      >
+        <Search size={19} color={palette.textSecondary} strokeWidth={2.2} />
+        <TextInput
+          autoCapitalize="none"
+          autoCorrect={false}
+          autoFocus
+          clearButtonMode="while-editing"
+          inputMode="search"
+          onChangeText={onChangeQuery}
+          placeholder="Buscar en Flowya"
+          placeholderTextColor={palette.textSecondary}
+          returnKeyType="search"
+          style={[styles.input, { color: palette.text }]}
+          testID="native-explore-search-input"
+          value={query}
+        />
+      </View>
+      <Text style={[styles.emptyState, { color: palette.textSecondary }]}>
+        {isSearching
+          ? "Buscando..."
+          : trimmedQuery.length < 2
+            ? "Busca un país, región, ciudad o lugar."
+            : !hasResults
+              ? "Sin resultados oficiales."
+              : ""}
+      </Text>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        style={styles.resultsScroll}
+        contentContainerStyle={styles.resultsContent}
+      >
+        {geoResults.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
+              Destinos oficiales
+            </Text>
+            {geoResults.map((geo) => (
+              <Pressable
+                accessibilityLabel={`Abrir ${geo.title}`}
+                accessibilityRole="button"
+                key={`geo:${geo.entityType}:${geo.id}`}
+                onPress={() => onSelectGeo(geo)}
+                style={({ pressed }) => [
+                  styles.resultRow,
+                  {
+                    backgroundColor: pressed ? palette.background : "transparent",
+                    borderColor: palette.border,
+                  },
+                ]}
+              >
+                <View style={[styles.resultIcon, { backgroundColor: palette.background }]}>
+                  <MapPin size={18} color={palette.primary} strokeWidth={2.2} />
+                </View>
+                <View style={styles.resultCopy}>
+                  <Text style={[styles.resultTitle, { color: palette.text }]} numberOfLines={1}>
+                    {geo.title}
+                  </Text>
+                  <Text
+                    style={[styles.resultSubtitle, { color: palette.textSecondary }]}
+                    numberOfLines={1}
                   >
-                    <View style={[styles.resultIcon, { backgroundColor: palette.background }]}>
-                      <MapPin size={18} color={palette.primary} strokeWidth={2.2} />
-                    </View>
-                    <View style={styles.resultCopy}>
-                      <Text style={[styles.resultTitle, { color: palette.text }]} numberOfLines={1}>
-                        {geo.title}
-                      </Text>
-                      <Text
-                        style={[styles.resultSubtitle, { color: palette.textSecondary }]}
-                        numberOfLines={1}
-                      >
-                        {formatGeoKind(geo)}
-                        {geo.subtitle ? ` · ${geo.subtitle}` : ""}
-                      </Text>
-                    </View>
-                    {geo.visited || geo.saved ? (
-                      <View style={[styles.resultBadge, { backgroundColor: palette.primary }]}>
-                        <Check size={14} color="#FFFFFF" strokeWidth={2.4} />
-                      </View>
-                    ) : null}
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-            {spotResults.length > 0 ? (
-              <View style={styles.section}>
-                <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
-                  Lugares del mapa
-                </Text>
-                {spotResults.map((spot) => (
-                  <Pressable
-                    accessibilityLabel={`Ver ${spot.title}`}
-                    accessibilityRole="button"
-                    key={`spot:${spot.id}`}
-                    onPress={() => onSelectSpot(spot)}
-                    style={({ pressed }) => [
-                      styles.resultRow,
-                      {
-                        backgroundColor: pressed ? palette.background : "transparent",
-                        borderColor: palette.border,
-                      },
-                    ]}
+                    {formatGeoKind(geo)}
+                    {geo.subtitle ? ` · ${geo.subtitle}` : ""}
+                  </Text>
+                </View>
+                {geo.visited || geo.saved ? (
+                  <View style={[styles.resultBadge, { backgroundColor: palette.primary }]}>
+                    <Check size={14} color="#FFFFFF" strokeWidth={2.4} />
+                  </View>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+        {spotResults.length > 0 ? (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: palette.textSecondary }]}>
+              Lugares del mapa
+            </Text>
+            {spotResults.map((spot) => (
+              <Pressable
+                accessibilityLabel={`Ver ${spot.title}`}
+                accessibilityRole="button"
+                key={`spot:${spot.id}`}
+                onPress={() => onSelectSpot(spot)}
+                style={({ pressed }) => [
+                  styles.resultRow,
+                  {
+                    backgroundColor: pressed ? palette.background : "transparent",
+                    borderColor: palette.border,
+                  },
+                ]}
+              >
+                <View style={[styles.resultIcon, { backgroundColor: palette.background }]}>
+                  <MapPin size={18} color={palette.textSecondary} strokeWidth={2.2} />
+                </View>
+                <View style={styles.resultCopy}>
+                  <Text style={[styles.resultTitle, { color: palette.text }]} numberOfLines={1}>
+                    {spot.title}
+                  </Text>
+                  <Text
+                    style={[styles.resultSubtitle, { color: palette.textSecondary }]}
+                    numberOfLines={1}
                   >
-                    <View style={[styles.resultIcon, { backgroundColor: palette.background }]}>
-                      <MapPin size={18} color={palette.textSecondary} strokeWidth={2.2} />
-                    </View>
-                    <View style={styles.resultCopy}>
-                      <Text style={[styles.resultTitle, { color: palette.text }]} numberOfLines={1}>
-                        {spot.title}
-                      </Text>
-                      <Text
-                        style={[styles.resultSubtitle, { color: palette.textSecondary }]}
-                        numberOfLines={1}
-                      >
-                        Lugar
-                      </Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </ScrollView>
+                    Lugar
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
     </NativeSheetShell>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: Spacing.md,
-    marginBottom: Spacing.md,
-  },
-  titleGroup: {
-    flex: 1,
-  },
-  hint: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 2,
-  },
   inputWrap: {
     minHeight: 48,
     borderRadius: Radius.lg,
