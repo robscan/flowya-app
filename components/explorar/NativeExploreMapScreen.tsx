@@ -5,6 +5,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -19,6 +20,7 @@ import { IconButton } from "@/components/design-system/icon-button";
 import { TypographyStyles } from "@/components/design-system/typography";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { filterNativeSpotResults, type NativeSpotSearchResult } from "@/lib/explore/native-spot-search";
 import { searchGeoEntities } from "@/lib/geo/search";
 import { GeoMarkAuthRequiredError, saveUserGeoMark } from "@/lib/geo/user-geo-marks";
 import type { GeoSearchResult, UserGeoMarkState } from "@/lib/geo/types";
@@ -54,6 +56,7 @@ export function NativeExploreMapScreen() {
   const [geoResults, setGeoResults] = useState<GeoSearchResult[]>([]);
   const [isGeoSearching, setIsGeoSearching] = useState(false);
   const [selectedGeo, setSelectedGeo] = useState<GeoSearchResult | null>(null);
+  const [selectedSpot, setSelectedSpot] = useState<NativeSpotMarker | null>(null);
   const [geoSheetMessage, setGeoSheetMessage] = useState<string | null>(null);
   const [savingMark, setSavingMark] = useState<UserGeoMarkState | null>(null);
 
@@ -173,11 +176,34 @@ export function NativeExploreMapScreen() {
   const handleSelectGeo = useCallback(
     (geo: GeoSearchResult) => {
       setSelectedGeo(geo);
+      setSelectedSpot(null);
       setGeoSheetMessage(null);
       setIsSearchOpen(false);
       focusGeoOnMap(geo);
     },
     [focusGeoOnMap],
+  );
+
+  const focusSpotOnMap = useCallback((spot: NativeSpotMarker) => {
+    mapRef.current?.animateToRegion(
+      {
+        latitude: spot.latitude,
+        longitude: spot.longitude,
+        latitudeDelta: 0.035,
+        longitudeDelta: 0.035,
+      },
+      350,
+    );
+  }, []);
+
+  const handleSelectSpot = useCallback(
+    (spot: NativeSpotSearchResult) => {
+      setSelectedGeo(null);
+      setSelectedSpot(spot);
+      setIsSearchOpen(false);
+      focusSpotOnMap(spot);
+    },
+    [focusSpotOnMap],
   );
 
   const handleSaveGeoMark = useCallback(
@@ -215,6 +241,13 @@ export function NativeExploreMapScreen() {
     if (loadFailed) return "Mapa listo";
     return "Explorar mapa";
   }, [isLoading, loadFailed]);
+
+  const spotResults = useMemo(
+    () => filterNativeSpotResults(spots, searchQuery, 8),
+    [searchQuery, spots],
+  );
+  const trimmedSearchQuery = searchQuery.trim();
+  const hasSearchResults = geoResults.length > 0 || spotResults.length > 0;
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
@@ -357,47 +390,92 @@ export function NativeExploreMapScreen() {
             <Text style={[styles.searchEmptyState, { color: palette.textSecondary }]}>
               {isGeoSearching
                 ? "Buscando..."
-                : searchQuery.trim().length < 2
-                  ? "Busca un país, región o ciudad."
-                  : geoResults.length === 0
+                : trimmedSearchQuery.length < 2
+                  ? "Busca un país, región, ciudad o lugar."
+                  : !hasSearchResults
                     ? "Sin resultados oficiales."
                     : ""}
             </Text>
-            <View style={styles.geoResultsList}>
-              {geoResults.map((geo) => (
-                <Pressable
-                  accessibilityLabel={`Abrir ${geo.title}`}
-                  accessibilityRole="button"
-                  key={`${geo.entityType}:${geo.id}`}
-                  onPress={() => handleSelectGeo(geo)}
-                  style={({ pressed }) => [
-                    styles.geoResultRow,
-                    {
-                      backgroundColor: pressed ? palette.background : "transparent",
-                      borderColor: palette.border,
-                    },
-                  ]}
-                >
-                  <View style={[styles.geoResultIcon, { backgroundColor: palette.background }]}>
-                    <MapPin size={18} color={palette.primary} strokeWidth={2.2} />
-                  </View>
-                  <View style={styles.geoResultCopy}>
-                    <Text style={[styles.geoResultTitle, { color: palette.text }]} numberOfLines={1}>
-                      {geo.title}
-                    </Text>
-                    <Text style={[styles.geoResultSubtitle, { color: palette.textSecondary }]} numberOfLines={1}>
-                      {formatGeoKind(geo)}
-                      {geo.subtitle ? ` · ${geo.subtitle}` : ""}
-                    </Text>
-                  </View>
-                  {geo.visited || geo.saved ? (
-                    <View style={[styles.geoResultBadge, { backgroundColor: palette.primary }]}>
-                      <Check size={14} color="#FFFFFF" strokeWidth={2.4} />
-                    </View>
-                  ) : null}
-                </Pressable>
-              ))}
-            </View>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              style={styles.searchResultsScroll}
+              contentContainerStyle={styles.searchResultsContent}
+            >
+              {geoResults.length > 0 ? (
+                <View style={styles.searchResultSection}>
+                  <Text style={[styles.searchSectionLabel, { color: palette.textSecondary }]}>
+                    Destinos oficiales
+                  </Text>
+                  {geoResults.map((geo) => (
+                    <Pressable
+                      accessibilityLabel={`Abrir ${geo.title}`}
+                      accessibilityRole="button"
+                      key={`geo:${geo.entityType}:${geo.id}`}
+                      onPress={() => handleSelectGeo(geo)}
+                      style={({ pressed }) => [
+                        styles.searchResultRow,
+                        {
+                          backgroundColor: pressed ? palette.background : "transparent",
+                          borderColor: palette.border,
+                        },
+                      ]}
+                    >
+                      <View style={[styles.searchResultIcon, { backgroundColor: palette.background }]}>
+                        <MapPin size={18} color={palette.primary} strokeWidth={2.2} />
+                      </View>
+                      <View style={styles.searchResultCopy}>
+                        <Text style={[styles.searchResultTitle, { color: palette.text }]} numberOfLines={1}>
+                          {geo.title}
+                        </Text>
+                        <Text style={[styles.searchResultSubtitle, { color: palette.textSecondary }]} numberOfLines={1}>
+                          {formatGeoKind(geo)}
+                          {geo.subtitle ? ` · ${geo.subtitle}` : ""}
+                        </Text>
+                      </View>
+                      {geo.visited || geo.saved ? (
+                        <View style={[styles.searchResultBadge, { backgroundColor: palette.primary }]}>
+                          <Check size={14} color="#FFFFFF" strokeWidth={2.4} />
+                        </View>
+                      ) : null}
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+              {spotResults.length > 0 ? (
+                <View style={styles.searchResultSection}>
+                  <Text style={[styles.searchSectionLabel, { color: palette.textSecondary }]}>
+                    Lugares del mapa
+                  </Text>
+                  {spotResults.map((spot) => (
+                    <Pressable
+                      accessibilityLabel={`Ver ${spot.title}`}
+                      accessibilityRole="button"
+                      key={`spot:${spot.id}`}
+                      onPress={() => handleSelectSpot(spot)}
+                      style={({ pressed }) => [
+                        styles.searchResultRow,
+                        {
+                          backgroundColor: pressed ? palette.background : "transparent",
+                          borderColor: palette.border,
+                        },
+                      ]}
+                    >
+                      <View style={[styles.searchResultIcon, { backgroundColor: palette.background }]}>
+                        <MapPin size={18} color={palette.textSecondary} strokeWidth={2.2} />
+                      </View>
+                      <View style={styles.searchResultCopy}>
+                        <Text style={[styles.searchResultTitle, { color: palette.text }]} numberOfLines={1}>
+                          {spot.title}
+                        </Text>
+                        <Text style={[styles.searchResultSubtitle, { color: palette.textSecondary }]} numberOfLines={1}>
+                          Lugar
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -477,6 +555,46 @@ export function NativeExploreMapScreen() {
               {geoSheetMessage ? (
                 <Text style={[styles.geoSheetMessage, { color: palette.textSecondary }]}>{geoSheetMessage}</Text>
               ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={selectedSpot != null}
+        onRequestClose={() => setSelectedSpot(null)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            accessibilityLabel="Cerrar lugar"
+            accessibilityRole="button"
+            onPress={() => setSelectedSpot(null)}
+            style={styles.modalBackdrop}
+          />
+          {selectedSpot ? (
+            <View
+              style={[
+                styles.spotSheet,
+                {
+                  backgroundColor: palette.backgroundElevated,
+                  paddingBottom: insets.bottom + Spacing.lg,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <View style={styles.searchHeader}>
+                <View style={styles.searchTitleGroup}>
+                  <Text style={[TypographyStyles.heading3, { color: palette.text }]} numberOfLines={2}>
+                    {selectedSpot.title}
+                  </Text>
+                  <Text style={[styles.searchHint, { color: palette.textSecondary }]}>Lugar del mapa</Text>
+                </View>
+                <IconButton accessibilityLabel="Cerrar lugar" onPress={() => setSelectedSpot(null)} size={40}>
+                  <X size={20} color={palette.text} strokeWidth={2.2} />
+                </IconButton>
+              </View>
             </View>
           ) : null}
         </View>
@@ -580,11 +698,25 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: Spacing.md,
   },
-  geoResultsList: {
+  searchResultsScroll: {
     marginTop: Spacing.sm,
+    maxHeight: 360,
+  },
+  searchResultsContent: {
+    paddingBottom: Spacing.sm,
+    gap: Spacing.md,
+  },
+  searchResultSection: {
     gap: Spacing.xs,
   },
-  geoResultRow: {
+  searchSectionLabel: {
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0,
+    textTransform: "uppercase",
+    paddingHorizontal: Spacing.xs,
+  },
+  searchResultRow: {
     minHeight: 64,
     borderRadius: Radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
@@ -594,28 +726,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.sm,
   },
-  geoResultIcon: {
+  searchResultIcon: {
     width: 38,
     height: 38,
     borderRadius: 19,
     alignItems: "center",
     justifyContent: "center",
   },
-  geoResultCopy: {
+  searchResultCopy: {
     flex: 1,
     minWidth: 0,
   },
-  geoResultTitle: {
+  searchResultTitle: {
     fontSize: 15,
     fontWeight: "700",
     lineHeight: 20,
   },
-  geoResultSubtitle: {
+  searchResultSubtitle: {
     fontSize: 13,
     lineHeight: 18,
     marginTop: 1,
   },
-  geoResultBadge: {
+  searchResultBadge: {
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -623,6 +755,18 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   geoSheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 8,
+  },
+  spotSheet: {
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
