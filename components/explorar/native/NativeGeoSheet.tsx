@@ -1,9 +1,9 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { X } from "lucide-react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/design-system/icon-button";
 import { TypographyStyles } from "@/components/design-system/typography";
+import { NativeSheetShell } from "@/components/explorar/native/NativeSheetShell";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatGeoKind } from "@/lib/geo/display";
@@ -24,30 +24,13 @@ export function NativeGeoSheet({
   onClose,
   onSaveMark,
 }: NativeGeoSheetProps) {
-  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
 
   return (
-    <Modal animationType="slide" transparent visible={geo != null} onRequestClose={onClose}>
-      <View style={styles.modalRoot}>
-        <Pressable
-          accessibilityLabel="Cerrar ficha"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.modalBackdrop}
-        />
-        {geo ? (
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: palette.backgroundElevated,
-                paddingBottom: insets.bottom + Spacing.lg,
-                borderColor: palette.border,
-              },
-            ]}
-          >
+    <NativeSheetShell visible={geo != null} closeLabel="Cerrar ficha" onClose={onClose}>
+      {geo ? (
+        <>
             <View style={styles.header}>
               <View style={styles.titleGroup}>
                 <Text style={[TypographyStyles.heading3, { color: palette.text }]} numberOfLines={2}>
@@ -99,34 +82,13 @@ export function NativeGeoSheet({
             {message ? (
               <Text style={[styles.message, { color: palette.textSecondary }]}>{message}</Text>
             ) : null}
-          </View>
-        ) : null}
-      </View>
-    </Modal>
+        </>
+      ) : null}
+    </NativeSheetShell>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.24)",
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 8,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
