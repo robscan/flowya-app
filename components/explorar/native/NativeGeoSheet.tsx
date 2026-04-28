@@ -4,7 +4,13 @@ import { NativeSheetHeader } from "@/components/explorar/native/NativeSheetHeade
 import { NativeSheetShell } from "@/components/explorar/native/NativeSheetShell";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { formatGeoKind } from "@/lib/geo/display";
+import {
+  buildGeoHierarchyLabel,
+  buildGeoSheetSummary,
+  formatGeoKind,
+  formatGeoMapState,
+  formatGeoMarkState,
+} from "@/lib/geo/display";
 import type { GeoSearchResult, UserGeoMarkState } from "@/lib/geo/types";
 
 type GeoMarkActionState = UserGeoMarkState | "clear";
@@ -29,6 +35,8 @@ export function NativeGeoSheet({
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
   const hasMark = geo?.saved === true || geo?.visited === true;
+  const markState = geo ? formatGeoMarkState(geo) : "";
+  const mapState = geo ? formatGeoMapState(geo) : "";
 
   return (
     <NativeSheetShell visible={geo != null} closeLabel="Cerrar ficha" onClose={onClose}>
@@ -40,6 +48,42 @@ export function NativeGeoSheet({
             closeLabel="Cerrar ficha"
             onClose={onClose}
           />
+          <View style={styles.metaRow}>
+            <View style={[styles.metaPill, { backgroundColor: palette.background, borderColor: palette.border }]}>
+              <Text style={[styles.metaPillText, { color: palette.text }]}>{formatGeoKind(geo)}</Text>
+            </View>
+            <View
+              style={[
+                styles.metaPill,
+                {
+                  backgroundColor: geo.visited || geo.saved ? palette.primary : palette.background,
+                  borderColor: geo.visited || geo.saved ? palette.primary : palette.border,
+                },
+              ]}
+            >
+              <Text style={[styles.metaPillText, { color: geo.visited || geo.saved ? "#FFFFFF" : palette.text }]}>
+                {markState}
+              </Text>
+            </View>
+          </View>
+          <View style={[styles.summaryCard, { backgroundColor: palette.background, borderColor: palette.border }]}>
+            <Text style={[styles.summaryTitle, { color: palette.text }]}>Destino</Text>
+            <Text style={[styles.summaryText, { color: palette.textSecondary }]}>
+              {buildGeoSheetSummary(geo)}
+            </Text>
+          </View>
+          <View style={styles.infoGrid}>
+            <View style={[styles.infoCard, { backgroundColor: palette.background, borderColor: palette.border }]}>
+              <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>Jerarquía</Text>
+              <Text style={[styles.infoValue, { color: palette.text }]} numberOfLines={2}>
+                {buildGeoHierarchyLabel(geo)}
+              </Text>
+            </View>
+            <View style={[styles.infoCard, { backgroundColor: palette.background, borderColor: palette.border }]}>
+              <Text style={[styles.infoLabel, { color: palette.textSecondary }]}>Mapa</Text>
+              <Text style={[styles.infoValue, { color: palette.text }]}>{mapState}</Text>
+            </View>
+          </View>
           <View style={styles.actions}>
             <Pressable
               accessibilityRole="button"
@@ -105,7 +149,7 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: "row",
     gap: Spacing.sm,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
   },
   actionButton: {
     flex: 1,
@@ -119,6 +163,62 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 14,
     fontWeight: "700",
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.xs,
+  },
+  metaPill: {
+    minHeight: 30,
+    borderRadius: Radius.pill,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    paddingHorizontal: Spacing.sm,
+  },
+  metaPillText: {
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  summaryCard: {
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: Spacing.md,
+    padding: Spacing.md,
+  },
+  summaryTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+  },
+  summaryText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: Spacing.xs,
+  },
+  infoGrid: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  infoCard: {
+    flex: 1,
+    minHeight: 72,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: "center",
+    padding: Spacing.sm,
+  },
+  infoLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: "800",
+    lineHeight: 18,
+    marginTop: 2,
   },
   clearButton: {
     minHeight: 42,

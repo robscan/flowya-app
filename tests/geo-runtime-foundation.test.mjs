@@ -2,6 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 const { buildGeoSearchResults, parseGeoBoundingBox } = await import("../lib/geo/search-core.ts");
+const {
+  buildGeoHierarchyLabel,
+  buildGeoSheetSummary,
+  formatGeoMapState,
+  formatGeoMarkState,
+} = await import("../lib/geo/display.ts");
 const { buildUserGeoMarkPayload } = await import("../lib/geo/user-geo-marks-core.ts");
 
 const rows = {
@@ -107,4 +113,22 @@ test("buildUserGeoMarkPayload keeps visited exclusive from saved", () => {
     saved: false,
     visited: true,
   });
+});
+
+test("geo display helpers expose safe native sheet labels", () => {
+  const city = {
+    entityType: "city",
+    title: "Holbox",
+    subtitle: "Quintana Roo · Mexico",
+    saved: false,
+    visited: true,
+    bbox: null,
+    centroidLatitude: 21.5236,
+    centroidLongitude: -87.3791,
+  };
+
+  assert.equal(formatGeoMarkState(city), "Visitado");
+  assert.equal(formatGeoMapState(city), "Mapa con centro");
+  assert.equal(buildGeoHierarchyLabel(city), "Quintana Roo · Mexico");
+  assert.match(buildGeoSheetSummary(city), /Holbox/);
 });
