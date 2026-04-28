@@ -59,6 +59,10 @@ Esta carpeta concentra la definicion estrategica de producto. Su objetivo es evi
    - Arquitectura de convergencia V1 por plataforma.
    - Define que web actual es referencia/legacy, no objetivo de copia; establece jerarquia iOS/Android, clasificacion conservar/adaptar/reconstruir/retirar, renderer de mapa y reglas de convergencia V1.
 
+16. [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md)
+   - Lineamiento iOS-only para Liquid Glass, SwiftUI, UIKit, motion nativo, fallbacks y QA.
+   - Define que iOS puede tener presentacion nativa diferenciada sin duplicar contratos ni emular Liquid Glass en Android/web.
+
 ## Contratos de datos criticos relacionados
 
 - [`GEO_IDENTITY_DEDUP_V1.md`](../contracts/GEO_IDENTITY_DEDUP_V1.md)

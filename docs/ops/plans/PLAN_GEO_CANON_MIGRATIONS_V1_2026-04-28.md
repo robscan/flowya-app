@@ -111,6 +111,7 @@ Decision resultante:
 - `041` seed debe ser pequeno y aprobado.
 - Search/GeoSheet runtime debe esperar al menos `040` + `041` + decision de `user_geo_marks`.
 - `geo_areas` queda diferido fuera de `040`; aliases/refs aceptan `entity_type='area'` para compatibilidad futura sin crear tabla todavia.
+- El verificador post-migracion de `040` queda en [`GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql`](../GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql); debe ejecutarse inmediatamente despues de aplicar `040` en remoto.
 
 ---
 

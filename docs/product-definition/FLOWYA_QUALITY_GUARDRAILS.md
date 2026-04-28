@@ -11,7 +11,7 @@ Este documento evita que las definiciones se vuelvan obsoletas. Cada apertura di
 
 Regla central:
 
-> Si una decision toca producto, UX, UI, IXD, copy, datos, seguridad, performance, accesibilidad, IA, membresia o QA, debe mapear a su guardrail canonico antes de ejecutarse.
+> Si una decision toca producto, UX, UI, iOS nativo, IXD, copy, datos, seguridad, performance, accesibilidad, IA, membresia o QA, debe mapear a su guardrail canonico antes de ejecutarse.
 
 ---
 
@@ -27,6 +27,7 @@ Regla central:
 | Operacion diaria | [`FLOWYA_DAILY_OPERATING_BRIEF.md`](FLOWYA_DAILY_OPERATING_BRIEF.md) | En toda apertura de sesion. |
 | PR / roles | [`FLOWYA_PR_OPERATING_SYSTEM.md`](FLOWYA_PR_OPERATING_SYSTEM.md) | En todo PR/OL. |
 | UI | [`FLOWYA_UI_QUALITY_SYSTEM.md`](FLOWYA_UI_QUALITY_SYSTEM.md) | Todo cambio visual, componente, layout o template. |
+| iOS Native UI | [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md) | Todo cambio iOS que toque shell, sheets, Search, material, SwiftUI, UIKit, Liquid Glass, motion nativo o Store readiness iOS. |
 | UX Writing | [`FLOWYA_UX_WRITING_SYSTEM.md`](FLOWYA_UX_WRITING_SYSTEM.md) | Todo texto visible, error, empty state, paywall, toast o onboarding. |
 | Interaction Design | [`FLOWYA_INTERACTION_DESIGN_SYSTEM.md`](FLOWYA_INTERACTION_DESIGN_SYSTEM.md) | Navegacion, gestos, sheets, transitions, inputs, feedback. |
 | Accesibilidad | [`FLOWYA_ACCESSIBILITY_SYSTEM.md`](FLOWYA_ACCESSIBILITY_SYSTEM.md) | Todo cambio UI/UX, especialmente mobile, inputs, modales y icon buttons. |
@@ -49,6 +50,7 @@ Cada apertura debe declarar:
 - Daily Brief:
 - PR Operating System:
 - UI Quality:
+- iOS Native UI:
 - UX Writing:
 - IXD:
 - Accessibility:
@@ -95,6 +97,7 @@ No ejecutar si:
 - el cambio contradice un guardrail sin decision explicita;
 - se intenta resolver por gusto visual sin JTBD;
 - se introduce patron nuevo sin UI/IXD/UXW;
+- se promete Liquid Glass en iOS sin material/componente nativo real o fallback explicito;
 - se toca datos/privacidad/IA sin safety review;
 - se toca performance-sensitive runtime sin plan de medicion o rollback.
 - se toca mobile/release/permisos/pagos/UGC sin Store Readiness.
