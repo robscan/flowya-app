@@ -1,19 +1,9 @@
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Check, MapPin, Search, X } from "lucide-react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/design-system/icon-button";
 import { TypographyStyles } from "@/components/design-system/typography";
+import { NativeSheetShell } from "@/components/explorar/native/NativeSheetShell";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { NativeSpotSearchResult } from "@/lib/explore/native-spot-search";
@@ -43,34 +33,18 @@ export function NativeExploreSearchSheet({
   onSelectGeo,
   onSelectSpot,
 }: NativeExploreSearchSheetProps) {
-  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
   const trimmedQuery = query.trim();
   const hasResults = geoResults.length > 0 || spotResults.length > 0;
 
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.modalRoot}
-      >
-        <Pressable
-          accessibilityLabel="Cerrar búsqueda"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.modalBackdrop}
-        />
-        <View
-          style={[
-            styles.sheet,
-            {
-              backgroundColor: palette.backgroundElevated,
-              paddingBottom: insets.bottom + Spacing.lg,
-              borderColor: palette.border,
-            },
-          ]}
-        >
+    <NativeSheetShell
+      visible={visible}
+      closeLabel="Cerrar búsqueda"
+      onClose={onClose}
+      keyboardAvoiding
+    >
           <View style={styles.header}>
             <View style={styles.titleGroup}>
               <Text style={[TypographyStyles.heading3, { color: palette.text }]}>Buscar</Text>
@@ -202,33 +176,11 @@ export function NativeExploreSearchSheet({
               </View>
             ) : null}
           </ScrollView>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+    </NativeSheetShell>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.24)",
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 8,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",

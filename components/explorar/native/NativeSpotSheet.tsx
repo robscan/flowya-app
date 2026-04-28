@@ -1,10 +1,10 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { X } from "lucide-react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { IconButton } from "@/components/design-system/icon-button";
 import { TypographyStyles } from "@/components/design-system/typography";
-import { Colors, Radius, Spacing } from "@/constants/theme";
+import { NativeSheetShell } from "@/components/explorar/native/NativeSheetShell";
+import { Colors, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
 import type { NativeSearchSpot } from "@/lib/explore/native-spot-search";
 
@@ -14,30 +14,13 @@ type NativeSpotSheetProps = {
 };
 
 export function NativeSpotSheet({ spot, onClose }: NativeSpotSheetProps) {
-  const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
 
   return (
-    <Modal animationType="slide" transparent visible={spot != null} onRequestClose={onClose}>
-      <View style={styles.modalRoot}>
-        <Pressable
-          accessibilityLabel="Cerrar lugar"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={styles.modalBackdrop}
-        />
-        {spot ? (
-          <View
-            style={[
-              styles.sheet,
-              {
-                backgroundColor: palette.backgroundElevated,
-                paddingBottom: insets.bottom + Spacing.lg,
-                borderColor: palette.border,
-              },
-            ]}
-          >
+    <NativeSheetShell visible={spot != null} closeLabel="Cerrar lugar" onClose={onClose}>
+      {spot ? (
+        <>
             <View style={styles.header}>
               <View style={styles.titleGroup}>
                 <Text style={[TypographyStyles.heading3, { color: palette.text }]} numberOfLines={2}>
@@ -49,34 +32,13 @@ export function NativeSpotSheet({ spot, onClose }: NativeSpotSheetProps) {
                 <X size={20} color={palette.text} strokeWidth={2.2} />
               </IconButton>
             </View>
-          </View>
-        ) : null}
-      </View>
-    </Modal>
+        </>
+      ) : null}
+    </NativeSheetShell>
   );
 }
 
 const styles = StyleSheet.create({
-  modalRoot: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  modalBackdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.24)",
-  },
-  sheet: {
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.lg,
-    shadowColor: "#000",
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: -8 },
-    elevation: 8,
-  },
   header: {
     flexDirection: "row",
     alignItems: "center",
