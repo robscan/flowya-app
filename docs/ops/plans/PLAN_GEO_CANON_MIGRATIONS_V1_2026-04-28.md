@@ -49,6 +49,70 @@ No-go:
 
 ---
 
+## Resultado remoto 2026-04-28
+
+Comando base:
+
+```bash
+npx supabase db query --linked --output json --file docs/ops/GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql
+```
+
+Resumen:
+
+| Hallazgo | Valor |
+|---|---:|
+| `spots` total | 313 |
+| `spots` visibles | 304 |
+| tablas `geo_*` existentes | 0 |
+| spots con metadata geo-like | 104 |
+| grupos visibles repetidos por `linked_place_id` | 7 |
+| grupos visibles repetidos por titulo normalizado | 21 |
+
+Distribucion geo-like por metadata:
+
+| `linked_place_kind` | `mapbox_feature_type` | Spots |
+|---|---|---:|
+| `poi` | `country` | 40 |
+| `poi` | `place` | 55 |
+| `poi` | `locality` | 4 |
+| `poi` | `region` | 4 |
+| `poi` | `neighborhood` | 1 |
+
+Grupos repetidos visibles por `linked_place_id`:
+
+| Caso | Filas | Tipo observado |
+|---|---:|---|
+| Brasil | 3 | `country` |
+| München / Múnich | 2 | `place` |
+| Costa Rica | 2 | `country` |
+| Chile | 2 | `country` |
+| Costa Rica / San José | 2 | `country` |
+| Ciudad de México | 2 | `place` |
+| Kerpen | 2 | `place` |
+
+Casos semilla detectados como `spots`:
+
+| Caso | Observacion |
+|---|---|
+| Holbox | Existe como spot visible, `linked_place_kind=poi`, sin `mapbox_feature_type`. |
+| Mérida | Existe como spot visible, `linked_place_kind=poi`, sin `mapbox_feature_type`. |
+| San José | Existe como spot visible con `mapbox_feature_type=country`, red flag de proveedor/metadata. |
+| México | Existe como spot visible con `mapbox_feature_type=country`. |
+
+Riesgo de relaciones:
+
+- 66 spots geo-like tienen al menos una relacion (`pins`, `pin_tags`, `spot_images` o `spot_personal_images`).
+- Por lo tanto, no debe hacerse cleanup ni reclasificacion destructiva.
+- Cualquier backfill/merge posterior debe preservar relacion usuario-spot y/o migrarla explicitamente a `user_geo_marks` con backup.
+
+Decision resultante:
+
+- Procede preparar `040_geo_core_tables.sql` como siguiente PR, pero no aplicar backfill ni cleanup.
+- `041` seed debe ser pequeno y aprobado.
+- Search/GeoSheet runtime debe esperar al menos `040` + `041` + decision de `user_geo_marks`.
+
+---
+
 ## Migracion 040 — Geo core tables
 
 Archivo futuro recomendado:
