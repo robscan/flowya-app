@@ -1,7 +1,7 @@
 # PLAN_GEO_CANON_MIGRATIONS_V1
 
 **Fecha:** 2026-04-28
-**Estado:** plan pre-migracion; no aplicar sin evidencia SQL y VoBo explicito
+**Estado:** migracion `040` preparada en repo; no aplicada en remoto; no aplicar siguientes migraciones sin evidencia SQL y VoBo explicito
 **Base:** [`GEO_IDENTITY_DEDUP_V1.md`](../../contracts/GEO_IDENTITY_DEDUP_V1.md), [`DATA_MODEL_CURRENT.md`](../../contracts/DATA_MODEL_CURRENT.md), [`GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql`](../GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql)
 
 ---
@@ -107,9 +107,10 @@ Riesgo de relaciones:
 
 Decision resultante:
 
-- Procede preparar `040_geo_core_tables.sql` como siguiente PR, pero no aplicar backfill ni cleanup.
+- `040_geo_core_tables.sql` queda preparado como DDL aditivo, sin aplicarse en remoto.
 - `041` seed debe ser pequeno y aprobado.
 - Search/GeoSheet runtime debe esperar al menos `040` + `041` + decision de `user_geo_marks`.
+- `geo_areas` queda diferido fuera de `040`; aliases/refs aceptan `entity_type='area'` para compatibilidad futura sin crear tabla todavia.
 
 ---
 
@@ -119,7 +120,7 @@ Archivo futuro recomendado:
 
 - `supabase/migrations/040_geo_core_tables.sql`
 
-Alcance:
+Alcance preparado:
 
 - `geo_countries`
 - `geo_regions`
@@ -127,6 +128,9 @@ Alcance:
 - `geo_aliases`
 - `geo_external_refs`
 - RLS read-only publica para entidades activas
+- triggers `updated_at`
+- checks basicos de formato, coordenadas y confianza
+- alias unique index con `coalesce(locale, 'und')` para evitar duplicados con locale null
 - sin seeds
 - sin tocar `spots`
 
@@ -211,10 +215,14 @@ create table if not exists public.geo_aliases (
   normalized_name text not null,
   source text not null default 'flowya_curated',
   is_primary boolean not null default false,
+  is_active boolean not null default true,
   created_at timestamptz not null default now(),
-  constraint geo_aliases_entity_type_check check (entity_type in ('country', 'region', 'city', 'area')),
-  constraint geo_aliases_unique unique (entity_type, entity_id, locale, normalized_name)
+  updated_at timestamptz not null default now(),
+  constraint geo_aliases_entity_type_check check (entity_type in ('country', 'region', 'city', 'area'))
 );
+
+create unique index if not exists geo_aliases_unique
+  on public.geo_aliases(entity_type, entity_id, coalesce(locale, 'und'), normalized_name);
 
 create table if not exists public.geo_external_refs (
   id uuid primary key default gen_random_uuid(),
@@ -225,7 +233,9 @@ create table if not exists public.geo_external_refs (
   provider_kind text,
   confidence numeric,
   source_updated_at timestamptz,
+  is_active boolean not null default true,
   created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
   constraint geo_external_refs_entity_type_check check (entity_type in ('country', 'region', 'city', 'area')),
   constraint geo_external_refs_unique unique (provider, provider_ref, entity_type)
 );
@@ -242,10 +252,10 @@ create policy geo_regions_select_active on public.geo_regions
   for select using (is_active = true);
 create policy geo_cities_select_active on public.geo_cities
   for select using (is_active = true);
-create policy geo_aliases_select on public.geo_aliases
-  for select using (true);
-create policy geo_external_refs_select on public.geo_external_refs
-  for select using (true);
+create policy geo_aliases_select_active on public.geo_aliases
+  for select using (is_active = true);
+create policy geo_external_refs_select_active on public.geo_external_refs
+  for select using (is_active = true);
 
 commit;
 ```
