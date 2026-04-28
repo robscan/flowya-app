@@ -204,6 +204,7 @@ Un PR esta listo cuando:
 - no usa behavioral design manipulativo.
 - cumple los guardrails aplicables segun [`FLOWYA_QUALITY_GUARDRAILS.md`](FLOWYA_QUALITY_GUARDRAILS.md).
 - cumple Store Readiness si toca mobile, permisos, auth, UGC, fotos, pagos, metadata o release.
+- no espera Vercel como bloqueo operativo salvo fallo real de merge, no-go explicito o instruccion del usuario.
 
 ---
 

@@ -162,3 +162,4 @@ Esto puede afectar datos/seguridad/runtime. Pauso el slice actual y diagnostico 
 - Parking lot no es basurero: debe revisarse al cerrar o abrir OL.
 - Las ideas fuera de orden se respetan capturandolas, no metiendolas a la fuerza.
 - Si el usuario pide algo que rompe secuencia, Codex debe cuestionarlo y proponer clasificacion.
+- Vercel es senal informativa: no esperarlo para cerrar flujo Git salvo no-go real, bloqueo de merge o instruccion explicita del usuario.

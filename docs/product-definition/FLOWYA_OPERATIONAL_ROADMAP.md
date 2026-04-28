@@ -308,7 +308,8 @@ Cada PR:
 4. definir riesgo/rollback;
 5. validar tests/QA;
 6. actualizar docs si cambia contrato;
-7. merge solo si no hay no-go.
+7. merge solo si no hay no-go;
+8. no esperar Vercel salvo que reporte un bloqueo real de merge o el usuario lo pida explicitamente.
 
 Cada semana o bloque grande:
 
