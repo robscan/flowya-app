@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? '';
@@ -33,12 +34,12 @@ function getSupabaseClientRecord(): Record<PropertyKey, unknown> {
 
 /**
  * En web el navegador puede reutilizar respuestas GET del REST de PostgREST (p. ej. KPIs de perfil).
- * `no-store` evita datos obsoletos sin afectar a iOS/Android (no usamos `window`).
+ * `no-store` evita datos obsoletos sin afectar a iOS/Android.
  */
 const supabaseFetch: typeof fetch = (input, init) =>
   fetch(input, {
     ...init,
-    cache: typeof window !== 'undefined' ? 'no-store' : init?.cache,
+    cache: Platform.OS === 'web' ? 'no-store' : init?.cache,
   });
 
 export const supabase: SupabaseClient = new Proxy({} as SupabaseClient, {
