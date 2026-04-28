@@ -88,6 +88,7 @@ Antes de submission:
 
 - build release iOS/Android;
 - smoke test en dispositivos reales/simuladores;
+- smoke test iOS Simulator obligatorio si el PR toca shell, mapa, navegacion mobile, permisos, fotos, auth o cualquier superficie store-critical;
 - crash-free en flujos principales;
 - startup razonable;
 - mapa estable;
@@ -122,6 +123,7 @@ No enviar a review si:
 ```md
 ## Store Readiness
 - Toca iOS/Android:
+- iOS Simulator smoke:
 - Permisos:
 - Privacy policy / account deletion:
 - UGC / report / delete:
