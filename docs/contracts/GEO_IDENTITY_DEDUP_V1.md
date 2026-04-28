@@ -367,8 +367,10 @@ Reglas:
 ### Fase A — Contrato y prechecks
 
 - Este documento.
-- SQL de introspeccion especifico para detectar geo como spots.
+- SQL de introspeccion especifico para detectar geo como spots: [`GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql`](../ops/GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql).
 - Lista de casos semilla: Mexico, Quintana Roo, Holbox, Merida, San Jose, Georgia.
+
+Plan de migraciones futuras: [`PLAN_GEO_CANON_MIGRATIONS_V1_2026-04-28.md`](../ops/plans/PLAN_GEO_CANON_MIGRATIONS_V1_2026-04-28.md).
 
 ### Fase B — Tablas geo base
 
