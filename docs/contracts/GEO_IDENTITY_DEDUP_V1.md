@@ -182,6 +182,9 @@ Campos conceptuales:
 - `normalized_name`
 - `source`
 - `is_primary`
+- `is_active`
+- `created_at`
+- `updated_at`
 
 Reglas:
 
@@ -203,6 +206,9 @@ Campos conceptuales:
 - `provider_kind`
 - `confidence`
 - `source_updated_at`
+- `is_active`
+- `created_at`
+- `updated_at`
 
 Reglas:
 
