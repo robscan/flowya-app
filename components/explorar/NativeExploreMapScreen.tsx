@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Search, User, X } from "lucide-react-native";
+import { Check, MapPin, Search, User, X } from "lucide-react-native";
 import MapView, { Callout, Marker, type Region } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -19,6 +19,9 @@ import { IconButton } from "@/components/design-system/icon-button";
 import { TypographyStyles } from "@/components/design-system/typography";
 import { Colors, Radius, Spacing } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { searchGeoEntities } from "@/lib/geo/search";
+import { GeoMarkAuthRequiredError, saveUserGeoMark } from "@/lib/geo/user-geo-marks";
+import type { GeoSearchResult, UserGeoMarkState } from "@/lib/geo/types";
 import { getSupabaseClient, hasSupabaseClientEnv } from "@/lib/supabase";
 
 type NativeSpotMarker = {
@@ -42,11 +45,17 @@ export function NativeExploreMapScreen() {
   const insets = useSafeAreaInsets();
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
+  const mapRef = useRef<MapView | null>(null);
   const [spots, setSpots] = useState<NativeSpotMarker[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [geoResults, setGeoResults] = useState<GeoSearchResult[]>([]);
+  const [isGeoSearching, setIsGeoSearching] = useState(false);
+  const [selectedGeo, setSelectedGeo] = useState<GeoSearchResult | null>(null);
+  const [geoSheetMessage, setGeoSheetMessage] = useState<string | null>(null);
+  const [savingMark, setSavingMark] = useState<UserGeoMarkState | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -101,16 +110,116 @@ export function NativeExploreMapScreen() {
     };
   }, []);
 
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!isSearchOpen || query.length < 2) {
+      setGeoResults([]);
+      setIsGeoSearching(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsGeoSearching(true);
+    const timeout = setTimeout(() => {
+      searchGeoEntities(query, { limit: 8 })
+        .then((results) => {
+          if (isCurrent) setGeoResults(results);
+        })
+        .catch((error) => {
+          if (__DEV__) {
+            console.warn("[NativeExploreMapScreen] geo search failed", error);
+          }
+          if (isCurrent) setGeoResults([]);
+        })
+        .finally(() => {
+          if (isCurrent) setIsGeoSearching(false);
+        });
+    }, 220);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timeout);
+    };
+  }, [isSearchOpen, searchQuery]);
+
+  const focusGeoOnMap = useCallback((geo: GeoSearchResult) => {
+    if (geo.bbox) {
+      mapRef.current?.fitToCoordinates(
+        [
+          { latitude: geo.bbox.south, longitude: geo.bbox.west },
+          { latitude: geo.bbox.north, longitude: geo.bbox.east },
+        ],
+        {
+          animated: true,
+          edgePadding: { top: 120, right: 48, bottom: 220, left: 48 },
+        },
+      );
+      return;
+    }
+
+    if (geo.centroidLatitude != null && geo.centroidLongitude != null) {
+      mapRef.current?.animateToRegion(
+        {
+          latitude: geo.centroidLatitude,
+          longitude: geo.centroidLongitude,
+          latitudeDelta: geo.entityType === "country" ? 14 : geo.entityType === "region" ? 4 : 0.18,
+          longitudeDelta: geo.entityType === "country" ? 14 : geo.entityType === "region" ? 4 : 0.18,
+        },
+        350,
+      );
+    }
+  }, []);
+
+  const handleSelectGeo = useCallback(
+    (geo: GeoSearchResult) => {
+      setSelectedGeo(geo);
+      setGeoSheetMessage(null);
+      setIsSearchOpen(false);
+      focusGeoOnMap(geo);
+    },
+    [focusGeoOnMap],
+  );
+
+  const handleSaveGeoMark = useCallback(
+    async (state: UserGeoMarkState) => {
+      if (!selectedGeo) return;
+      setSavingMark(state);
+      setGeoSheetMessage(null);
+      try {
+        const mark = await saveUserGeoMark(selectedGeo.entityType, selectedGeo.id, state);
+        const nextGeo: GeoSearchResult = {
+          ...selectedGeo,
+          saved: mark.saved,
+          visited: mark.visited,
+        };
+        setSelectedGeo(nextGeo);
+        setGeoResults((results) =>
+          results.map((result) => (result.id === nextGeo.id && result.entityType === nextGeo.entityType ? nextGeo : result)),
+        );
+        setGeoSheetMessage(state === "visited" ? "Marcado como visitado." : "Guardado.");
+      } catch (error) {
+        if (error instanceof GeoMarkAuthRequiredError) {
+          setGeoSheetMessage("Inicia sesión para guardar.");
+        } else {
+          setGeoSheetMessage("No se pudo guardar. Intenta de nuevo.");
+        }
+      } finally {
+        setSavingMark(null);
+      }
+    },
+    [selectedGeo],
+  );
+
   const statusLabel = useMemo(() => {
     if (isLoading) return "Cargando mapa";
     if (loadFailed) return "Mapa listo";
-    if (spots.length === 1) return "1 lugar";
-    return `${spots.length} lugares`;
-  }, [isLoading, loadFailed, spots.length]);
+    return "Explorar mapa";
+  }, [isLoading, loadFailed]);
 
   return (
     <View style={[styles.container, { backgroundColor: palette.background }]}>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={INITIAL_REGION}
         mapType={Platform.OS === "ios" ? "mutedStandard" : "standard"}
@@ -246,13 +355,140 @@ export function NativeExploreMapScreen() {
               />
             </View>
             <Text style={[styles.searchEmptyState, { color: palette.textSecondary }]}>
-              La búsqueda global V1 se conectará por contrato a entidades geo oficiales y spots deduplicados.
+              {isGeoSearching
+                ? "Buscando..."
+                : searchQuery.trim().length < 2
+                  ? "Busca un país, región o ciudad."
+                  : geoResults.length === 0
+                    ? "Sin resultados oficiales."
+                    : ""}
             </Text>
+            <View style={styles.geoResultsList}>
+              {geoResults.map((geo) => (
+                <Pressable
+                  accessibilityLabel={`Abrir ${geo.title}`}
+                  accessibilityRole="button"
+                  key={`${geo.entityType}:${geo.id}`}
+                  onPress={() => handleSelectGeo(geo)}
+                  style={({ pressed }) => [
+                    styles.geoResultRow,
+                    {
+                      backgroundColor: pressed ? palette.background : "transparent",
+                      borderColor: palette.border,
+                    },
+                  ]}
+                >
+                  <View style={[styles.geoResultIcon, { backgroundColor: palette.background }]}>
+                    <MapPin size={18} color={palette.primary} strokeWidth={2.2} />
+                  </View>
+                  <View style={styles.geoResultCopy}>
+                    <Text style={[styles.geoResultTitle, { color: palette.text }]} numberOfLines={1}>
+                      {geo.title}
+                    </Text>
+                    <Text style={[styles.geoResultSubtitle, { color: palette.textSecondary }]} numberOfLines={1}>
+                      {formatGeoKind(geo)}
+                      {geo.subtitle ? ` · ${geo.subtitle}` : ""}
+                    </Text>
+                  </View>
+                  {geo.visited || geo.saved ? (
+                    <View style={[styles.geoResultBadge, { backgroundColor: palette.primary }]}>
+                      <Check size={14} color="#FFFFFF" strokeWidth={2.4} />
+                    </View>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <Modal
+        animationType="slide"
+        transparent
+        visible={selectedGeo != null}
+        onRequestClose={() => setSelectedGeo(null)}
+      >
+        <View style={styles.modalRoot}>
+          <Pressable
+            accessibilityLabel="Cerrar ficha"
+            accessibilityRole="button"
+            onPress={() => setSelectedGeo(null)}
+            style={styles.modalBackdrop}
+          />
+          {selectedGeo ? (
+            <View
+              style={[
+                styles.geoSheet,
+                {
+                  backgroundColor: palette.backgroundElevated,
+                  paddingBottom: insets.bottom + Spacing.lg,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <View style={styles.searchHeader}>
+                <View style={styles.searchTitleGroup}>
+                  <Text style={[TypographyStyles.heading3, { color: palette.text }]} numberOfLines={2}>
+                    {selectedGeo.title}
+                  </Text>
+                  <Text style={[styles.searchHint, { color: palette.textSecondary }]}>
+                    {formatGeoKind(selectedGeo)}
+                    {selectedGeo.subtitle ? ` · ${selectedGeo.subtitle}` : ""}
+                  </Text>
+                </View>
+                <IconButton accessibilityLabel="Cerrar ficha" onPress={() => setSelectedGeo(null)} size={40}>
+                  <X size={20} color={palette.text} strokeWidth={2.2} />
+                </IconButton>
+              </View>
+              <View style={styles.geoActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={savingMark != null}
+                  onPress={() => handleSaveGeoMark("saved")}
+                  style={[
+                    styles.geoActionButton,
+                    {
+                      backgroundColor: selectedGeo.saved ? palette.primary : palette.background,
+                      borderColor: selectedGeo.saved ? palette.primary : palette.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.geoActionText, { color: selectedGeo.saved ? "#FFFFFF" : palette.text }]}>
+                    {savingMark === "saved" ? "Guardando..." : "Por visitar"}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={savingMark != null}
+                  onPress={() => handleSaveGeoMark("visited")}
+                  style={[
+                    styles.geoActionButton,
+                    {
+                      backgroundColor: selectedGeo.visited ? palette.primary : palette.background,
+                      borderColor: selectedGeo.visited ? palette.primary : palette.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.geoActionText, { color: selectedGeo.visited ? "#FFFFFF" : palette.text }]}>
+                    {savingMark === "visited" ? "Guardando..." : "Visitado"}
+                  </Text>
+                </Pressable>
+              </View>
+              {geoSheetMessage ? (
+                <Text style={[styles.geoSheetMessage, { color: palette.textSecondary }]}>{geoSheetMessage}</Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Modal>
     </View>
   );
+}
+
+function formatGeoKind(geo: Pick<GeoSearchResult, "entityType">): string {
+  if (geo.entityType === "country") return "País";
+  if (geo.entityType === "region") return "Región";
+  return "Ciudad";
 }
 
 const styles = StyleSheet.create({
@@ -343,6 +579,83 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     marginTop: Spacing.md,
+  },
+  geoResultsList: {
+    marginTop: Spacing.sm,
+    gap: Spacing.xs,
+  },
+  geoResultRow: {
+    minHeight: 64,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.sm,
+  },
+  geoResultIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  geoResultCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  geoResultTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+  geoResultSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 1,
+  },
+  geoResultBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  geoSheet: {
+    borderTopLeftRadius: Radius.xl,
+    borderTopRightRadius: Radius.xl,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: Spacing.lg,
+    paddingTop: Spacing.lg,
+    shadowColor: "#000",
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 8,
+  },
+  geoActions: {
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  geoActionButton: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: Spacing.sm,
+  },
+  geoActionText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  geoSheetMessage: {
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: Spacing.sm,
   },
   markerOuter: {
     width: 18,
