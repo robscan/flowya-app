@@ -32,6 +32,7 @@
 
   * Crear desde Mapbox/place **solo** por selección explícita de un resultado con coordenadas.
   * “Crear spot nuevo” es UGC y usa contexto del mapa (centro del mapa / ubicación), sin resolver texto.
+* **No crear geo como spot:** paises, regiones, ciudades y zonas deben resolverse como entidades `geo_*` y abrir `GeoSheet`; no deben persistirse como `spots`. Ver [`GEO_IDENTITY_DEDUP_V1.md`](GEO_IDENTITY_DEDUP_V1.md).
 * **“Sin resultados”:** cuando `query >= threshold` y `results.length === 0`, aplicar el contrato `docs/contracts/SEARCH_NO_RESULTS_CREATE_CHOOSER.md`.
 * **No duplicar DS:** UI de búsqueda usa componentes canónicos del design system; no crear variantes one-off para Search.
 
