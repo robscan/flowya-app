@@ -108,8 +108,8 @@ Riesgo de relaciones:
 Decision resultante:
 
 - `040_geo_core_tables.sql` queda aplicado y verificado en Supabase remoto.
-- `041` seed debe ser pequeno y aprobado.
-- Search/GeoSheet runtime debe esperar al menos `040` + `041` + decision de `user_geo_marks`.
+- `041` seed minimo queda aplicado y verificado en Supabase remoto.
+- Search/GeoSheet runtime ya puede empezar a leer `geo_*` en micro-scope aparte, pero guardar pais/region/ciudad debe esperar `042 user_geo_marks`.
 - `geo_areas` queda diferido fuera de `040`; aliases/refs aceptan `entity_type='area'` para compatibilidad futura sin crear tabla todavia.
 - El verificador post-migracion de `040` queda en [`GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql`](../GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql); debe ejecutarse inmediatamente despues de aplicar `040` en remoto.
 
@@ -127,6 +127,20 @@ Guardrail operativo:
 
 - No usar `supabase db push` hasta reconciliar historial remoto de migraciones. El dry-run mostro que intentaria aplicar `001`-`040`, no solo pendientes reales.
 - `040` fue aplicado de forma acotada via `npx supabase db query --linked --file supabase/migrations/040_geo_core_tables.sql`.
+
+Resultado remoto `041`:
+
+- paises: `MX`, `US`, `CR`, `PA`;
+- regiones: `MX-ROO`, `MX-YUC`;
+- ciudades/localidades: `merida`, `holbox` (`island_town`), `san-jose`;
+- aliases: `21` filas, colapsando variantes con/sin acento por `normalized_name`;
+- refs: `19` filas;
+- `spots`: `313` total / `304` visibles, sin cambio vs bitacora `405`.
+
+Decision Holbox:
+
+- Holbox se modela temporalmente como `geo_cities.city_type='island_town'` porque `geo_areas` sigue diferido.
+- No usar `spots` para representar Holbox como zona/entidad territorial.
 
 ---
 
@@ -297,7 +311,7 @@ commit;
 
 ## Migracion 041 — Seed geo inicial controlado
 
-Archivo futuro recomendado:
+Archivo aplicado:
 
 - `supabase/migrations/041_geo_seed_initial_scope.sql`
 
@@ -306,7 +320,7 @@ Alcance:
 - seed minimo para probar Search/GeoSheet sin cargar el mundo completo;
 - paises/regiones/ciudades necesarios para casos actuales y QA.
 
-Seed inicial sugerido:
+Seed inicial aplicado:
 
 | Tipo | Entidad | Motivo |
 |---|---|---|
@@ -317,7 +331,7 @@ Seed inicial sugerido:
 | Region | Quintana Roo | Holbox |
 | Region | Yucatan | Merida |
 | Ciudad/area | Merida | Caso QA Search |
-| Ciudad/area | Holbox / Isla Holbox | Caso reportado por producto |
+| Ciudad/localidad | Holbox / Isla Holbox | Caso reportado por producto; `island_town` hasta decidir `geo_areas` |
 | Ciudad | San Jose | Ambiguedad internacional |
 
 Reglas:
