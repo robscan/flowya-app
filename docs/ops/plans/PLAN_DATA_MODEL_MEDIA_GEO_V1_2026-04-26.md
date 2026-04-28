@@ -140,9 +140,11 @@ Decisión abierta:
 
 - `place_snapshot jsonb` en `spots` vs tabla relacionada `spot_place_snapshots`.
 
-Recomendación:
+Decision actualizada 2026-04-28:
 
-- Para V1, agregar campos escalares mínimos solo si se usan en filtros/counters/cache.
+- Para V1, `coordinate_source` y `created_from` son campos escalares seguros para `spots`.
+- `country_code`, `region_code` y `city_name` no deben ser fuente de verdad; solo son aceptables como cache derivado si el modelo `geo_*` ya existe y el PR documenta sincronizacion/rollback.
+- La identidad oficial de pais/region/ciudad/zona queda definida en [`GEO_IDENTITY_DEDUP_V1.md`](../../contracts/GEO_IDENTITY_DEDUP_V1.md).
 - Para snapshot completo de proveedor, preferir tabla relacionada si crecerá con payloads o versiones.
 
 DoD:
@@ -160,6 +162,10 @@ Modelo conceptual:
 - `geo_countries`
 - `geo_regions`
 - `geo_cities`
+- `geo_areas` (opcional V1)
+- `geo_aliases`
+- `geo_external_refs`
+- `user_geo_marks`
 - `geo_context_entries`
 
 Categorías:

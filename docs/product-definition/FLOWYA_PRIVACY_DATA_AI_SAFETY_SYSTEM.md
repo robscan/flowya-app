@@ -35,6 +35,7 @@ Reglas:
 - RLS se verifica si se toca datos.
 - No secretos en docs, scripts, env o commits.
 - Paises/regiones/ciudades no son `spots`.
+- Identidad geo y deduplicacion deben seguir [`GEO_IDENTITY_DEDUP_V1.md`](../contracts/GEO_IDENTITY_DEDUP_V1.md).
 - Datos criticos requieren fuente/frescura.
 - Migraciones deben tener rollback o mitigacion.
 

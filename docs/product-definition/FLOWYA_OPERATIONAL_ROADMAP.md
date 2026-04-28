@@ -167,7 +167,7 @@ OL: `OL-GEO-CANON-001`
 
 Objetivo:
 
-- definir/aplicar modelo geo minimo;
+- definir/aplicar modelo geo minimo segun [`GEO_IDENTITY_DEDUP_V1.md`](../contracts/GEO_IDENTITY_DEDUP_V1.md);
 - pais/region/ciudad/zona no son `spots`;
 - Search geo abre ficha geo;
 - diagnosticar geo duplicado como spots;

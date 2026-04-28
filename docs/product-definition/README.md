@@ -59,6 +59,11 @@ Esta carpeta concentra la definicion estrategica de producto. Su objetivo es evi
    - Arquitectura de convergencia V1 por plataforma.
    - Define que web actual es referencia/legacy, no objetivo de copia; establece jerarquia iOS/Android, clasificacion conservar/adaptar/reconstruir/retirar, renderer de mapa y reglas de convergencia V1.
 
+## Contratos de datos criticos relacionados
+
+- [`GEO_IDENTITY_DEDUP_V1.md`](../contracts/GEO_IDENTITY_DEDUP_V1.md)
+  - Contrato canonico para identidad de pais/region/ciudad/zona, deduplicacion, relacion usuario-geo y Search como router de intencion.
+
 ## Regla operativa
 
 Todo OL o PR estrategico debe mapear a estos documentos antes de ejecucion.

@@ -92,6 +92,8 @@ Regla vigente:
 - `is_hidden=false` opera hoy como lectura pública de facto por `spots_select_public`.
 - No existe `is_public`; no asumir privacidad granular en `spots`.
 - `mapbox_bbox` no es confiable si no contiene el punto `latitude/longitude`; gana el punto.
+- `spots` no debe ser fuente canonica de pais/region/ciudad. La identidad geo V1 vive en `geo_*`; ver [`GEO_IDENTITY_DEDUP_V1.md`](GEO_IDENTITY_DEDUP_V1.md).
+- `coordinate_source` y `created_from` son campos validos de procedencia para `spots`; `country_code`, `region_code` y `city_name` solo pueden existir como cache derivado si una migracion futura lo justifica.
 
 ### 2.2 `pins`
 
