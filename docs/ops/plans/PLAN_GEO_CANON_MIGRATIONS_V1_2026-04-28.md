@@ -1,7 +1,7 @@
 # PLAN_GEO_CANON_MIGRATIONS_V1
 
 **Fecha:** 2026-04-28
-**Estado:** migracion `040` preparada en repo; no aplicada en remoto; no aplicar siguientes migraciones sin evidencia SQL y VoBo explicito
+**Estado:** migracion `040` aplicada y verificada en remoto; no aplicar siguientes migraciones sin evidencia SQL y VoBo explicito
 **Base:** [`GEO_IDENTITY_DEDUP_V1.md`](../../contracts/GEO_IDENTITY_DEDUP_V1.md), [`DATA_MODEL_CURRENT.md`](../../contracts/DATA_MODEL_CURRENT.md), [`GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql`](../GEO_IDENTITY_PREMIGRATION_DIAGNOSTIC_2026-04-28.sql)
 
 ---
@@ -107,11 +107,26 @@ Riesgo de relaciones:
 
 Decision resultante:
 
-- `040_geo_core_tables.sql` queda preparado como DDL aditivo, sin aplicarse en remoto.
+- `040_geo_core_tables.sql` queda aplicado y verificado en Supabase remoto.
 - `041` seed debe ser pequeno y aprobado.
 - Search/GeoSheet runtime debe esperar al menos `040` + `041` + decision de `user_geo_marks`.
 - `geo_areas` queda diferido fuera de `040`; aliases/refs aceptan `entity_type='area'` para compatibilidad futura sin crear tabla todavia.
 - El verificador post-migracion de `040` queda en [`GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql`](../GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql); debe ejecutarse inmediatamente despues de aplicar `040` en remoto.
+
+Resultado remoto `040`:
+
+- tablas `geo_countries`, `geo_regions`, `geo_cities`, `geo_aliases`, `geo_external_refs`: existen;
+- RLS: activo en las cinco;
+- policies active-read: presentes;
+- indices requeridos: presentes;
+- triggers `updated_at`: presentes;
+- seed rows: `0`;
+- `spots`: `313` total / `304` visibles, sin cambio vs bitacora `405`.
+
+Guardrail operativo:
+
+- No usar `supabase db push` hasta reconciliar historial remoto de migraciones. El dry-run mostro que intentaria aplicar `001`-`040`, no solo pendientes reales.
+- `040` fue aplicado de forma acotada via `npx supabase db query --linked --file supabase/migrations/040_geo_core_tables.sql`.
 
 ---
 

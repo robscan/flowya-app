@@ -150,3 +150,161 @@ select
   count(*) as spots_total,
   count(*) filter (where is_hidden = false) as spots_visible
 from public.spots;
+
+-- 8) CLI-friendly summary. Supabase CLI returns the last result set, so this
+-- section aggregates the critical checks into one final table.
+with expected_tables(table_name) as (
+  values
+    ('geo_countries'),
+    ('geo_regions'),
+    ('geo_cities'),
+    ('geo_aliases'),
+    ('geo_external_refs')
+),
+table_status as (
+  select
+    e.table_name,
+    c.oid is not null as exists_in_public_schema,
+    coalesce(c.relrowsecurity, false) as rls_enabled
+  from expected_tables e
+  left join pg_namespace n
+    on n.nspname = 'public'
+  left join pg_class c
+    on c.relname = e.table_name
+    and c.relnamespace = n.oid
+),
+required_policies(policyname) as (
+  values
+    ('geo_countries_select_active'),
+    ('geo_regions_select_active'),
+    ('geo_cities_select_active'),
+    ('geo_aliases_select_active'),
+    ('geo_external_refs_select_active')
+),
+policy_status as (
+  select
+    p.policyname,
+    exists (
+      select 1
+      from pg_policies gp
+      where gp.schemaname = 'public'
+        and gp.policyname = p.policyname
+        and gp.cmd = 'SELECT'
+        and gp.qual = '(is_active = true)'
+    ) as exists_in_public_schema
+  from required_policies p
+),
+required_indexes(indexname) as (
+  values
+    ('geo_cities_country_region_slug_unique'),
+    ('geo_aliases_unique'),
+    ('geo_aliases_lookup_idx'),
+    ('geo_external_refs_entity_idx'),
+    ('geo_regions_country_idx'),
+    ('geo_cities_country_idx'),
+    ('geo_cities_region_idx')
+),
+index_status as (
+  select
+    i.indexname,
+    exists (
+      select 1
+      from pg_indexes pi
+      where pi.schemaname = 'public'
+        and pi.indexname = i.indexname
+    ) as exists_in_public_schema
+  from required_indexes i
+),
+required_triggers(trigger_name) as (
+  values
+    ('geo_countries_set_updated_at_trigger'),
+    ('geo_regions_set_updated_at_trigger'),
+    ('geo_cities_set_updated_at_trigger'),
+    ('geo_aliases_set_updated_at_trigger'),
+    ('geo_external_refs_set_updated_at_trigger')
+),
+trigger_status as (
+  select
+    t.trigger_name,
+    exists (
+      select 1
+      from information_schema.triggers it
+      where it.event_object_schema = 'public'
+        and it.trigger_name = t.trigger_name
+    ) as exists_in_public_schema
+  from required_triggers t
+),
+geo_counts as (
+  select 'geo_countries' as table_name, count(*) as row_count from public.geo_countries
+  union all
+  select 'geo_regions', count(*) from public.geo_regions
+  union all
+  select 'geo_cities', count(*) from public.geo_cities
+  union all
+  select 'geo_aliases', count(*) from public.geo_aliases
+  union all
+  select 'geo_external_refs', count(*) from public.geo_external_refs
+),
+spots_counts as (
+  select
+    count(*) as spots_total,
+    count(*) filter (where is_hidden = false) as spots_visible
+  from public.spots
+)
+select
+  'summary_tables_exist_and_rls' as check_name,
+  bool_and(exists_in_public_schema and rls_enabled) as passed,
+  jsonb_agg(
+    jsonb_build_object(
+      'table_name', table_name,
+      'exists', exists_in_public_schema,
+      'rls_enabled', rls_enabled
+    )
+    order by table_name
+  ) as details
+from table_status
+union all
+select
+  'summary_active_read_policies',
+  bool_and(exists_in_public_schema),
+  jsonb_agg(
+    jsonb_build_object('policyname', policyname, 'exists', exists_in_public_schema)
+    order by policyname
+  )
+from policy_status
+union all
+select
+  'summary_required_indexes',
+  bool_and(exists_in_public_schema),
+  jsonb_agg(
+    jsonb_build_object('indexname', indexname, 'exists', exists_in_public_schema)
+    order by indexname
+  )
+from index_status
+union all
+select
+  'summary_updated_at_triggers',
+  bool_and(exists_in_public_schema),
+  jsonb_agg(
+    jsonb_build_object('trigger_name', trigger_name, 'exists', exists_in_public_schema)
+    order by trigger_name
+  )
+from trigger_status
+union all
+select
+  'summary_no_seed_rows_after_040',
+  bool_and(row_count = 0),
+  jsonb_agg(
+    jsonb_build_object('table_name', table_name, 'row_count', row_count)
+    order by table_name
+  )
+from geo_counts
+union all
+select
+  'summary_spots_population_unchanged_from_405',
+  spots_total = 313 and spots_visible = 304,
+  jsonb_build_array(
+    jsonb_build_object('spots_total', spots_total, 'spots_visible', spots_visible)
+  )
+from spots_counts
+order by check_name;
