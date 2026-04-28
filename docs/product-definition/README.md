@@ -55,6 +55,10 @@ Esta carpeta concentra la definicion estrategica de producto. Su objetivo es evi
    - Plan operativo critical-path hacia tiendas.
    - Define fases, gates, cadencia, contencion de ideas y decision usar/adaptar/reconstruir.
 
+15. [`FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md`](FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md)
+   - Arquitectura de convergencia V1 por plataforma.
+   - Define que web actual es referencia/legacy, no objetivo de copia; establece jerarquia iOS/Android, clasificacion conservar/adaptar/reconstruir/retirar, renderer de mapa y reglas de convergencia V1.
+
 ## Regla operativa
 
 Todo OL o PR estrategico debe mapear a estos documentos antes de ejecucion.
