@@ -109,7 +109,8 @@ Decision resultante:
 
 - `040_geo_core_tables.sql` queda aplicado y verificado en Supabase remoto.
 - `041` seed minimo queda aplicado y verificado en Supabase remoto.
-- Search/GeoSheet runtime ya puede empezar a leer `geo_*` en micro-scope aparte, pero guardar pais/region/ciudad debe esperar `042 user_geo_marks`.
+- `042 user_geo_marks` queda aplicado y verificado en Supabase remoto.
+- Search/GeoSheet runtime ya puede empezar a leer `geo_*` y guardar pais/region/ciudad via `user_geo_marks` en micro-scope aparte.
 - `geo_areas` queda diferido fuera de `040`; aliases/refs aceptan `entity_type='area'` para compatibilidad futura sin crear tabla todavia.
 - El verificador post-migracion de `040` queda en [`GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql`](../GEO_CORE_TABLES_POSTMIGRATION_VERIFY_2026-04-28.sql); debe ejecutarse inmediatamente despues de aplicar `040` en remoto.
 
@@ -141,6 +142,16 @@ Decision Holbox:
 
 - Holbox se modela temporalmente como `geo_cities.city_type='island_town'` porque `geo_areas` sigue diferido.
 - No usar `spots` para representar Holbox como zona/entidad territorial.
+
+Resultado remoto `042`:
+
+- tabla `public.user_geo_marks`: existe;
+- RLS: activo;
+- policies owner-only authenticated `select/insert/update/delete`: presentes;
+- unique `(user_id, entity_type, entity_id)`: presente;
+- trigger `user_geo_marks_normalize_state_trigger`: presente;
+- rows iniciales: `0`;
+- `spots`: `313` total / `304` visibles, sin cambio vs bitacora `405`.
 
 ---
 
@@ -350,7 +361,7 @@ Rollback:
 
 ## Migracion 042 — `user_geo_marks`
 
-Archivo futuro recomendado:
+Archivo aplicado:
 
 - `supabase/migrations/042_user_geo_marks.sql`
 
@@ -407,10 +418,14 @@ create policy user_geo_marks_delete_own on public.user_geo_marks
 commit;
 ```
 
-Follow-up recomendado:
+Incluido en `042`:
 
 - trigger equivalente a pins: si `visited=true`, entonces `saved=false`;
-- trigger `updated_at`;
+- trigger actualiza `updated_at` en cambios de estado;
+- RLS owner-only.
+
+Follow-up recomendado:
+
 - RPC publico agregado/k-anonimo solo si Passport/share lo necesita.
 
 Rollback:
