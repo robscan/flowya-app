@@ -23,7 +23,11 @@ import {
   type NativeSpotSearchResult,
 } from "@/lib/explore/native-spot-search";
 import { searchGeoEntities } from "@/lib/geo/search";
-import { GeoMarkAuthRequiredError, saveUserGeoMark } from "@/lib/geo/user-geo-marks";
+import {
+  deleteUserGeoMark,
+  GeoMarkAuthRequiredError,
+  saveUserGeoMark,
+} from "@/lib/geo/user-geo-marks";
 import type { GeoSearchResult, UserGeoMarkState } from "@/lib/geo/types";
 import { getSupabaseClient, hasSupabaseClientEnv } from "@/lib/supabase";
 
@@ -54,7 +58,7 @@ export function NativeExploreMapScreen() {
   const [selectedGeo, setSelectedGeo] = useState<GeoSearchResult | null>(null);
   const [selectedSpot, setSelectedSpot] = useState<NativeSpotMarker | null>(null);
   const [geoSheetMessage, setGeoSheetMessage] = useState<string | null>(null);
-  const [savingMark, setSavingMark] = useState<UserGeoMarkState | null>(null);
+  const [savingMark, setSavingMark] = useState<UserGeoMarkState | "clear" | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -232,6 +236,35 @@ export function NativeExploreMapScreen() {
     [selectedGeo],
   );
 
+  const handleClearGeoMark = useCallback(async () => {
+    if (!selectedGeo) return;
+    setSavingMark("clear");
+    setGeoSheetMessage(null);
+    try {
+      await deleteUserGeoMark(selectedGeo.entityType, selectedGeo.id);
+      const nextGeo: GeoSearchResult = {
+        ...selectedGeo,
+        saved: false,
+        visited: false,
+      };
+      setSelectedGeo(nextGeo);
+      setGeoResults((results) =>
+        results.map((result) =>
+          result.id === nextGeo.id && result.entityType === nextGeo.entityType ? nextGeo : result,
+        ),
+      );
+      setGeoSheetMessage("Marca quitada.");
+    } catch (error) {
+      if (error instanceof GeoMarkAuthRequiredError) {
+        setGeoSheetMessage("Inicia sesión para actualizar.");
+      } else {
+        setGeoSheetMessage("No se pudo actualizar. Intenta de nuevo.");
+      }
+    } finally {
+      setSavingMark(null);
+    }
+  }, [selectedGeo]);
+
   const statusLabel = useMemo(() => {
     if (isLoading) return "Cargando mapa";
     if (loadFailed) return "Mapa listo";
@@ -333,6 +366,7 @@ export function NativeExploreMapScreen() {
         savingMark={savingMark}
         onClose={() => setSelectedGeo(null)}
         onSaveMark={handleSaveGeoMark}
+        onClearMark={handleClearGeoMark}
       />
 
       <NativeSpotSheet spot={selectedSpot} onClose={() => setSelectedSpot(null)} />

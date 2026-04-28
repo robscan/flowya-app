@@ -32,3 +32,24 @@ export async function saveUserGeoMark(
   if (error) throw error;
   return (data ?? payload) as UserGeoMarkPayload;
 }
+
+export async function deleteUserGeoMark(
+  entityType: GeoEntityType,
+  entityId: string,
+): Promise<void> {
+  const client = getSupabaseClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await client.auth.getUser();
+  if (authError || !user) throw new GeoMarkAuthRequiredError();
+
+  const { error } = await client
+    .from("user_geo_marks")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("entity_type", entityType)
+    .eq("entity_id", entityId);
+
+  if (error) throw error;
+}
