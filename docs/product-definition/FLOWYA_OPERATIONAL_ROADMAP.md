@@ -47,6 +47,8 @@ V1 no incluye:
 
 Usar la app actual como base estable, pero crear una superficie V1 Next controlada.
 
+La V1 Next no busca paridad con la web actual. Busca convergencia hacia el target V1 mobile-first. Web actual queda como referencia/legacy y fuente de aprendizaje y piezas rescatables, no como producto destino. Si adaptar una pieza web hereda errores, producto autoriza reconstruirla.
+
 ### Mantener
 
 - contratos y migraciones verificadas;
@@ -62,6 +64,7 @@ Usar la app actual como base estable, pero crear una superficie V1 Next controla
 - `CountriesSheet`: evolucionar hacia `GeoSheet`.
 - Search actual: convertir en motor inicial geo/spot y entry global.
 - Account actual: adaptar a avatar/shell y store readiness.
+- piezas web actuales: clasificar como conservar/adaptar/reconstruir/retirar antes de copiarlas.
 
 ### Reconstruir
 

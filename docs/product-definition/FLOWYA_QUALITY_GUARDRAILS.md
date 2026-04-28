@@ -21,6 +21,7 @@ Regla central:
 |---|---|---|
 | Producto / arquitectura | [`FLOWYA_V1_MASTER_PLAN.md`](FLOWYA_V1_MASTER_PLAN.md) | Siempre que cambie alcance, dominio, modelo o secuencia. |
 | Roadmap operativo | [`FLOWYA_OPERATIONAL_ROADMAP.md`](FLOWYA_OPERATIONAL_ROADMAP.md) | Para priorizar critical path, orden de OL, gates y decisiones usar/adaptar/reconstruir. |
+| Convergencia de plataforma V1 | [`FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md`](FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md) | Siempre que toque iOS/Android, web, shell, mapa, Search, renderer, paridad/convergencia o decisiones multiplataforma. |
 | Usuario / behavioral | [`FLOWYA_UX_BEHAVIORAL_FOUNDATION.md`](FLOWYA_UX_BEHAVIORAL_FOUNDATION.md) | Siempre que toque JTBD, comportamiento, gamificacion o motivacion. |
 | Revision critica | [`FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md`](FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md) | Antes de ejecucion grande o cambio estrategico. |
 | Operacion diaria | [`FLOWYA_DAILY_OPERATING_BRIEF.md`](FLOWYA_DAILY_OPERATING_BRIEF.md) | En toda apertura de sesion. |
@@ -42,6 +43,7 @@ Cada apertura debe declarar:
 ```md
 ## Canon invocado hoy
 - Master Plan:
+- V1 Platform Convergence:
 - Operational Roadmap:
 - UX Behavioral:
 - Daily Brief:

@@ -47,7 +47,7 @@ La recomendacion es ejecutar una reconstruccion estrategica por strangler, no un
 
 ### Que significa "reconstruir" aqui
 
-Crear una nueva arquitectura de superficie y dominios V1, mobile-first, que conviva temporalmente con Explore actual hasta alcanzar paridad operacional. La pantalla actual puede seguir sirviendo como base estable mientras se construyen y validan las nuevas piezas.
+Crear una nueva arquitectura de superficie y dominios V1, mobile-first, que conviva temporalmente con Explore actual hasta que el producto converja hacia el target V1. La pantalla actual puede seguir sirviendo como evidencia, referencia y base estable, pero no como objetivo que iOS/Android deban copiar.
 
 ### Que NO significa
 
@@ -62,7 +62,7 @@ Crear una nueva arquitectura de superficie y dominios V1, mobile-first, que conv
 1. **Definir contratos V1.** Shell, dominios, entidades, Search, membresias, seguridad, i18n y release gates.
 2. **Crear superficie V1 Next aislada.** Feature flag / ruta interna / entry controlado. Mobile primero.
 3. **Construir por dominio.** Shell -> Search -> Geo -> Explore -> Flow -> Passport -> Account.
-4. **Medir paridad y calidad.** Cada slice tiene historias, criterios de aceptacion, pruebas y rollback.
+4. **Medir convergencia y calidad.** Cada slice tiene historias, criterios de aceptacion, pruebas y rollback; no se mide contra la web actual, sino contra el target V1.
 5. **Deprecar con inventario.** Cada componente viejo se marca como conservar, adaptar, sustituir o retirar.
 6. **Cortar cuando V1 Next gane.** Solo al cumplir release gates mobile, datos y UX.
 
