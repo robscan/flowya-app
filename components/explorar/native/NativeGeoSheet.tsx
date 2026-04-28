@@ -7,12 +7,15 @@ import { useColorScheme } from "@/hooks/use-color-scheme";
 import { formatGeoKind } from "@/lib/geo/display";
 import type { GeoSearchResult, UserGeoMarkState } from "@/lib/geo/types";
 
+type GeoMarkActionState = UserGeoMarkState | "clear";
+
 type NativeGeoSheetProps = {
   geo: GeoSearchResult | null;
   message: string | null;
-  savingMark: UserGeoMarkState | null;
+  savingMark: GeoMarkActionState | null;
   onClose: () => void;
   onSaveMark: (state: UserGeoMarkState) => void;
+  onClearMark: () => void;
 };
 
 export function NativeGeoSheet({
@@ -21,9 +24,11 @@ export function NativeGeoSheet({
   savingMark,
   onClose,
   onSaveMark,
+  onClearMark,
 }: NativeGeoSheetProps) {
   const colorScheme = useColorScheme();
   const palette = Colors[colorScheme ?? "light"];
+  const hasMark = geo?.saved === true || geo?.visited === true;
 
   return (
     <NativeSheetShell visible={geo != null} closeLabel="Cerrar ficha" onClose={onClose}>
@@ -69,6 +74,24 @@ export function NativeGeoSheet({
               </Text>
             </Pressable>
           </View>
+          {hasMark ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={savingMark != null}
+              onPress={onClearMark}
+              style={[
+                styles.clearButton,
+                {
+                  backgroundColor: palette.background,
+                  borderColor: palette.border,
+                },
+              ]}
+            >
+              <Text style={[styles.clearText, { color: palette.text }]}>
+                {savingMark === "clear" ? "Quitando..." : "Quitar"}
+              </Text>
+            </Pressable>
+          ) : null}
           {message ? (
             <Text style={[styles.message, { color: palette.textSecondary }]}>{message}</Text>
           ) : null}
@@ -94,6 +117,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.sm,
   },
   actionText: {
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  clearButton: {
+    minHeight: 42,
+    borderRadius: Radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+  },
+  clearText: {
     fontSize: 14,
     fontWeight: "700",
   },
