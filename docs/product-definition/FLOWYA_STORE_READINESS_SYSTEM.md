@@ -89,6 +89,7 @@ Antes de submission:
 - build release iOS/Android;
 - smoke test en dispositivos reales/simuladores;
 - smoke test iOS Simulator obligatorio si el PR toca shell, mapa, navegacion mobile, permisos, fotos, auth o cualquier superficie store-critical;
+- si el PR toca Liquid Glass/SwiftUI/UIKit, validar tambien Reduce Motion, Reduce Transparency, Dynamic Type, safe areas, teclado y fallback segun [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md);
 - crash-free en flujos principales;
 - startup razonable;
 - mapa estable;
@@ -124,6 +125,7 @@ No enviar a review si:
 ## Store Readiness
 - Toca iOS/Android:
 - iOS Simulator smoke:
+- iOS native material/motion si aplica:
 - Permisos:
 - Privacy policy / account deletion:
 - UGC / report / delete:

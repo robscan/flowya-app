@@ -97,6 +97,7 @@ Motion debe:
 - respetar reduced motion;
 - no retrasar tareas frecuentes;
 - no esconder cambios de contexto.
+- En iOS, puede usar transiciones nativas SwiftUI/UIKit si respetan [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md) y no duplican logica de negocio.
 
 Bloquear:
 
@@ -137,6 +138,7 @@ Acciones de bajo riesgo pueden ser directas:
 - Feedback por accion:
 - Gestos con alternativa visible:
 - Transitions justificadas:
+- Motion nativo iOS revisado si aplica:
 - Estado async claro:
 - Riesgo de doble tap/duplicado:
 - Control explicito para acciones sensibles:

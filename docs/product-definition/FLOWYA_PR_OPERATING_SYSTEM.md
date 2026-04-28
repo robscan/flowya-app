@@ -2,7 +2,7 @@
 
 **Estado:** CANONICO / SISTEMA DIARIO DE TRABAJO
 **Fecha:** 2026-04-27
-**Fuentes:** [`FLOWYA_QUALITY_GUARDRAILS.md`](FLOWYA_QUALITY_GUARDRAILS.md), [`FLOWYA_V1_MASTER_PLAN.md`](FLOWYA_V1_MASTER_PLAN.md), [`FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md`](FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md), [`FLOWYA_UX_BEHAVIORAL_FOUNDATION.md`](FLOWYA_UX_BEHAVIORAL_FOUNDATION.md), [`FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md`](FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md), [`FLOWYA_DAILY_OPERATING_BRIEF.md`](FLOWYA_DAILY_OPERATING_BRIEF.md), [`FLOWYA_UI_QUALITY_SYSTEM.md`](FLOWYA_UI_QUALITY_SYSTEM.md), [`FLOWYA_UX_WRITING_SYSTEM.md`](FLOWYA_UX_WRITING_SYSTEM.md), [`FLOWYA_INTERACTION_DESIGN_SYSTEM.md`](FLOWYA_INTERACTION_DESIGN_SYSTEM.md), [`FLOWYA_ACCESSIBILITY_SYSTEM.md`](FLOWYA_ACCESSIBILITY_SYSTEM.md), [`FLOWYA_PERFORMANCE_RELIABILITY_SYSTEM.md`](FLOWYA_PERFORMANCE_RELIABILITY_SYSTEM.md), [`FLOWYA_PRIVACY_DATA_AI_SAFETY_SYSTEM.md`](FLOWYA_PRIVACY_DATA_AI_SAFETY_SYSTEM.md), [`FLOWYA_STORE_READINESS_SYSTEM.md`](FLOWYA_STORE_READINESS_SYSTEM.md)
+**Fuentes:** [`FLOWYA_QUALITY_GUARDRAILS.md`](FLOWYA_QUALITY_GUARDRAILS.md), [`FLOWYA_V1_MASTER_PLAN.md`](FLOWYA_V1_MASTER_PLAN.md), [`FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md`](FLOWYA_V1_PLATFORM_CONVERGENCE_ARCHITECTURE.md), [`FLOWYA_UX_BEHAVIORAL_FOUNDATION.md`](FLOWYA_UX_BEHAVIORAL_FOUNDATION.md), [`FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md`](FLOWYA_PRODUCT_ARCHITECTURE_REVIEW_2026-04-27.md), [`FLOWYA_DAILY_OPERATING_BRIEF.md`](FLOWYA_DAILY_OPERATING_BRIEF.md), [`FLOWYA_UI_QUALITY_SYSTEM.md`](FLOWYA_UI_QUALITY_SYSTEM.md), [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md), [`FLOWYA_UX_WRITING_SYSTEM.md`](FLOWYA_UX_WRITING_SYSTEM.md), [`FLOWYA_INTERACTION_DESIGN_SYSTEM.md`](FLOWYA_INTERACTION_DESIGN_SYSTEM.md), [`FLOWYA_ACCESSIBILITY_SYSTEM.md`](FLOWYA_ACCESSIBILITY_SYSTEM.md), [`FLOWYA_PERFORMANCE_RELIABILITY_SYSTEM.md`](FLOWYA_PERFORMANCE_RELIABILITY_SYSTEM.md), [`FLOWYA_PRIVACY_DATA_AI_SAFETY_SYSTEM.md`](FLOWYA_PRIVACY_DATA_AI_SAFETY_SYSTEM.md), [`FLOWYA_STORE_READINESS_SYSTEM.md`](FLOWYA_STORE_READINESS_SYSTEM.md)
 
 ---
 
@@ -267,6 +267,7 @@ Confirma que el mapa/sheet/search muestran una intencion dominante y que el usua
 ```text
 Evalua este PR como UI Designer.
 Revisa consistencia visual, componentes canonicos, estados, densidad, mobile-first, iOS/Android, responsive, accesibilidad visual y necesidad de vitrina.
+Si toca iOS, aplica FLOWYA_IOS_NATIVE_UI_SYSTEM.md: Liquid Glass solo como material nativo real en navegacion/control, con fallback y sin emularlo en Android/web.
 Bloquea patrones nuevos no documentados o UI saturada.
 ```
 
@@ -275,6 +276,7 @@ Bloquea patrones nuevos no documentados o UI saturada.
 ```text
 Evalua este PR como Interaction Designer.
 Usa FLOWYA_INTERACTION_DESIGN_SYSTEM.md como fuente. Revisa intencion dominante, navegacion, gestos, feedback, transitions, estado async, back/cerrar/deshacer y control explicito para acciones sensibles.
+Si toca iOS, valida motion nativo SwiftUI/UIKit, gestos del sistema, Reduce Motion y reversibilidad segun FLOWYA_IOS_NATIVE_UI_SYSTEM.md.
 Bloquea interacciones que creen duplicados, oculten contexto o dependan solo de gestos invisibles.
 ```
 
@@ -326,6 +328,7 @@ Un PR debe detenerse si:
 - guarda secretos;
 - rompe mobile-first;
 - introduce Search global sin jerarquia/fuente clara;
+- promete Liquid Glass/iOS native feel sin componente nativo real, fallback, a11y y QA Simulator;
 - usa IA para persistir decisiones sin confirmacion;
 - toca mobile/release/permisos/pagos/UGC sin revisar [`FLOWYA_STORE_READINESS_SYSTEM.md`](FLOWYA_STORE_READINESS_SYSTEM.md);
 - no tiene rollback para cambio riesgoso.

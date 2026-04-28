@@ -134,6 +134,7 @@ Crear componente nuevo solo si:
 - Avatar top-left abre Account.
 - Search top-right.
 - No meter CTA secundaria permanente en shell si compite con Search/nav.
+- En iOS, shell/chrome/sheets pueden usar material nativo y Liquid Glass solo si cumplen [`FLOWYA_IOS_NATIVE_UI_SYSTEM.md`](FLOWYA_IOS_NATIVE_UI_SYSTEM.md).
 
 ### Sheets
 
@@ -232,6 +233,7 @@ Regla:
 - Estados cubiertos:
 - Icon sizes canonicos:
 - Mobile iOS/Android revisado:
+- iOS Native UI revisado si aplica:
 - Texto largo revisado:
 - A11y visual/touch revisada:
 - Vitrina requerida:
