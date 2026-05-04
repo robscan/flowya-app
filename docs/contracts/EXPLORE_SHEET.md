@@ -1,6 +1,6 @@
 # EXPLORE_SHEET — Contract (Single Sheet, Multi-Mode)
 
-**Última actualización:** 2026-04-11
+**Última actualización:** 2026-05-04 (GeoSheet nativa y runtime geo)
 **Owner:** Explore vNext (`/`)
 **Status:** ACTIVE (source of truth)
 
@@ -15,7 +15,7 @@
 
 1. **Un solo contenedor**: `ExploreSheet`.
 2. `ExploreSheet` tiene **3 estados**: `collapsed | medium | expanded`.
-3. `ExploreSheet` tiene **modes**: `search | spot`.
+3. `ExploreSheet` tiene **modes**: `search | spot`; en runtime nativo inicial tambien existe ficha modal `geo` para paises/regiones/ciudades oficiales.
 4. **Search NO se implementa como overlay** si rompe scroll/drag o crea espacio blanco.
 5. Con teclado abierto: UI debe ser **keyboard-safe** (lista visible, sin tapar contenido).
 6. Animaciones/drag: **safe-by-default** (si hay riesgo de regresión, se desactiva animación/drag antes de romper interacción).
@@ -35,6 +35,16 @@
 - **Restore al cerrar Search:** si había `CountriesSheet` abierto y el contexto sigue compatible (`pinFilter` en `saved/visited`, sin overlay de create-spot, `sheetState` en `peek`), se restaura su estado previo.
 - **Router de plataforma de Search:** `SearchFloating` delega en `SearchOverlayWeb` (web) y `SearchFloatingNative` (iOS/Android), manteniendo el mismo contrato funcional (`SearchSurface` compartido).
 
+### 1.3) GeoSheet nativa (runtime 2026-05)
+
+- En iOS/Android, `NativeExploreMapScreen` usa `NativeExploreSearchSheet`, `NativeGeoSheet`, `NativeSpotSheet`, `NativeSheetShell` y `NativeSheetHeader`.
+- Search nativo muestra resultados mixtos en secciones: `Destinos oficiales` para `geo_*` y `Lugares del mapa` para spots cargados localmente.
+- Tap en resultado geo selecciona `selectedGeo`, limpia `selectedSpot`, cierra Search y enfoca el mapa por `bbox` validado o centroide.
+- Tap en spot selecciona `selectedSpot`, limpia `selectedGeo`, cierra Search y enfoca el mapa por coordenadas del spot.
+- `NativeGeoSheet` es modal bottom sheet, no estado drag/snap de 3 anchors. Usa backdrop para cerrar y `KeyboardAvoidingView` solo en Search.
+- Las acciones `Por visitar`, `Visitado` y `Quitar` escriben/borra `user_geo_marks`; no escriben en `spots` ni `pins`.
+- Web todavia no tiene GeoSheet equivalente; no duplicar la ficha nativa en web sin contrato de integración específico.
+
 ---
 
 ## 2) Modelo mental
@@ -44,6 +54,7 @@
 - El contenido cambia por `mode`:
   - `mode="search"`: top bar estilo Apple Maps + lista
   - `mode="spot"`: header (share + título + cerrar) + contenido spot
+- En nativo, `geo` actua como contexto territorial separado: país/región/ciudad oficial con jerarquía, estado de mapa y estado personal.
 
 ---
 
@@ -149,6 +160,38 @@ Permite marcar Visitado directamente desde filtro Todos o Visitados sin pasar po
 **Regla clave:**
 
 - Al **pan/zoom** del mapa: sheet colapsa a `collapsed` (sin cambiar el spot seleccionado).
+
+### `mode="geo"` / `NativeGeoSheet`
+
+> Vigente solo en runtime nativo. Web debe seguir sin GeoSheet hasta definir paridad y navegación.
+
+**Header obligatorio:**
+
+- título de la entidad geo;
+- subtítulo con tipo (`País`, `Región`, `Ciudad`) + jerarquía cuando exista;
+- botón cerrar.
+
+**Contenido:**
+
+- pills de tipo geo y estado personal (`Sin marcar`, `Por visitar`, `Visitado`);
+- bloque `Destino` con resumen seguro desde `lib/geo/display.ts`;
+- tarjetas `Jerarquía` y `Mapa`;
+- acciones `Por visitar` y `Visitado`;
+- acción `Quitar` solo si existe marca activa.
+
+**Persistencia:**
+
+- `saveUserGeoMark(entityType, entityId, "saved" | "visited")` hace upsert owner-only en `user_geo_marks`.
+- `deleteUserGeoMark(entityType, entityId)` elimina la marca owner-only.
+- `visited=true` gana sobre `saved=true` por normalización DB.
+- Si no hay sesión, la UI muestra mensaje de login requerido y no crea fallback local.
+
+**Guardrails:**
+
+- No crear `spots` para países/regiones/ciudades.
+- No crear entidades geo desde texto libre; Search solo abre filas activas de `geo_*`.
+- No prometer cobertura mundial: el seed vigente es mínimo.
+- No mezclar keys de listas sin prefijo (`geo:tipo:id`, `spot:id`) cuando se adapten superficies mixtas.
 
 ---
 
@@ -264,6 +307,9 @@ Orden recomendado (top → bottom):
 7. Ruta legacy removida: `/` es el único entrypoint de Explore en runtime activo.
 8. Web tablet+ (`>= 768`): Search/Spot/Countries usan ancho máximo 720 y host centrado.
 9. Abrir Search con CountriesSheet visible: se oculta al entrar y se restaura al cerrar Search si no cambió el contexto.
+10. Nativo: buscar `mexico`/`holbox` muestra `Destinos oficiales`; seleccionar enfoca mapa y abre `NativeGeoSheet` sin crear spot.
+11. Nativo autenticado: `Por visitar`, `Visitado` y `Quitar` actualizan `user_geo_marks` y refrescan badge/estado local.
+12. Nativo sin sesión: guardar/quitar muestra mensaje de login requerido y no escribe estado alternativo.
 
 ---
 

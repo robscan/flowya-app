@@ -1,8 +1,8 @@
 # DATA_MODEL_CURRENT
 
 **Estado:** CURRENT
-**Última verificación:** 2026-04-26
-**Fuente de evidencia:** [`SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md`](../ops/SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md) + SQL operativo [`SUPABASE_INTROSPECTION_SQL.md`](../ops/SUPABASE_INTROSPECTION_SQL.md).
+**Última verificación:** 2026-04-26; alineación geo runtime 2026-05-04
+**Fuente de evidencia:** [`SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md`](../ops/SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md) + SQL operativo [`SUPABASE_INTROSPECTION_SQL.md`](../ops/SUPABASE_INTROSPECTION_SQL.md) + migraciones/verificadores geo `040`-`042` y bitácoras [`409`](../bitacora/2026/04/409-geo-core-040-applied-verified.md), [`410`](../bitacora/2026/04/410-geo-seed-041-applied-verified.md), [`411`](../bitacora/2026/04/411-user-geo-marks-042-applied-verified.md).
 **Uso:** contrato vivo para cerrar `OL-DATA-MODEL-INTROSPECTION-001` y decidir migraciones V1 sin asumir que migraciones locales o tipos viejos representan el remoto.
 
 > Nota: este documento no sustituye contratos especializados de perfil, fotos, búsqueda, mapa o tags. Resume el esquema real mínimo y sus implicaciones.
@@ -23,6 +23,12 @@ Tablas revisadas:
 - `user_tags`
 - `pin_tags`
 - `feedback`
+- `geo_countries`
+- `geo_regions`
+- `geo_cities`
+- `geo_aliases`
+- `geo_external_refs`
+- `user_geo_marks`
 
 Conteos observados:
 
@@ -36,6 +42,12 @@ Conteos observados:
 | `user_tags` | 2 |
 | `pin_tags` | 38 |
 | `feedback` | 0 |
+| `geo_countries` | 4 tras seed `041` |
+| `geo_regions` | 2 tras seed `041` |
+| `geo_cities` | 3 tras seed `041` |
+| `geo_aliases` | 21 tras seed `041` |
+| `geo_external_refs` | 19 tras seed `041` |
+| `user_geo_marks` | 0 tras migración `042` |
 
 ---
 
@@ -223,6 +235,83 @@ Datos observados:
 
 Sin implicación para el plan DB/media/geografía V1.
 
+### 2.8 `geo_countries`, `geo_regions`, `geo_cities`
+
+**Rol:** identidad territorial canónica. Países, regiones y ciudades no son `spots`; se leen como metadata activa y se usan para enrutar Search/GeoSheet sin crear lugares duplicados.
+
+Contrato principal:
+
+- [`GEO_IDENTITY_DEDUP_V1.md`](GEO_IDENTITY_DEDUP_V1.md)
+
+Columnas reales mínimas:
+
+- `geo_countries`: `id`, `iso2`, `iso3`, `name_es`, `name_en`, `slug`, `centroid_latitude`, `centroid_longitude`, `bbox`, `source`, `source_updated_at`, `is_active`, `created_at`, `updated_at`.
+- `geo_regions`: `id`, `country_id`, `region_code`, `name_es`, `name_en`, `slug`, `region_type`, `centroid_latitude`, `centroid_longitude`, `bbox`, `source`, `source_updated_at`, `is_active`, `created_at`, `updated_at`.
+- `geo_cities`: `id`, `country_id`, `region_id`, `official_name`, `name_es`, `name_en`, `slug`, `city_type`, `centroid_latitude`, `centroid_longitude`, `bbox`, `population_bucket`, `source`, `source_updated_at`, `is_active`, `created_at`, `updated_at`.
+
+Datos observados tras seed `041`:
+
+- `geo_countries`: 4 (`MX`, `US`, `CR`, `PA`).
+- `geo_regions`: 2 (`MX-ROO`, `MX-YUC`).
+- `geo_cities`: 3 (`merida`, `holbox`, `san-jose`).
+
+Regla vigente:
+
+- RLS permite lectura a `anon` y `authenticated` solo cuando `is_active=true`.
+- Runtime nativo lee estas tablas desde `lib/geo/search.ts`; si falta env de Supabase o falla la consulta, devuelve `[]`.
+- `bbox` se valida antes de encuadrar mapa; si no es válido, se puede usar centroide; si tampoco hay centroide, la UI muestra "Mapa pendiente".
+- El seed es deliberadamente pequeño para QA. No asumir cobertura mundial ni búsqueda global completa.
+- No usar `supabase db push` hasta reconciliar historial remoto de migraciones; las migraciones `040`-`042` se aplicaron con `npx supabase db query --linked --file ...`.
+
+### 2.9 `geo_aliases` y `geo_external_refs`
+
+**Rol:** recuperación multidioma y reconciliación con proveedores para entidades geo, sin convertir Mapbox ni texto libre en fuente única de verdad.
+
+Columnas reales mínimas:
+
+- `geo_aliases`: `id`, `entity_type`, `entity_id`, `locale`, `name`, `normalized_name`, `source`, `is_primary`, `is_active`, `created_at`, `updated_at`.
+- `geo_external_refs`: `id`, `entity_type`, `entity_id`, `provider`, `provider_ref`, `provider_kind`, `confidence`, `source_updated_at`, `is_active`, `created_at`, `updated_at`.
+
+Datos observados tras seed `041`:
+
+- `geo_aliases`: 21.
+- `geo_external_refs`: 19.
+
+Regla vigente:
+
+- `entity_type` admite `country|region|city|area`; `area` está reservado para futuro y no tiene tabla activa.
+- `entity_id` es polimórfico por diseño; la integridad se controla por tooling/runtime hasta justificar tablas separadas.
+- Search nativo usa aliases para scoring local acento-insensible y ordena por score, peso de tipo (`country` > `region` > `city`) y título.
+- No crear entidades geo desde query cruda ni desde el primer resultado de proveedor sin selección/seed controlado.
+
+### 2.10 `user_geo_marks`
+
+**Rol:** relación owner-only usuario-entidad geo. Es el equivalente conceptual de `pins`, pero para país/región/ciudad/futura área.
+
+Columnas reales:
+
+- `id`
+- `user_id`
+- `entity_type`
+- `entity_id`
+- `saved`
+- `visited`
+- `created_at`
+- `updated_at`
+
+Datos observados tras migración `042`:
+
+- 0 filas iniciales.
+
+Regla vigente:
+
+- Unique `(user_id, entity_type, entity_id)`.
+- RLS owner-only para `select/insert/update/delete` con `authenticated`.
+- `visited=true` normaliza `saved=false`.
+- No se permiten filas sin `saved` ni `visited`.
+- `saveUserGeoMark()` hace upsert idempotente; `deleteUserGeoMark()` borra solo la marca del usuario autenticado.
+- Guardar o visitar una entidad geo nunca escribe en `spots` ni en `pins`.
+
 ---
 
 ## 3. Storage actual
@@ -261,6 +350,8 @@ Estado observado:
 Invariantes V1:
 
 - No exponer `pins` por lectura pública directa.
+- `geo_*` expone solo metadata activa; no incluye estado personal.
+- `user_geo_marks` es owner-only y no debe alimentar agregados públicos sin contrato explícito.
 - No exponer `spot-personal` con URLs públicas.
 - No hacer hard delete de spots.
 - No cambiar RLS sin SQL de verificación y rollback/mitigación.
@@ -277,6 +368,8 @@ Invariantes V1:
 - `idx_spots_link_status`
 - `idx_spots_linked_place_id`
 - `spots_visible_linked_exact_unique_039`
+- índices únicos/lookup de `geo_countries`, `geo_regions`, `geo_cities`, `geo_aliases`, `geo_external_refs`
+- índices `user_geo_marks_user_idx`, `user_geo_marks_entity_idx`, `user_geo_marks_user_visited_idx`
 - `idx_spot_images_spot_id`
 - `idx_spot_personal_images_spot_id`
 - `idx_spot_personal_images_user_id`
@@ -299,7 +392,8 @@ Recomendación:
   - `spots(user_id, is_hidden)` si se consultan por owner/visibilidad.
   - `spots(updated_at)` o `spots(created_at)` si hay listados recientes.
   - `spot_images(spot_id, sort_order)` para galería ordenada.
-  - futuros índices de `country_code`, `region_code`, `city_id` solo cuando esos campos/tablas existan.
+  - búsqueda geo server-side/RPC si el seed crece y el filtrado local de `lib/geo/search.ts` deja de ser suficiente.
+  - futuros índices de `country_code`, `region_code`, `city_id` solo si esos campos se agregan como cache derivado.
 
 ---
 
@@ -363,49 +457,29 @@ Enriquecer después:
 
 ---
 
-## 7. Modelo recomendado para contexto país/región/ciudad
+## 7. Modelo vigente para contexto país/región/ciudad
 
 Para V1/web/tiendas, preferir datos duros por lotes y versionados sobre APIs en tiempo real.
 
-Tablas conceptuales:
+Tablas vigentes:
 
 - `geo_countries`
-  - `country_code`
-  - `name`
-  - `currency_code`
-  - `driving_side`
-  - `emergency_numbers`
-  - `source`
-  - `source_updated_at`
-  - `updated_at`
 - `geo_regions`
-  - `id`
-  - `country_code`
-  - `region_code`
-  - `name`
-  - `bbox`
-  - `metadata`
 - `geo_cities`
-  - `id`
-  - `country_code`
-  - `region_code`
-  - `name`
-  - `latitude`
-  - `longitude`
-  - `bbox`
-- `geo_context_entries`
-  - `scope_type` (`country|region|city`)
-  - `scope_id`
-  - `category` (`important|visa|transport|health|money|climate|emergency`)
-  - `content`
-  - `source`
-  - `freshness`
-  - `valid_from`
-  - `valid_to`
+- `geo_aliases`
+- `geo_external_refs`
+- `user_geo_marks`
+
+Pendiente/no implementado:
+
+- `geo_areas`: reservado por contrato; Holbox vive temporalmente como `geo_cities.city_type='island_town'`.
+- `geo_context_entries`: futuro contenido editorial por scope (`country|region|city|area`) para visa/transporte/salud/dinero/clima/emergencias.
+- FKs directas desde `spots` a `geo_*`: no existen.
+- Passport/progreso geo: no hay agregado público ni cálculo canónico desde `user_geo_marks` todavía.
 
 Principio:
 
-- `spots` referencia geografía mínima.
+- `spots` referencia o cachea geografía solo cuando una migración futura lo justifique; no define identidad territorial.
 - El contexto se consulta por scope territorial cuando la UI lo necesita.
 - Clima actual/alertas dinámicas pueden integrarse después por API/cache, no en V1 como dependencia crítica.
 
@@ -428,7 +502,7 @@ Principio:
 
 - No hard delete de spots.
 - No eliminar objetos de Storage.
-- No cambiar RLS de `spots`, `spot_images`, `spot_personal_images` o `pins` sin verificación.
+- No cambiar RLS de `spots`, `spot_images`, `spot_personal_images`, `pins` o `user_geo_marks` sin verificación.
 - No mover visa/transporte/salud/dinero/clima/emergencias a columnas de `spots`.
 - No migrar URLs completas a paths sin compatibilidad legacy.
 - No agregar PostGIS o `pg_trgm` como reacción inmediata a problemas V1 sin evidencia de escala.

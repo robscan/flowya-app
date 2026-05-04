@@ -17,6 +17,7 @@
 - **CANONICAL_BOTTOM_SHEET.md** — Contrato base reusable para cualquier sheet inferior (header, estados, drag/snap, sizing, integración con mapa/search).
 - **SEARCH_V2.md** — Búsqueda V2: entry/exit en Explore, persistencia y clear, guardrails (no overlay, no duplicar DS).
 - **MAPBOX_PLACE_ENRICHMENT.md** — Datos Mapbox en creación: campos que se importan (place_id, name, lat/lng, address, maki como sugerencia); campos que no.
+- **GEO_IDENTITY_DEDUP_V1.md** — Identidad territorial V1: países/regiones/ciudades no son `spots`, tablas `geo_*`, aliases/refs y `user_geo_marks` owner-only.
 - **SPOT_EDIT_MINI_SHEETS.md** — Edición por sección: SpotSheet + SubSheet (1 nivel), MVP Detalles y Categoría+etiquetas; guardrails (OL-021).
 - **CREATE_SPOT_INLINE_SHEET.md** — Creación futura como inline sheet sobre el mapa; entry points, estados, campos MVP, capas; sin implementación hoy.
 - **DESIGN_SYSTEM_USAGE.md** — Uso de componentes canónicos en Explore/Edit Spot; inventario mínimo vigente y matriz de deprecación.
