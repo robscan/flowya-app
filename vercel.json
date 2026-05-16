@@ -5,6 +5,10 @@
       "destination": "/api/spot-share?id=:id"
     },
     {
+      "source": "/privacy",
+      "destination": "/index.html"
+    },
+    {
       "source": "/spot/:path*",
       "destination": "/index.html"
     }
