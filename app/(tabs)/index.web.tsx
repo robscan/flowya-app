@@ -1,5 +1,5 @@
-import { MapScreenVNext } from '@/components/explorar/MapScreenVNext';
+import { LandingPage } from '@/components/marketing-pages';
 
 export default function HomeScreen() {
-  return <MapScreenVNext />;
+  return <LandingPage />;
 }

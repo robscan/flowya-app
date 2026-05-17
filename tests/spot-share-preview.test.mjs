@@ -37,7 +37,7 @@ test("buildSpotSharePreviewHtml emits OG metadata and human redirect", () => {
   assert.match(html, /<meta property="og:title" content="Cafe Central · FLOWYA"/);
   assert.match(html, /<meta property="og:url" content="https:\/\/flowya\.com\/s\/spot_123"/);
   assert.match(html, /<meta name="twitter:image" content="https:\/\/cdn\.flowya\.app\/spots\/spot_123\/cover\.jpg"/);
-  assert.match(html, /window\.location\.replace\("https:\/\/flowya\.com\/\?spotId=spot_123&sheet=medium"\)/);
+  assert.match(html, /window\.location\.replace\("https:\/\/flowya\.com\/app\?spotId=spot_123&sheet=medium"\)/);
 });
 
 test("buildSpotSharePreviewHtml omits redirect script for bots", () => {

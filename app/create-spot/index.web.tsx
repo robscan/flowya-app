@@ -317,7 +317,7 @@ export default function CreateSpotScreen() {
     const newId = data?.id;
     if (!newId) {
       setSubmitting(false);
-      router.replace('/(tabs)');
+      (router.replace as (href: string) => void)('/app');
       return;
     }
     if (selectedSpotImageUris.length > 0) {
@@ -390,7 +390,7 @@ export default function CreateSpotScreen() {
   /** Cerrar flujo y volver al mapa (botón X del header). */
   const handleClose = useCallback(() => {
     blurActiveElement();
-    (router.replace as (href: string) => void)('/(tabs)');
+    (router.replace as (href: string) => void)('/app');
   }, [router]);
 
   const canNextStep2 = title.trim().length > 0;

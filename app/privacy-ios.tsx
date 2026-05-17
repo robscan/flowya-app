@@ -10,7 +10,7 @@ import {
 } from '@/lib/legal/privacy-policy-ios-en';
 
 /**
- * Public iOS privacy policy.
+ * Public privacy policy.
  * Route: /privacy-ios
  */
 export default function PrivacyPolicyIosScreen() {
@@ -28,10 +28,10 @@ export default function PrivacyPolicyIosScreen() {
           paddingBottom: insets.bottom + Spacing.xxl,
         },
       ]}
-      accessibilityLabel="FLOWYA iOS Privacy Policy"
+      accessibilityLabel="FLOWYA Privacy Policy"
     >
       <Text style={[TypographyStyles.heading2, { color: colors.text, marginBottom: Spacing.sm }]}>
-        FLOWYA iOS Privacy Policy
+        FLOWYA Privacy Policy
       </Text>
       <Text style={[TypographyStyles.caption, { color: colors.textSecondary, marginBottom: Spacing.base }]}>
         Last updated: {PRIVACY_POLICY_IOS_LAST_UPDATED_EN}

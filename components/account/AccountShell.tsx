@@ -88,7 +88,7 @@ export function AccountShell({
      * (Explorar), no hacer un solo `back` como la flecha atrás (que vuelve al home de perfil).
      */
     if (showBack) {
-      router.replace("/");
+      (router.replace as (href: string) => void)("/app");
       return;
     }
     router.back();

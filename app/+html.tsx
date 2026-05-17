@@ -14,7 +14,7 @@ const FLOWYA_HTML_BG_DARK = '#000000';
 
 export default function RootHtml({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="es">
+    <html lang="en">
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -22,6 +22,16 @@ export default function RootHtml({ children }: { children: React.ReactNode }) {
           name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, shrink-to-fit=no"
         />
+        <meta
+          name="description"
+          content="Flowya helps people discover places visually and keep travel ideas organized."
+        />
+        <meta property="og:title" content="Flowya" />
+        <meta
+          property="og:description"
+          content="Discover places visually and keep travel ideas organized with Flowya."
+        />
+        <meta property="og:type" content="website" />
         <ScrollViewStyleReset />
         {/* Script síncrono: prefers-color-scheme en html antes del primer paint (evita flash light). */}
         <script

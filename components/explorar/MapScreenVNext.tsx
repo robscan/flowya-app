@@ -3301,7 +3301,7 @@ export function MapScreenVNext() {
     ) {
       setSheetState(targetState);
       setTimeout(() => {
-        (router.replace as (href: string) => void)("/(tabs)");
+        (router.replace as (href: string) => void)("/app");
       }, 0);
       return;
     }
@@ -3321,7 +3321,7 @@ export function MapScreenVNext() {
       );
       // Defer URL cleanup so React commits state first; avoids sheet flashing
       setTimeout(() => {
-        (router.replace as (href: string) => void)("/(tabs)");
+        (router.replace as (href: string) => void)("/app");
       }, 0);
     };
 
@@ -3336,7 +3336,7 @@ export function MapScreenVNext() {
       if (cancelled) return;
       if (error || !data) {
         appliedSpotIdFromParamsRef.current = spotId;
-        (router.replace as (href: string) => void)("/(tabs)");
+        (router.replace as (href: string) => void)("/app");
         return;
       }
       if (cancelled) return;
@@ -3382,7 +3382,7 @@ export function MapScreenVNext() {
       queueDeepLinkFocus(spot);
       pushRecentViewedSpotId(spot.id);
       setTimeout(() => {
-        (router.replace as (href: string) => void)("/(tabs)");
+        (router.replace as (href: string) => void)("/app");
       }, 0);
     };
 
@@ -3403,7 +3403,7 @@ export function MapScreenVNext() {
       if (cancelled) return;
       if (error || !data) {
         appliedCreatedIdRef.current = createdId;
-        (router.replace as (href: string) => void)("/(tabs)");
+        (router.replace as (href: string) => void)("/app");
         return;
       }
       if (cancelled) return;

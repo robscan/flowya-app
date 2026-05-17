@@ -894,7 +894,7 @@ export default function EditSpotScreenWeb() {
     }
 
     toast.show("Lugar eliminado. Ya no aparecerá en tu lista.", { type: "error" });
-    (router.replace as (href: string) => void)("/(tabs)");
+    (router.replace as (href: string) => void)("/app");
   }, [spot?.id, isAuthenticated, openAuthModal, toast, router]);
 
   if (loading) {

@@ -7,8 +7,8 @@
  * Post-create usa el query `created=<uuid>` (sin estos helpers); lo arma el flujo de creación.
  */
 
-const MAP_ROUTE = "/(tabs)";
-const MAP_BROWSER_ENTRY_ROUTE = "/";
+const MAP_ROUTE = "/app";
+const MAP_BROWSER_ENTRY_ROUTE = "/app";
 
 export type SheetParam = "medium" | "extended";
 
@@ -57,7 +57,7 @@ export function getMapSpotShareUrl(spotId: string, origin?: string | null): stri
 export function getMapExploreShareUrl(): string {
   if (typeof window !== "undefined" && window.location?.origin) {
     const origin = window.location.origin.replace(/\/$/, "");
-    return `${origin}/`;
+    return `${origin}${MAP_BROWSER_ENTRY_ROUTE}`;
   }
   return MAP_ROUTE;
 }

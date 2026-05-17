@@ -23,10 +23,12 @@ export default function RootLayout() {
           <AuthModalProvider>
         <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="app" options={{ headerShown: false, title: 'Flowya App' }} />
+        <Stack.Screen name="support" options={{ headerShown: false, title: 'Flowya Support' }} />
         <Stack.Screen name="create-spot/index" options={{ title: 'Crear lugar' }} />
         <Stack.Screen name="design-system" options={{ title: 'Design System' }} />
         <Stack.Screen name="privacy" options={{ title: 'Política de privacidad' }} />
-        <Stack.Screen name="privacy-ios" options={{ title: 'FLOWYA iOS Privacy Policy' }} />
+        <Stack.Screen name="privacy-ios" options={{ title: 'FLOWYA Privacy Policy' }} />
         <Stack.Screen name="account/index" options={{ headerShown: false, title: 'Cuenta' }} />
         <Stack.Screen name="account/account" options={{ headerShown: false, title: 'Cuenta' }} />
         <Stack.Screen name="account/privacy" options={{ headerShown: false, title: 'Privacidad de fotos' }} />

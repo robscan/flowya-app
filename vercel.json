@@ -21,6 +21,22 @@
       "destination": "/privacy-ios.html"
     },
     {
+      "source": "/support",
+      "destination": "/support.html"
+    },
+    {
+      "source": "/support/",
+      "destination": "/support.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/app/",
+      "destination": "/app.html"
+    },
+    {
       "source": "/spot/:path*",
       "destination": "/index.html"
     }

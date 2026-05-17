@@ -187,7 +187,7 @@ export function AccountHomePanelWeb() {
   const onLogout = useCallback(async () => {
     await supabase.auth.signOut();
     clearCountriesShareVisitedSession();
-    router.replace("/");
+    (router.replace as (href: string) => void)("/app");
   }, [router]);
 
   const [shareProgressBusy, setShareProgressBusy] = useState(false);
@@ -394,11 +394,11 @@ export function AccountHomePanelWeb() {
                 colors={kpiColors}
                 onCountriesKpiPress={() => {
                   markExploreOpenCountriesSheetOnce({ filter: "visited", view: "summary" });
-                  router.replace("/");
+                  (router.replace as (href: string) => void)("/app");
                 }}
                 onSpotsKpiPress={() => {
                   markExploreOpenCountriesSheetOnce({ filter: "visited", view: "all_places" });
-                  router.replace("/");
+                  (router.replace as (href: string) => void)("/app");
                 }}
               />
               <CountriesSheetVisitedProgress
