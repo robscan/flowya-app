@@ -3,6 +3,8 @@
 Este directorio se reorganizó para mantener la raíz limpia.
 
 ## Documentos principales (siempre primero)
+- `MIGRATION_REGISTRY.md` + `SUPABASE_HEALTH_SNAPSHOT_*.json` (estado remoto Supabase; Phase 0)
+
 
 - `OPEN_LOOPS.md` (fuente diaria de ejecución + riesgos macro + cola de loops)
 - `docs/bitacora/*` (evidencia de cierres y cambios)

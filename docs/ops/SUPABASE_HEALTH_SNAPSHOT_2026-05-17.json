@@ -1,0 +1,88 @@
+{
+  "checked_at": "2026-05-17T19:50:28.387071+00:00",
+  "environment": "flowya-app Supabase remote (legacy/reference)",
+  "connection": {
+    "host": "aws-1-us-west-1.pooler.supabase.com",
+    "method": "psycopg2 via SUPABASE_DB_URL (password may include brackets; do not pass raw URL to supabase CLI)"
+  },
+  "tables_present": [
+    "feedback",
+    "geo_aliases",
+    "geo_cities",
+    "geo_countries",
+    "geo_external_refs",
+    "geo_regions",
+    "pin_tags",
+    "pins",
+    "profiles",
+    "spot_images",
+    "spot_personal_images",
+    "spots",
+    "user_geo_marks",
+    "user_tags"
+  ],
+  "tables_absent": [
+    "flows",
+    "flow_stops",
+    "supabase_migrations"
+  ],
+  "geo_counts": {
+    "geo_countries": 4,
+    "geo_regions": 2,
+    "geo_cities": 3,
+    "geo_aliases": 21,
+    "geo_external_refs": 19,
+    "user_geo_marks": 0
+  },
+  "core_counts": {
+    "spots_total": 314,
+    "spots_visible": 305,
+    "spots_hidden": 9,
+    "pins": 223,
+    "pins_to_visit": 70,
+    "pins_visited": 153,
+    "profiles": 4,
+    "spot_images": 81,
+    "spot_personal_images": 0,
+    "user_tags": 2,
+    "pin_tags": 38,
+    "feedback": 0
+  },
+  "flows": {
+    "flows": null,
+    "flow_stops": null,
+    "note": "Migration 043_flow_core_tables.sql not applied on remote"
+  },
+  "schema_migrations_visibility": [
+    { "schema": "auth", "table": "schema_migrations" },
+    { "schema": "realtime", "table": "schema_migrations" }
+  ],
+  "security": {
+    "rls_geo_countries": true,
+    "rls_geo_regions": true,
+    "rls_geo_cities": true,
+    "rls_geo_aliases": true,
+    "rls_geo_external_refs": true,
+    "rls_user_geo_marks": true,
+    "pins_policies": [
+      "pins SELECT own",
+      "pins_delete_authenticated",
+      "pins_insert_authenticated",
+      "pins_update_authenticated"
+    ],
+    "pins_select_public_removed": true
+  },
+  "data_quality": {
+    "spots_with_bbox": 98,
+    "spots_invalid_bbox": 0,
+    "spots_geo_like_visible": 103,
+    "has_bbox_backup_table_034": true
+  },
+  "delta_vs_2026-04-26_introspection": {
+    "spots_total": "+2",
+    "pins": "-2",
+    "spot_images": "+7",
+    "geo_tables": "now present (040-042)",
+    "user_geo_marks_rows": 0
+  }
+}
