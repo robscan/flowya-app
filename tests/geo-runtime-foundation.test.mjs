@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-const { buildGeoSearchResults, parseGeoBoundingBox } = await import("../lib/geo/search-core.ts");
+const { buildGeoSearchResults, parseGeoBoundingBox, resolveUserGeoMarksResult } = await import(
+  "../lib/geo/search-core.ts"
+);
 const {
   buildGeoHierarchyLabel,
   buildGeoSheetSummary,
@@ -92,6 +94,12 @@ test("buildGeoSearchResults matches aliases and carries user mark state", () => 
   assert.equal(result.title, "Holbox");
   assert.equal(result.visited, true);
   assert.equal(result.saved, false);
+});
+
+test("resolveUserGeoMarksResult treats mark load failures as fatal", () => {
+  const error = new Error("user_geo_marks unavailable");
+  assert.throws(() => resolveUserGeoMarksResult(null, error), /user_geo_marks unavailable/);
+  assert.deepEqual(resolveUserGeoMarksResult(null, null), []);
 });
 
 test("parseGeoBoundingBox rejects malformed boxes", () => {
