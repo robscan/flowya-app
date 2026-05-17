@@ -11,7 +11,7 @@
 
 ## 1. Evidencia y alcance
 
-La introspección 2026-04-26 cubre tablas públicas críticas, Storage, RLS/policies relevantes, índices y conteos. La base real ya no coincide con la versión documentada de 2026-02-25.
+La introspección 2026-04-26 cubre tablas públicas críticas, Storage, RLS/policies relevantes, índices y conteos. La revalidación **2026-05-17** confirma geo canónico (`040`–`042`) y ausencia de Flow persistente (`043` pendiente).
 
 Tablas revisadas:
 
@@ -23,6 +23,9 @@ Tablas revisadas:
 - `user_tags`
 - `pin_tags`
 - `feedback`
+- `geo_countries`, `geo_regions`, `geo_cities`, `geo_aliases`, `geo_external_refs`
+- `user_geo_marks`
+- `flows` / `flow_stops` (pendiente `043`)
 
 Conteos observados:
 
@@ -42,6 +45,8 @@ Conteos observados:
 | `geo_aliases` | 21 |
 | `geo_external_refs` | 19 |
 | `user_geo_marks` | 0 |
+| `flows` | — (no existe en remoto) |
+| `flow_stops` | — (no existe en remoto) |
 
 ---
 
@@ -80,7 +85,8 @@ Datos observados:
 - 314 spots.
 - 314 con `user_id` (observado en remoto).
 - 9 hidden, 305 visibles.
-- 98 con `mapbox_bbox`; **0** bbox incoherentes vs punto (post migración `034` y backup presente).
+- 98 con `mapbox_bbox`; **0** bbox incoherentes vs punto (post migración `034`; backup `spots_mapbox_bbox_cleanup_034_backup` presente).
+- 103 spots visibles con metadata geo-like; no sustituyen `geo_*`.
 
 No existen aún:
 
@@ -125,7 +131,7 @@ Regla vigente:
 - `saved`/`visited` son los campos operativos usados por Explore.
 - V1 usa estados exclusivos: si `visited=true`, entonces `saved=false`.
 - `status` es legacy/compatibilidad y debe derivarse de `saved`/`visited` (`visited` > `saved`).
-- Migración propuesta/preparada: `037_pins_status_derived_guard.sql` normaliza writes futuros y rechaza filas sin pin real.
+- Migración **`037_pins_status_derived_guard.sql` aplicada** en remoto: normaliza writes futuros y rechaza filas sin pin real.
 - `pins_select_public` fue removido por migración `033`; lectura directa pública anónima debe devolver `[]`.
 
 ### 2.3 `spot_images`
