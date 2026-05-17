@@ -6,7 +6,11 @@
     },
     {
       "source": "/privacy",
-      "destination": "/index.html"
+      "destination": "/privacy.html"
+    },
+    {
+      "source": "/privacy/",
+      "destination": "/privacy.html"
     },
     {
       "source": "/spot/:path*",
