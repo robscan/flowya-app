@@ -84,3 +84,18 @@ ORDER BY policyname;
 - Capa perfil: `lib/profile/index.ts`
 - Avatar Storage: `lib/profile-avatar-upload.ts`
 - Contrato vigente: `docs/contracts/PROFILE_AUTH_CONTRACT_CURRENT.md`
+
+## Health check remoto (Phase 0)
+
+Script read-only: `remote_health_check.py`. Lee `SUPABASE_DB_URL` del entorno (soporta contraseñas entre corchetes `[]`; usar **psycopg2**, no pegar la URL cruda en `supabase` CLI si la contraseña tiene caracteres especiales).
+
+```bash
+# desde la raíz del repo, con .env local (no commitear)
+set -a && source .env && set +a
+python3 scripts/supabase/remote_health_check.py
+python3 scripts/supabase/remote_health_check.py --out docs/ops/SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json
+```
+
+Salida: JSON sin secretos (host, conteos, tablas presentes/ausentes, RLS geo, políticas `pins`, calidad `mapbox_bbox`).
+
+**Política de migraciones:** no confiar en `supabase db push` hasta reconciliar historial remoto. Ver [`docs/ops/MIGRATION_REGISTRY.md`](../../docs/ops/MIGRATION_REGISTRY.md) y snapshot [`docs/ops/SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json`](../../docs/ops/SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json).

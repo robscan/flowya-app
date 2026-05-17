@@ -1,8 +1,8 @@
 # DATA_MODEL_CURRENT
 
 **Estado:** CURRENT
-**Última verificación:** 2026-04-26
-**Fuente de evidencia:** [`SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md`](../ops/SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md) + SQL operativo [`SUPABASE_INTROSPECTION_SQL.md`](../ops/SUPABASE_INTROSPECTION_SQL.md).
+**Última verificación:** 2026-05-17
+**Fuente de evidencia:** [`SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json`](../ops/SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json) + [`SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md`](../ops/SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md) + SQL operativo [`SUPABASE_INTROSPECTION_SQL.md`](../ops/SUPABASE_INTROSPECTION_SQL.md).
 **Uso:** contrato vivo para cerrar `OL-DATA-MODEL-INTROSPECTION-001` y decidir migraciones V1 sin asumir que migraciones locales o tipos viejos representan el remoto.
 
 > Nota: este documento no sustituye contratos especializados de perfil, fotos, búsqueda, mapa o tags. Resume el esquema real mínimo y sus implicaciones.
@@ -28,14 +28,20 @@ Conteos observados:
 
 | Tabla | Filas |
 |---|---:|
-| `spots` | 312 |
-| `pins` | 225 |
-| `spot_images` | 74 |
+| `spots` | 314 |
+| `pins` | 223 |
+| `spot_images` | 81 |
 | `spot_personal_images` | 0 |
 | `profiles` | 4 |
 | `user_tags` | 2 |
 | `pin_tags` | 38 |
 | `feedback` | 0 |
+| `geo_countries` | 4 |
+| `geo_regions` | 2 |
+| `geo_cities` | 3 |
+| `geo_aliases` | 21 |
+| `geo_external_refs` | 19 |
+| `user_geo_marks` | 0 |
 
 ---
 
@@ -71,11 +77,10 @@ Columnas reales:
 
 Datos observados:
 
-- 312 spots.
-- 312 con `user_id`.
-- 2 hidden, 310 visibles.
-- 116 con `mapbox_bbox`.
-- 18 `mapbox_bbox` no contienen el punto del spot.
+- 314 spots.
+- 314 con `user_id` (observado en remoto).
+- 9 hidden, 305 visibles.
+- 98 con `mapbox_bbox`; **0** bbox incoherentes vs punto (post migración `034` y backup presente).
 
 No existen aún:
 
@@ -111,9 +116,8 @@ Columnas reales:
 
 Datos observados:
 
-- 225 pins.
-- 3 usuarios distintos.
-- 222 spots con pin.
+- 223 pins (`70` por visitar / `153` visitados en snapshot 2026-05-17).
+- Políticas owner-only (`pins SELECT own`); sin `pins_select_public` (migración `033`).
 - No existe `updated_at`.
 
 Regla vigente:
@@ -146,9 +150,9 @@ Columnas reales:
 
 Datos observados:
 
-- 74 filas tras seed de portadas legacy.
-- 74/74 guardan URL pública completa como legacy.
-- 74/74 tienen `storage_bucket='spot-covers'` y `storage_path`.
+- 81 filas (crecimiento desde introspección abril 2026).
+- Mayoría con `storage_bucket='spot-covers'` y `storage_path` (path-first post-`035`).
+- `url` puede persistir como fallback legacy.
 
 Regla vigente:
 
@@ -222,6 +226,36 @@ Datos observados:
 - 0 filas.
 
 Sin implicación para el plan DB/media/geografía V1.
+
+
+### 2.8 Tablas `geo_*` (migraciones `040`–`041`)
+
+**Rol:** identidad territorial canónica (país/región/ciudad) y aliases/refs externos. **No** sustituyen `spots` para lugares POI.
+
+Tablas en remoto (2026-05-17):
+
+- `geo_countries`, `geo_regions`, `geo_cities`, `geo_aliases`, `geo_external_refs`
+- RLS activo (lectura metadata activa según políticas de `040`)
+- Seed `041`: 4 / 2 / 3 filas respectivamente; 21 aliases; 19 external_refs
+
+Regla vigente:
+
+- Search/GeoSheet nativo ya lee `geo_*`; no crear países/ciudades como `spots`.
+- Verificadores: `docs/ops/GEO_*_VERIFY_2026-04-28.sql`.
+
+### 2.9 `user_geo_marks` (migración `042`)
+
+**Rol:** relación usuario → entidad geo (`saved` / `visited`), owner-only.
+
+Datos observados:
+
+- Tabla presente; **0** filas iniciales.
+- Unique `(user_id, entity_type, entity_id)`; trigger normaliza `visited` sobre `saved`.
+
+### 2.10 Flow (`043` pendiente en remoto)
+
+Tablas `flows` y `flow_stops` **no existen** en remoto al 2026-05-17. Archivo local `043_flow_core_tables.sql` listo; aplicar solo con VoBo y verificador Flow.
+
 
 ---
 
@@ -411,13 +445,13 @@ Principio:
 
 ---
 
-## 8. OPEN LOOPS
+## 8. OPEN LOOPS (post snapshot 2026-05-17)
 
-1. **Aplicar/verificar `037_pins_status_derived_guard.sql`.** Cierra drift `pins.status` como legacy derivado.
-2. **Storage orphan inventory.** Clasificar 29 objetos no reconciliados antes de limpiar.
-3. **Geo fields en `spots`.** Decidir si V1 agrega `country_code`, `region_code`, `city_name`, `coordinate_source`, `created_from`.
-4. **`place_snapshot`.** Decidir JSONB en `spots` vs tabla `spot_place_snapshots`.
-5. **FK no destructiva para `spot_personal_images.user_id`.** Evaluar impacto RLS.
+1. **`037_pins_status_derived_guard.sql` — aplicado/verificado en remoto** (trigger activo; usar snapshot si se revalida).
+2. **Storage orphan inventory — cerrado en remoto** (`remaining_orphan_candidates=0` tras cleanup API; backup `038`).
+3. **Geo canónico — tablas `040`–`042` presentes;** decidir campos cache en `spots` vs solo `geo_*` + `user_geo_marks`.
+4. **`043_flow_core_tables.sql` — pendiente en remoto.** Prerrequisito para Flow persistente; ver [`MIGRATION_REGISTRY.md`](../ops/MIGRATION_REGISTRY.md).
+5. **`place_snapshot` / FK `spot_personal_images`.** Sin cambio de prioridad; decidir antes de nuevas migraciones en `spots`.
 6. **`is_public`.** Decidir si V1 necesita privacidad explícita de spot o si `is_hidden` basta.
 7. **Índices nuevos.** Crear solo con query plan/uso real.
 8. **Aliases/canonical names.** Evaluar después de QA de búsqueda si se requiere tabla/campo para recuperación editorial.
@@ -437,6 +471,8 @@ Principio:
 
 ## Referencias
 
+- [`SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json`](../ops/SUPABASE_HEALTH_SNAPSHOT_2026-05-17.json)
+- [`MIGRATION_REGISTRY.md`](../ops/MIGRATION_REGISTRY.md)
 - [`EXPLORE_STABILITY_MEDIA_DB_AUDIT.md`](../ops/EXPLORE_STABILITY_MEDIA_DB_AUDIT.md)
 - [`SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md`](../ops/SUPABASE_INTROSPECTION_RESULTS_2026-04-26.md)
 - [`OPEN_LOOPS.md`](../ops/OPEN_LOOPS.md)
