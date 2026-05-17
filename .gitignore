@@ -54,3 +54,4 @@ docs/analysis/
 # local scratch (do not commit)
 .local/
 supabase/.temp/
+.vercel
