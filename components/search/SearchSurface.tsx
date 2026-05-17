@@ -121,6 +121,7 @@ export function SearchSurface<T>({
   const isEmpty = len === 0;
   const isPreSearch = len > 0 && len < 3;
   const isSearch = len >= 3;
+  const hasSectionResults = resultSections.some((section) => section.items.length > 0);
   const displayResults = resultsOverride ?? controller.results;
   const showPlaceRecommendations = pinFilter == null || pinFilter === 'all';
   const isFilteredPinSearch = pinFilter === 'saved' || pinFilter === 'visited';
@@ -134,8 +135,12 @@ export function SearchSurface<T>({
   /** isEmpty: mostrar "Spots en la zona" (ocultar solo cuando saved/visited). */
   const hideDefaultListTitle = hideListTitles;
   const shouldRenderResultsOnEmpty = showResultsOnEmpty && isEmpty && displayResults.length > 0;
-  const shouldRenderResultsList = (isSearch || shouldRenderResultsOnEmpty) && displayResults.length > 0;
-  const isNoResults = isSearch && displayResults.length === 0 && !controller.isLoading;
+  const shouldRenderResultsList =
+    (isSearch || shouldRenderResultsOnEmpty) &&
+    (displayResults.length > 0 || (isSearch && hasSectionResults));
+  const showPreSearchGeoSections = isPreSearch && len >= 2 && hasSectionResults;
+  const isNoResults =
+    isSearch && displayResults.length === 0 && !hasSectionResults && !controller.isLoading;
   const activePinFilterResultCount = useMemo(() => {
     if (pinFilter !== 'saved' && pinFilter !== 'visited') return displayResults.length;
     return displayResults.filter((item) => itemBelongsToPinFilter(item, pinFilter)).length;
@@ -393,6 +398,22 @@ export function SearchSurface<T>({
               </>
             )
           ) : null}
+          {showPreSearchGeoSections
+            ? resultSections
+                .filter((section) => section.items.length > 0)
+                .map((section) => (
+                  <View key={section.id} style={styles.sectionWithGap}>
+                    <Text style={[styles.sectionHeader, { color: sectionHeaderColor }, sectionHeaderGlowStyle]}>
+                      {section.title}
+                    </Text>
+                    {section.items.map((item, idx) => (
+                      <View key={keyFor(item, idx)} style={styles.resultItemWrap}>
+                        {renderItem(item)}
+                      </View>
+                    ))}
+                  </View>
+                ))
+            : null}
           {showPreSearchBlock ? (
             <>
               {recentQueries.length > 0 ? (
@@ -432,12 +453,13 @@ export function SearchSurface<T>({
                     .filter((s) => s.items.length > 0)
                     .map((section) => (
                       <View key={section.id} style={styles.sectionWithGap}>
-                        {isFilteredPinSearch ? (
+                        {isFilteredPinSearch || section.id === 'geo-official-destinations' ? (
                           <ExplorePlacesListSectionTitleRow
                             title={section.title}
                             titleColor={sectionHeaderColor}
                             titleStyle={sectionHeaderGlowStyle}
                             right={
+                              isFilteredPinSearch &&
                               placesListFirstSectionHeaderRight != null &&
                               firstResultSectionIdWithItems != null &&
                               section.id === firstResultSectionIdWithItems

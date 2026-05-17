@@ -129,6 +129,9 @@ import {
     saveFocusBeforeNavigate,
 } from "@/lib/focus-management";
 import { distanceKm, formatDistanceKm, getMapsDirectionsUrl } from "@/lib/geo-utils";
+import { formatGeoKind } from "@/lib/geo/display";
+import { searchGeoEntities } from "@/lib/geo/search";
+import { isGeoSearchResult, type GeoSearchResult } from "@/lib/geo/types";
 import { resolveAddress } from "@/lib/mapbox-geocoding";
 import {
   applyExploreCameraForPlace,
@@ -1347,7 +1350,13 @@ export function MapScreenVNext() {
     }
   }, [runtimeInvariant]);
 
-  const params = useLocalSearchParams<{ spotId?: string; sheet?: string; created?: string; account?: string }>();
+  const params = useLocalSearchParams<{
+    spotId?: string;
+    sheet?: string;
+    created?: string;
+    account?: string;
+    openSearch?: string;
+  }>();
   const accountDesktopPanel = useMemo(
     () => parseAccountDesktopPanel(params.account),
     [params.account],
@@ -2139,6 +2148,61 @@ export function MapScreenVNext() {
     [mapInstance, flyToUnlessActMode, suspendFilterUntilCameraSettles],
   );
 
+  const focusGeoOnMap = useCallback(
+    (geo: GeoSearchResult) => {
+      suspendFilterUntilCameraSettles();
+      const layout = exploreCountriesDesktopLayoutRef.current;
+      const runFocus = (map: NonNullable<typeof mapInstance>) => {
+        try {
+          suppressSheetCollapseForProgrammaticMapUntilRef.current =
+            Date.now() + PROGRAMMATIC_FIT_BOUNDS_GESTURE_GUARD_MS;
+          if (geo.bbox) {
+            const bounds: LngLatBoundsTuple = [
+              [geo.bbox.west, geo.bbox.south],
+              [geo.bbox.east, geo.bbox.north],
+            ];
+            map.fitBounds(bounds, {
+              padding: {
+                top: FIT_BOUNDS_PADDING,
+                right: FIT_BOUNDS_PADDING,
+                bottom: FIT_BOUNDS_PADDING,
+                left: FIT_BOUNDS_PADDING + layout.fitBoundsLeftPad,
+              },
+              duration: FIT_BOUNDS_DURATION_MS,
+            });
+            return;
+          }
+          if (geo.centroidLatitude != null && geo.centroidLongitude != null) {
+            const zoom =
+              geo.entityType === "country" ? 4 : geo.entityType === "region" ? 6 : 10;
+            flyToUnlessActMode(
+              { lng: geo.centroidLongitude, lat: geo.centroidLatitude },
+              { zoom, duration: FIT_BOUNDS_DURATION_MS },
+            );
+          }
+        } catch {
+          // noop
+        }
+      };
+      if (!mapInstance) {
+        if (geo.bbox) {
+          pendingCountryFitBoundsRef.current = [
+            [geo.bbox.west, geo.bbox.south],
+            [geo.bbox.east, geo.bbox.north],
+          ];
+        }
+        return;
+      }
+      pendingCountryFitBoundsRef.current = null;
+      if (Platform.OS === "web") {
+        requestAnimationFrame(() => requestAnimationFrame(() => runFocus(mapInstance)));
+      } else {
+        requestAnimationFrame(() => runFocus(mapInstance));
+      }
+    },
+    [mapInstance, flyToUnlessActMode, suspendFilterUntilCameraSettles],
+  );
+
   const queueDeepLinkFocus = useCallback(
     (spot: Spot) => {
       pendingDeepLinkFocusRef.current = spot;
@@ -2541,6 +2605,38 @@ export function MapScreenVNext() {
   useEffect(() => {
     if (!searchV2.isOpen) setMapSearchListHoverSpotId(null);
   }, [searchV2.isOpen]);
+
+  useEffect(() => {
+    const query = searchV2.query.trim();
+    if (!searchV2.isOpen || query.length < 2) {
+      setGeoResults([]);
+      setIsGeoSearching(false);
+      return;
+    }
+
+    let isCurrent = true;
+    setIsGeoSearching(true);
+    const timeout = setTimeout(() => {
+      searchGeoEntities(query, { limit: 8 })
+        .then((results) => {
+          if (isCurrent) setGeoResults(results);
+        })
+        .catch((error) => {
+          if (__DEV__) {
+            console.warn("[MapScreenVNext] geo search failed", error);
+          }
+          if (isCurrent) setGeoResults([]);
+        })
+        .finally(() => {
+          if (isCurrent) setIsGeoSearching(false);
+        });
+    }, 220);
+
+    return () => {
+      isCurrent = false;
+      clearTimeout(timeout);
+    };
+  }, [searchV2.isOpen, searchV2.query]);
 
   /**
    * Contrato teclado/foco:
@@ -4700,6 +4796,8 @@ export function MapScreenVNext() {
   const [countriesMapSnapshot, setCountriesMapSnapshot] = useState<string | null>(null);
   const [isCountriesShareInFlight, setIsCountriesShareInFlight] = useState(false);
   const [showFilteredResultsOnEmpty, setShowFilteredResultsOnEmpty] = useState(false);
+  const [geoResults, setGeoResults] = useState<GeoSearchResult[]>([]);
+  const [isGeoSearching, setIsGeoSearching] = useState(false);
   const isCountriesShareInFlightRef = useRef(false);
   const countriesSheetForcedFilterRef = useRef<"saved" | "visited" | null>(null);
   /** Pin al abrir (o tras último cambio con sheet abierto); si el usuario cambia el filtro, se suelta `forcedFilter`. */
@@ -5261,6 +5359,27 @@ export function MapScreenVNext() {
     sheetState,
     searchV2,
   ]);
+
+  const openSearchParamHandledRef = useRef(false);
+  useEffect(() => {
+    if (params.openSearch !== "1") {
+      openSearchParamHandledRef.current = false;
+      return;
+    }
+    if (openSearchParamHandledRef.current) return;
+    openSearchParamHandledRef.current = true;
+    openSearchPreservingCountriesSheet();
+    router.setParams({ openSearch: undefined });
+  }, [params.openSearch, openSearchPreservingCountriesSheet, router]);
+
+  const handleSelectGeo = useCallback(
+    (geo: GeoSearchResult) => {
+      deactivateSearchColdStartBootstrap();
+      searchV2.setOpen(false);
+      focusGeoOnMap(geo);
+    },
+    [deactivateSearchColdStartBootstrap, focusGeoOnMap, searchV2],
+  );
 
   const handleCountriesKpiPress = useCallback(() => {
     if (createSpotNameOverlayOpen) return;
@@ -6271,6 +6390,23 @@ export function MapScreenVNext() {
     userCoords,
     isSearchColdStartBootstrapActive,
   ]);
+
+  const searchGeoOfficialSections = useMemo<SearchSection<Spot | PlaceResult | GeoSearchResult>[]>(() => {
+    if (!searchV2.isOpen || geoResults.length === 0) return [];
+    if (searchV2.query.trim().length < 2) return [];
+    return [
+      {
+        id: "geo-official-destinations",
+        title: "Destinos oficiales",
+        items: geoResults,
+      },
+    ];
+  }, [searchV2.isOpen, searchV2.query, geoResults]);
+
+  const mergedSearchResultSections = useMemo(
+    () => [...searchGeoOfficialSections, ...searchResultSections],
+    [searchGeoOfficialSections, searchResultSections],
+  );
 
   /** Guardrail Search V2: al cambiar filtro saved/visited/all, re-ejecutar query activa para evitar resultados stale cross-filter. */
   useEffect(() => {
@@ -7931,8 +8067,8 @@ export function MapScreenVNext() {
         </ExploreDesktopSidebarAnimatedColumn>
       ) : null}
       {/* CONTRATO: Search Fullscreen Overlay — overlay cubre todo; zIndex alto; al cerrar llama controller.setOpen(false) */}
-      <SearchFloating<Spot | PlaceResult>
-        controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult>}
+      <SearchFloating<Spot | PlaceResult | GeoSearchResult>
+        controller={searchV2 as UseSearchControllerV2Return<Spot | PlaceResult | GeoSearchResult>}
         searchInputAutoFocus={!suppressSearchInputAutofocusRef.current}
         defaultItems={defaultItemsForEmptyTagged}
         defaultItemSections={defaultSectionsForEmptyTagged}
@@ -7979,20 +8115,38 @@ export function MapScreenVNext() {
         placesListFirstSectionHeaderRight={placesListFirstSectionHeaderRight}
         listDensity={exploreListDensity}
         resultsOverride={kpiSpotsSearchResults}
-        resultSections={searchResultSections}
+        resultSections={mergedSearchResultSections}
         resultsSummaryLabel={
-          kpiSpotsSearchResults.length > 0
-            ? searchV2.query.trim().length >= 3
-              ? `${kpiSpotsSearchResults.length} resultados de «${searchV2.query.trim()}»`
-              : `${kpiSpotsSearchResults.length} lugares`
-            : undefined
+          isGeoSearching
+            ? "Buscando destinos oficiales…"
+            : kpiSpotsSearchResults.length > 0
+              ? searchV2.query.trim().length >= 3
+                ? `${kpiSpotsSearchResults.length} resultados de «${searchV2.query.trim()}»`
+                : `${kpiSpotsSearchResults.length} lugares`
+              : geoResults.length > 0 && searchV2.query.trim().length >= 2
+                ? `${geoResults.length} destinos oficiales`
+                : undefined
         }
         showResultsOnEmpty={showFilteredResultsOnEmpty}
         placeSuggestions={
           pinFilter === "all" || pinFilter === "saved" || pinFilter === "visited" ? [] : placeSuggestions
         }
         onCreateFromPlace={handleCreateFromPlace}
-        renderItem={(item: Spot | PlaceResult) => {
+        renderItem={(item: Spot | PlaceResult | GeoSearchResult) => {
+          if (isGeoSearchResult(item)) {
+            const geoSubtitle = [formatGeoKind(item), item.subtitle].filter(Boolean).join(" · ");
+            return (
+              <SearchListCard
+                title={item.title}
+                subtitle={geoSubtitle}
+                density={exploreListDensity}
+                listContext={placesListContext}
+                onPress={() => handleSelectGeo(item)}
+                accessibilityLabel={`Enfocar mapa en ${item.title}`}
+                pinStatus={item.visited ? "visited" : item.saved ? "to_visit" : "default"}
+              />
+            );
+          }
           const distanceText: string | null =
             userCoords != null
               ? (() => {
@@ -8102,9 +8256,10 @@ export function MapScreenVNext() {
         stageLabel={stageLabel}
         scope="explorar"
         getItemKey={(item) => {
-          if ("id" in item && typeof (item as Spot).id === "string") return (item as Spot).id;
+          if (isGeoSearchResult(item)) return `geo:${item.entityType}:${item.id}`;
+          if ("id" in item && typeof (item as Spot).id === "string") return `spot:${(item as Spot).id}`;
           const p = item as PlaceResult;
-          return p.id ?? `place-${p.lat}-${p.lng}`;
+          return p.id ?? `place:${p.lat}-${p.lng}`;
         }}
       />
       {tagAssignTarget ? (
