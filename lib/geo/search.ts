@@ -1,6 +1,6 @@
 import { getSupabaseClient, hasSupabaseClientEnv } from "@/lib/supabase";
 
-import { buildGeoSearchResults, type GeoSearchRows } from "./search-core";
+import { buildGeoSearchResults, resolveUserGeoMarksResult, type GeoSearchRows } from "./search-core";
 import type {
   GeoAliasRow,
   GeoCityRow,
@@ -77,12 +77,13 @@ async function loadUserGeoMarks(): Promise<UserGeoMarkRow[]> {
     data: { user },
     error: authError,
   } = await client.auth.getUser();
-  if (authError || !user) return [];
+  if (authError) throw authError;
+  if (!user) return [];
 
   const { data, error } = await client
     .from("user_geo_marks")
     .select("entity_type,entity_id,saved,visited")
     .eq("user_id", user.id);
-  if (error) return [];
-  return (data ?? []) as UserGeoMarkRow[];
+  // Failed mark reads must not look like "no marks"; that can overwrite existing visited state.
+  return resolveUserGeoMarksResult(data as UserGeoMarkRow[] | null, error);
 }

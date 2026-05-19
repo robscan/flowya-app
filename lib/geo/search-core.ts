@@ -24,6 +24,14 @@ export type GeoSearchRows = {
   marks?: UserGeoMarkRow[];
 };
 
+export function resolveUserGeoMarksResult(
+  rows: UserGeoMarkRow[] | null | undefined,
+  error: unknown,
+): UserGeoMarkRow[] {
+  if (error) throw error;
+  return rows ?? [];
+}
+
 const TYPE_WEIGHT: Record<GeoEntityType, number> = {
   country: 12,
   region: 8,
